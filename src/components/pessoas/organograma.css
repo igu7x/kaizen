@@ -1,0 +1,617 @@
+/* ===================================================================
+   CONTAINER DO ORGANOGRAMA
+   ================================================================ */
+.organograma-wrapper {
+  height: 100%;
+  overflow: auto;
+}
+
+.organograma-content {
+  gap: 35px; /* Espaço entre níveis - ajustado */
+  padding: 25px 15px;
+}
+
+.organograma-linha {
+  gap: 20px; /* Espaço entre cards no mesmo nível - reduzido para melhor distribuição */
+}
+
+/* ===================================================================
+   CARD GESTOR - LAYOUT HORIZONTAL
+   ================================================================ */
+.card-gestor {
+  width: 280px;
+  height: 100px;
+  background-color: #FFFFFF;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  overflow: visible !important;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  user-select: none;
+  isolation: isolate;
+}
+
+.card-gestor:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Estado de arrastar */
+.card-gestor-dragging {
+  transform: rotate(2deg) scale(1.03);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  opacity: 0.9;
+  cursor: grabbing !important;
+}
+
+/* ===================================================================
+   FOTO CIRCULAR - ESQUERDA
+   ================================================================ */
+.card-gestor-foto-container {
+  position: relative;
+  margin-left: 12px;
+  margin-top: -15px;
+  flex-shrink: 0;
+  z-index: 5;
+  align-self: flex-start;
+}
+
+.card-gestor-foto-circular {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  background-color: #E0E0E0;
+}
+
+.card-gestor-foto-circular img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Diretoria (Linha 1) - Card maior e mais destacado */
+.card-gestor-linha-1 {
+  width: 350px;
+  height: 120px;
+}
+
+.card-gestor-linha-1 .card-gestor-foto-container {
+  margin-top: -20px;
+  margin-left: 15px;
+}
+
+.card-gestor-linha-1 .card-gestor-foto-circular {
+  width: 95px;
+  height: 95px;
+  border: 4px solid #FFFFFF;
+}
+
+.card-gestor-linha-1 .card-gestor-barra-area {
+  height: 38px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.card-gestor-linha-1 .card-gestor-nome {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.card-gestor-linha-1 .card-gestor-cargo {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ===================================================================
+   ÁREA DE INFORMAÇÕES - DIREITA
+   ================================================================ */
+.card-gestor-info-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 0 10px 10px 0;
+  overflow: hidden;
+}
+
+/* BARRA DE ÁREA - TOPO */
+.card-gestor-barra-area {
+  width: 100%;
+  height: 32px;
+  background-color: #1976D2;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-top-right-radius: 10px;
+}
+
+/* Cores por nível */
+.card-gestor-linha-1 .card-gestor-barra-area {
+  background: linear-gradient(135deg, #1E3A5F 0%, #2A4A6F 100%);
+}
+
+.card-gestor-linha-2 .card-gestor-barra-area {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+}
+
+.card-gestor-linha-3 .card-gestor-barra-area {
+  background: linear-gradient(135deg, #8E24AA 0%, #7B1FA2 100%);
+}
+
+.card-gestor-linha-4 .card-gestor-barra-area {
+  background: linear-gradient(135deg, #616161 0%, #424242 100%);
+}
+
+/* INFORMAÇÕES TEXTO - ABAIXO DA BARRA */
+.card-gestor-info-texto {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+  background-color: #FFFFFF;
+  border-bottom-right-radius: 10px;
+}
+
+.card-gestor-nome {
+  font-size: 13px;
+  font-weight: 700;
+  color: #212121;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-gestor-cargo {
+  font-size: 11px;
+  font-weight: 400;
+  color: #757575;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===================================================================
+   BOTÕES DE AÇÃO
+   ================================================================ */
+.card-gestor-actions {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.card-gestor:hover .card-gestor-actions {
+  opacity: 1;
+}
+
+.card-gestor-btn {
+  background-color: #FFFFFF;
+  border: 1px solid #E0E0E0;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.card-gestor-btn:hover {
+  transform: scale(1.15);
+}
+
+.card-gestor-btn-edit:hover {
+  background-color: #E3F2FD;
+  border-color: #1976D2;
+}
+
+.card-gestor-btn-delete:hover {
+  background-color: #FFEBEE;
+  border-color: #F44336;
+}
+
+/* ===================================================================
+   ÁRVORE HIERÁRQUICA — recursiva, conectores limpos.
+   - Profundidade 0 (root) usa layout horizontal clássico de org chart.
+   - Profundidade >= 1 usa layout vertical indentado (estilo file explorer),
+     que escala bem em qualquer profundidade sem cruzar linhas.
+   ================================================================ */
+
+.tree-canvas {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 4px 12px 24px;
+}
+
+.tree-subtree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+/* Wrapper de cada card; largura fixa pra previsibilidade do layout */
+.tree-card-anchor {
+  width: 240px;
+  display: flex;
+}
+
+/* Conector vertical curto saindo da base de cada card pai */
+.tree-connector-down {
+  width: 2px;
+  height: 22px;
+  background: #cbd5e1;
+  flex-shrink: 0;
+}
+
+/* Variante mais alta usada antes do bloco de órfãos, pra dar mais respiro com a ponte */
+.tree-connector-down--orfaos {
+  height: 38px;
+}
+
+/* ----- Layout horizontal: root + seus filhos diretos ----- */
+.tree-children-h {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+}
+
+.tree-child-cell {
+  position: relative;
+  flex-shrink: 0;
+  width: 256px; /* card 240 + 8px de cada lado */
+  padding: 22px 8px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Segmento do bus horizontal — cada célula desenha o trecho que lhe cabe */
+.tree-child-cell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 2px;
+  background: #cbd5e1;
+}
+.tree-child-cell:first-child:not(:only-child)::before {
+  left: 50%;
+  right: 0;
+}
+.tree-child-cell:last-child:not(:only-child)::before {
+  left: 0;
+  right: 50%;
+}
+.tree-child-cell:not(:first-child):not(:last-child)::before {
+  left: 0;
+  right: 0;
+}
+.tree-child-cell:only-child::before {
+  display: none;
+}
+
+/* Drop vertical do bus até o card do filho */
+.tree-child-cell::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 22px;
+  background: #cbd5e1;
+}
+.tree-child-cell:only-child::after {
+  display: none;
+}
+.tree-child-cell:only-child {
+  padding-top: 0;
+}
+
+/* ----- Layout vertical indentado: profundidade >= 1 -----
+   Sem margin-top no children-v: a folga visual entre o card pai e o primeiro
+   card filho fica no padding-top do row (8px), o que permite que a guia vertical
+   comece exatamente na base do card pai (sem gap). */
+.tree-children-v {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-left: 28px;
+  margin-top: 0;
+  width: 100%;
+  max-width: 560px;
+}
+
+.tree-child-row {
+  position: relative;
+  padding-left: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* Primeiro row absorve a folga visual extra (que antes estava no margin-top) */
+.tree-children-v > .tree-child-row:first-child {
+  padding-top: 8px;
+}
+
+/* Linha guia vertical de cada linha (forma um traço contínuo entre irmãos) */
+.tree-child-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #cbd5e1;
+}
+
+/* Última linha: a guia vertical do row é suprimida — desenhamos a guia diretamente
+   no card-anchor. Usa `bottom: calc(50% - 1px)` (1px de overlap com o braço horizontal
+   que fica em `top: 50%`) pra evitar gaps de subpixel rendering. */
+.tree-children-v > .tree-child-row:last-child::before {
+  display: none;
+}
+.tree-children-v > .tree-child-row:last-child > .tree-subtree > .tree-card-anchor::after {
+  content: '';
+  position: absolute;
+  left: -28px;
+  top: -4px;                       /* sobe até o topo do row */
+  bottom: calc(50% - 1px);         /* 1px de overlap com o braço (evita gap de subpixel) */
+  width: 2px;
+  background: #cbd5e1;
+  pointer-events: none;
+}
+
+/* Variante: filho único (também é primeiro) fora do orfaos-block — padding-top = 8px */
+.tree-children-v > .tree-child-row:first-child:last-child > .tree-subtree > .tree-card-anchor::after {
+  top: -8px;
+}
+
+/* Variante: único filho dentro do orfaos-block — padding-top do row é 22px */
+.tree-orfaos-block > .tree-children-v > .tree-child-row:first-child:last-child > .tree-subtree > .tree-card-anchor::after {
+  top: -22px;
+}
+
+/* No vertical, o card tem largura fixa e compacta (não estica até preencher a row),
+   evitando muito espaço em branco quando o conteúdo é curto. */
+.tree-children-v .tree-subtree {
+  align-items: flex-start;
+}
+.tree-children-v .tree-card-anchor {
+  width: 280px;
+  max-width: 100%;
+  position: relative;
+}
+
+/* Braço horizontal: pseudo no card-anchor pra ficar SEMPRE centralizado no card,
+   independente da altura do row (padding, sub-árvore aninhada, etc.) */
+.tree-children-v .tree-card-anchor::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -28px;
+  width: 28px;
+  height: 2px;
+  background: #cbd5e1;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Bloco de unidades sem vínculo hierárquico — ligado visualmente ao raiz via tree-connector-down */
+.tree-orfaos-block {
+  width: 520px;
+  max-width: calc(100vw - 80px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+}
+
+/* Ponte horizontal: liga o ponto central (onde o tree-connector-down aterrissa) à
+   guia vertical da tree-children-v (que começa em left: 28px) — forma um L de junção. */
+.tree-orfaos-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 2px;
+  background: #cbd5e1;
+  left: 28px;
+  right: 50%;
+}
+
+/* Sem margin-top para que a guia vertical comece exatamente no nível da ponte */
+.tree-orfaos-block .tree-children-v {
+  margin-top: 0;
+}
+
+/* Folga extra entre a ponte (no topo do bloco) e o primeiro card,
+   pra ponte respirar bem do primeiro item da árvore */
+.tree-orfaos-block .tree-child-row:first-child {
+  padding-top: 22px;
+}
+
+/* ===================================================================
+   DRAG AND DROP
+   ================================================================ */
+.droppable-area {
+  min-height: 120px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.droppable-area.dragging-over {
+  background-color: #EFF6FF;
+  border: 2px dashed #3B82F6;
+}
+
+/* ===================================================================
+   ANIMAÇÕES
+   ================================================================ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-gestor {
+  animation: fadeInUp 0.25s ease-out;
+}
+
+/* ===================================================================
+   RESPONSIVIDADE
+   ================================================================ */
+@media (max-width: 1600px) {
+  .card-gestor {
+    width: 260px;
+    height: 95px;
+  }
+
+  .card-gestor-linha-1 {
+    width: 320px;
+    height: 110px;
+  }
+
+  .card-gestor-foto-circular {
+    width: 65px;
+    height: 65px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-foto-circular {
+    width: 85px;
+    height: 85px;
+  }
+
+  .card-gestor-barra-area {
+    height: 30px;
+    font-size: 9px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-barra-area {
+    height: 35px;
+    font-size: 10px;
+  }
+
+  .card-gestor-nome {
+    font-size: 12px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-nome {
+    font-size: 14px;
+  }
+
+  .card-gestor-cargo {
+    font-size: 10px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-cargo {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 1366px) {
+  .card-gestor {
+    width: 240px;
+    height: 90px;
+  }
+
+  .card-gestor-linha-1 {
+    width: 300px;
+    height: 105px;
+  }
+
+  .card-gestor-foto-container {
+    margin-left: 10px;
+    margin-top: -12px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-foto-container {
+    margin-top: -16px;
+    margin-left: 12px;
+  }
+
+  .card-gestor-foto-circular {
+    width: 60px;
+    height: 60px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-foto-circular {
+    width: 78px;
+    height: 78px;
+  }
+
+  .card-gestor-barra-area {
+    height: 28px;
+    font-size: 8px;
+    padding: 0 10px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-barra-area {
+    height: 32px;
+    font-size: 9px;
+  }
+
+  .card-gestor-info-texto {
+    padding: 6px 10px;
+  }
+
+  .card-gestor-nome {
+    font-size: 11px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-nome {
+    font-size: 13px;
+  }
+
+  .card-gestor-cargo {
+    font-size: 9px;
+  }
+
+  .card-gestor-linha-1 .card-gestor-cargo {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .card-gestor {
+    width: 220px;
+    height: 85px;
+  }
+
+  .card-gestor-foto-circular {
+    width: 55px;
+    height: 55px;
+  }
+}

@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Script de inicialização para OpenShift httpd
+echo "===> Iniciando servidor Apache..."
+
+# Verificar se os arquivos buildados existem
+if [ -d "/opt/app-root/src/dist" ]; then
+    echo "===> Movendo arquivos de dist/ para raiz..."
+    cp -r /opt/app-root/src/dist/* /opt/app-root/src/
+    rm -rf /opt/app-root/src/dist
+    rm -rf /opt/app-root/src/src
+    rm -rf /opt/app-root/src/node_modules
+fi
+
+# Listar arquivos
+echo "===> Arquivos disponíveis:"
+ls -la /opt/app-root/src/
+
+# Executar Apache
+exec /usr/libexec/s2i/run
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
