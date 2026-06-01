@@ -1,0 +1,56 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  application:
+    name: kaizen-api-java
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kaizen_java_dev}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: ALWAYS
+
+server:
+  port: ${PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: kaizen-api-java
+    description: Backend Java/Spring Boot do Kaizen (TJGO) — porte fiel do backend Node/Express
+    version: "1.0"
+
+kaizen:
+  sso:
+    enabled: ${SSO_ENABLED:false}
+    realm: ${KEYCLOAK_REALM:}
+    client-id: ${KEYCLOAK_CLIENT_ID:}
+    keycloak-url: ${KEYCLOAK_URL:}
+    redirect-uri: ${KEYCLOAK_REDIRECT_URI:}
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:5173}
+  node-env: ${NODE_ENV:development}
+  jwt-secret: ${JWT_SECRET:}
+  cors:
+    extra-origins: ${CORS_ORIGINS:}
+
+logging:
+  level:
+    org.springframework.security: INFO
+    org.springframework.jdbc.core.JdbcTemplate: INFO

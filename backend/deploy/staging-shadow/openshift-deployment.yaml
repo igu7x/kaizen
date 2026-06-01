@@ -1,0 +1,157 @@
+# OpenShift / Kubernetes manifestos para o backend Java em STAGING (modo shadow).
+#
+# Premissas:
+# - O Node atual está deployado no mesmo namespace e responde por uma Route
+#   pública (kaizen-api). Este pacote NÃO toca no Node — só adiciona o Java
+#   como deployment paralelo, sem Route pública. O tráfego para o Java vem
+#   exclusivamente via mirror configurado no ingress/nginx (ver nginx-mirror.conf).
+#
+# - Database: o Java aponta para o MESMO banco do Node (read-only de fato, já
+#   que o shadow só espelha GETs). Não precisa de réplica.
+#
+# - Imagem: assume que o GitLab CI vai buildar e publicar em um registry interno.
+#   Substituir IMAGE_REPO_PLACEHOLDER pelo registry real (ex: image-registry.openshift-image-registry.svc:5000/<namespace>/kaizen-api-java).
+#
+# Placeholders a substituir antes de aplicar (procurar por "<<>>"):
+#   <<NAMESPACE>>            — namespace de staging
+#   <<IMAGE>>                — image:tag a deployar (vem do CI)
+#   <<DB_HOST>>              — host do Postgres de staging
+#   <<DB_NAME>>              — kaizen_stag (ou nome real)
+#   <<KEYCLOAK_URL>>         — URL do Keycloak de staging
+#   <<KEYCLOAK_REALM>>       — realm
+#   <<KEYCLOAK_CLIENT_ID>>   — client id
+#   <<FRONTEND_URL>>         — URL pública do frontend de staging
+#
+# Secrets (DB_PASSWORD, JWT_SECRET) NÃO estão neste arquivo — são referenciados
+# por nome e devem ser criados separadamente pela equipe de infra (ver README).
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kaizen-api-java-config
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-api-java
+    component: shadow
+data:
+  SPRING_PROFILES_ACTIVE: "production"
+  TZ: "America/Sao_Paulo"
+  PORT: "8081"
+  DB_HOST: "<<DB_HOST>>"
+  DB_PORT: "5432"
+  DB_NAME: "<<DB_NAME>>"
+  DB_USER: "kaizen"
+  SSO_ENABLED: "true"
+  KEYCLOAK_URL: "<<KEYCLOAK_URL>>"
+  KEYCLOAK_REALM: "<<KEYCLOAK_REALM>>"
+  KEYCLOAK_CLIENT_ID: "<<KEYCLOAK_CLIENT_ID>>"
+  FRONTEND_URL: "<<FRONTEND_URL>>"
+  NODE_ENV: "production"
+  # Marcador opcional para logs identificarem que é o backend shadow
+  KAIZEN_DEPLOY_MODE: "shadow"
+
+---
+# Secret stub — DEVE ser criado pela equipe de infra com os valores reais.
+# Não versionar esse Secret com valores; aqui está só pra documentar quais
+# chaves o Deployment espera.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kaizen-api-java-secret
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-api-java
+    component: shadow
+type: Opaque
+stringData:
+  DB_PASSWORD: "REPLACE_ME"
+  JWT_SECRET: "REPLACE_ME"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kaizen-api-java
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-api-java
+    component: shadow
+spec:
+  # Começar com 1 réplica em shadow é suficiente — não está servindo usuário real.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kaizen-api-java
+  template:
+    metadata:
+      labels:
+        app: kaizen-api-java
+        component: shadow
+    spec:
+      containers:
+        - name: app
+          image: <<IMAGE>>
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: kaizen-api-java-config
+            - secretRef:
+                name: kaizen-api-java-secret
+          # JVM dimensionada via cgroup; o Dockerfile já passa MaxRAMPercentage=75.
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          # Atende OpenShift random UID — Dockerfile já chgrp 0; aqui só reforça.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+      # Anti-affinity opcional se a infra quiser rodar 2 réplicas em hosts distintos.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kaizen-api-java
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-api-java
+    component: shadow
+spec:
+  type: ClusterIP
+  selector:
+    app: kaizen-api-java
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+      protocol: TCP
+
+# Intencionalmente SEM Route — o Java em shadow NÃO deve ser exposto publicamente.
+# O acesso vem só do ingress nginx (via Service ClusterIP) na chamada de mirror.

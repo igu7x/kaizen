@@ -1,0 +1,73 @@
+#!/bin/bash
+
+set -e
+
+echo "=========================================="
+echo "===> BUILD CUSTOMIZADO OPENSHIFT"
+echo "=========================================="
+
+# Diretório de destino do Apache httpd
+OUTPUT_DIR=${OUTPUT_DIR:-/opt/app-root/src}
+SOURCE_DIR=$(pwd)
+
+echo "===> Diretório fonte: $SOURCE_DIR"
+echo "===> Diretório destino: $OUTPUT_DIR"
+
+# Executar assemble original primeiro (se existir)
+if [ -f /usr/libexec/s2i/assemble ]; then
+    echo "===> Executando assemble base..."
+    /usr/libexec/s2i/assemble
+fi
+
+# Instalar dependências
+echo "===> Instalando dependências..."
+npm install --legacy-peer-deps || npm install --force
+
+# Executar build do Vite
+echo "===> Executando build de produção..."
+npm run build
+
+# Verificar se dist foi criado
+if [ ! -d "dist" ]; then
+    echo "===> ERRO: Pasta dist não foi criada!"
+    exit 1
+fi
+
+echo "===> Conteúdo da pasta dist:"
+ls -la dist/
+
+# Limpar arquivos fonte do destino
+echo "===> Limpando arquivos desnecessários..."
+rm -rf $OUTPUT_DIR/src 2>/dev/null || true
+rm -rf $OUTPUT_DIR/node_modules 2>/dev/null || true
+rm -f $OUTPUT_DIR/package*.json 2>/dev/null || true
+rm -f $OUTPUT_DIR/tsconfig*.json 2>/dev/null || true
+rm -f $OUTPUT_DIR/vite.config.ts 2>/dev/null || true
+rm -f $OUTPUT_DIR/*.md 2>/dev/null || true
+
+# Copiar arquivos buildados para o diretório do Apache
+echo "===> Copiando arquivos buildados para $OUTPUT_DIR..."
+cp -r dist/* $OUTPUT_DIR/
+
+# Copiar .htaccess
+if [ -f "dist/.htaccess" ]; then
+    cp dist/.htaccess $OUTPUT_DIR/
+    echo "===> .htaccess copiado"
+elif [ -f "public/.htaccess" ]; then
+    cp public/.htaccess $OUTPUT_DIR/
+    echo "===> .htaccess copiado de public/"
+fi
+
+# Listar arquivos finais
+echo "===> Arquivos no diretório de saída:"
+ls -la $OUTPUT_DIR/
+
+if [ -d "$OUTPUT_DIR/assets" ]; then
+    echo "===> Arquivos em assets/:"
+    ls -la $OUTPUT_DIR/assets/
+fi
+
+echo "=========================================="
+echo "===> BUILD CONCLUÍDO COM SUCESSO!"
+echo "=========================================="
+
