@@ -1,0 +1,10 @@
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+node_modules/
+contract-tests/
+docs/
+README.md
+deploy/

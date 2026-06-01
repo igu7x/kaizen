@@ -1,0 +1,8 @@
+# Template do perfil local. Copie para application-local.yml (gitignored) e preencha os segredos.
+#   cp application-local.yml.example application-local.yml
+spring:
+  datasource:
+    password: TROQUE_PELA_SENHA_DO_BANCO
+
+kaizen:
+  node-env: development
