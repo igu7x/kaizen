@@ -1,0 +1,36 @@
+{
+  "folders": [
+    {
+      "name": "📱 Frontend (React)",
+      "path": "frontend"
+    },
+    {
+      "name": "☕ Backend (Java)",
+      "path": "backend"
+    },
+    {
+      "name": "🗂️ Raiz",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/target": true,
+      "**/.git": true,
+      "**/dist": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/target": true,
+      "**/dist": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "vscjava.vscode-java-pack",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode"
+    ]
+  }
+}

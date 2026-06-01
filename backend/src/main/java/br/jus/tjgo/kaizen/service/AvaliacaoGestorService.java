@@ -1,0 +1,335 @@
+package br.jus.tjgo.kaizen.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Porte fiel de avaliacaoGestor.service.ts.
+ * create() faz UPSERT preservando o formulario_id (chave: pessoa_id + unidade_id + tipo_inventario).
+ * validar() dispara o cascade: marca a avaliacao_integrada vinculada (avaliacao_gestor_id) como
+ * atualizacao_requisitada — inclui integradas já validadas.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AvaliacaoGestorService {
+
+    private final JdbcTemplate jdbc;
+    private final ObjectMapper objectMapper;
+
+    public List<Map<String, Object>> findAllByDomain(List<String> diretorias, String tipoInventario) {
+        StringBuilder where = new StringBuilder("f.is_deleted = FALSE AND f.diretoria = ANY(?::text[])");
+        List<Object> params = new ArrayList<>();
+        params.add(textArray(diretorias));
+        if (tipoInventario != null) {
+            params.add(tipoInventario);
+            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+        }
+        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+    }
+
+    public List<Map<String, Object>> findAll(String diretoria, String tipoInventario) {
+        StringBuilder where = new StringBuilder("f.is_deleted = FALSE");
+        List<Object> params = new ArrayList<>();
+        if (diretoria != null) {
+            params.add(diretoria);
+            where.append(" AND f.diretoria = ?");
+        }
+        if (tipoInventario != null) {
+            params.add(tipoInventario);
+            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+        }
+        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+    }
+
+    private static String listSql(String whereClauses) {
+        return "SELECT f.*, " +
+                "       u.name as avaliador_user_name, " +
+                "       cu.nome as unidade_nome, " +
+                "       (SELECT COUNT(*) FROM avaliacao_gestor_respostas r WHERE r.formulario_id = f.id) as total_respostas " +
+                "FROM avaliacao_gestor_formularios f " +
+                "LEFT JOIN users u ON u.id = f.avaliador_user_id " +
+                "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                "WHERE " + whereClauses + " " +
+                "  AND f.id = ( " +
+                "    SELECT f2.id FROM avaliacao_gestor_formularios f2 " +
+                "    WHERE f2.pessoa_id = f.pessoa_id " +
+                "      AND f2.is_deleted = FALSE " +
+                "      AND COALESCE(f2.tipo_inventario, 'equipe') = COALESCE(f.tipo_inventario, 'equipe') " +
+                "    ORDER BY f2.created_at DESC " +
+                "    LIMIT 1 " +
+                "  ) " +
+                "ORDER BY f.created_at DESC";
+    }
+
+    public Map<String, Object> findById(long id) {
+        List<Map<String, Object>> formRows = jdbc.queryForList(
+                "SELECT f.*, u.name as avaliador_user_name, cu.nome as unidade_nome " +
+                        "FROM avaliacao_gestor_formularios f " +
+                        "LEFT JOIN users u ON u.id = f.avaliador_user_id " +
+                        "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "WHERE f.id = ? AND f.is_deleted = FALSE",
+                id);
+        if (formRows.isEmpty()) {
+            return null;
+        }
+        List<Map<String, Object>> respostas = jdbc.queryForList(
+                "SELECT * FROM avaliacao_gestor_respostas WHERE formulario_id = ? ORDER BY ordem", id);
+        Map<String, Object> out = new LinkedHashMap<>(formRows.get(0));
+        out.put("respostas", respostas);
+        return out;
+    }
+
+    public Map<String, Object> findByPessoaAndUnidade(long pessoaId, long unidadeId) {
+        List<Map<String, Object>> formRows = jdbc.queryForList(
+                "SELECT f.*, cu.nome as unidade_nome " +
+                        "FROM avaliacao_gestor_formularios f " +
+                        "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "WHERE f.pessoa_id = ? AND f.unidade_id = ? AND f.is_deleted = FALSE " +
+                        "ORDER BY f.created_at DESC LIMIT 1",
+                pessoaId, unidadeId);
+        if (formRows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> form = formRows.get(0);
+        List<Map<String, Object>> respostas = jdbc.queryForList(
+                "SELECT * FROM avaliacao_gestor_respostas WHERE formulario_id = ? ORDER BY ordem", form.get("id"));
+        Map<String, Object> out = new LinkedHashMap<>(form);
+        out.put("respostas", respostas);
+        return out;
+    }
+
+    @Transactional
+    public Map<String, Object> create(Map<String, Object> data, long userId) {
+        String tipoInv = data.get("tipo_inventario") != null ? str(data.get("tipo_inventario")) : "equipe";
+        Long pessoaId = asLong(data.get("pessoa_id"));
+        Long unidadeId = asLong(data.get("unidade_id"));
+
+        List<Map<String, Object>> existing = jdbc.queryForList(
+                "SELECT id FROM avaliacao_gestor_formularios " +
+                        "WHERE pessoa_id = ? AND unidade_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                        "  AND is_deleted = FALSE " +
+                        "  AND (validado_em IS NULL OR status = 'atualizacao_requisitada') " +
+                        "ORDER BY id DESC LIMIT 1",
+                pessoaId, unidadeId, tipoInv);
+
+        int tecnicasVersao = 1;
+        if (unidadeId != null) {
+            List<Map<String, Object>> versaoRows = jdbc.queryForList(
+                    "SELECT tecnicas_versao FROM competencias_gestor_formularios " +
+                            "WHERE unidade_id = ? AND COALESCE(tipo, 'equipe') = ? " +
+                            "  AND is_deleted = FALSE AND validado_final_em IS NOT NULL " +
+                            "  AND COALESCE(tecnicas_propagacao_pendente, FALSE) = FALSE " +
+                            "ORDER BY tecnicas_versao DESC LIMIT 1",
+                    unidadeId, tipoInv);
+            if (!versaoRows.isEmpty() && versaoRows.get(0).get("tecnicas_versao") != null) {
+                tecnicasVersao = ((Number) versaoRows.get(0).get("tecnicas_versao")).intValue();
+            }
+        }
+
+        int competenciasVersao = 1;
+        try {
+            Integer v = jdbc.queryForObject(
+                    "SELECT COALESCE(MAX(versao), 1) AS versao FROM competencias_padrao_versoes", Integer.class);
+            if (v != null) {
+                competenciasVersao = v;
+            }
+        } catch (Exception err) {
+            log.error("[avaliacaoGestor.create] Erro ao buscar versão padrão: {}", err.getMessage());
+        }
+
+        long formularioId;
+        if (!existing.isEmpty()) {
+            formularioId = ((Number) existing.get(0).get("id")).longValue();
+            jdbc.update(
+                    "UPDATE avaliacao_gestor_formularios SET " +
+                            "  pessoa_nome = ?, pessoa_cargo = ?, pessoa_email = ?, " +
+                            "  avaliador_user_id = ?, avaliador_nome = ?, diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  status = 'enviado', tecnicas_versao = ?, competencias_versao = ?, " +
+                            "  validado_em = NULL, validado_por_id = NULL, validado_por_nome = NULL, " +
+                            "  updated_at = NOW(), updated_by = ? " +
+                            "WHERE id = ?",
+                    str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
+                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    tecnicasVersao, competenciasVersao, userId, formularioId);
+            jdbc.update("DELETE FROM avaliacao_gestor_respostas WHERE formulario_id = ?", formularioId);
+        } else {
+            Map<String, Object> ins = jdbc.queryForMap(
+                    "INSERT INTO avaliacao_gestor_formularios " +
+                            "  (pessoa_id, pessoa_nome, pessoa_cargo, pessoa_email, avaliador_user_id, avaliador_nome, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
+                            "RETURNING id",
+                    pessoaId, str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
+                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    tecnicasVersao, competenciasVersao, userId, userId);
+            formularioId = ((Number) ins.get("id")).longValue();
+        }
+
+        List<Map<String, Object>> respostas = asList(data.get("respostas"));
+        for (int i = 0; i < respostas.size(); i++) {
+            Map<String, Object> r = respostas.get(i);
+            jdbc.update(
+                    "INSERT INTO avaliacao_gestor_respostas (formulario_id, competencia_unidade_id, competencia_nome, competencia_descricao, nota, comentario, tipo, ordem) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    formularioId, asLong(r.get("competencia_unidade_id")), str(r.get("competencia_nome")),
+                    orNull(r.get("competencia_descricao")), r.get("nota"), orNull(r.get("comentario")),
+                    r.get("tipo") != null ? str(r.get("tipo")) : "tecnica", i + 1);
+        }
+
+        return findById(formularioId);
+    }
+
+    @Transactional
+    public Map<String, Object> validar(long id, long userId, String userName) {
+        List<Map<String, Object>> formRows = jdbc.queryForList(
+                "SELECT * FROM avaliacao_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+        if (formRows.isEmpty()) {
+            return error("Formulário não encontrado");
+        }
+        Map<String, Object> formulario = formRows.get(0);
+        if (formulario.get("validado_em") != null) {
+            return error("Formulário já foi validado");
+        }
+        if (!asLong(formulario.get("avaliador_user_id")).equals(userId)) {
+            return error("Apenas o gestor que preencheu pode validar");
+        }
+
+        jdbc.update(
+                "UPDATE avaliacao_gestor_formularios " +
+                        "SET status = 'validado', validado_por_id = ?, validado_por_nome = ?, validado_em = NOW(), " +
+                        "    versao_formulario = COALESCE(versao_formulario, 0) + 1, updated_by = ? " +
+                        "WHERE id = ?",
+                userId, userName, userId, id);
+
+        Map<String, Object> formularioCompleto = findById(id);
+        if (formularioCompleto != null) {
+            try {
+                int novaVersao = formularioCompleto.get("versao_formulario") != null
+                        ? ((Number) formularioCompleto.get("versao_formulario")).intValue() : 1;
+                jdbc.update(
+                        "INSERT INTO avaliacao_gestor_versoes (formulario_id, versao, dados, validado_em, validado_nome) " +
+                                "VALUES (?, ?, ?::jsonb, ?, ?) " +
+                                "ON CONFLICT (formulario_id, versao) DO UPDATE SET dados = EXCLUDED.dados",
+                        id, novaVersao, toJson(formularioCompleto),
+                        formularioCompleto.get("validado_em"), formularioCompleto.get("validado_por_nome"));
+            } catch (Exception err) {
+                log.error("[validar] Erro ao salvar snapshot de versão: {}", err.getMessage());
+            }
+        }
+
+        // Cascade: marca a avaliacao_integrada vinculada como atualizacao_requisitada (inclui já validadas).
+        try {
+            int tecV = numOr1(formulario.get("tecnicas_versao"));
+            int padV = numOr1(formulario.get("competencias_versao"));
+            jdbc.update(
+                    "UPDATE avaliacao_integrada_formularios " +
+                            "SET status = 'atualizacao_requisitada', updated_at = NOW() " +
+                            "WHERE is_deleted = FALSE " +
+                            "  AND avaliacao_gestor_id = ? " +
+                            "  AND status <> 'atualizacao_requisitada' " +
+                            "  AND ( " +
+                            "        COALESCE(tecnicas_versao, 1) < ? " +
+                            "     OR COALESCE(competencias_versao, 1) < ? " +
+                            "  )",
+                    id, tecV, padV);
+        } catch (Exception err) {
+            log.error("[validar] Erro ao cascatear atualização para avaliação integrada: {}", err.getMessage());
+        }
+
+        return formularioCompleto;
+    }
+
+    public List<Map<String, Object>> findVersoes(long formularioId) {
+        return jdbc.queryForList(
+                "SELECT id, formulario_id, versao, validado_em, validado_nome, created_at " +
+                        "FROM avaliacao_gestor_versoes WHERE formulario_id = ? ORDER BY versao DESC",
+                formularioId);
+    }
+
+    public Object findVersaoDados(long formularioId, int versao) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT dados FROM avaliacao_gestor_versoes WHERE formulario_id = ? AND versao = ?",
+                formularioId, versao);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        return rows.get(0).get("dados");
+    }
+
+    public void delete(long id, long userId) {
+        jdbc.update(
+                "UPDATE avaliacao_gestor_formularios SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? WHERE id = ?",
+                userId, id);
+    }
+
+    // ============================================================
+    // Helpers
+    // ============================================================
+
+    private static Map<String, Object> error(String message) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("error", message);
+        return m;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> asList(Object v) {
+        if (v instanceof List<?> list) {
+            return (List<Map<String, Object>>) list;
+        }
+        return new ArrayList<>();
+    }
+
+    private static int numOr1(Object v) {
+        return v == null ? 1 : ((Number) v).intValue();
+    }
+
+    private static Object orNull(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof String s && s.isEmpty()) {
+            return null;
+        }
+        return v;
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return "null";
+        }
+    }
+
+    private static Long asLong(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Number n) {
+            return n.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(v));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String str(Object v) {
+        return v == null ? null : String.valueOf(v);
+    }
+
+    private static String textArray(List<String> values) {
+        return "{" + String.join(",", values) + "}";
+    }
+}

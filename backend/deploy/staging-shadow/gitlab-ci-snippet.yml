@@ -1,0 +1,83 @@
+# Trecho a adicionar ao .gitlab-ci.yml do projeto Java (ou criar um novo se
+# ainda não existe). NÃO é um arquivo completo — é só o job de build+push da
+# imagem do Java. As stages assumem que vocês já têm `build` e `deploy` nas
+# outras pipelines; ajustem nomes conforme convenção interna.
+
+stages:
+  - build
+  - deploy
+
+variables:
+  IMAGE_NAME: kaizen-api-java
+  # IMAGE_REGISTRY já vem do CI/CD settings (registry interno do OpenShift)
+
+# ============================================================
+# Build da imagem Java em staging
+# ============================================================
+build:java:staging:
+  stage: build
+  image: quay.io/buildah/stable:latest
+  variables:
+    STORAGE_DRIVER: vfs
+    BUILDAH_FORMAT: docker
+    BUILDAH_ISOLATION: chroot
+  script:
+    - echo "Building $IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
+    - buildah bud
+        -f deploy/staging-shadow/Dockerfile
+        -t $IMAGE_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+        -t $IMAGE_REGISTRY/$IMAGE_NAME:staging-latest
+        .
+    - buildah login --username $REGISTRY_USER --password $REGISTRY_PASSWORD $IMAGE_REGISTRY
+    - buildah push $IMAGE_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+    - buildah push $IMAGE_REGISTRY/$IMAGE_NAME:staging-latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^staging\//'
+      when: manual
+  tags:
+    - openshift-builder   # ajustar pra um runner real
+
+# ============================================================
+# Deploy em STAGING (modo shadow)
+# Substitui placeholders no manifesto e aplica via oc.
+# ============================================================
+deploy:java:staging-shadow:
+  stage: deploy
+  image: quay.io/openshift/origin-cli:latest
+  needs: ["build:java:staging"]
+  script:
+    - echo "Aplicando deployment do Java em staging-shadow"
+    - oc login --token=$OC_TOKEN_STAGING --server=$OC_SERVER_STAGING
+    - oc project $OC_NAMESPACE_STAGING
+    # NOTA: o Secret kaizen-api-java-secret deve já existir (criado manualmente
+    # uma vez pela equipe — ver deploy/staging-shadow/README.md seção 3).
+    - sed -e "s|<<NAMESPACE>>|$OC_NAMESPACE_STAGING|g"
+          -e "s|<<IMAGE>>|$IMAGE_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA|g"
+          -e "s|<<DB_HOST>>|$DB_HOST_STAGING|g"
+          -e "s|<<DB_NAME>>|$DB_NAME_STAGING|g"
+          -e "s|<<KEYCLOAK_URL>>|$KEYCLOAK_URL_STAGING|g"
+          -e "s|<<KEYCLOAK_REALM>>|$KEYCLOAK_REALM_STAGING|g"
+          -e "s|<<KEYCLOAK_CLIENT_ID>>|$KEYCLOAK_CLIENT_ID_STAGING|g"
+          -e "s|<<FRONTEND_URL>>|$FRONTEND_URL_STAGING|g"
+          deploy/staging-shadow/openshift-deployment.yaml | oc apply -f -
+    - oc rollout status deployment/kaizen-api-java --timeout=180s
+    - oc get pods -l app=kaizen-api-java
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual          # exige aprovação humana
+  environment:
+    name: staging-shadow
+    url: https://painel-sgjt-stag.apps.ocp-prd.tjgo.jus.br
+  tags:
+    - openshift-builder
+
+# Variables a configurar nas CI/CD Settings do projeto (Settings > CI/CD > Variables):
+#   IMAGE_REGISTRY                — host:porta do registry interno do OpenShift
+#   REGISTRY_USER / REGISTRY_PASSWORD — credenciais de push (token de bot)
+#   OC_TOKEN_STAGING              — service account token do namespace de staging (protected)
+#   OC_SERVER_STAGING             — URL do master do cluster
+#   OC_NAMESPACE_STAGING          — nome do namespace (ex: kaizen-stag)
+#   DB_HOST_STAGING / DB_NAME_STAGING
+#   KEYCLOAK_URL_STAGING / KEYCLOAK_REALM_STAGING / KEYCLOAK_CLIENT_ID_STAGING
+#   FRONTEND_URL_STAGING
