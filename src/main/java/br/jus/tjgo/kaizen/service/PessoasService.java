@@ -84,7 +84,7 @@ public class PessoasService {
                 orNull(dto.get("usuario")), orNull(dto.get("email")), orNull(dto.get("situacao")),
                 orNull(dto.get("cc_fc")), orNull(dto.get("cc_fc_classe")), orNull(dto.get("cargo_efetivo")),
                 orNull(dto.get("cargo_efetivo_classe")), linha != null ? linha : 4,
-                nextOrdem == null ? 0 : nextOrdem, userId);
+                nextOrdem == null ? 0 : nextOrdem, userId, userId);
     }
 
     public Map<String, Object> update(long id, Map<String, Object> dto, Long userId) {
