@@ -1,0 +1,142 @@
+# Manifestos do BACKEND Java em STAGING.
+# Sem Route pública — backend só é alcançável pelo nginx do frontend, dentro
+# do cluster, via Service ClusterIP.
+#
+# Placeholders a substituir antes de aplicar (busca por "<<>>"):
+#   <<NAMESPACE>>            — namespace de staging
+#   <<IMAGE_BACKEND>>        — image:tag do backend (vem do CI)
+#   <<DB_HOST>>, <<DB_NAME>> — Postgres de staging
+#   <<KEYCLOAK_URL>>, <<KEYCLOAK_REALM>>, <<KEYCLOAK_CLIENT_ID>>
+#   <<FRONTEND_URL>>         — URL pública do frontend (pra CORS / SSO callback)
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kaizen-backend-config
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-backend
+    component: monorepo
+data:
+  SPRING_PROFILES_ACTIVE: "production"
+  TZ: "America/Sao_Paulo"
+  PORT: "8081"
+  DB_HOST: "<<DB_HOST>>"
+  DB_PORT: "5432"
+  DB_NAME: "<<DB_NAME>>"
+  DB_USER: "kaizen"
+  SSO_ENABLED: "true"
+  KEYCLOAK_URL: "<<KEYCLOAK_URL>>"
+  KEYCLOAK_REALM: "<<KEYCLOAK_REALM>>"
+  KEYCLOAK_CLIENT_ID: "<<KEYCLOAK_CLIENT_ID>>"
+  FRONTEND_URL: "<<FRONTEND_URL>>"
+  NODE_ENV: "production"
+
+---
+# Secret stub — criar pela equipe de infra com:
+#   oc -n <<NAMESPACE>> create secret generic kaizen-backend-secret \
+#     --from-literal=DB_PASSWORD='<<senha>>' \
+#     --from-literal=JWT_SECRET='<<segredo>>'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kaizen-backend-secret
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-backend
+    component: monorepo
+type: Opaque
+stringData:
+  DB_PASSWORD: "REPLACE_ME"
+  JWT_SECRET: "REPLACE_ME"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kaizen-backend
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-backend
+    component: monorepo
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: kaizen-backend
+  template:
+    metadata:
+      labels:
+        app: kaizen-backend
+        component: monorepo
+    spec:
+      containers:
+        - name: app
+          image: <<IMAGE_BACKEND>>
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: kaizen-backend-config
+            - secretRef:
+                name: kaizen-backend-secret
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+
+---
+# Service ClusterIP — backend SÓ alcançável de dentro do cluster.
+# O nginx do frontend chama via http://kaizen-backend:8081.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kaizen-backend
+  namespace: <<NAMESPACE>>
+  labels:
+    app: kaizen-backend
+    component: monorepo
+spec:
+  type: ClusterIP
+  selector:
+    app: kaizen-backend
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+      protocol: TCP
+
+# Intencionalmente SEM Route — backend é interno ao cluster.
