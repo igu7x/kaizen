@@ -57,7 +57,7 @@ export const getApiBaseUrl = (): string => {
     }
 
     console.log('[API] Ambiente: DESENVOLVIMENTO LOCAL');
-    return 'http://localhost:3001';
+    return 'http://localhost:8081';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
