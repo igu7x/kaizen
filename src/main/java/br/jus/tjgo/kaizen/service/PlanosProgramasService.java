@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.jus.tjgo.kaizen.utils.DateHelper;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -134,8 +136,8 @@ public class PlanosProgramasService {
         values.add(data.get("nome"));
         values.add(falsy(data.get("tipo"), "plano"));
         values.add(falsyToNull(data.get("objetivo")));
-        values.add(falsyToNull(data.get("periodo_vigencia_inicio")));
-        values.add(falsyToNull(data.get("periodo_vigencia_fim")));
+        values.add(DateHelper.toSqlDate(data.get("periodo_vigencia_inicio")));
+        values.add(DateHelper.toSqlDate(data.get("periodo_vigencia_fim")));
         values.add(falsyToNull(data.get("ambito_institucional")));
         values.add(falsyToNull(data.get("responsavel_institucional")));
         values.add(falsyToNull(data.get("instrumento_superior_id")));
@@ -189,8 +191,8 @@ public class PlanosProgramasService {
         values.add(data.get("nome"));
         values.add(data.get("tipo"));
         values.add(falsyToNull(data.get("objetivo")));
-        values.add(falsyToNull(data.get("periodo_vigencia_inicio")));
-        values.add(falsyToNull(data.get("periodo_vigencia_fim")));
+        values.add(DateHelper.toSqlDate(data.get("periodo_vigencia_inicio")));
+        values.add(DateHelper.toSqlDate(data.get("periodo_vigencia_fim")));
         values.add(falsyToNull(data.get("ambito_institucional")));
         values.add(falsyToNull(data.get("responsavel_institucional")));
         values.add(falsyToNull(data.get("instrumento_superior_id")));
