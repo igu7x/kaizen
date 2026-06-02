@@ -1,5 +1,18 @@
 # HANDOFF — Feature "Permissões do TAP"
 
+> ## ✅ STATUS: IMPLEMENTADO no monorepo (2026-06-01)
+>
+> Implementação Java concluída em:
+> - [`backend/sql/migrations/151_permissoes_tap.sql`](../sql/migrations/151_permissoes_tap.sql)
+> - [`backend/src/main/java/br/jus/tjgo/kaizen/service/PermissoesTapService.java`](../src/main/java/br/jus/tjgo/kaizen/service/PermissoesTapService.java)
+> - [`backend/src/main/java/br/jus/tjgo/kaizen/controller/PermissoesTapController.java`](../src/main/java/br/jus/tjgo/kaizen/controller/PermissoesTapController.java)
+>
+> Validado A/B contra o backend Node: **8/8 endpoints byte-EXACT** (incluindo cenários de erro 400/403/404).
+>
+> Este documento permanece como **referência histórica e especificação** — útil para entender o porquê das decisões. O conteúdo abaixo descreve o que foi feito.
+
+---
+
 > **Origem**: implementado no Node em `c:\Users\igucu\OneDrive\Documentos\kaizen\` em 2026-06-01. Esta é a especificação para porte fiel ao Java.
 >
 > **Objetivo**: permitir que um **ADMIN** conceda a **um usuário específico** (qualquer role) a capacidade de **editar apenas os 13 campos do TAP** em projetos cuja "Diretoria de Governança" (campo `areas_vinculadas_ids` em `contratos_projetos`) coincida com a `users.diretoria` (sigla) do usuário.

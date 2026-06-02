@@ -25,6 +25,13 @@ backend/src/main/resources/application-local.yml
 backend/.env
 
 # =========================
+# Dump do banco — CONFIDENCIAL, nunca versionar
+# =========================
+db-export/
+*.dump
+*.sql.gz
+
+# =========================
 # OS / IDE
 # =========================
 .DS_Store
