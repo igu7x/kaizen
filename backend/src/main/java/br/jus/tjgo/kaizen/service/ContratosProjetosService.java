@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import br.jus.tjgo.kaizen.utils.DateHelper;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -206,8 +208,8 @@ public class ContratosProjetosService {
                 boolOrFalse(data.get("ancoragem_estrategica_programa_x")),
                 emptyToNull(str(data.get("escopo_sintetico"))),
                 emptyToNull(str(data.get("fora_do_escopo"))),
-                emptyToNull(str(data.get("data_prevista_inicio"))),
-                emptyToNull(str(data.get("data_prevista_conclusao"))),
+                DateHelper.toSqlDate(data.get("data_prevista_inicio")),
+                DateHelper.toSqlDate(data.get("data_prevista_conclusao")),
                 "planejado",
                 orDefault(str(data.get("prioridade")), "media"),
                 orDefault(str(data.get("complexidade")), "media"),
@@ -288,6 +290,9 @@ public class ContratosProjetosService {
                 if ("areas_vinculadas_ids".equals(key)) {
                     fields.add(key + " = ?::int[]");
                     values.add(intArray(asIdList(value)));
+                } else if ("data_prevista_inicio".equals(key) || "data_prevista_conclusao".equals(key)) {
+                    fields.add(key + " = ?");
+                    values.add(DateHelper.toSqlDate(value));
                 } else {
                     fields.add(key + " = ?");
                     values.add(value);
@@ -499,7 +504,7 @@ public class ContratosProjetosService {
                     data.get("quantidade_sprints") != null ? data.get("quantidade_sprints") : 1,
                     data.get("ordem") != null ? data.get("ordem") : 0,
                     numOrNull(data.get("area_responsavel_id")),
-                    emptyToNull(str(data.get("prazo_estimado"))), userId, userId);
+                    DateHelper.toSqlDate(data.get("prazo_estimado")), userId, userId);
         } else {
             entrega = jdbc.queryForMap(
                     "INSERT INTO contratos_projetos_entregas (projeto_id, nome, descricao, status, quantidade_sprints, " +
@@ -509,7 +514,7 @@ public class ContratosProjetosService {
                     orDefault(str(data.get("status")), "nao_iniciada"),
                     data.get("quantidade_sprints") != null ? data.get("quantidade_sprints") : 1,
                     data.get("ordem") != null ? data.get("ordem") : 0,
-                    emptyToNull(str(data.get("prazo_estimado"))), userId, userId);
+                    DateHelper.toSqlDate(data.get("prazo_estimado")), userId, userId);
         }
         long entregaId = ((Number) entrega.get("id")).longValue();
         for (Object areaId : asIdList(data.get("areas_responsaveis"))) {
@@ -550,7 +555,7 @@ public class ContratosProjetosService {
         }
         if (data.containsKey("prazo_estimado")) {
             fields.add("prazo_estimado = ?");
-            values.add(emptyToNull(str(data.get("prazo_estimado"))));
+            values.add(DateHelper.toSqlDate(data.get("prazo_estimado")));
         }
         if (fields.isEmpty()) {
             return entrega;
@@ -662,7 +667,7 @@ public class ContratosProjetosService {
                 "INSERT INTO contratos_projetos_entraves (projeto_id, descricao, data_identificacao, observacoes, " +
                         "created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
                 projetoId, data.get("descricao"),
-                emptyToNull(str(data.get("data_identificacao"))),
+                DateHelper.toSqlDate(data.get("data_identificacao")),
                 emptyToNull(str(data.get("observacoes"))), userId, userId);
     }
 
@@ -733,7 +738,7 @@ public class ContratosProjetosService {
                 emptyToNull(str(data.get("sprint"))), numOrNull(data.get("sprint_id")),
                 emptyToNull(str(data.get("responsavel"))), numOrNull(data.get("responsavel_id")),
                 orDefault(str(data.get("status")), "a_fazer"), ordemFinal,
-                emptyToNull(str(data.get("data_inicio"))), emptyToNull(str(data.get("data_conclusao"))),
+                DateHelper.toSqlDate(data.get("data_inicio")), DateHelper.toSqlDate(data.get("data_conclusao")),
                 userId, userId);
         recalcularStatusEntrega(entregaId);
         return tarefa;
@@ -750,7 +755,11 @@ public class ContratosProjetosService {
                 "status", "ordem", "data_inicio", "data_conclusao")) {
             if (data.containsKey(key)) {
                 fields.add(key + " = ?");
-                values.add(data.get(key));
+                if ("data_inicio".equals(key) || "data_conclusao".equals(key)) {
+                    values.add(DateHelper.toSqlDate(data.get(key)));
+                } else {
+                    values.add(data.get(key));
+                }
             }
         }
         if (fields.isEmpty()) {
