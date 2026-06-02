@@ -1,0 +1,128 @@
+# GitLab CI — pipeline para o monorepo Kaizen (staging).
+#
+# Este arquivo é uma SUGESTÃO de pipeline. Se você já tem .gitlab-ci.yml na
+# raiz do repo, mescle os jobs abaixo com o que já existe (não substitua).
+# Se não tem, copie este para a raiz como .gitlab-ci.yml.
+#
+# As variáveis de imagem (REGISTRY, etc.) devem estar configuradas em:
+#   Settings → CI/CD → Variables (do GitLab do projeto)
+
+stages:
+  - build
+  - deploy
+
+variables:
+  BACKEND_IMAGE:  $IMAGE_REGISTRY/kaizen-backend
+  FRONTEND_IMAGE: $IMAGE_REGISTRY/kaizen-frontend
+
+# ============================================================
+# Build do backend (Java/Maven via buildah)
+# ============================================================
+build:backend:staging:
+  stage: build
+  image: quay.io/buildah/stable:latest
+  variables:
+    STORAGE_DRIVER: vfs
+    BUILDAH_FORMAT: docker
+    BUILDAH_ISOLATION: chroot
+  script:
+    - echo "Buildando $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - buildah bud
+        -f deploy/staging/Dockerfile.backend
+        -t $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA
+        -t $BACKEND_IMAGE:staging-latest
+        backend/
+    - buildah login --username $REGISTRY_USER --password $REGISTRY_PASSWORD $IMAGE_REGISTRY
+    - buildah push $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA
+    - buildah push $BACKEND_IMAGE:staging-latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^staging\//'
+      when: manual
+  tags:
+    - openshift-builder
+
+# ============================================================
+# Build do frontend (React/Vite + nginx via buildah)
+# ============================================================
+build:frontend:staging:
+  stage: build
+  image: quay.io/buildah/stable:latest
+  variables:
+    STORAGE_DRIVER: vfs
+    BUILDAH_FORMAT: docker
+    BUILDAH_ISOLATION: chroot
+  script:
+    - echo "Buildando $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+    # Atenção: o Dockerfile do frontend espera o contexto na pasta frontend/
+    # MAS precisa do nginx-frontend.conf que está em deploy/staging/.
+    # Por isso copiamos antes do build.
+    - cp deploy/staging/nginx-frontend.conf frontend/nginx-frontend.conf
+    - buildah bud
+        -f deploy/staging/Dockerfile.frontend
+        -t $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA
+        -t $FRONTEND_IMAGE:staging-latest
+        frontend/
+    - buildah login --username $REGISTRY_USER --password $REGISTRY_PASSWORD $IMAGE_REGISTRY
+    - buildah push $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA
+    - buildah push $FRONTEND_IMAGE:staging-latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^staging\//'
+      when: manual
+  tags:
+    - openshift-builder
+
+# ============================================================
+# Deploy em staging (backend + frontend)
+# Manual: exige aprovação humana (when: manual).
+# ============================================================
+deploy:staging:
+  stage: deploy
+  image: quay.io/openshift/origin-cli:latest
+  needs:
+    - job: build:backend:staging
+    - job: build:frontend:staging
+  script:
+    - oc login --token=$OC_TOKEN_STAGING --server=$OC_SERVER_STAGING
+    - oc project $OC_NAMESPACE_STAGING
+
+    # Backend: substituir placeholders e aplicar
+    - sed -e "s|<<NAMESPACE>>|$OC_NAMESPACE_STAGING|g"
+          -e "s|<<IMAGE_BACKEND>>|$BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA|g"
+          -e "s|<<DB_HOST>>|$DB_HOST_STAGING|g"
+          -e "s|<<DB_NAME>>|$DB_NAME_STAGING|g"
+          -e "s|<<KEYCLOAK_URL>>|$KEYCLOAK_URL_STAGING|g"
+          -e "s|<<KEYCLOAK_REALM>>|$KEYCLOAK_REALM_STAGING|g"
+          -e "s|<<KEYCLOAK_CLIENT_ID>>|$KEYCLOAK_CLIENT_ID_STAGING|g"
+          -e "s|<<FRONTEND_URL>>|$FRONTEND_URL_STAGING|g"
+          deploy/staging/openshift-backend.yaml | oc apply -f -
+
+    # Frontend: substituir placeholders e aplicar
+    - sed -e "s|<<NAMESPACE>>|$OC_NAMESPACE_STAGING|g"
+          -e "s|<<IMAGE_FRONTEND>>|$FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA|g"
+          -e "s|<<HOST>>|$HOST_STAGING|g"
+          deploy/staging/openshift-frontend.yaml | oc apply -f -
+
+    - oc rollout status deployment/kaizen-backend  --timeout=180s
+    - oc rollout status deployment/kaizen-frontend --timeout=120s
+    - oc get routes,svc,pods -l component=monorepo
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  environment:
+    name: staging
+    url: https://$HOST_STAGING
+  tags:
+    - openshift-builder
+
+# Variables a configurar nas CI/CD Settings do projeto:
+#   IMAGE_REGISTRY                — host:porta do registry interno do OpenShift
+#   REGISTRY_USER / REGISTRY_PASSWORD — credenciais de push
+#   OC_TOKEN_STAGING              — service account token (PROTECTED)
+#   OC_SERVER_STAGING             — URL do master do cluster
+#   OC_NAMESPACE_STAGING          — namespace de staging
+#   DB_HOST_STAGING, DB_NAME_STAGING
+#   KEYCLOAK_URL_STAGING, KEYCLOAK_REALM_STAGING, KEYCLOAK_CLIENT_ID_STAGING
+#   FRONTEND_URL_STAGING          — usado pelo backend p/ SSO callback
+#   HOST_STAGING                  — hostname público (ex: kaizen-stag.apps.ocp-prd.tjgo.jus.br)
