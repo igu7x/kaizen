@@ -37,9 +37,27 @@
 
 ### O que NÃO está aqui
 
-- Provisionamento de Postgres (assume que vocês têm staging ou usam o mesmo do TJGO).
+- Provisionamento de Postgres (ver seção "Banco de dados" abaixo).
 - Provisionamento do Keycloak (assume que já existe).
 - Apontamento de DNS (a Route já cuida disso, mas talvez precisem de CNAME).
+
+### Banco de dados — pode reusar o staging do Kaizen Node atual
+
+O backend Java do monorepo é **porte fiel** do backend Node em paridade
+byte-a-byte (11 sprints de migração + contract tests verdes). Use o **mesmo
+Postgres** de staging que o Kaizen Node atual usa — é o caminho mais rápido:
+
+- A única alteração de schema introduzida pelo monorepo é a migration
+  `backend/sql/migrations/151_permissoes_tap.sql`, que **só adiciona** uma
+  tabela nova (`permissoes_tap`). Não renomeia nem remove nada que o Node
+  precise. Aplicar essa migration no banco compartilhado é seguro para o Node.
+- Compartilhar o banco evita o trabalho de criar um Postgres novo e fazer
+  `pg_dump`/restore para repopular com dados de teste.
+
+Se em algum momento o monorepo introduzir uma migration que **altere ou
+remova** estrutura existente (não é o caso hoje), aí sim será necessário um
+Postgres separado. Por ora, basta apontar `DB_HOST_STAGING` / `DB_NAME_STAGING`
+para o staging atual.
 
 ---
 
