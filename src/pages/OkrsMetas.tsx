@@ -56,6 +56,14 @@ const SITUATION_COLORS: Record<string, string> = {
   FINALIZADO: 'bg-blue-100 text-blue-700',
 };
 
+const formatPrazo = (value: string) => {
+  let val = value.replace(/\D/g, '');
+  if (val.length > 2) {
+    val = val.substring(0, 2) + '/' + val.substring(2, 6);
+  }
+  return val;
+};
+
 export default function OkrsMetas() {
   const { toast } = useToast();
   const { modelo, setModelo } = useEstrategiaModelo();
@@ -228,6 +236,12 @@ export default function OkrsMetas() {
       toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
       return;
     }
+
+    const prazoRegex = /^(0[1-9]|1[0-2])\/\d{4}$/;
+    if (krForm.deadline && !prazoRegex.test(krForm.deadline)) {
+      toast({ title: 'Formato inválido', description: 'O prazo deve estar no formato válido MM/YYYY (ex: 07/2026).', variant: 'destructive' });
+      return;
+    }
     try {
       if (krEditMode && editingKr) {
         await api.updateKeyResult(editingKr.id, {
@@ -291,6 +305,12 @@ export default function OkrsMetas() {
   const handleSaveMeta = async () => {
     if (!metaForm.titulo || !metaForm.areaId) {
       toast({ title: 'Preencha título e área responsável', variant: 'destructive' });
+      return;
+    }
+
+    const prazoRegex = /^(0[1-9]|1[0-2])\/\d{4}$/;
+    if (metaForm.prazo && !prazoRegex.test(metaForm.prazo)) {
+      toast({ title: 'Formato inválido', description: 'O prazo deve estar no formato válido MM/YYYY (ex: 07/2026).', variant: 'destructive' });
       return;
     }
     try {
@@ -678,7 +698,7 @@ export default function OkrsMetas() {
             </div>
             <div>
               <Label>Prazo</Label>
-              <Input placeholder="Ex: julho - 2026" value={krForm.deadline} onChange={e => setKrForm(f => ({ ...f, deadline: e.target.value }))} />
+              <Input placeholder="Ex: 07/2026" value={krForm.deadline} onChange={e => setKrForm(f => ({ ...f, deadline: formatPrazo(e.target.value) }))} maxLength={7} />
             </div>
             <div>
               <Label>Diretoria *</Label>
@@ -750,7 +770,7 @@ export default function OkrsMetas() {
             </div>
             <div>
               <Label>Prazo *</Label>
-              <Input placeholder="Ex: julho - 2026" value={metaForm.prazo} onChange={e => setMetaForm(f => ({ ...f, prazo: e.target.value }))} />
+              <Input placeholder="Ex: 07/2026" value={metaForm.prazo} onChange={e => setMetaForm(f => ({ ...f, prazo: formatPrazo(e.target.value) }))} maxLength={7} />
             </div>
           </div>
           <DialogFooter>
