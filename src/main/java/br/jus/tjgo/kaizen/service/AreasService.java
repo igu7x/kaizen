@@ -116,12 +116,12 @@ public class AreasService {
                         "nome = COALESCE(?, nome), sigla = COALESCE(?, sigla), subordinacao = COALESCE(?, subordinacao), " +
                         "gestor = COALESCE(?, gestor), " +
                         "gestor_user_id = CASE WHEN ?::INTEGER IS NOT NULL THEN ?::INTEGER " +
-                        "WHEN ? IS NOT NULL THEN (SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1) " +
+                        "WHEN ?::VARCHAR IS NOT NULL THEN (SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1) " +
                         "ELSE gestor_user_id END, " +
                         "cargo_gestor = COALESCE(?, cargo_gestor), foto_gestor = COALESCE(?, foto_gestor), " +
                         "subdiretor = COALESCE(?, subdiretor), " +
                         "subdiretor_user_id = CASE WHEN ?::INTEGER IS NOT NULL THEN ?::INTEGER " +
-                        "WHEN ? IS NOT NULL THEN (SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1) " +
+                        "WHEN ?::VARCHAR IS NOT NULL THEN (SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1) " +
                         "ELSE subdiretor_user_id END, " +
                         "cargo_subdiretor = COALESCE(?, cargo_subdiretor), foto_subdiretor = COALESCE(?, foto_subdiretor), " +
                         "gerido_por_unidade_superior = COALESCE(?, gerido_por_unidade_superior), " +
