@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    POM de agregação do monorepo Kaizen.
+
+    O backend Java vive em backend/pom.xml; este arquivo na raiz existe só
+    para que `mvn package` rodando na raiz do repositório funcione, delegando
+    o build pro módulo backend.
+
+    Isso é necessário porque o build da infra (GitLab CI / Tekton) clona o
+    repositório em /workspace/source e roda Maven dali. Sem este pom raiz,
+    o Maven não acha o backend/pom.xml e falha com "no POM in this directory".
+
+    Como buildar localmente o backend (continua funcionando como antes):
+        cd backend && mvn package -DskipTests
+
+    Como buildar a partir da raiz (pipeline da infra):
+        mvn package -DskipTests
+        # gera backend/target/kaizen-api-java-1.0.0.jar
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>br.jus.tjgo.kaizen</groupId>
+    <artifactId>kaizen-monorepo</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>Kaizen Monorepo</name>
+    <description>Agregador Maven do monorepo Kaizen (frontend React + backend Java/Spring Boot)</description>
+
+    <modules>
+        <module>backend</module>
+    </modules>
+</project>
