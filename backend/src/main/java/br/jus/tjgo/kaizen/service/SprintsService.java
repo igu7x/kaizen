@@ -84,17 +84,17 @@ public class SprintsService {
                 "LEFT JOIN ( " +
                 "  SELECT t.sprint_id, COUNT(DISTINCT t.id)::integer as total, " +
                 "  COUNT(DISTINCT t.id) FILTER (WHERE t.status = 'feito')::integer as concluidas " +
-                "  FROM contratos_projetos_entregas_tarefas t " +
-                "  INNER JOIN contratos_projetos_entregas e ON t.entrega_id = e.id " +
-                "  INNER JOIN contratos_projetos p ON e.projeto_id = p.id " +
+                "  FROM cadastros_projetos_entregas_tarefas t " +
+                "  INNER JOIN cadastros_projetos_entregas e ON t.entrega_id = e.id " +
+                "  INNER JOIN cadastros_projetos p ON e.projeto_id = p.id " +
                 "  WHERE " + String.join(" AND ", tCond) +
                 "  GROUP BY t.sprint_id " +
                 ") tarefas ON tarefas.sprint_id = s.id " +
                 "LEFT JOIN ( " +
                 "  SELECT t.remanejada_de_sprint_id, COUNT(DISTINCT t.id)::integer as total " +
-                "  FROM contratos_projetos_entregas_tarefas t " +
-                "  INNER JOIN contratos_projetos_entregas e ON t.entrega_id = e.id " +
-                "  INNER JOIN contratos_projetos p ON e.projeto_id = p.id " +
+                "  FROM cadastros_projetos_entregas_tarefas t " +
+                "  INNER JOIN cadastros_projetos_entregas e ON t.entrega_id = e.id " +
+                "  INNER JOIN cadastros_projetos p ON e.projeto_id = p.id " +
                 "  WHERE " + String.join(" AND ", rCond) +
                 "  GROUP BY t.remanejada_de_sprint_id " +
                 ") remanejadas ON remanejadas.remanejada_de_sprint_id = s.id " +
@@ -129,9 +129,9 @@ public class SprintsService {
         var tarefas = jdbc.queryForList(
                 "SELECT t.id, t.nome, t.responsavel, t.status, t.entrega_id, e.nome as entrega_nome, " +
                         "p.id as projeto_id, p.nome as projeto_nome " +
-                        "FROM contratos_projetos_entregas_tarefas t " +
-                        "INNER JOIN contratos_projetos_entregas e ON t.entrega_id = e.id " +
-                        "INNER JOIN contratos_projetos p ON e.projeto_id = p.id " +
+                        "FROM cadastros_projetos_entregas_tarefas t " +
+                        "INNER JOIN cadastros_projetos_entregas e ON t.entrega_id = e.id " +
+                        "INNER JOIN cadastros_projetos p ON e.projeto_id = p.id " +
                         "WHERE " + String.join(" AND ", conds) + " ORDER BY t.ordem, t.id",
                 params.toArray());
 
@@ -174,7 +174,7 @@ public class SprintsService {
             if (!proximaRows.isEmpty()) {
                 Map<String, Object> proxima = proximaRows.get(0);
                 var remanejadas = jdbc.queryForList(
-                        "UPDATE contratos_projetos_entregas_tarefas " +
+                        "UPDATE cadastros_projetos_entregas_tarefas " +
                                 "SET sprint_id = ?, remanejada_de_sprint_id = ?, " +
                                 "nome = CASE WHEN nome NOT LIKE '%(remanejada)%' THEN nome || ' (remanejada)' ELSE nome END, " +
                                 "updated_at = NOW() " +
@@ -216,7 +216,7 @@ public class SprintsService {
             Map<String, Object> contagem = jdbc.queryForMap(
                     "SELECT COUNT(t.id)::integer as total, " +
                             "COUNT(t.id) FILTER (WHERE t.status = 'feito')::integer as concluidas " +
-                            "FROM contratos_projetos_entregas_tarefas t " +
+                            "FROM cadastros_projetos_entregas_tarefas t " +
                             "WHERE t.ativo = TRUE AND t.sprint_id = ?", sid);
             int total = ((Number) contagem.get("total")).intValue();
             int concluidas = ((Number) contagem.get("concluidas")).intValue();
@@ -279,16 +279,16 @@ public class SprintsService {
         diagnostico.put("resumo", jdbc.queryForMap(
                 "SELECT " +
                         "(SELECT COUNT(*)::text FROM sprints WHERE ativo = TRUE) as total_sprints, " +
-                        "(SELECT COUNT(*)::text FROM contratos_projetos_entregas_tarefas WHERE ativo = TRUE) as total_tarefas, " +
-                        "(SELECT COUNT(*)::text FROM contratos_projetos_entregas_tarefas WHERE ativo = TRUE AND sprint_id IS NOT NULL) as tarefas_com_sprint, " +
-                        "(SELECT COUNT(*)::text FROM contratos_projetos_entregas_tarefas WHERE ativo = TRUE AND sprint_id IS NULL) as tarefas_sem_sprint"));
+                        "(SELECT COUNT(*)::text FROM cadastros_projetos_entregas_tarefas WHERE ativo = TRUE) as total_tarefas, " +
+                        "(SELECT COUNT(*)::text FROM cadastros_projetos_entregas_tarefas WHERE ativo = TRUE AND sprint_id IS NOT NULL) as tarefas_com_sprint, " +
+                        "(SELECT COUNT(*)::text FROM cadastros_projetos_entregas_tarefas WHERE ativo = TRUE AND sprint_id IS NULL) as tarefas_sem_sprint"));
 
         diagnostico.put("sprints_com_tarefas", jdbc.queryForList(
                 "SELECT s.id as sprint_id, s.numero, s.nome, s.status, " +
                         "COUNT(t.id)::text as total_tarefas, " +
                         "COUNT(t.id) FILTER (WHERE t.status = 'feito')::text as tarefas_concluidas " +
                         "FROM sprints s " +
-                        "LEFT JOIN contratos_projetos_entregas_tarefas t ON t.sprint_id = s.id AND t.ativo = TRUE " +
+                        "LEFT JOIN cadastros_projetos_entregas_tarefas t ON t.sprint_id = s.id AND t.ativo = TRUE " +
                         "WHERE s.ativo = TRUE GROUP BY s.id, s.numero, s.nome, s.status " +
                         "HAVING COUNT(t.id) > 0 ORDER BY s.numero LIMIT 20"));
 
@@ -297,9 +297,9 @@ public class SprintsService {
                     "SELECT t.id, t.nome, t.status, t.sprint_id, t.entrega_id, t.ativo, t.created_at, t.updated_at, " +
                             "e.nome as entrega_nome, e.ativo as entrega_ativa, " +
                             "p.id as projeto_id, p.nome as projeto_nome, p.ativo as projeto_ativo " +
-                            "FROM contratos_projetos_entregas_tarefas t " +
-                            "LEFT JOIN contratos_projetos_entregas e ON t.entrega_id = e.id " +
-                            "LEFT JOIN contratos_projetos p ON e.projeto_id = p.id " +
+                            "FROM cadastros_projetos_entregas_tarefas t " +
+                            "LEFT JOIN cadastros_projetos_entregas e ON t.entrega_id = e.id " +
+                            "LEFT JOIN cadastros_projetos p ON e.projeto_id = p.id " +
                             "WHERE t.sprint_id = ? ORDER BY t.created_at DESC LIMIT 50", sprintId));
         }
 
@@ -308,16 +308,16 @@ public class SprintsService {
                     "SELECT t.*, e.nome as entrega_nome, e.ativo as entrega_ativa, " +
                             "p.id as projeto_id, p.nome as projeto_nome, p.ativo as projeto_ativo, " +
                             "s.nome as sprint_nome, s.numero as sprint_numero, s.status as sprint_status " +
-                            "FROM contratos_projetos_entregas_tarefas t " +
-                            "LEFT JOIN contratos_projetos_entregas e ON t.entrega_id = e.id " +
-                            "LEFT JOIN contratos_projetos p ON e.projeto_id = p.id " +
+                            "FROM cadastros_projetos_entregas_tarefas t " +
+                            "LEFT JOIN cadastros_projetos_entregas e ON t.entrega_id = e.id " +
+                            "LEFT JOIN cadastros_projetos p ON e.projeto_id = p.id " +
                             "LEFT JOIN sprints s ON t.sprint_id = s.id WHERE t.id = ?", tarefaId);
             diagnostico.put("tarefa_detalhes", rows.isEmpty() ? null : rows.get(0));
         }
 
         diagnostico.put("ultimas_tarefas_modificadas", jdbc.queryForList(
                 "SELECT t.id, t.nome, t.status, t.sprint_id, t.ativo, t.created_at, t.updated_at, s.nome as sprint_nome " +
-                        "FROM contratos_projetos_entregas_tarefas t " +
+                        "FROM cadastros_projetos_entregas_tarefas t " +
                         "LEFT JOIN sprints s ON t.sprint_id = s.id " +
                         "ORDER BY GREATEST(t.created_at, t.updated_at) DESC LIMIT 10"));
 
@@ -328,10 +328,10 @@ public class SprintsService {
         String totalSprints = jdbc.queryForObject(
                 "SELECT COUNT(*)::text FROM sprints WHERE ativo = TRUE", String.class);
         String totalTarefasComSprint = jdbc.queryForObject(
-                "SELECT COUNT(*)::text FROM contratos_projetos_entregas_tarefas WHERE sprint_id IS NOT NULL AND ativo = TRUE",
+                "SELECT COUNT(*)::text FROM cadastros_projetos_entregas_tarefas WHERE sprint_id IS NOT NULL AND ativo = TRUE",
                 String.class);
         var tarefasPorSprint = jdbc.queryForList(
-                "SELECT sprint_id, COUNT(*)::text as count FROM contratos_projetos_entregas_tarefas " +
+                "SELECT sprint_id, COUNT(*)::text as count FROM cadastros_projetos_entregas_tarefas " +
                         "WHERE sprint_id IS NOT NULL AND ativo = TRUE GROUP BY sprint_id ORDER BY sprint_id");
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("total_sprints", totalSprints);
