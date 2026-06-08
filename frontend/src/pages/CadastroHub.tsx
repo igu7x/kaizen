@@ -14,7 +14,7 @@ const cadastroItems = [
     title: 'Projetos',
     description: 'Todos os projetos cadastrados no sistema.',
     icon: FolderKanban,
-    path: '/contratos/projetos',
+    path: '/cadastros/projetos',
   },
   {
     title: 'Áreas',

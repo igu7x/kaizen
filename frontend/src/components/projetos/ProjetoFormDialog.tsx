@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  contratosProjetosApi,
+  cadastrosProjetosApi,
   Projeto,
   CreateProjetoDto,
   Colaborador,
@@ -40,7 +40,7 @@ import {
   CreateEntregaDto,
   CreateRiscoDto,
   CreateEntraveDto,
-} from '@/services/contratosProjetosApi';
+} from '@/services/cadastrosProjetosApi';
 import { planosProgramasApi, InstrumentoAncoragem } from '@/services/planosProgramasApi';
 import { areasApi, Area as AreaDiretoria, Unidade } from '@/services/areasApi';
 import { validateTAPFields, generateTAPPdf } from '@/utils/generateTAP';
@@ -215,13 +215,13 @@ export function ProjetoFormDialog({
     if (!open || auxLoaded) return;
     const loadAuxiliares = async () => {
       try {
-        const colabs = await contratosProjetosApi.getColaboradores(diretoria);
+        const colabs = await cadastrosProjetosApi.getColaboradores(diretoria);
         setColaboradores(colabs);
       } catch (e) {
         console.error('Erro ao carregar colaboradores:', e);
       }
       try {
-        const areasData = await contratosProjetosApi.getAreas(diretoria);
+        const areasData = await cadastrosProjetosApi.getAreas(diretoria);
         setAreas(areasData);
       } catch (e) {
         console.error('Erro ao carregar áreas:', e);
@@ -256,7 +256,7 @@ export function ProjetoFormDialog({
     if (projetoId && (mode === 'edit' || mode === 'view')) {
       const loadProjeto = async () => {
         try {
-          const projetoCompleto = await contratosProjetosApi.getProjetoById(projetoId);
+          const projetoCompleto = await cadastrosProjetosApi.getProjetoById(projetoId);
           setSelectedProjeto(projetoCompleto);
           setFormData({
             codigo: projetoCompleto.codigo || '',
@@ -468,8 +468,8 @@ export function ProjetoFormDialog({
     if (!selectedProjeto) return;
     setValidandoCamadaTAP(camada);
     try {
-      await contratosProjetosApi.validarTAP(selectedProjeto.id, camada);
-      const updated = await contratosProjetosApi.getProjetoById(selectedProjeto.id);
+      await cadastrosProjetosApi.validarTAP(selectedProjeto.id, camada);
+      const updated = await cadastrosProjetosApi.getProjetoById(selectedProjeto.id);
       setSelectedProjeto(updated);
       const labels = ['', 'Gestor', 'Diretor', 'Patrocinador'];
       toast({
@@ -494,7 +494,7 @@ export function ProjetoFormDialog({
     setVersoesDialogOpen(true);
     setLoadingVersoes(true);
     try {
-      const data = await contratosProjetosApi.getTapVersoes(selectedProjeto.id);
+      const data = await cadastrosProjetosApi.getTapVersoes(selectedProjeto.id);
       setVersoes(data);
     } catch (err: any) {
       toast({ title: 'Erro', description: err?.message || 'Erro ao carregar versões', variant: 'destructive' });
@@ -507,7 +507,7 @@ export function ProjetoFormDialog({
     if (!selectedProjeto) return;
     setLoadingPdfVersao(versao);
     try {
-      const dados = await contratosProjetosApi.getTapVersaoDados(selectedProjeto.id, versao);
+      const dados = await cadastrosProjetosApi.getTapVersaoDados(selectedProjeto.id, versao);
       await generateTAPPdf(dados);
     } catch (err: any) {
       toast({ title: 'Erro', description: err?.message || 'Erro ao gerar PDF da versão', variant: 'destructive' });
@@ -520,8 +520,8 @@ export function ProjetoFormDialog({
     if (!selectedProjeto || !recusaCamada) return;
     setRecusandoTAP(true);
     try {
-      await contratosProjetosApi.recusarTAP(selectedProjeto.id, recusaCamada, recusaComentario.trim() || null);
-      const updated = await contratosProjetosApi.getProjetoById(selectedProjeto.id);
+      await cadastrosProjetosApi.recusarTAP(selectedProjeto.id, recusaCamada, recusaComentario.trim() || null);
+      const updated = await cadastrosProjetosApi.getProjetoById(selectedProjeto.id);
       setSelectedProjeto(updated);
       toast({ title: 'TAP recusado. O gestor foi notificado para ajustar e revalidar.' });
       onSaved?.(updated);
@@ -608,13 +608,13 @@ export function ProjetoFormDialog({
 
       let projetoSalvo: Projeto;
       if (mode === 'create') {
-        projetoSalvo = await contratosProjetosApi.createProjeto(dataToSend);
+        projetoSalvo = await cadastrosProjetosApi.createProjeto(dataToSend);
         toast({ title: 'Sucesso', description: 'Projeto criado com sucesso!' });
         onSaved?.(projetoSalvo);
         onOpenChange(false); // create finalizado — fecha o dialog
       } else if (mode === 'edit' && selectedProjeto) {
-        await contratosProjetosApi.updateProjeto(selectedProjeto.id, dataToSend);
-        projetoSalvo = await contratosProjetosApi.getProjetoById(selectedProjeto.id);
+        await cadastrosProjetosApi.updateProjeto(selectedProjeto.id, dataToSend);
+        projetoSalvo = await cadastrosProjetosApi.getProjetoById(selectedProjeto.id);
         setSelectedProjeto(projetoSalvo);
         toast({ title: 'Sucesso', description: 'Projeto atualizado com sucesso!' });
         onSaved?.(projetoSalvo);

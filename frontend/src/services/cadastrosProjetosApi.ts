@@ -309,28 +309,28 @@ export interface CreateEntraveDto {
 // API
 // ============================================================
 
-export const contratosProjetosApi = {
+export const cadastrosProjetosApi = {
   // Projetos
   async getProjetos(diretoria?: string): Promise<Projeto[]> {
-    const response = await authFetch('/api/contratos/projetos', { diretoria });
+    const response = await authFetch('/api/cadastros/projetos', { diretoria });
     if (!response.ok) throw new Error('Erro ao buscar projetos');
     return response.json();
   },
 
   async getProjetoById(id: number): Promise<Projeto> {
-    const response = await authFetch(`/api/contratos/projetos/${id}`);
+    const response = await authFetch(`/api/cadastros/projetos/${id}`);
     if (!response.ok) throw new Error('Erro ao buscar projeto');
     return response.json();
   },
 
   async getProjetosByInstrumentoId(instrumentoId: number, diretoria?: string): Promise<Projeto[]> {
-    const response = await authFetch(`/api/contratos/projetos/instrumento/${instrumentoId}`, { diretoria });
+    const response = await authFetch(`/api/cadastros/projetos/instrumento/${instrumentoId}`, { diretoria });
     if (!response.ok) throw new Error('Erro ao buscar projetos do instrumento');
     return response.json();
   },
 
   async createProjeto(data: CreateProjetoDto): Promise<Projeto> {
-    const response = await authFetch('/api/contratos/projetos', undefined, {
+    const response = await authFetch('/api/cadastros/projetos', undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -340,7 +340,7 @@ export const contratosProjetosApi = {
   },
 
   async updateProjeto(id: number, data: Partial<CreateProjetoDto>): Promise<Projeto> {
-    const response = await authFetch(`/api/contratos/projetos/${id}`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${id}`, undefined, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -350,31 +350,31 @@ export const contratosProjetosApi = {
   },
 
   async gerarTapId(id: number): Promise<Projeto> {
-    const response = await authFetch(`/api/contratos/projetos/${id}/gerar-tap`, undefined, { method: 'POST' });
+    const response = await authFetch(`/api/cadastros/projetos/${id}/gerar-tap`, undefined, { method: 'POST' });
     if (!response.ok) throw new Error('Erro ao gerar TAP ID');
     return response.json();
   },
 
   async regenerarTap(id: number): Promise<Projeto> {
-    const response = await authFetch(`/api/contratos/projetos/${id}/regenerar-tap`, undefined, { method: 'POST' });
+    const response = await authFetch(`/api/cadastros/projetos/${id}/regenerar-tap`, undefined, { method: 'POST' });
     if (!response.ok) throw new Error('Erro ao regenerar TAP');
     return response.json();
   },
 
   async deleteProjeto(id: number): Promise<void> {
-    const response = await authFetch(`/api/contratos/projetos/${id}`, undefined, { method: 'DELETE' });
+    const response = await authFetch(`/api/cadastros/projetos/${id}`, undefined, { method: 'DELETE' });
     if (!response.ok) throw new Error('Erro ao excluir projeto');
   },
 
   // Entregas
   async getEntregas(projetoId: number): Promise<Entrega[]> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/entregas`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/entregas`);
     if (!response.ok) throw new Error('Erro ao buscar entregas');
     return response.json();
   },
 
   async createEntrega(projetoId: number, data: CreateEntregaDto): Promise<Entrega> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/entregas`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/entregas`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -384,7 +384,7 @@ export const contratosProjetosApi = {
   },
 
   async updateEntrega(id: number, data: Partial<CreateEntregaDto>): Promise<Entrega> {
-    const response = await authFetch(`/api/contratos/entregas/${id}`, undefined, {
+    const response = await authFetch(`/api/cadastros/entregas/${id}`, undefined, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -394,7 +394,7 @@ export const contratosProjetosApi = {
   },
 
   async deleteEntrega(id: number): Promise<void> {
-    const response = await authFetch(`/api/contratos/entregas/${id}`, undefined, { method: 'DELETE' });
+    const response = await authFetch(`/api/cadastros/entregas/${id}`, undefined, { method: 'DELETE' });
     if (!response.ok) throw new Error('Erro ao excluir entrega');
   },
 
@@ -402,7 +402,7 @@ export const contratosProjetosApi = {
   async uploadEvidencia(entregaId: number, file: File): Promise<{ success: boolean; filename: string; filesize: number }> {
     const formData = new FormData();
     formData.append('evidencia', file);
-    const response = await authFetch(`/api/contratos/entregas/${entregaId}/upload-evidencia`, undefined, {
+    const response = await authFetch(`/api/cadastros/entregas/${entregaId}/upload-evidencia`, undefined, {
       method: 'POST',
       body: formData,
     });
@@ -411,23 +411,23 @@ export const contratosProjetosApi = {
   },
 
   getEvidenciaDownloadUrl(entregaId: number): string {
-    return `${API_URL}/api/contratos/entregas/${entregaId}/download-evidencia`;
+    return `${API_URL}/api/cadastros/entregas/${entregaId}/download-evidencia`;
   },
 
   async deleteEvidencia(entregaId: number): Promise<void> {
-    const response = await authFetch(`/api/contratos/entregas/${entregaId}/evidencia`, undefined, { method: 'DELETE' });
+    const response = await authFetch(`/api/cadastros/entregas/${entregaId}/evidencia`, undefined, { method: 'DELETE' });
     if (!response.ok) throw new Error('Erro ao remover evidência');
   },
 
   // Tarefas de Entregas
   async getTarefasEntrega(entregaId: number): Promise<TarefaEntrega[]> {
-    const response = await authFetch(`/api/contratos/entregas/${entregaId}/tarefas`);
+    const response = await authFetch(`/api/cadastros/entregas/${entregaId}/tarefas`);
     if (!response.ok) throw new Error('Erro ao buscar tarefas');
     return response.json();
   },
 
   async createTarefaEntrega(entregaId: number, data: CreateTarefaEntregaDto): Promise<TarefaEntrega> {
-    const response = await authFetch(`/api/contratos/entregas/${entregaId}/tarefas`, undefined, {
+    const response = await authFetch(`/api/cadastros/entregas/${entregaId}/tarefas`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -437,7 +437,7 @@ export const contratosProjetosApi = {
   },
 
   async updateTarefaEntrega(id: number, data: Partial<CreateTarefaEntregaDto>): Promise<TarefaEntrega> {
-    const response = await authFetch(`/api/contratos/tarefas/${id}`, undefined, {
+    const response = await authFetch(`/api/cadastros/tarefas/${id}`, undefined, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -447,19 +447,19 @@ export const contratosProjetosApi = {
   },
 
   async deleteTarefaEntrega(id: number): Promise<void> {
-    const response = await authFetch(`/api/contratos/tarefas/${id}`, undefined, { method: 'DELETE' });
+    const response = await authFetch(`/api/cadastros/tarefas/${id}`, undefined, { method: 'DELETE' });
     if (!response.ok) throw new Error('Erro ao excluir tarefa');
   },
 
   // Riscos
   async getRiscos(projetoId: number): Promise<Risco[]> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/riscos`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/riscos`);
     if (!response.ok) throw new Error('Erro ao buscar riscos');
     return response.json();
   },
 
   async createRisco(projetoId: number, data: CreateRiscoDto): Promise<Risco> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/riscos`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/riscos`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -469,7 +469,7 @@ export const contratosProjetosApi = {
   },
 
   async updateRisco(id: number, data: Partial<CreateRiscoDto>): Promise<Risco> {
-    const response = await authFetch(`/api/contratos/riscos/${id}`, undefined, {
+    const response = await authFetch(`/api/cadastros/riscos/${id}`, undefined, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -479,19 +479,19 @@ export const contratosProjetosApi = {
   },
 
   async deleteRisco(id: number): Promise<void> {
-    const response = await authFetch(`/api/contratos/riscos/${id}`, undefined, { method: 'DELETE' });
+    const response = await authFetch(`/api/cadastros/riscos/${id}`, undefined, { method: 'DELETE' });
     if (!response.ok) throw new Error('Erro ao excluir risco');
   },
 
   // Entraves
   async getEntraves(projetoId: number): Promise<Entrave[]> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/entraves`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/entraves`);
     if (!response.ok) throw new Error('Erro ao buscar entraves');
     return response.json();
   },
 
   async createEntrave(projetoId: number, data: CreateEntraveDto): Promise<Entrave> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/entraves`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/entraves`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -501,7 +501,7 @@ export const contratosProjetosApi = {
   },
 
   async updateEntrave(id: number, data: Partial<CreateEntraveDto> & { resolvido?: boolean }): Promise<Entrave> {
-    const response = await authFetch(`/api/contratos/entraves/${id}`, undefined, {
+    const response = await authFetch(`/api/cadastros/entraves/${id}`, undefined, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -511,26 +511,26 @@ export const contratosProjetosApi = {
   },
 
   async deleteEntrave(id: number): Promise<void> {
-    const response = await authFetch(`/api/contratos/entraves/${id}`, undefined, { method: 'DELETE' });
+    const response = await authFetch(`/api/cadastros/entraves/${id}`, undefined, { method: 'DELETE' });
     if (!response.ok) throw new Error('Erro ao excluir entrave');
   },
 
   // Auxiliares
   async getColaboradores(diretoria?: string): Promise<Colaborador[]> {
-    const response = await authFetch('/api/contratos/colaboradores', { diretoria });
+    const response = await authFetch('/api/cadastros/colaboradores', { diretoria });
     if (!response.ok) throw new Error('Erro ao buscar colaboradores');
     return response.json();
   },
 
   async getAreas(diretoria?: string): Promise<Area[]> {
-    const response = await authFetch('/api/contratos/areas', { diretoria });
+    const response = await authFetch('/api/cadastros/areas', { diretoria });
     if (!response.ok) throw new Error('Erro ao buscar áreas');
     return response.json();
   },
 
   // TAP Validação
   async validarTAP(projetoId: number, camada: number): Promise<any> {
-    const response = await authFetch(`/api/contratos/${projetoId}/tap/validar/${camada}`, undefined, {
+    const response = await authFetch(`/api/cadastros/${projetoId}/tap/validar/${camada}`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -542,31 +542,31 @@ export const contratosProjetosApi = {
   },
 
   async getTapVersoes(projetoId: number): Promise<Array<{ id: number; projeto_id: number; versao: number; validado_em: string | null; validado_por: number | null; validado_por_nome: string | null; created_at: string }>> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tap/versoes`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tap/versoes`);
     if (!response.ok) throw new Error('Erro ao buscar versões do TAP');
     return response.json();
   },
 
   async getTapVersaoDados(projetoId: number, versao: number): Promise<any> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tap/versoes/${versao}`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tap/versoes/${versao}`);
     if (!response.ok) throw new Error('Erro ao buscar dados da versão');
     return response.json();
   },
 
   async getTepVersoes(projetoId: number): Promise<Array<{ id: number; projeto_id: number; versao: number; validado_em: string | null; validado_por: number | null; validado_por_nome: string | null; created_at: string }>> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep/versoes`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep/versoes`);
     if (!response.ok) throw new Error('Erro ao buscar versões do TEP');
     return response.json();
   },
 
   async getTepVersaoDados(projetoId: number, versao: number): Promise<{ tep: any; projeto: any; entregas: any[] }> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep/versoes/${versao}`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep/versoes/${versao}`);
     if (!response.ok) throw new Error('Erro ao buscar dados da versão');
     return response.json();
   },
 
   async recusarTAP(projetoId: number, camada: number, comentario?: string | null): Promise<any> {
-    const response = await authFetch(`/api/contratos/${projetoId}/tap/recusar/${camada}`, undefined, {
+    const response = await authFetch(`/api/cadastros/${projetoId}/tap/recusar/${camada}`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comentario: comentario || null }),
@@ -579,7 +579,7 @@ export const contratosProjetosApi = {
   },
 
   async revogarValidacaoTAP(projetoId: number, camada: number): Promise<any> {
-    const response = await authFetch(`/api/contratos/${projetoId}/tap/validar/${camada}`, undefined, {
+    const response = await authFetch(`/api/cadastros/${projetoId}/tap/validar/${camada}`, undefined, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -595,13 +595,13 @@ export const contratosProjetosApi = {
   // ============================================================
 
   async getTep(projetoId: number): Promise<Tep | null> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep`);
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep`);
     if (!response.ok) throw new Error('Erro ao buscar TEP');
     return response.json();
   },
 
   async salvarTep(projetoId: number, data: CreateTepDto): Promise<Tep> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -614,7 +614,7 @@ export const contratosProjetosApi = {
   },
 
   async reverterTep(projetoId: number): Promise<void> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep`, undefined, {
       method: 'DELETE',
     });
     if (!response.ok) {
@@ -624,7 +624,7 @@ export const contratosProjetosApi = {
   },
 
   async validarTEP(projetoId: number, camada: number): Promise<any> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep/validar/${camada}`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep/validar/${camada}`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -636,7 +636,7 @@ export const contratosProjetosApi = {
   },
 
   async recusarTEP(projetoId: number, camada: number, comentario?: string | null): Promise<any> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep/recusar/${camada}`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep/recusar/${camada}`, undefined, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comentario: comentario || null }),
@@ -649,7 +649,7 @@ export const contratosProjetosApi = {
   },
 
   async revogarValidacaoTEP(projetoId: number, camada: number): Promise<any> {
-    const response = await authFetch(`/api/contratos/projetos/${projetoId}/tep/validar/${camada}`, undefined, {
+    const response = await authFetch(`/api/cadastros/projetos/${projetoId}/tep/validar/${camada}`, undefined, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });

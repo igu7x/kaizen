@@ -19,8 +19,14 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Porte fiel de contratos-projetos.service.ts (Projetos + Entregas + Tarefas + Riscos +
- * Entraves + Áreas de execução + TAP 3 camadas identity-based).
+ * Service do módulo Cadastros — gerencia Projetos (e seus aninhados: Entregas, Tarefas,
+ * Riscos, Entraves, Áreas de execução) + TAP em 3 camadas identity-based.
+ *
+ * Nome histórico do tipo era ContratosProjetosService (espelhando contratos-projetos.service.ts
+ * do backend Node); renomeado em jun/2026 para refletir o módulo correto (Cadastros).
+ * As tabelas continuam com prefixo contratos_projetos_* por compatibilidade com o Node
+ * durante o período de cutover — nome interno legado, não confundir com o módulo PCA
+ * (Contratações de TI) que é um módulo distinto.
  *
  * Status do projeto: valores brutos preservados (planejado, em_execucao, suspenso, concluido,
  * cancelado). Status manuais (concluido/cancelado/suspenso) são preservados por calcularProgresso.
@@ -28,7 +34,7 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ContratosProjetosService {
+public class CadastrosProjetosService {
 
     private final JdbcTemplate jdbc;
     private final DomainService domainService;

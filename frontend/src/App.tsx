@@ -11,7 +11,7 @@ import AuthCallback from './pages/AuthCallback';
 import Home from './pages/Home';
 import GestaoEstrategica from './pages/GestaoEstrategica';
 import Contratacoes from './pages/Contratacoes';
-import Contratos from './pages/Contratos';
+import Cadastros from './pages/Cadastros';
 import PlanosProgramas from './pages/PlanosProgramas';
 import Areas from './pages/Areas';
 import Pessoas from './pages/Pessoas';
@@ -261,20 +261,21 @@ function App() {
                 }
               />
               <Route
-                path="/contratos"
+                path="/cadastros/projetos"
                 element={
                   <ProtectedRoute>
-                    <Navigate to="/contratos/projetos" replace />
+                    <Cadastros />
                   </ProtectedRoute>
                 }
               />
+              {/* Compatibilidade com bookmarks antigos /contratos/* */}
+              <Route
+                path="/contratos"
+                element={<Navigate to="/cadastros/projetos" replace />}
+              />
               <Route
                 path="/contratos/projetos"
-                element={
-                  <ProtectedRoute>
-                    <Contratos />
-                  </ProtectedRoute>
-                }
+                element={<Navigate to="/cadastros/projetos" replace />}
               />
               <Route
                 path="/cadastros/planos-programas"

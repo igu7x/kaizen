@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import type { Projeto, Tep, Entrega } from '../services/contratosProjetosApi';
+import type { Projeto, Tep, Entrega } from '../services/cadastrosProjetosApi';
 import { P_CENT_BASE64 } from './pCentBase64';
 
 // ============================================================
