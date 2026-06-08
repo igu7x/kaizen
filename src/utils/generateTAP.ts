@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import type { Projeto } from '../services/contratosProjetosApi';
+import type { Projeto } from '../services/cadastrosProjetosApi';
 import { P_CENT_BASE64 } from './pCentBase64';
 
 // Validação dos campos obrigatórios do TAP

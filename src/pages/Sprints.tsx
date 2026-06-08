@@ -47,7 +47,7 @@ import { areasApi, Area } from '@/services/areasApi';
 import { Loader2, ChevronsUpDown, Check, Pencil, Trash2, CheckCircle, Plus, MoreHorizontal, User, Calendar, FolderKanban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getSprints, getTodosSprints, Sprint, formatarPeriodoSprint, getLabelStatusSprint, getCorStatusSprint } from '@/services/sprintsApi';
-import { contratosProjetosApi, Projeto, Entrega, TarefaEntrega } from '@/services/contratosProjetosApi';
+import { cadastrosProjetosApi, Projeto, Entrega, TarefaEntrega } from '@/services/cadastrosProjetosApi';
 import { getUsers } from '@/services/api';
 import type { User as UserType } from '@/types';
 import { DirectorateSelector } from '@/components/gestao/DirectorateSelector';
@@ -147,7 +147,7 @@ export default function Sprints() {
   useEffect(() => {
     const loadProjetos = async () => {
       try {
-        const data = await contratosProjetosApi.getProjetos(dirFiltro);
+        const data = await cadastrosProjetosApi.getProjetos(dirFiltro);
         setProjetos(data);
         // Reset filtros de projeto e entrega quando mudar diretoria
         setProjetoFilter('todos');
@@ -176,7 +176,7 @@ export default function Sprints() {
 
       setLoadingEntregas(true);
       try {
-        const projeto = await contratosProjetosApi.getProjetoById(parseInt(projetoFilter));
+        const projeto = await cadastrosProjetosApi.getProjetoById(parseInt(projetoFilter));
         setEntregas(projeto.entregas || []);
         setEntregaFilter('todos');
         setEntregaComboOpen(false);
@@ -259,14 +259,14 @@ export default function Sprints() {
       setLoadingBacklog(true);
       try {
         // Buscar projeto com entregas
-        const projeto = await contratosProjetosApi.getProjetoById(backlogProjetoSelecionado);
+        const projeto = await cadastrosProjetosApi.getProjetoById(backlogProjetoSelecionado);
         const entregasList = projeto.entregas || [];
         setBacklogEntregas(entregasList);
 
         // Buscar todas as tarefas de todas as entregas do projeto
         const todasTarefas: TarefaBacklog[] = [];
         for (const entrega of entregasList) {
-          const tarefas = await contratosProjetosApi.getTarefasEntrega(entrega.id);
+          const tarefas = await cadastrosProjetosApi.getTarefasEntrega(entrega.id);
           tarefas.forEach(tarefa => {
             const sprintInfo = sprintsLista.find(s => s.id === tarefa.sprint_id);
             todasTarefas.push({
@@ -314,14 +314,14 @@ export default function Sprints() {
       setLoadingSprintAtual(true);
       try {
         // Buscar projeto com entregas
-        const projeto = await contratosProjetosApi.getProjetoById(sprintAtualProjetoSelecionado);
+        const projeto = await cadastrosProjetosApi.getProjetoById(sprintAtualProjetoSelecionado);
         const entregasList = projeto.entregas || [];
         setSprintAtualEntregas(entregasList);
 
         // Buscar todas as tarefas de todas as entregas do projeto que estão no sprint atual
         const todasTarefas: TarefaBacklog[] = [];
         for (const entrega of entregasList) {
-          const tarefas = await contratosProjetosApi.getTarefasEntrega(entrega.id);
+          const tarefas = await cadastrosProjetosApi.getTarefasEntrega(entrega.id);
           tarefas
             .filter(tarefa => tarefa.sprint_id === sprintEmExecucao.id)
             .forEach(tarefa => {
@@ -423,7 +423,7 @@ export default function Sprints() {
     if (!draggedTask) return;
 
     try {
-      await contratosProjetosApi.updateTarefaEntrega(draggedTask.id, { status: novoStatus });
+      await cadastrosProjetosApi.updateTarefaEntrega(draggedTask.id, { status: novoStatus });
 
       // Atualizar estado local imediatamente para UX responsiva
       setSprintAtualTarefas(prev =>
@@ -449,14 +449,14 @@ export default function Sprints() {
   // Função para atualizar status da tarefa
   const handleUpdateTarefaStatus = async (tarefaId: number, novoStatus: 'a_fazer' | 'fazendo' | 'feito') => {
     try {
-      await contratosProjetosApi.updateTarefaEntrega(tarefaId, { status: novoStatus });
+      await cadastrosProjetosApi.updateTarefaEntrega(tarefaId, { status: novoStatus });
       // Recarregar tarefas
       if (backlogProjetoSelecionado) {
-        const projeto = await contratosProjetosApi.getProjetoById(backlogProjetoSelecionado);
+        const projeto = await cadastrosProjetosApi.getProjetoById(backlogProjetoSelecionado);
         const entregasList = projeto.entregas || [];
         const todasTarefas: TarefaBacklog[] = [];
         for (const entrega of entregasList) {
-          const tarefas = await contratosProjetosApi.getTarefasEntrega(entrega.id);
+          const tarefas = await cadastrosProjetosApi.getTarefasEntrega(entrega.id);
           tarefas.forEach(tarefa => {
             const sprintInfo = sprintsLista.find(s => s.id === tarefa.sprint_id);
             todasTarefas.push({
@@ -500,7 +500,7 @@ export default function Sprints() {
 
     setSavingEdit(true);
     try {
-      await contratosProjetosApi.updateTarefaEntrega(tarefaEditando.id, {
+      await cadastrosProjetosApi.updateTarefaEntrega(tarefaEditando.id, {
         nome: editForm.nome,
         responsavel: editForm.responsavel || undefined,
         sprint_id: editForm.sprint_id ? parseInt(editForm.sprint_id) : undefined,
@@ -509,11 +509,11 @@ export default function Sprints() {
 
       // Recarregar tarefas
       if (backlogProjetoSelecionado) {
-        const projeto = await contratosProjetosApi.getProjetoById(backlogProjetoSelecionado);
+        const projeto = await cadastrosProjetosApi.getProjetoById(backlogProjetoSelecionado);
         const entregasList = projeto.entregas || [];
         const todasTarefas: TarefaBacklog[] = [];
         for (const entrega of entregasList) {
-          const tarefas = await contratosProjetosApi.getTarefasEntrega(entrega.id);
+          const tarefas = await cadastrosProjetosApi.getTarefasEntrega(entrega.id);
           tarefas.forEach(tarefa => {
             const sprintInfo = sprintsLista.find(s => s.id === tarefa.sprint_id);
             todasTarefas.push({

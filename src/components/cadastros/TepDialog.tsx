@@ -9,11 +9,11 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import {
-  contratosProjetosApi,
+  cadastrosProjetosApi,
   Projeto,
   Entrega,
   Tep,
-} from '@/services/contratosProjetosApi';
+} from '@/services/cadastrosProjetosApi';
 import { generateTEPPdf } from '@/utils/generateTEP';
 
 interface TepDialogProps {
@@ -67,7 +67,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
     setVersoesDialogOpen(true);
     setLoadingVersoes(true);
     try {
-      const data = await contratosProjetosApi.getTepVersoes(projeto.id);
+      const data = await cadastrosProjetosApi.getTepVersoes(projeto.id);
       setVersoes(data);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao carregar versões');
@@ -79,7 +79,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
   const handlePdfVersaoTep = async (versao: number) => {
     setLoadingPdfVersao(versao);
     try {
-      const dados = await contratosProjetosApi.getTepVersaoDados(projeto.id, versao);
+      const dados = await cadastrosProjetosApi.getTepVersaoDados(projeto.id, versao);
       generateTEPPdf(dados.projeto, dados.tep, dados.entregas || []);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao gerar PDF da versão');
@@ -103,8 +103,8 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
     let cancel = false;
     setLoadingExisting(true);
     Promise.all([
-      contratosProjetosApi.getTep(projeto.id).catch(() => null),
-      contratosProjetosApi.getEntregas(projeto.id).catch(() => entregasProp || []),
+      cadastrosProjetosApi.getTep(projeto.id).catch(() => null),
+      cadastrosProjetosApi.getEntregas(projeto.id).catch(() => entregasProp || []),
     ]).then(([tep, entregasFrescas]) => {
       if (cancel) return;
       setTepExistente(tep);
@@ -121,7 +121,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
 
   const recarregarTep = async () => {
     try {
-      const tep = await contratosProjetosApi.getTep(projeto.id);
+      const tep = await cadastrosProjetosApi.getTep(projeto.id);
       setTepExistente(tep);
     } catch { /* ignore */ }
   };
@@ -137,7 +137,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
   const handleValidarCamada = async (camada: number) => {
     setValidandoCamada(camada);
     try {
-      await contratosProjetosApi.validarTEP(projeto.id, camada);
+      await cadastrosProjetosApi.validarTEP(projeto.id, camada);
       const labels = ['', 'Gestor', 'Diretor', 'Patrocinador'];
       toast.success(camada === 3 ? 'TEP Vigente! Validação concluída.' : `TEP validado — Camada ${camada} (${labels[camada]})`);
       await recarregarTep();
@@ -158,7 +158,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
     if (!recusaCamada) return;
     setRecusandoTEP(true);
     try {
-      await contratosProjetosApi.recusarTEP(projeto.id, recusaCamada, recusaComentario.trim() || null);
+      await cadastrosProjetosApi.recusarTEP(projeto.id, recusaCamada, recusaComentario.trim() || null);
       toast.success('TEP recusado. O gestor foi notificado para ajustar e revalidar.');
       await recarregarTep();
       setRecusaDialogOpen(false);
@@ -176,7 +176,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
   const handleDownloadEvidencia = async (entregaId: number, filename: string) => {
     try {
       const token = localStorage.getItem('auth_token') || '';
-      const response = await fetch(`/api/contratos/entregas/${entregaId}/download-evidencia`, {
+      const response = await fetch(`/api/cadastros/entregas/${entregaId}/download-evidencia`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Falha ao baixar');
@@ -200,7 +200,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
     setSaving(true);
     const eraAtualizacao = !!tepExistente;
     try {
-      const tep = await contratosProjetosApi.salvarTep(projeto.id, {
+      const tep = await cadastrosProjetosApi.salvarTep(projeto.id, {
         tipo_encerramento: tipo,
         motivo_cancelamento: tipo === 'cancelado' ? motivo.trim() : undefined,
         consideracoes_gerente: consideracoesGerente.trim() || undefined,

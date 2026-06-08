@@ -108,8 +108,8 @@ export function SprintAtualNovo() {
         console.log('🔍 Projeto selecionado:', { projetoSelecionado, projeto });
 
         if (projeto?.instrumento_id) {
-          const { contratosProjetosApi } = await import('@/services/contratosProjetosApi');
-          const projetoDetalhes = await contratosProjetosApi.getProjetoById(projeto.instrumento_id);
+          const { cadastrosProjetosApi } = await import('@/services/cadastrosProjetosApi');
+          const projetoDetalhes = await cadastrosProjetosApi.getProjetoById(projeto.instrumento_id);
           console.log('📦 Entregas carregadas:', projetoDetalhes.entregas);
           setEntregas(projetoDetalhes.entregas || []);
         } else {

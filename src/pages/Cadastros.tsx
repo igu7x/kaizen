@@ -45,7 +45,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import {
-  contratosProjetosApi,
+  cadastrosProjetosApi,
   Projeto,
   CreateProjetoDto,
   Colaborador,
@@ -55,7 +55,7 @@ import {
   CreateEntraveDto,
   TarefaEntrega,
   CreateTarefaEntregaDto,
-} from '@/services/contratosProjetosApi';
+} from '@/services/cadastrosProjetosApi';
 import { planosProgramasApi, InstrumentoAncoragem } from '@/services/planosProgramasApi';
 import { areasApi, Area as AreaDiretoria, Unidade } from '@/services/areasApi';
 import { generateTAPPdf, validateTAPFields } from '@/utils/generateTAP';
@@ -186,7 +186,7 @@ function getTapStatus(projeto: Projeto): { label: string; color: string; step: n
 // COMPONENTE PRINCIPAL
 // ============================================================
 
-export default function Contratos() {
+export default function Cadastros() {
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -348,7 +348,7 @@ export default function Contratos() {
       setLoading(true);
       // Carregar projetos filtrados pela diretoria selecionada
       // Superadmin/SGJT vê todos os projetos sem filtro de diretoria
-      const data = await contratosProjetosApi.getProjetos(dirFiltro);
+      const data = await cadastrosProjetosApi.getProjetos(dirFiltro);
       setProjetos(data);
     } catch (error) {
       console.error('Erro ao carregar projetos:', error);
@@ -368,7 +368,7 @@ export default function Contratos() {
 
     // Carregar cada recurso independentemente para não falhar tudo se um falhar
     try {
-      const colabs = await contratosProjetosApi.getColaboradores(dirParam);
+      const colabs = await cadastrosProjetosApi.getColaboradores(dirParam);
       console.log('Colaboradores carregados:', colabs.length);
       setColaboradores(colabs);
     } catch (error) {
@@ -376,7 +376,7 @@ export default function Contratos() {
     }
 
     try {
-      const areasData = await contratosProjetosApi.getAreas(dirParam);
+      const areasData = await cadastrosProjetosApi.getAreas(dirParam);
       console.log('Áreas carregadas:', areasData.length);
       setAreas(areasData);
     } catch (error) {
@@ -533,11 +533,11 @@ export default function Contratos() {
 
   const handleUpdateProjectStatus = async (projetoId: number, novoStatus: string) => {
     try {
-      await contratosProjetosApi.updateProjeto(projetoId, { status: novoStatus as any });
+      await cadastrosProjetosApi.updateProjeto(projetoId, { status: novoStatus as any });
       await loadProjetos();
 
       if (viewingProject && viewingProject.id === projetoId) {
-        const projetoAtualizado = await contratosProjetosApi.getProjetoById(projetoId);
+        const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(projetoId);
         setViewingProject(projetoAtualizado);
       }
 
@@ -595,7 +595,7 @@ export default function Contratos() {
     if (projeto && (mode === 'edit' || mode === 'view')) {
       // Buscar projeto completo da API
       try {
-        const projetoCompleto = await contratosProjetosApi.getProjetoById(projeto.id);
+        const projetoCompleto = await cadastrosProjetosApi.getProjetoById(projeto.id);
         setSelectedProjeto(projetoCompleto);
 
         // Preencher formulário
@@ -829,14 +829,14 @@ export default function Contratos() {
 
 
       if (modalMode === 'create') {
-        await contratosProjetosApi.createProjeto(dataToSend);
+        await cadastrosProjetosApi.createProjeto(dataToSend);
         toast({
           title: 'Sucesso',
           description: 'Projeto criado com sucesso!'
         });
       } else if (modalMode === 'edit' && selectedProjeto) {
-        await contratosProjetosApi.updateProjeto(selectedProjeto.id, dataToSend);
-        const projetoAtualizado = await contratosProjetosApi.getProjetoById(selectedProjeto.id);
+        await cadastrosProjetosApi.updateProjeto(selectedProjeto.id, dataToSend);
+        const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(selectedProjeto.id);
 
         // Só atualiza a visualização se a edição veio da tela de visualização
         if (editingFromViewMode) {
@@ -866,7 +866,7 @@ export default function Contratos() {
     if (!confirm('Tem certeza que deseja excluir este projeto?')) return;
 
     try {
-      await contratosProjetosApi.deleteProjeto(id);
+      await cadastrosProjetosApi.deleteProjeto(id);
       toast({
         title: 'Sucesso',
         description: 'Projeto excluído com sucesso!'
@@ -1049,7 +1049,7 @@ export default function Contratos() {
   // Abrir visualização de detalhes do projeto
   const handleViewProject = async (projeto: Projeto) => {
     try {
-      const projetoCompleto = await contratosProjetosApi.getProjetoById(projeto.id);
+      const projetoCompleto = await cadastrosProjetosApi.getProjetoById(projeto.id);
       setViewingProject(projetoCompleto);
       setShowMoreEntregas(false);
     } catch (error) {
@@ -1066,8 +1066,8 @@ export default function Contratos() {
   const handleUpdateProjetoStatus = async (novoStatus: string) => {
     if (!viewingProject) return;
     try {
-      await contratosProjetosApi.updateProjeto(viewingProject.id, { status: novoStatus });
-      const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+      await cadastrosProjetosApi.updateProjeto(viewingProject.id, { status: novoStatus });
+      const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
       setViewingProject(projetoAtualizado);
       loadProjetos();
       toast({
@@ -1088,8 +1088,8 @@ export default function Contratos() {
   const handleUpdateEntregaStatus = async (entregaId: number, novoStatus: string) => {
     if (!viewingProject) return;
     try {
-      await contratosProjetosApi.updateEntrega(entregaId, { status: novoStatus });
-      const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+      await cadastrosProjetosApi.updateEntrega(entregaId, { status: novoStatus });
+      const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
       setViewingProject(projetoAtualizado);
       loadProjetos();
       toast({
@@ -1128,12 +1128,12 @@ export default function Contratos() {
     }
 
     try {
-      await contratosProjetosApi.updateEntrega(entregaEditando.id, {
+      await cadastrosProjetosApi.updateEntrega(entregaEditando.id, {
         nome: editEntregaNome.trim(),
         area_responsavel_id: editEntregaAreaId,
         prazo_estimado: editEntregaPrazo || null
       });
-      const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+      const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
       setViewingProject(projetoAtualizado);
       loadProjetos();
       setModalEditEntregaOpen(false);
@@ -1157,8 +1157,8 @@ export default function Contratos() {
     if (!viewingProject) return;
 
     try {
-      await contratosProjetosApi.deleteEntrega(entregaId);
-      const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+      await cadastrosProjetosApi.deleteEntrega(entregaId);
+      const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
       setViewingProject(projetoAtualizado);
       loadProjetos();
       setModalConfirmDeleteOpen(false);
@@ -1197,7 +1197,7 @@ export default function Contratos() {
     console.log('[DEBUG] loadTarefasEntrega chamado para entrega ID:', entregaId);
     try {
       setLoadingTarefas(true);
-      const tarefas = await contratosProjetosApi.getTarefasEntrega(entregaId);
+      const tarefas = await cadastrosProjetosApi.getTarefasEntrega(entregaId);
       console.log('[DEBUG] Tarefas carregadas:', tarefas);
       setTarefasEntrega(tarefas);
     } catch (error) {
@@ -1242,7 +1242,7 @@ export default function Contratos() {
   const handleAtualizarStatusTarefaEntrega = async (tarefaId: number, novoStatus: string) => {
     try {
       // Atualizar no backend
-      await contratosProjetosApi.updateTarefaEntrega(tarefaId, { status: novoStatus });
+      await cadastrosProjetosApi.updateTarefaEntrega(tarefaId, { status: novoStatus });
 
       // Atualizar estado local
       setTarefasEntrega(prev =>
@@ -1251,7 +1251,7 @@ export default function Contratos() {
 
       // Recarregar projeto para refletir mudanças na entrega
       if (viewingProject) {
-        const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+        const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
         setViewingProject(projetoAtualizado);
       }
 
@@ -1315,7 +1315,7 @@ export default function Contratos() {
       if (tarefaEntregaEditando) {
         // Editar tarefa existente
         console.log('[DEBUG] Editando tarefa existente ID:', tarefaEntregaEditando.id);
-        const tarefaAtualizada = await contratosProjetosApi.updateTarefaEntrega(tarefaEntregaEditando.id, {
+        const tarefaAtualizada = await cadastrosProjetosApi.updateTarefaEntrega(tarefaEntregaEditando.id, {
           nome: novaTarefaEntrega.nome,
           sprint_id: novaTarefaEntrega.sprint_id ? Number(novaTarefaEntrega.sprint_id) : undefined,
           responsavel: novaTarefaEntrega.responsavel || undefined,
@@ -1329,7 +1329,7 @@ export default function Contratos() {
       } else {
         // Criar nova tarefa
         console.log('[DEBUG] Criando nova tarefa para entrega ID:', viewingEntrega.id);
-        const novaTarefa = await contratosProjetosApi.createTarefaEntrega(viewingEntrega.id, {
+        const novaTarefa = await cadastrosProjetosApi.createTarefaEntrega(viewingEntrega.id, {
           nome: novaTarefaEntrega.nome,
           sprint_id: novaTarefaEntrega.sprint_id ? Number(novaTarefaEntrega.sprint_id) : undefined,
           responsavel: novaTarefaEntrega.responsavel || undefined,
@@ -1342,7 +1342,7 @@ export default function Contratos() {
 
       // Recarregar projeto para refletir mudanças
       if (viewingProject) {
-        const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+        const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
         setViewingProject(projetoAtualizado);
       }
 
@@ -1362,12 +1362,12 @@ export default function Contratos() {
 
   const handleExcluirTarefaEntrega = async (tarefaId: number) => {
     try {
-      await contratosProjetosApi.deleteTarefaEntrega(tarefaId);
+      await cadastrosProjetosApi.deleteTarefaEntrega(tarefaId);
       setTarefasEntrega(prev => prev.filter(t => t.id !== tarefaId));
 
       // Recarregar projeto para refletir mudanças
       if (viewingProject) {
-        const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+        const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
         setViewingProject(projetoAtualizado);
       }
 
@@ -1407,7 +1407,7 @@ export default function Contratos() {
     }
 
     try {
-      await contratosProjetosApi.createEntrega(viewingProject.id, {
+      await cadastrosProjetosApi.createEntrega(viewingProject.id, {
         nome: newEntregaNome.trim(),
         area_responsavel_id: newEntregaAreaId,
         prazo_estimado: newEntregaPrazo || null,
@@ -1415,7 +1415,7 @@ export default function Contratos() {
         ordem: (viewingProject.entregas?.length || 0)
       });
 
-      const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+      const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
       setViewingProject(projetoAtualizado);
       loadProjetos();
 
@@ -1452,9 +1452,9 @@ export default function Contratos() {
 
     setUploadingEvidencia(entregaId);
     try {
-      await contratosProjetosApi.uploadEvidencia(entregaId, file);
+      await cadastrosProjetosApi.uploadEvidencia(entregaId, file);
       if (viewingProject) {
-        const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+        const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
         setViewingProject(projetoAtualizado);
       }
       toast({ title: 'Sucesso', description: 'Evidência enviada com sucesso!' });
@@ -1469,9 +1469,9 @@ export default function Contratos() {
   const handleDeleteEvidencia = async (entregaId: number) => {
     setUploadingEvidencia(entregaId);
     try {
-      await contratosProjetosApi.deleteEvidencia(entregaId);
+      await cadastrosProjetosApi.deleteEvidencia(entregaId);
       if (viewingProject) {
-        const projetoAtualizado = await contratosProjetosApi.getProjetoById(viewingProject.id);
+        const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
         setViewingProject(projetoAtualizado);
       }
       toast({ title: 'Sucesso', description: 'Evidência removida com sucesso!' });
@@ -1553,7 +1553,7 @@ export default function Contratos() {
               onClick={async () => {
                 if (!viewingProject) return;
                 try {
-                  const projeto = await contratosProjetosApi.gerarTapId(viewingProject.id);
+                  const projeto = await cadastrosProjetosApi.gerarTapId(viewingProject.id);
                   setViewingProject(projeto);
                   generateTAPPdf(projeto);
                 } catch (error) {
@@ -1622,8 +1622,8 @@ export default function Contratos() {
                           className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 w-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            contratosProjetosApi.validarTAP(viewingProject.id, 1)
-                              .then(() => contratosProjetosApi.getProjetoById(viewingProject.id))
+                            cadastrosProjetosApi.validarTAP(viewingProject.id, 1)
+                              .then(() => cadastrosProjetosApi.getProjetoById(viewingProject.id))
                               .then((updated) => {
                                 setViewingProject(updated);
                                 loadProjetos();
@@ -1677,8 +1677,8 @@ export default function Contratos() {
                           className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 w-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            contratosProjetosApi.validarTAP(viewingProject.id, 2)
-                              .then(() => contratosProjetosApi.getProjetoById(viewingProject.id))
+                            cadastrosProjetosApi.validarTAP(viewingProject.id, 2)
+                              .then(() => cadastrosProjetosApi.getProjetoById(viewingProject.id))
                               .then((updated) => {
                                 setViewingProject(updated);
                                 loadProjetos();
@@ -1739,8 +1739,8 @@ export default function Contratos() {
                           className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 w-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            contratosProjetosApi.validarTAP(viewingProject.id, 3)
-                              .then(() => contratosProjetosApi.getProjetoById(viewingProject.id))
+                            cadastrosProjetosApi.validarTAP(viewingProject.id, 3)
+                              .then(() => cadastrosProjetosApi.getProjetoById(viewingProject.id))
                               .then((updated) => {
                                 setViewingProject(updated);
                                 loadProjetos();
@@ -2015,7 +2015,7 @@ export default function Contratos() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-1"
-                                    onClick={() => window.open(contratosProjetosApi.getEvidenciaDownloadUrl(entrega.id), '_blank')}
+                                    onClick={() => window.open(cadastrosProjetosApi.getEvidenciaDownloadUrl(entrega.id), '_blank')}
                                     title={entrega.evidencia_filename}
                                   >
                                     <FileDown className="h-4 w-4" />

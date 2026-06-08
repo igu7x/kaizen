@@ -50,8 +50,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { gestaoEstrategicaApi } from '@/services/gestaoEstrategicaApi';
-import { contratosProjetosApi, type Projeto as ProjetoCadastro, type Entrega, type TarefaEntrega, type CreateTarefaEntregaDto, type Area, type Tep } from '@/services/contratosProjetosApi';
-import { TepDialog } from '@/components/contratos/TepDialog';
+import { cadastrosProjetosApi, type Projeto as ProjetoCadastro, type Entrega, type TarefaEntrega, type CreateTarefaEntregaDto, type Area, type Tep } from '@/services/cadastrosProjetosApi';
+import { TepDialog } from '@/components/cadastros/TepDialog';
 import { generateTAPPdf, validateTAPFields } from '@/utils/generateTAP';
 import { generateTEPPdf } from '@/utils/generateTEP';
 import { isProduction } from '@/utils/environment';
@@ -207,11 +207,11 @@ export function ControleExecucaoNovo() {
     const tap = getTapStatusLocal(projeto);
     if (tap.label === 'TAP Vigente') {
       // Buscar projeto completo para gerar PDF
-      const projetoCompleto = await contratosProjetosApi.getProjetoById(projeto.id);
+      const projetoCompleto = await cadastrosProjetosApi.getProjetoById(projeto.id);
       if (projetoCompleto) generateTAPPdf(projetoCompleto);
     } else {
       // Buscar projeto completo para ter user_ids
-      const projetoCompleto = await contratosProjetosApi.getProjetoById(projeto.id);
+      const projetoCompleto = await cadastrosProjetosApi.getProjetoById(projeto.id);
       setTapDialogProjeto(projetoCompleto);
       setTapDialogOpen(true);
     }
@@ -223,15 +223,15 @@ export function ControleExecucaoNovo() {
     if (tep.label === 'TEP Vigente') {
       // Buscar projeto completo + TEP para gerar PDF
       const [projetoCompleto, tepData] = await Promise.all([
-        contratosProjetosApi.getProjetoById(projeto.id),
-        contratosProjetosApi.getTep(projeto.id).catch(() => null),
+        cadastrosProjetosApi.getProjetoById(projeto.id),
+        cadastrosProjetosApi.getTep(projeto.id).catch(() => null),
       ]);
       if (projetoCompleto && tepData) {
         generateTEPPdf(projetoCompleto, tepData, projetoCompleto.entregas || []);
       }
     } else {
       // Abrir TepDialog (formulário de criação/edição + camadas de validação)
-      const projetoCompleto = await contratosProjetosApi.getProjetoById(projeto.id);
+      const projetoCompleto = await cadastrosProjetosApi.getProjetoById(projeto.id);
       setTepDialogProjeto(projetoCompleto);
       setTepDialogOpen(true);
     }
@@ -407,7 +407,7 @@ export function ControleExecucaoNovo() {
       // Carregar planos e projetos em paralelo
       const [planosData, projetosData] = await Promise.all([
         planosProgramasApi.getInstrumentos(dirFiltro),
-        contratosProjetosApi.getProjetos(dirFiltro)
+        cadastrosProjetosApi.getProjetos(dirFiltro)
       ]);
       setPlanos(planosData);
       setTodosProjetos(projetosData);
@@ -453,7 +453,7 @@ export function ControleExecucaoNovo() {
       setLoadingPlano(true);
       const [planoData, projetosData, instrumentoData] = await Promise.all([
         gestaoEstrategicaApi.getPlanoCompleto(planoId),
-        contratosProjetosApi.getProjetosByInstrumentoId(planoId, dirFiltro),
+        cadastrosProjetosApi.getProjetosByInstrumentoId(planoId, dirFiltro),
         planosProgramasApi.getInstrumentoById(planoId)
       ]);
       setPlanoSelecionado(planoData);
@@ -509,7 +509,7 @@ export function ControleExecucaoNovo() {
     let cancelled = false;
     (async () => {
       try {
-        const projeto = await contratosProjetosApi.getProjetoById(projetoId);
+        const projeto = await cadastrosProjetosApi.getProjetoById(projetoId);
         if (cancelled || !projeto) return;
         if (openTap) {
           setTapDialogProjeto(projeto);
@@ -533,7 +533,7 @@ export function ControleExecucaoNovo() {
   useEffect(() => {
     const carregarAreas = async () => {
       try {
-        const areasData = await contratosProjetosApi.getAreas(selectedDirectorate);
+        const areasData = await cadastrosProjetosApi.getAreas(selectedDirectorate);
         setAreas(areasData);
       } catch (error) {
         console.error('Erro ao carregar áreas:', error);
@@ -625,7 +625,7 @@ export function ControleExecucaoNovo() {
     let cancelado = false;
     (async () => {
       try {
-        const tep = await contratosProjetosApi.getTep(projetoDetalhes.id);
+        const tep = await cadastrosProjetosApi.getTep(projetoDetalhes.id);
         if (!cancelado) setProjetoTep(tep);
       } catch {
         if (!cancelado) setProjetoTep(null);
@@ -865,14 +865,14 @@ export function ControleExecucaoNovo() {
     }
     setUploadingEvidencia(entregaId);
     try {
-      await contratosProjetosApi.uploadEvidencia(entregaId, file);
+      await cadastrosProjetosApi.uploadEvidencia(entregaId, file);
       toast({ title: 'Evidência enviada', description: 'O PDF foi anexado à entrega com sucesso.' });
       // Recarregar projeto e lista para atualizar status/progresso
       if (projetoDetalhes) {
-        const projeto = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+        const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
         setProjetoDetalhes(projeto);
         // Atualizar na lista de projetos
-        const projetosAtualizados = await contratosProjetosApi.getProjetos(dirFiltro);
+        const projetosAtualizados = await cadastrosProjetosApi.getProjetos(dirFiltro);
         setTodosProjetos(projetosAtualizados);
       }
     } catch (error) {
@@ -885,13 +885,13 @@ export function ControleExecucaoNovo() {
   const handleDeleteEvidencia = async (entregaId: number) => {
     setUploadingEvidencia(entregaId);
     try {
-      await contratosProjetosApi.deleteEvidencia(entregaId);
+      await cadastrosProjetosApi.deleteEvidencia(entregaId);
       toast({ title: 'Evidência removida', description: 'O PDF foi removido da entrega.' });
       if (projetoDetalhes) {
-        const projeto = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+        const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
         setProjetoDetalhes(projeto);
         // Atualizar na lista de projetos
-        const projetosAtualizados = await contratosProjetosApi.getProjetos(dirFiltro);
+        const projetosAtualizados = await cadastrosProjetosApi.getProjetos(dirFiltro);
         setTodosProjetos(projetosAtualizados);
       }
     } catch (error) {
@@ -913,7 +913,7 @@ export function ControleExecucaoNovo() {
 
     // Carregar tarefas da entrega do banco de dados
     try {
-      const tarefas = await contratosProjetosApi.getTarefasEntrega(entrega.id);
+      const tarefas = await cadastrosProjetosApi.getTarefasEntrega(entrega.id);
       console.log('📋 Tarefas carregadas do banco:', tarefas);
 
       // Atualizar o estado local com as tarefas do banco
@@ -1004,7 +1004,7 @@ export function ControleExecucaoNovo() {
 
       // Atualizar no backend também
       if (entregaSelecionada.projeto_id) {
-        contratosProjetosApi.updateEntrega(entregaSelecionada.id, { status: novoStatus }).catch(console.error);
+        cadastrosProjetosApi.updateEntrega(entregaSelecionada.id, { status: novoStatus }).catch(console.error);
       }
     }
   }, [tarefasPorEntrega, entregaSelecionada?.id, entregaSelecionada?.status]);
@@ -1018,7 +1018,7 @@ export function ControleExecucaoNovo() {
 
     try {
       // Atualizar no backend
-      await contratosProjetosApi.updateTarefaEntrega(tarefaId, { status: novoStatus as 'a_fazer' | 'fazendo' | 'feito' });
+      await cadastrosProjetosApi.updateTarefaEntrega(tarefaId, { status: novoStatus as 'a_fazer' | 'fazendo' | 'feito' });
 
       // Atualizar estado local
       setTarefasPorEntrega(prev => ({
@@ -1073,7 +1073,7 @@ export function ControleExecucaoNovo() {
     try {
       if (tarefaEntregaEditando) {
         // Editar tarefa existente via API
-        const tarefaAtualizada = await contratosProjetosApi.updateTarefaEntrega(tarefaEntregaEditando.id, {
+        const tarefaAtualizada = await cadastrosProjetosApi.updateTarefaEntrega(tarefaEntregaEditando.id, {
           nome: novaTarefaEntrega.nome,
           sprint_id: novaTarefaEntrega.sprint_id ? Number(novaTarefaEntrega.sprint_id) : undefined,
           responsavel: novaTarefaEntrega.responsavel || undefined,
@@ -1088,7 +1088,7 @@ export function ControleExecucaoNovo() {
         toast({ title: 'Sucesso', description: 'Tarefa atualizada com sucesso!' });
       } else {
         // Criar nova tarefa via API
-        const novaTarefa = await contratosProjetosApi.createTarefaEntrega(entregaSelecionada.id, {
+        const novaTarefa = await cadastrosProjetosApi.createTarefaEntrega(entregaSelecionada.id, {
           nome: novaTarefaEntrega.nome,
           sprint_id: novaTarefaEntrega.sprint_id ? Number(novaTarefaEntrega.sprint_id) : undefined,
           responsavel: novaTarefaEntrega.responsavel || undefined,
@@ -1119,7 +1119,7 @@ export function ControleExecucaoNovo() {
 
     try {
       // Excluir no backend
-      await contratosProjetosApi.deleteTarefaEntrega(tarefaId);
+      await cadastrosProjetosApi.deleteTarefaEntrega(tarefaId);
 
       // Atualizar estado local
       setTarefasPorEntrega(prev => ({
@@ -1143,7 +1143,7 @@ export function ControleExecucaoNovo() {
   const handleVerProjetoDetalhes = async (projetoId: number) => {
     try {
       setLoadingProjeto(true);
-      const projeto = await contratosProjetosApi.getProjetoById(projetoId);
+      const projeto = await cadastrosProjetosApi.getProjetoById(projetoId);
       setProjetoDetalhes(projeto);
     } catch (error) {
       console.error('Erro ao carregar projeto:', error);
@@ -1160,9 +1160,9 @@ export function ControleExecucaoNovo() {
   const handleUpdateEntregaStatus = async (entregaId: number, novoStatus: string) => {
     if (!projetoDetalhes) return;
     try {
-      await contratosProjetosApi.updateEntrega(entregaId, { status: novoStatus as any });
+      await cadastrosProjetosApi.updateEntrega(entregaId, { status: novoStatus as any });
       // Recarregar detalhes do projeto
-      const projeto = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+      const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
       setProjetoDetalhes(projeto);
       toast({ title: 'Sucesso', description: 'Status da entrega atualizado!' });
     } catch (error) {
@@ -1202,7 +1202,7 @@ export function ControleExecucaoNovo() {
 
     setSalvandoEntrega(true);
     try {
-      await contratosProjetosApi.createEntrega(projetoDetalhes.id, {
+      await cadastrosProjetosApi.createEntrega(projetoDetalhes.id, {
         nome: novaEntregaNome.trim(),
         area_responsavel_id: novaEntregaAreaId,
         status: 'nao_iniciada',
@@ -1211,7 +1211,7 @@ export function ControleExecucaoNovo() {
       });
 
       // Recarregar projeto com as novas entregas
-      const projetoAtualizado = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+      const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
       setProjetoDetalhes(projetoAtualizado);
 
       // Limpar formulário e fechar modal
@@ -1266,12 +1266,12 @@ export function ControleExecucaoNovo() {
     }
     setSalvandoEditEntrega(true);
     try {
-      await contratosProjetosApi.updateEntrega(entregaEditando.id, {
+      await cadastrosProjetosApi.updateEntrega(entregaEditando.id, {
         nome: editEntregaNome.trim(),
         area_responsavel_id: editEntregaAreaId,
         prazo_estimado: editEntregaPrazo || null,
       });
-      const projetoAtualizado = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+      const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
       setProjetoDetalhes(projetoAtualizado);
       setModalEditEntregaOpen(false);
       setEntregaEditando(null);
@@ -1286,17 +1286,17 @@ export function ControleExecucaoNovo() {
 
   const handleUpdateProjectStatus = async (projetoId: number, novoStatus: string) => {
     try {
-      await contratosProjetosApi.updateProjeto(projetoId, { status: novoStatus as any });
+      await cadastrosProjetosApi.updateProjeto(projetoId, { status: novoStatus as any });
 
       // Atualizar estado local se for o projeto visualizado
       if (projetoDetalhes && projetoDetalhes.id === projetoId) {
-        const projeto = await contratosProjetosApi.getProjetoById(projetoId);
+        const projeto = await cadastrosProjetosApi.getProjetoById(projetoId);
         setProjetoDetalhes(projeto);
       }
 
       // Recarregar lista de projetos vinculados se necessário
       if (planoSelecionado) {
-        const projetosData = await contratosProjetosApi.getProjetosByInstrumentoId(planoSelecionado.id);
+        const projetosData = await cadastrosProjetosApi.getProjetosByInstrumentoId(planoSelecionado.id);
         setProjetosVinculados(projetosData);
       }
 
@@ -1462,7 +1462,7 @@ export function ControleExecucaoNovo() {
       await gestaoEstrategicaApi.updateTarefa(tarefa.id, { status: novoStatus });
       await carregarProjetosDoPlano(planoSelecionado.id);
       if (projetoDetalhes) {
-        const projeto = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+        const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
         setProjetoDetalhes(projeto);
       }
     } catch (error) {
@@ -1481,7 +1481,7 @@ export function ControleExecucaoNovo() {
       await gestaoEstrategicaApi.updateTarefa(tarefa.id, { progresso: novoProgresso });
       await carregarProjetosDoPlano(planoSelecionado.id);
       if (projetoDetalhes) {
-        const projeto = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+        const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
         setProjetoDetalhes(projeto);
       }
     } catch (error) {
@@ -1521,10 +1521,10 @@ export function ControleExecucaoNovo() {
         handleExcluirTarefaEntrega(itemParaDeletar.id);
         return; // handleExcluirTarefaEntrega já fecha o modal
       } else if (itemParaDeletar.tipo === 'entrega') {
-        await contratosProjetosApi.deleteEntrega(itemParaDeletar.id);
+        await cadastrosProjetosApi.deleteEntrega(itemParaDeletar.id);
         toast({ title: 'Sucesso', description: 'Entrega excluída com sucesso!' });
         if (projetoDetalhes) {
-          const projetoAtualizado = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+          const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
           setProjetoDetalhes(projetoAtualizado);
         }
       }
@@ -2665,7 +2665,7 @@ export function ControleExecucaoNovo() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-1"
-                                    onClick={() => window.open(contratosProjetosApi.getEvidenciaDownloadUrl(entrega.id), '_blank')}
+                                    onClick={() => window.open(cadastrosProjetosApi.getEvidenciaDownloadUrl(entrega.id), '_blank')}
                                     title={entrega.evidencia_filename}
                                   >
                                     <FileDown className="h-4 w-4" />
@@ -4470,11 +4470,11 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TAP
                         </Button>
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                          contratosProjetosApi.validarTAP(tapDialogProjeto.id, 1)
-                            .then(() => contratosProjetosApi.getProjetoById(tapDialogProjeto.id))
+                          cadastrosProjetosApi.validarTAP(tapDialogProjeto.id, 1)
+                            .then(() => cadastrosProjetosApi.getProjetoById(tapDialogProjeto.id))
                             .then((updated) => {
                               setTapDialogProjeto(updated);
-                              contratosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
+                              cadastrosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
                               toast({ title: 'TAP validado - Camada 1 (Gestor)' });
                             })
                             .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
@@ -4494,11 +4494,11 @@ export function ControleExecucaoNovo() {
                         <Eye className="h-3 w-3 mr-1" /> Visualizar TAP
                       </Button>
                       <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                        contratosProjetosApi.validarTAP(tapDialogProjeto.id, 2)
-                          .then(() => contratosProjetosApi.getProjetoById(tapDialogProjeto.id))
+                        cadastrosProjetosApi.validarTAP(tapDialogProjeto.id, 2)
+                          .then(() => cadastrosProjetosApi.getProjetoById(tapDialogProjeto.id))
                           .then((updated) => {
                             setTapDialogProjeto(updated);
-                            contratosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
+                            cadastrosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
                             toast({ title: 'TAP validado - Camada 2 (Diretor)' });
                           })
                           .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
@@ -4518,11 +4518,11 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TAP
                         </Button>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                          contratosProjetosApi.validarTAP(tapDialogProjeto.id, 3)
-                            .then(() => contratosProjetosApi.getProjetoById(tapDialogProjeto.id))
+                          cadastrosProjetosApi.validarTAP(tapDialogProjeto.id, 3)
+                            .then(() => cadastrosProjetosApi.getProjetoById(tapDialogProjeto.id))
                             .then((updated) => {
                               setTapDialogProjeto(updated);
-                              contratosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
+                              cadastrosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
                               toast({ title: 'TAP Vigente! Validação concluída.' });
                             })
                             .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
@@ -4550,7 +4550,7 @@ export function ControleExecucaoNovo() {
           entregas={projetoDetalhes.entregas || []}
           onFinalized={async () => {
             try {
-              const updated = await contratosProjetosApi.getProjetoById(projetoDetalhes.id);
+              const updated = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
               setProjetoDetalhes(updated);
               setTodosProjetos(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
             } catch { /* ignore */ }
@@ -4578,13 +4578,13 @@ export function ControleExecucaoNovo() {
             const isPatrocinador = currentUserId && tepDialogProjeto.patrocinador_user_id === currentUserId;
 
             const refreshAfterValidate = async () => {
-              const updated = await contratosProjetosApi.getProjetoById(tepDialogProjeto.id);
+              const updated = await cadastrosProjetosApi.getProjetoById(tepDialogProjeto.id);
               setTepDialogProjeto(updated);
-              contratosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
+              cadastrosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
             };
 
             const visualizarTepPdf = async () => {
-              const tepData = await contratosProjetosApi.getTep(tepDialogProjeto.id).catch(() => null);
+              const tepData = await cadastrosProjetosApi.getTep(tepDialogProjeto.id).catch(() => null);
               if (tepData) generateTEPPdf(tepDialogProjeto, tepData, tepDialogProjeto.entregas || []);
             };
 
@@ -4611,7 +4611,7 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TEP
                         </Button>
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                          contratosProjetosApi.validarTEP(tepDialogProjeto.id, 1)
+                          cadastrosProjetosApi.validarTEP(tepDialogProjeto.id, 1)
                             .then(refreshAfterValidate)
                             .then(() => toast({ title: 'TEP validado - Camada 1 (Gestor)' }))
                             .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
@@ -4631,7 +4631,7 @@ export function ControleExecucaoNovo() {
                         <Eye className="h-3 w-3 mr-1" /> Visualizar TEP
                       </Button>
                       <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                        contratosProjetosApi.validarTEP(tepDialogProjeto.id, 2)
+                        cadastrosProjetosApi.validarTEP(tepDialogProjeto.id, 2)
                           .then(refreshAfterValidate)
                           .then(() => toast({ title: 'TEP validado - Camada 2 (Diretor)' }))
                           .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
@@ -4651,7 +4651,7 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TEP
                         </Button>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                          contratosProjetosApi.validarTEP(tepDialogProjeto.id, 3)
+                          cadastrosProjetosApi.validarTEP(tepDialogProjeto.id, 3)
                             .then(refreshAfterValidate)
                             .then(() => toast({ title: 'TEP Vigente! Validação concluída.' }))
                             .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
@@ -4687,7 +4687,7 @@ export function ControleExecucaoNovo() {
           diretoria={selectedDirectorate || projetoDetalhes.diretoria}
           onSaved={async (projetoSalvo) => {
             try {
-              const updated = await contratosProjetosApi.getProjetoById(projetoSalvo.id);
+              const updated = await cadastrosProjetosApi.getProjetoById(projetoSalvo.id);
               setProjetoDetalhes(updated);
               setTodosProjetos(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
             } catch { /* ignore */ }

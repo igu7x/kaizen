@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDirectorate } from '@/contexts/DirectorateContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { contratosProjetosApi, type Projeto } from '@/services/contratosProjetosApi';
+import { cadastrosProjetosApi, type Projeto } from '@/services/cadastrosProjetosApi';
 import {
   planosProgramasApi,
   type InstrumentoPlanejamento,
@@ -171,7 +171,7 @@ export function EscritorioProjetos() {
   useEffect(() => {
     const load = async () => {
       try {
-        const areas = await contratosProjetosApi.getAreas(selectedDirectorate || undefined);
+        const areas = await cadastrosProjetosApi.getAreas(selectedDirectorate || undefined);
         // Filter out auto:diretoria hidden units
         setUnidades(areas.filter((a: any) => {
           if (selectedDirectorate) {
@@ -197,9 +197,9 @@ export function EscritorioProjetos() {
         let projs: Projeto[];
         const instrId = selectedInstrumento !== 'all' ? parseInt(selectedInstrumento) : null;
         if (instrId !== null) {
-          projs = await contratosProjetosApi.getProjetosByInstrumentoId(instrId, dirFiltro);
+          projs = await cadastrosProjetosApi.getProjetosByInstrumentoId(instrId, dirFiltro);
         } else {
-          projs = await contratosProjetosApi.getProjetos(dirFiltro);
+          projs = await cadastrosProjetosApi.getProjetos(dirFiltro);
         }
         setProjetos(projs.filter(p => p.ativo !== false));
       } catch (err) {

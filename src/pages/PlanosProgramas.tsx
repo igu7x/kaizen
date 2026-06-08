@@ -9,7 +9,7 @@ import {
   InstrumentoPlanejamento,
   CreateInstrumentoDto
 } from '@/services/planosProgramasApi';
-import { contratosProjetosApi, Projeto } from '@/services/contratosProjetosApi';
+import { cadastrosProjetosApi, Projeto } from '@/services/cadastrosProjetosApi';
 import { areasApi, Area } from '@/services/areasApi';
 
 // UI Components
@@ -153,7 +153,7 @@ export default function PlanosProgramas() {
 
   const loadProjetos = useCallback(async () => {
     try {
-      const data = await contratosProjetosApi.getProjetos(dirFiltro);
+      const data = await cadastrosProjetosApi.getProjetos(dirFiltro);
       setProjetos(data);
     } catch (error) {
       console.error('Erro ao carregar projetos:', error);
@@ -800,7 +800,7 @@ export default function PlanosProgramas() {
                 return (
                   <div
                     key={proj.id}
-                    onClick={() => window.location.href = `/contratos/projetos?id=${proj.projeto_id}&from=plano`}
+                    onClick={() => window.location.href = `/cadastros/projetos?id=${proj.projeto_id}&from=plano`}
                     className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center justify-between">

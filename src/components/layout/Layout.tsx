@@ -29,8 +29,9 @@ export function Layout({ children }: LayoutProps) {
   const isPainelPessoas = location.pathname === '/pessoas' || location.pathname === '/pessoas/painel';
   const isPerfilPage = location.pathname === '/perfil';
   // Módulos de administração (fundo branco como nas páginas principais).
-  // O hub "Cadastros" linka pra /contratos/projetos (Projetos), então /contratos
-  // também precisa entrar como fundo branco junto com /cadastros.
+  // /contratos/* é caminho legado e redireciona para /cadastros/* (App.tsx); a flag
+  // isContratosPage permanece só para que o fundo branco se aplique enquanto a
+  // navegação acontece, durante o redirect.
   const isAdministracaoPage = location.pathname.startsWith('/administracao');
   const isCadastrosPage = location.pathname.startsWith('/cadastros');
   const isContratosPage = location.pathname.startsWith('/contratos');
