@@ -15,8 +15,8 @@ import java.util.Map;
  * Regra da feature "Permissões do TAP":
  * - Um ADMIN concede a um usuário a permissão de editar os 13 campos do TAP em
  *   projetos cuja "Diretoria de Governança" (cadastros_areas vinculadas via
- *   contratos_projetos.areas_vinculadas_ids) inclua a sigla de users.diretoria.
- * - NÃO usar contratos_projetos.diretoria — esse campo guarda a diretoria de
+ *   cadastros_projetos.areas_vinculadas_ids) inclua a sigla de users.diretoria.
+ * - NÃO usar cadastros_projetos.diretoria — esse campo guarda a diretoria de
  *   origem (do criador) e não reflete a governança atual.
  *
  * Coluna em users é "name" (NÃO "nome") — bug já pego no Node em 2026-06-01.
@@ -87,14 +87,14 @@ public class PermissoesTapService {
     /**
      * Verifica se o usuário pode editar os 13 campos do TAP do projeto:
      * tem permissão TAP ativa E a sigla de users.diretoria está entre as
-     * cadastros_areas cujos ids estão em contratos_projetos.areas_vinculadas_ids.
+     * cadastros_areas cujos ids estão em cadastros_projetos.areas_vinculadas_ids.
      */
     public boolean podeEditarTapDoProjeto(long userId, long projetoId) {
         Integer found = jdbc.query(
             "SELECT 1 " +
             "  FROM permissoes_tap pt " +
             "  JOIN users u             ON u.id = pt.user_id " +
-            "  JOIN contratos_projetos p ON p.id = ? " +
+            "  JOIN cadastros_projetos p ON p.id = ? " +
             " WHERE pt.user_id = ? " +
             "   AND u.diretoria IS NOT NULL " +
             "   AND EXISTS ( " +

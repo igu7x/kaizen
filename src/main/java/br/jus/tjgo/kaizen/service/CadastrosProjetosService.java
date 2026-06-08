@@ -24,7 +24,7 @@ import java.util.Set;
  *
  * Nome histórico do tipo era ContratosProjetosService (espelhando contratos-projetos.service.ts
  * do backend Node); renomeado em jun/2026 para refletir o módulo correto (Cadastros).
- * As tabelas continuam com prefixo contratos_projetos_* por compatibilidade com o Node
+ * As tabelas continuam com prefixo cadastros_projetos_* por compatibilidade com o Node
  * durante o período de cutover — nome interno legado, não confundir com o módulo PCA
  * (Contratações de TI) que é um módulo distinto.
  *
@@ -68,34 +68,34 @@ public class CadastrosProjetosService {
 
         boolean tabelaExiste = Boolean.TRUE.equals(jdbc.queryForObject(
                 "SELECT EXISTS (SELECT FROM information_schema.tables " +
-                        "WHERE table_name = 'contratos_projetos_entregas_tarefas') as exists", Boolean.class));
+                        "WHERE table_name = 'cadastros_projetos_entregas_tarefas') as exists", Boolean.class));
         diagnostico.put("tabela_existe", tabelaExiste);
         if (!tabelaExiste) {
-            diagnostico.put("erro", "Tabela contratos_projetos_entregas_tarefas não existe no banco");
+            diagnostico.put("erro", "Tabela cadastros_projetos_entregas_tarefas não existe no banco");
             return diagnostico;
         }
 
         diagnostico.put("resumo", jdbc.queryForMap(
                 "SELECT COUNT(*)::text as total, COUNT(*) FILTER (WHERE ativo = TRUE)::text as ativas, " +
                         "COUNT(*) FILTER (WHERE ativo = FALSE)::text as inativas " +
-                        "FROM contratos_projetos_entregas_tarefas"));
+                        "FROM cadastros_projetos_entregas_tarefas"));
 
         if (projetoId != null) {
             diagnostico.put("entregas_do_projeto", jdbc.queryForList(
                     "SELECT e.id, e.nome, e.status, e.ativo, " +
-                            "(SELECT COUNT(*)::text FROM contratos_projetos_entregas_tarefas t WHERE t.entrega_id = e.id AND t.ativo = TRUE) as tarefas_ativas, " +
-                            "(SELECT COUNT(*)::text FROM contratos_projetos_entregas_tarefas t WHERE t.entrega_id = e.id) as tarefas_total " +
-                            "FROM contratos_projetos_entregas e WHERE e.projeto_id = ? ORDER BY e.ordem, e.id", projetoId));
+                            "(SELECT COUNT(*)::text FROM cadastros_projetos_entregas_tarefas t WHERE t.entrega_id = e.id AND t.ativo = TRUE) as tarefas_ativas, " +
+                            "(SELECT COUNT(*)::text FROM cadastros_projetos_entregas_tarefas t WHERE t.entrega_id = e.id) as tarefas_total " +
+                            "FROM cadastros_projetos_entregas e WHERE e.projeto_id = ? ORDER BY e.ordem, e.id", projetoId));
         }
         if (entregaId != null) {
             diagnostico.put("tarefas_da_entrega", jdbc.queryForList(
                     "SELECT id, nome, status, sprint_id, responsavel, ativo, created_at, updated_at " +
-                            "FROM contratos_projetos_entregas_tarefas WHERE entrega_id = ? ORDER BY ativo DESC, ordem, id", entregaId));
+                            "FROM cadastros_projetos_entregas_tarefas WHERE entrega_id = ? ORDER BY ativo DESC, ordem, id", entregaId));
         }
         diagnostico.put("ultimas_tarefas_criadas", jdbc.queryForList(
                 "SELECT t.id, t.nome, t.status, t.ativo, t.entrega_id, e.nome as entrega_nome, t.created_at " +
-                        "FROM contratos_projetos_entregas_tarefas t " +
-                        "JOIN contratos_projetos_entregas e ON e.id = t.entrega_id " +
+                        "FROM cadastros_projetos_entregas_tarefas t " +
+                        "JOIN cadastros_projetos_entregas e ON e.id = t.entrega_id " +
                         "ORDER BY t.created_at DESC LIMIT 10"));
         return diagnostico;
     }
@@ -105,7 +105,7 @@ public class CadastrosProjetosService {
     // ============================================================
 
     public List<Map<String, Object>> getAllProjetos(String diretoria) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM vw_contratos_projetos_completo WHERE 1=1");
+        StringBuilder sql = new StringBuilder("SELECT * FROM vw_cadastros_projetos_completo WHERE 1=1");
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             var domain = domainService.getDomainForDiretoria(diretoria);
@@ -129,7 +129,7 @@ public class CadastrosProjetosService {
     }
 
     public Map<String, Object> getProjetoById(long id) {
-        var rows = jdbc.queryForList("SELECT * FROM vw_contratos_projetos_completo WHERE id = ?", id);
+        var rows = jdbc.queryForList("SELECT * FROM vw_cadastros_projetos_completo WHERE id = ?", id);
         if (rows.isEmpty()) {
             return null;
         }
@@ -143,7 +143,7 @@ public class CadastrosProjetosService {
     }
 
     public List<Map<String, Object>> getProjetosByInstrumentoId(long instrumentoId, String diretoria) {
-        boolean hasAreasVinculadas = hasColumn("contratos_projetos", "areas_vinculadas_ids");
+        boolean hasAreasVinculadas = hasColumn("cadastros_projetos", "areas_vinculadas_ids");
         boolean hasSigla = hasColumn("cadastros_areas", "sigla");
         String colunaExpressao = hasSigla
                 ? "ca.sigla"
@@ -169,14 +169,14 @@ public class CadastrosProjetosService {
         if (hasAreasVinculadas) {
             sql = "SELECT p.*, COALESCE((SELECT STRING_AGG(" + colunaExpressao + ", ', ') FROM cadastros_areas ca " +
                     "WHERE ca.id = ANY(cp.areas_vinculadas_ids)), p.diretoria) AS diretorias_nomes " +
-                    "FROM vw_contratos_projetos_completo p " +
+                    "FROM vw_cadastros_projetos_completo p " +
                     "INNER JOIN cadastros_instrumentos_projetos ip ON ip.projeto_id = p.id " +
-                    "JOIN contratos_projetos cp ON cp.id = p.id " +
+                    "JOIN cadastros_projetos cp ON cp.id = p.id " +
                     "WHERE ip.instrumento_id = ?" + diretoriaFilter + " ORDER BY p.codigo DESC";
         } else {
-            sql = "SELECT p.*, p.diretoria AS diretorias_nomes FROM vw_contratos_projetos_completo p " +
+            sql = "SELECT p.*, p.diretoria AS diretorias_nomes FROM vw_cadastros_projetos_completo p " +
                     "INNER JOIN cadastros_instrumentos_projetos ip ON ip.projeto_id = p.id " +
-                    (diretoria != null ? "JOIN contratos_projetos cp ON cp.id = p.id " : "") +
+                    (diretoria != null ? "JOIN cadastros_projetos cp ON cp.id = p.id " : "") +
                     "WHERE ip.instrumento_id = ?" + diretoriaFilter + " ORDER BY p.codigo DESC";
         }
 
@@ -190,7 +190,7 @@ public class CadastrosProjetosService {
     @Transactional
     public Map<String, Object> createProjeto(Map<String, Object> data, Long userId) {
         Map<String, Object> projeto = jdbc.queryForMap(
-                "INSERT INTO contratos_projetos (" +
+                "INSERT INTO cadastros_projetos (" +
                         "codigo, nome, descricao_sintetica, objetivo, contexto_justificativa, " +
                         "patrocinador_id, gestor_id, " +
                         "ancoragem_estrategica_plano_gestao, ancoragem_estrategica_pep, ancoragem_estrategica_programa_x, " +
@@ -265,10 +265,10 @@ public class CadastrosProjetosService {
         boolean hasTapCriticalChange = TAP_CRITICAL_FIELDS.stream().anyMatch(data::containsKey);
         if (hasTapCriticalChange) {
             var existing = jdbc.queryForList(
-                    "SELECT tap_validado_patrocinador_em, tap_id, tap_versao FROM contratos_projetos WHERE id = ?", id);
+                    "SELECT tap_validado_patrocinador_em, tap_id, tap_versao FROM cadastros_projetos WHERE id = ?", id);
             if (!existing.isEmpty() && existing.get(0).get("tap_validado_patrocinador_em") != null) {
                 jdbc.update(
-                        "UPDATE contratos_projetos SET " +
+                        "UPDATE cadastros_projetos SET " +
                                 "tap_validado_gestor_em = NULL, tap_validado_gestor_por = NULL, " +
                                 "tap_validado_diretor_em = NULL, tap_validado_diretor_por = NULL, " +
                                 "tap_validado_patrocinador_em = NULL, tap_validado_patrocinador_por = NULL, " +
@@ -319,7 +319,7 @@ public class CadastrosProjetosService {
             values.add(userId);
             values.add(id);
             var result = jdbc.queryForList(
-                    "UPDATE contratos_projetos SET " + String.join(", ", fields) +
+                    "UPDATE cadastros_projetos SET " + String.join(", ", fields) +
                             " WHERE id = ? AND ativo = TRUE RETURNING *", values.toArray());
             if (result.isEmpty()) {
                 return null;
@@ -337,19 +337,19 @@ public class CadastrosProjetosService {
             }
         }
         if (data.containsKey("entregas")) {
-            jdbc.update("UPDATE contratos_projetos_entregas SET ativo = FALSE WHERE projeto_id = ?", id);
+            jdbc.update("UPDATE cadastros_projetos_entregas SET ativo = FALSE WHERE projeto_id = ?", id);
             for (Map<String, Object> entrega : asMapList(data.get("entregas"))) {
                 createEntrega(id, entrega, userId);
             }
         }
         if (data.containsKey("riscos")) {
-            jdbc.update("UPDATE contratos_projetos_riscos SET ativo = FALSE WHERE projeto_id = ?", id);
+            jdbc.update("UPDATE cadastros_projetos_riscos SET ativo = FALSE WHERE projeto_id = ?", id);
             for (Map<String, Object> risco : asMapList(data.get("riscos"))) {
                 createRisco(id, risco, userId);
             }
         }
         if (data.containsKey("entraves")) {
-            jdbc.update("UPDATE contratos_projetos_entraves SET ativo = FALSE WHERE projeto_id = ?", id);
+            jdbc.update("UPDATE cadastros_projetos_entraves SET ativo = FALSE WHERE projeto_id = ?", id);
             for (Map<String, Object> entrave : asMapList(data.get("entraves"))) {
                 createEntrave(id, entrave, userId);
             }
@@ -362,7 +362,7 @@ public class CadastrosProjetosService {
     public boolean deleteProjeto(long id, Long userId) {
         // Node: soft-delete apenas do projeto (NÃO cascateia para entregas/tarefas).
         return jdbc.update(
-                "UPDATE contratos_projetos SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
+                "UPDATE cadastros_projetos SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND ativo = TRUE", userId, id) > 0;
     }
 
@@ -371,20 +371,20 @@ public class CadastrosProjetosService {
                 "SELECT COUNT(*) FILTER (WHERE status = 'concluida') AS concluidas, " +
                         "COUNT(*) FILTER (WHERE status = 'em_andamento') AS em_andamento, " +
                         "COUNT(*) FILTER (WHERE status = 'nao_iniciada') AS nao_iniciadas, " +
-                        "COUNT(*) AS total FROM contratos_projetos_entregas WHERE projeto_id = ? AND ativo = TRUE",
+                        "COUNT(*) AS total FROM cadastros_projetos_entregas WHERE projeto_id = ? AND ativo = TRUE",
                 projetoId);
         int concluidas = toInt(row.get("concluidas"));
         int naoIniciadas = toInt(row.get("nao_iniciadas"));
         int total = toInt(row.get("total"));
 
-        var ctx = jdbc.queryForList("SELECT status FROM contratos_projetos WHERE id = ?", projetoId);
+        var ctx = jdbc.queryForList("SELECT status FROM cadastros_projetos WHERE id = ?", projetoId);
         String currentStatus = ctx.isEmpty() ? null : (String) ctx.get(0).get("status");
 
         if (total == 0) {
             if (STATUS_MANUAIS.contains(currentStatus)) {
-                jdbc.update("UPDATE contratos_projetos SET progresso_percentual = 0, updated_at = NOW() WHERE id = ?", projetoId);
+                jdbc.update("UPDATE cadastros_projetos SET progresso_percentual = 0, updated_at = NOW() WHERE id = ?", projetoId);
             } else {
-                jdbc.update("UPDATE contratos_projetos SET progresso_percentual = 0, status = 'planejado', updated_at = NOW() WHERE id = ?", projetoId);
+                jdbc.update("UPDATE cadastros_projetos SET progresso_percentual = 0, status = 'planejado', updated_at = NOW() WHERE id = ?", projetoId);
             }
             return 0;
         }
@@ -392,12 +392,12 @@ public class CadastrosProjetosService {
         int progresso = (int) Math.round((double) concluidas / total * 100);
 
         if (STATUS_MANUAIS.contains(currentStatus)) {
-            jdbc.update("UPDATE contratos_projetos SET progresso_percentual = ?, updated_at = NOW() WHERE id = ?", progresso, projetoId);
+            jdbc.update("UPDATE cadastros_projetos SET progresso_percentual = ?, updated_at = NOW() WHERE id = ?", progresso, projetoId);
             return progresso;
         }
 
         String novoStatus = naoIniciadas == total ? "planejado" : "em_execucao";
-        jdbc.update("UPDATE contratos_projetos SET progresso_percentual = ?, status = ?, updated_at = NOW() WHERE id = ?",
+        jdbc.update("UPDATE cadastros_projetos SET progresso_percentual = ?, status = ?, updated_at = NOW() WHERE id = ?",
                 progresso, novoStatus, projetoId);
         return progresso;
     }
@@ -408,7 +408,7 @@ public class CadastrosProjetosService {
 
     public Map<String, Object> gerarTapId(long projetoId) {
         var rows = jdbc.queryForList(
-                "SELECT id, diretoria, data_prevista_inicio, tap_id FROM contratos_projetos WHERE id = ?", projetoId);
+                "SELECT id, diretoria, data_prevista_inicio, tap_id FROM cadastros_projetos WHERE id = ?", projetoId);
         if (rows.isEmpty()) {
             throw new RuntimeException("Projeto não encontrado");
         }
@@ -429,17 +429,17 @@ public class CadastrosProjetosService {
         String prefix = "PRJ_" + codDiretoria + "_" + ano + "_";
         Integer nextSeqRaw = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(CAST(SUBSTRING(tap_id FROM ? || '(\\d+)$') AS INTEGER)), 1) + 1 AS next_seq " +
-                        "FROM contratos_projetos WHERE tap_id LIKE ?",
+                        "FROM cadastros_projetos WHERE tap_id LIKE ?",
                 Integer.class, prefix, prefix + "%");
         int nextSeq = Math.max(nextSeqRaw == null ? 2 : nextSeqRaw, 2);
         String tapId = prefix + String.format("%03d", nextSeq);
-        jdbc.update("UPDATE contratos_projetos SET tap_id = ?, tap_versao = 1, tap_gerado_em = NOW(), updated_at = NOW() WHERE id = ?",
+        jdbc.update("UPDATE cadastros_projetos SET tap_id = ?, tap_versao = 1, tap_gerado_em = NOW(), updated_at = NOW() WHERE id = ?",
                 tapId, projetoId);
         return getProjetoById(projetoId);
     }
 
     public Map<String, Object> regenerarTap(long projetoId) {
-        var rows = jdbc.queryForList("SELECT id, tap_id, tap_versao FROM contratos_projetos WHERE id = ?", projetoId);
+        var rows = jdbc.queryForList("SELECT id, tap_id, tap_versao FROM cadastros_projetos WHERE id = ?", projetoId);
         if (rows.isEmpty()) {
             throw new RuntimeException("Projeto não encontrado");
         }
@@ -448,7 +448,7 @@ public class CadastrosProjetosService {
             throw new RuntimeException("Projeto não possui TAP gerado");
         }
         int novaVersao = (projeto.get("tap_versao") != null ? ((Number) projeto.get("tap_versao")).intValue() : 1) + 1;
-        jdbc.update("UPDATE contratos_projetos SET tap_versao = ?, tap_gerado_em = NOW() WHERE id = ?", novaVersao, projetoId);
+        jdbc.update("UPDATE cadastros_projetos SET tap_versao = ?, tap_gerado_em = NOW() WHERE id = ?", novaVersao, projetoId);
         return getProjetoById(projetoId);
     }
 
@@ -459,18 +459,18 @@ public class CadastrosProjetosService {
     public List<Map<String, Object>> getAreasExecucao(long projetoId) {
         return jdbc.queryForList(
                 "SELECT ae.*, u.nome AS area_nome, a.sigla AS diretoria " +
-                        "FROM contratos_projetos_areas_execucao ae " +
+                        "FROM cadastros_projetos_areas_execucao ae " +
                         "JOIN cadastros_unidades u ON u.id = ae.area_id " +
                         "JOIN cadastros_areas a ON a.id = u.area_id WHERE ae.projeto_id = ?", projetoId);
     }
 
     public void addAreaExecucao(long projetoId, Object areaId) {
-        jdbc.update("INSERT INTO contratos_projetos_areas_execucao (projeto_id, area_id) " +
+        jdbc.update("INSERT INTO cadastros_projetos_areas_execucao (projeto_id, area_id) " +
                 "VALUES (?, ?) ON CONFLICT (projeto_id, area_id) DO NOTHING", projetoId, areaId);
     }
 
     public void updateAreasExecucao(long projetoId, List<Object> areaIds) {
-        jdbc.update("DELETE FROM contratos_projetos_areas_execucao WHERE projeto_id = ?", projetoId);
+        jdbc.update("DELETE FROM cadastros_projetos_areas_execucao WHERE projeto_id = ?", projetoId);
         for (Object areaId : areaIds) {
             addAreaExecucao(projetoId, areaId);
         }
@@ -481,28 +481,28 @@ public class CadastrosProjetosService {
     // ============================================================
 
     public List<Map<String, Object>> getEntregas(long projetoId) {
-        if (hasColumn("contratos_projetos_entregas", "area_responsavel_id")) {
+        if (hasColumn("cadastros_projetos_entregas", "area_responsavel_id")) {
             return jdbc.queryForList(
-                    "SELECT e.*, u.nome AS area_responsavel_nome FROM contratos_projetos_entregas e " +
+                    "SELECT e.*, u.nome AS area_responsavel_nome FROM cadastros_projetos_entregas e " +
                             "LEFT JOIN cadastros_unidades u ON u.id = e.area_responsavel_id " +
                             "WHERE e.projeto_id = ? AND e.ativo = TRUE ORDER BY e.ordem, e.id", projetoId);
         }
         return jdbc.queryForList(
-                "SELECT e.* FROM contratos_projetos_entregas e WHERE e.projeto_id = ? AND e.ativo = TRUE " +
+                "SELECT e.* FROM cadastros_projetos_entregas e WHERE e.projeto_id = ? AND e.ativo = TRUE " +
                         "ORDER BY e.ordem, e.id", projetoId);
     }
 
     public Map<String, Object> getEntregaById(long id) {
-        var rows = jdbc.queryForList("SELECT * FROM contratos_projetos_entregas WHERE id = ? AND ativo = TRUE", id);
+        var rows = jdbc.queryForList("SELECT * FROM cadastros_projetos_entregas WHERE id = ? AND ativo = TRUE", id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
     public Map<String, Object> createEntrega(long projetoId, Map<String, Object> data, Long userId) {
-        boolean hasAreaColumn = hasColumn("contratos_projetos_entregas", "area_responsavel_id");
+        boolean hasAreaColumn = hasColumn("cadastros_projetos_entregas", "area_responsavel_id");
         Map<String, Object> entrega;
         if (hasAreaColumn) {
             entrega = jdbc.queryForMap(
-                    "INSERT INTO contratos_projetos_entregas (projeto_id, nome, descricao, status, quantidade_sprints, " +
+                    "INSERT INTO cadastros_projetos_entregas (projeto_id, nome, descricao, status, quantidade_sprints, " +
                             "ordem, area_responsavel_id, prazo_estimado, ativo, created_by, updated_by) " +
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?) RETURNING *",
                     projetoId, data.get("nome"), emptyToNull(str(data.get("descricao"))),
@@ -513,7 +513,7 @@ public class CadastrosProjetosService {
                     DateHelper.toSqlDate(data.get("prazo_estimado")), userId, userId);
         } else {
             entrega = jdbc.queryForMap(
-                    "INSERT INTO contratos_projetos_entregas (projeto_id, nome, descricao, status, quantidade_sprints, " +
+                    "INSERT INTO cadastros_projetos_entregas (projeto_id, nome, descricao, status, quantidade_sprints, " +
                             "ordem, prazo_estimado, ativo, created_by, updated_by) " +
                             "VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?) RETURNING *",
                     projetoId, data.get("nome"), emptyToNull(str(data.get("descricao"))),
@@ -524,7 +524,7 @@ public class CadastrosProjetosService {
         }
         long entregaId = ((Number) entrega.get("id")).longValue();
         for (Object areaId : asIdList(data.get("areas_responsaveis"))) {
-            jdbc.update("INSERT INTO contratos_projetos_entregas_responsaveis (entrega_id, area_id) " +
+            jdbc.update("INSERT INTO cadastros_projetos_entregas_responsaveis (entrega_id, area_id) " +
                     "VALUES (?, ?) ON CONFLICT DO NOTHING", entregaId, areaId);
         }
         calcularProgresso(projetoId);
@@ -555,7 +555,7 @@ public class CadastrosProjetosService {
             fields.add("ordem = ?");
             values.add(data.get("ordem"));
         }
-        if (data.containsKey("area_responsavel_id") && hasColumn("contratos_projetos_entregas", "area_responsavel_id")) {
+        if (data.containsKey("area_responsavel_id") && hasColumn("cadastros_projetos_entregas", "area_responsavel_id")) {
             fields.add("area_responsavel_id = ?");
             values.add(data.get("area_responsavel_id"));
         }
@@ -571,20 +571,20 @@ public class CadastrosProjetosService {
         values.add(userId);
         values.add(id);
         var result = jdbc.queryForList(
-                "UPDATE contratos_projetos_entregas SET " + String.join(", ", fields) +
+                "UPDATE cadastros_projetos_entregas SET " + String.join(", ", fields) +
                         " WHERE id = ? AND ativo = TRUE RETURNING *", values.toArray());
         calcularProgresso(((Number) entrega.get("projeto_id")).longValue());
         return result.isEmpty() ? null : result.get(0);
     }
 
     public void updateEntregaEvidencia(long id, String filename, String filepath, Long filesize) {
-        jdbc.update("UPDATE contratos_projetos_entregas SET evidencia_filename = ?, evidencia_filepath = ?, " +
+        jdbc.update("UPDATE cadastros_projetos_entregas SET evidencia_filename = ?, evidencia_filepath = ?, " +
                 "evidencia_filesize = ?, updated_at = NOW() WHERE id = ? AND ativo = TRUE",
                 filename, filepath, filesize, id);
     }
 
     public void updateEntregaStatus(long id, String status) {
-        jdbc.update("UPDATE contratos_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ? AND ativo = TRUE",
+        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ? AND ativo = TRUE",
                 status, id);
     }
 
@@ -594,7 +594,7 @@ public class CadastrosProjetosService {
             return false;
         }
         int affected = jdbc.update(
-                "UPDATE contratos_projetos_entregas SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
+                "UPDATE cadastros_projetos_entregas SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND ativo = TRUE", userId, id);
         calcularProgresso(((Number) entrega.get("projeto_id")).longValue());
         return affected > 0;
@@ -616,13 +616,13 @@ public class CadastrosProjetosService {
                         "WHEN r.probabilidade = 'remota' AND r.impacto = 'alto' THEN 3 " +
                         "WHEN r.probabilidade = 'remota' AND r.impacto = 'medio' THEN 2 " +
                         "ELSE 1 END AS criticidade " +
-                        "FROM contratos_projetos_riscos r WHERE r.projeto_id = ? AND r.ativo = TRUE " +
+                        "FROM cadastros_projetos_riscos r WHERE r.projeto_id = ? AND r.ativo = TRUE " +
                         "ORDER BY criticidade DESC, r.id", projetoId);
     }
 
     public Map<String, Object> createRisco(long projetoId, Map<String, Object> data, Long userId) {
         return jdbc.queryForMap(
-                "INSERT INTO contratos_projetos_riscos (projeto_id, descricao, probabilidade, impacto, tratamento, " +
+                "INSERT INTO cadastros_projetos_riscos (projeto_id, descricao, probabilidade, impacto, tratamento, " +
                         "observacoes, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 projetoId, data.get("descricao"),
                 orDefault(str(data.get("probabilidade")), "possivel"),
@@ -648,13 +648,13 @@ public class CadastrosProjetosService {
         values.add(userId);
         values.add(id);
         var result = jdbc.queryForList(
-                "UPDATE contratos_projetos_riscos SET " + String.join(", ", fields) +
+                "UPDATE cadastros_projetos_riscos SET " + String.join(", ", fields) +
                         " WHERE id = ? AND ativo = TRUE RETURNING *", values.toArray());
         return result.isEmpty() ? null : result.get(0);
     }
 
     public boolean deleteRisco(long id, Long userId) {
-        return jdbc.update("UPDATE contratos_projetos_riscos SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
+        return jdbc.update("UPDATE cadastros_projetos_riscos SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
                 "WHERE id = ? AND ativo = TRUE", userId, id) > 0;
     }
 
@@ -664,13 +664,13 @@ public class CadastrosProjetosService {
 
     public List<Map<String, Object>> getEntraves(long projetoId) {
         return jdbc.queryForList(
-                "SELECT * FROM contratos_projetos_entraves WHERE projeto_id = ? AND ativo = TRUE " +
+                "SELECT * FROM cadastros_projetos_entraves WHERE projeto_id = ? AND ativo = TRUE " +
                         "ORDER BY resolvido, data_identificacao DESC", projetoId);
     }
 
     public Map<String, Object> createEntrave(long projetoId, Map<String, Object> data, Long userId) {
         return jdbc.queryForMap(
-                "INSERT INTO contratos_projetos_entraves (projeto_id, descricao, data_identificacao, observacoes, " +
+                "INSERT INTO cadastros_projetos_entraves (projeto_id, descricao, data_identificacao, observacoes, " +
                         "created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
                 projetoId, data.get("descricao"),
                 DateHelper.toSqlDate(data.get("data_identificacao")),
@@ -703,13 +703,13 @@ public class CadastrosProjetosService {
         values.add(userId);
         values.add(id);
         var result = jdbc.queryForList(
-                "UPDATE contratos_projetos_entraves SET " + String.join(", ", fields) +
+                "UPDATE cadastros_projetos_entraves SET " + String.join(", ", fields) +
                         " WHERE id = ? AND ativo = TRUE RETURNING *", values.toArray());
         return result.isEmpty() ? null : result.get(0);
     }
 
     public boolean deleteEntrave(long id, Long userId) {
-        return jdbc.update("UPDATE contratos_projetos_entraves SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
+        return jdbc.update("UPDATE cadastros_projetos_entraves SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
                 "WHERE id = ? AND ativo = TRUE", userId, id) > 0;
     }
 
@@ -719,12 +719,12 @@ public class CadastrosProjetosService {
 
     public List<Map<String, Object>> getTarefasByEntregaId(long entregaId) {
         return jdbc.queryForList(
-                "SELECT * FROM contratos_projetos_entregas_tarefas WHERE entrega_id = ? AND ativo = TRUE " +
+                "SELECT * FROM cadastros_projetos_entregas_tarefas WHERE entrega_id = ? AND ativo = TRUE " +
                         "ORDER BY ordem, id", entregaId);
     }
 
     public Map<String, Object> getTarefaById(long id) {
-        var rows = jdbc.queryForList("SELECT * FROM contratos_projetos_entregas_tarefas WHERE id = ? AND ativo = TRUE", id);
+        var rows = jdbc.queryForList("SELECT * FROM cadastros_projetos_entregas_tarefas WHERE id = ? AND ativo = TRUE", id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -732,12 +732,12 @@ public class CadastrosProjetosService {
         Object ordemFinal = data.get("ordem");
         if (ordemFinal == null) {
             Integer next = jdbc.queryForObject(
-                    "SELECT COALESCE(MAX(ordem), -1) + 1 as next_ordem FROM contratos_projetos_entregas_tarefas " +
+                    "SELECT COALESCE(MAX(ordem), -1) + 1 as next_ordem FROM cadastros_projetos_entregas_tarefas " +
                             "WHERE entrega_id = ? AND ativo = TRUE", Integer.class, entregaId);
             ordemFinal = next == null ? 0 : next;
         }
         Map<String, Object> tarefa = jdbc.queryForMap(
-                "INSERT INTO contratos_projetos_entregas_tarefas (entrega_id, nome, descricao, sprint, sprint_id, " +
+                "INSERT INTO cadastros_projetos_entregas_tarefas (entrega_id, nome, descricao, sprint, sprint_id, " +
                         "responsavel, responsavel_id, status, ordem, data_inicio, data_conclusao, ativo, created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?) RETURNING *",
                 entregaId, data.get("nome"), emptyToNull(str(data.get("descricao"))),
@@ -776,7 +776,7 @@ public class CadastrosProjetosService {
         values.add(userId);
         values.add(id);
         var result = jdbc.queryForList(
-                "UPDATE contratos_projetos_entregas_tarefas SET " + String.join(", ", fields) +
+                "UPDATE cadastros_projetos_entregas_tarefas SET " + String.join(", ", fields) +
                         " WHERE id = ? AND ativo = TRUE RETURNING *", values.toArray());
         if (!result.isEmpty()) {
             recalcularStatusEntrega(((Number) tarefa.get("entrega_id")).longValue());
@@ -790,7 +790,7 @@ public class CadastrosProjetosService {
             return false;
         }
         int affected = jdbc.update(
-                "UPDATE contratos_projetos_entregas_tarefas SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
+                "UPDATE cadastros_projetos_entregas_tarefas SET ativo = FALSE, updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND ativo = TRUE", userId, id);
         recalcularStatusEntrega(((Number) tarefa.get("entrega_id")).longValue());
         return affected > 0;
@@ -799,7 +799,7 @@ public class CadastrosProjetosService {
     public void recalcularStatusEntrega(long entregaId) {
         var tarefas = getTarefasByEntregaId(entregaId);
         if (tarefas.isEmpty()) {
-            jdbc.update("UPDATE contratos_projetos_entregas SET status = 'nao_iniciada', updated_at = NOW() WHERE id = ?", entregaId);
+            jdbc.update("UPDATE cadastros_projetos_entregas SET status = 'nao_iniciada', updated_at = NOW() WHERE id = ?", entregaId);
             return;
         }
         boolean todasAFazer = tarefas.stream().allMatch(t -> "a_fazer".equals(t.get("status")));
@@ -810,7 +810,7 @@ public class CadastrosProjetosService {
         } else if (todasFeitas) {
             novoStatus = "concluida";
         }
-        jdbc.update("UPDATE contratos_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ?", novoStatus, entregaId);
+        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ?", novoStatus, entregaId);
         Map<String, Object> entrega = getEntregaById(entregaId);
         if (entrega != null) {
             calcularProgresso(((Number) entrega.get("projeto_id")).longValue());
@@ -877,12 +877,12 @@ public class CadastrosProjetosService {
         String colPor = camada == 1 ? "tap_validado_gestor_por" : camada == 2 ? "tap_validado_diretor_por" : "tap_validado_patrocinador_por";
 
         if (camada == 1) {
-            jdbc.update("UPDATE contratos_projetos SET " + colEm + " = NOW(), " + colPor + " = ?, " +
+            jdbc.update("UPDATE cadastros_projetos SET " + colEm + " = NOW(), " + colPor + " = ?, " +
                     "tap_recusado_em = NULL, tap_recusado_por = NULL, tap_recusado_por_nome = NULL, " +
                     "tap_recusado_comentario = NULL, tap_recusado_camada = NULL, updated_at = NOW() WHERE id = ?",
                     userId, projetoId);
         } else {
-            jdbc.update("UPDATE contratos_projetos SET " + colEm + " = NOW(), " + colPor + " = ?, updated_at = NOW() WHERE id = ?",
+            jdbc.update("UPDATE cadastros_projetos SET " + colEm + " = NOW(), " + colPor + " = ?, updated_at = NOW() WHERE id = ?",
                     userId, projetoId);
         }
 
@@ -946,7 +946,7 @@ public class CadastrosProjetosService {
         }
         String userName = lookupUserName(userId);
         String camadaLabel = camada == 2 ? "diretor" : "patrocinador";
-        jdbc.update("UPDATE contratos_projetos SET " +
+        jdbc.update("UPDATE cadastros_projetos SET " +
                 "tap_validado_gestor_em = NULL, tap_validado_gestor_por = NULL, " +
                 "tap_validado_diretor_em = NULL, tap_validado_diretor_por = NULL, " +
                 "tap_validado_patrocinador_em = NULL, tap_validado_patrocinador_por = NULL, " +
@@ -970,7 +970,7 @@ public class CadastrosProjetosService {
             updates.add("tap_validado_patrocinador_em = NULL");
             updates.add("tap_validado_patrocinador_por = NULL");
         }
-        jdbc.update("UPDATE contratos_projetos SET " + String.join(", ", updates) + ", updated_at = NOW() WHERE id = ?", projetoId);
+        jdbc.update("UPDATE cadastros_projetos SET " + String.join(", ", updates) + ", updated_at = NOW() WHERE id = ?", projetoId);
         return Map.of("success", true, "camada", camada, "projetoId", projetoId);
     }
 
@@ -981,7 +981,7 @@ public class CadastrosProjetosService {
     private Map<String, Object> findProjetoComResponsaveis(long projetoId) {
         var rows = jdbc.queryForList(
                 "SELECT p.*, ges.user_id AS gestor_user_id, pat.user_id AS patrocinador_user_id, " +
-                        "area.gestor_user_id AS diretor_user_id FROM contratos_projetos p " +
+                        "area.gestor_user_id AS diretor_user_id FROM cadastros_projetos p " +
                         "LEFT JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
                         "LEFT JOIN cadastros_pessoas pat ON pat.id = p.patrocinador_id " +
                         "LEFT JOIN cadastros_areas area ON area.sigla = p.diretoria AND area.ativo = TRUE " +
@@ -998,7 +998,7 @@ public class CadastrosProjetosService {
             return true;
         }
         var rows = jdbc.queryForList(
-                "SELECT ges.user_id AS gestor_user_id FROM contratos_projetos p " +
+                "SELECT ges.user_id AS gestor_user_id FROM cadastros_projetos p " +
                         "LEFT JOIN cadastros_pessoas ges ON ges.id = p.gestor_id WHERE p.id = ?", projetoId);
         if (rows.isEmpty()) {
             return false;
@@ -1007,7 +1007,7 @@ public class CadastrosProjetosService {
     }
 
     public Long projetoIdDaEntrega(long entregaId) {
-        var rows = jdbc.queryForList("SELECT projeto_id FROM contratos_projetos_entregas WHERE id = ?", entregaId);
+        var rows = jdbc.queryForList("SELECT projeto_id FROM cadastros_projetos_entregas WHERE id = ?", entregaId);
         return rows.isEmpty() ? null : ((Number) rows.get(0).get("projeto_id")).longValue();
     }
 

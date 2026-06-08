@@ -141,6 +141,19 @@ BEGIN
     END IF;
 END $$;
 
+-- =============================================================================
+-- 4. VIEW (1) — definição interna já vai referenciar cadastros_projetos*
+--    automaticamente (PostgreSQL rastreia via OID); só falta renomear o nome
+--    da view em si.
+-- =============================================================================
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema='public' AND table_name='vw_contratos_projetos_completo') THEN
+        ALTER VIEW public.vw_contratos_projetos_completo RENAME TO vw_cadastros_projetos_completo;
+        RAISE NOTICE '152: vw_contratos_projetos_completo -> vw_cadastros_projetos_completo';
+    END IF;
+END $$;
+
 COMMIT;
 
 -- =============================================================================
@@ -168,5 +181,7 @@ COMMIT;
 -- ALTER INDEX public.cadastros_projetos_areas_execucao_projeto_id_area_id_key RENAME TO contratos_projetos_areas_execucao_projeto_id_area_id_key;
 -- ALTER INDEX public.cadastros_projetos_entregas_responsaveis_entrega_id_area_id_key RENAME TO contratos_projetos_entregas_responsaveis_entrega_id_area_id_key;
 -- ALTER INDEX public.cadastros_projetos_tap_id_key RENAME TO contratos_projetos_tap_id_key;
+--
+-- ALTER VIEW public.vw_cadastros_projetos_completo RENAME TO vw_contratos_projetos_completo;
 --
 -- COMMIT;

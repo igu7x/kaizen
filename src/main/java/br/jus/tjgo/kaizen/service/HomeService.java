@@ -171,7 +171,7 @@ public class HomeService {
         // ── 7) TAP — Camada 1 (Gestor) ──
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT p.id FROM contratos_projetos p " +
+                    "SELECT p.id FROM cadastros_projetos p " +
                             "JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
                             "WHERE p.ativo = TRUE AND p.tap_id IS NOT NULL AND p.tap_validado_gestor_em IS NULL AND ges.user_id = ? " +
                             "ORDER BY p.created_at ASC",
@@ -189,7 +189,7 @@ public class HomeService {
         // ── 8) TAP — Camada 2 (Diretor) ──
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT p.id FROM contratos_projetos p " +
+                    "SELECT p.id FROM cadastros_projetos p " +
                             "JOIN cadastros_areas ca ON LOWER(TRIM(ca.sigla)) = LOWER(TRIM(p.diretoria)) " +
                             "WHERE p.ativo = TRUE AND p.tap_id IS NOT NULL AND p.tap_validado_gestor_em IS NOT NULL " +
                             "  AND p.tap_validado_diretor_em IS NULL AND ca.gestor_user_id = ? " +
@@ -208,7 +208,7 @@ public class HomeService {
         // ── 9) TAP — Camada 3 (Patrocinador) ──
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT p.id FROM contratos_projetos p " +
+                    "SELECT p.id FROM cadastros_projetos p " +
                             "JOIN cadastros_pessoas pat ON pat.id = p.patrocinador_id " +
                             "WHERE p.ativo = TRUE AND p.tap_id IS NOT NULL AND p.tap_validado_diretor_em IS NOT NULL " +
                             "  AND p.tap_validado_patrocinador_em IS NULL AND pat.user_id = ? " +
@@ -228,7 +228,7 @@ public class HomeService {
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
                     "SELECT p.id FROM tep_termos_encerramento t " +
-                            "JOIN contratos_projetos p ON p.id = t.projeto_id " +
+                            "JOIN cadastros_projetos p ON p.id = t.projeto_id " +
                             "JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
                             "WHERE p.ativo = TRUE AND t.tep_validado_gestor_em IS NULL AND ges.user_id = ? " +
                             "ORDER BY t.created_at ASC",
@@ -247,7 +247,7 @@ public class HomeService {
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
                     "SELECT p.id FROM tep_termos_encerramento t " +
-                            "JOIN contratos_projetos p ON p.id = t.projeto_id " +
+                            "JOIN cadastros_projetos p ON p.id = t.projeto_id " +
                             "JOIN cadastros_areas ca ON LOWER(TRIM(ca.sigla)) = LOWER(TRIM(p.diretoria)) " +
                             "WHERE p.ativo = TRUE AND t.tep_validado_gestor_em IS NOT NULL AND t.tep_validado_diretor_em IS NULL " +
                             "  AND ca.gestor_user_id = ? " +
@@ -267,7 +267,7 @@ public class HomeService {
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
                     "SELECT p.id FROM tep_termos_encerramento t " +
-                            "JOIN contratos_projetos p ON p.id = t.projeto_id " +
+                            "JOIN cadastros_projetos p ON p.id = t.projeto_id " +
                             "JOIN cadastros_pessoas pat ON pat.id = p.patrocinador_id " +
                             "WHERE p.ativo = TRUE AND t.tep_validado_diretor_em IS NOT NULL AND t.tep_validado_patrocinador_em IS NULL " +
                             "  AND pat.user_id = ? " +

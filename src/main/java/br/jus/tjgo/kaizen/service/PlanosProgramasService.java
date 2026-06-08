@@ -92,7 +92,7 @@ public class PlanosProgramasService {
         }
         Map<String, Object> instrumento = new LinkedHashMap<>(rows.get(0));
 
-        boolean hasAreasVinculadas = hasColumn("contratos_projetos", "areas_vinculadas_ids");
+        boolean hasAreasVinculadas = hasColumn("cadastros_projetos", "areas_vinculadas_ids");
         boolean hasSigla = hasColumn("cadastros_areas", "sigla");
         String colunaExpressao = hasSigla
                 ? "ca.sigla"
@@ -105,15 +105,15 @@ public class PlanosProgramasService {
                     "COALESCE((SELECT STRING_AGG(" + colunaExpressao + ", ', ') FROM cadastros_areas ca " +
                     "WHERE ca.id = ANY(cp.areas_vinculadas_ids)), p.diretoria) AS projeto_diretorias " +
                     "FROM cadastros_instrumentos_projetos vp " +
-                    "JOIN vw_contratos_projetos_completo p ON p.id = vp.projeto_id " +
-                    "JOIN contratos_projetos cp ON cp.id = vp.projeto_id " +
+                    "JOIN vw_cadastros_projetos_completo p ON p.id = vp.projeto_id " +
+                    "JOIN cadastros_projetos cp ON cp.id = vp.projeto_id " +
                     "WHERE vp.instrumento_id = ? ORDER BY p.nome";
         } else {
             projetosQuery = "SELECT vp.id, vp.projeto_id, p.codigo AS projeto_codigo, p.nome AS projeto_nome, " +
                     "p.status AS projeto_status, p.gestor_nome AS projeto_gestor_nome, " +
                     "p.diretoria AS projeto_diretorias " +
                     "FROM cadastros_instrumentos_projetos vp " +
-                    "JOIN vw_contratos_projetos_completo p ON p.id = vp.projeto_id " +
+                    "JOIN vw_cadastros_projetos_completo p ON p.id = vp.projeto_id " +
                     "WHERE vp.instrumento_id = ? ORDER BY p.nome";
         }
 

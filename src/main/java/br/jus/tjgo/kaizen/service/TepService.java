@@ -43,7 +43,7 @@ public class TepService {
                 : "Não se aplica";
 
         var tapCheck = jdbc.queryForList(
-                "SELECT tap_validado_patrocinador_em FROM contratos_projetos WHERE id = ? AND ativo = TRUE",
+                "SELECT tap_validado_patrocinador_em FROM cadastros_projetos WHERE id = ? AND ativo = TRUE",
                 projetoId);
         if (tapCheck.isEmpty()) {
             throw new RuntimeException("Projeto não encontrado");
@@ -82,7 +82,7 @@ public class TepService {
                 blankToNull(consideracoesGerente), blankToNull(consideracoesPatrocinador),
                 userId, userName);
 
-        jdbc.update("UPDATE contratos_projetos SET status = ?, updated_at = NOW() WHERE id = ?",
+        jdbc.update("UPDATE cadastros_projetos SET status = ?, updated_at = NOW() WHERE id = ?",
                 tipoEncerramento, projetoId);
 
         return tep;
@@ -90,7 +90,7 @@ public class TepService {
 
     public void delete(long projetoId) {
         jdbc.update("DELETE FROM tep_termos_encerramento WHERE projeto_id = ?", projetoId);
-        jdbc.update("UPDATE contratos_projetos SET status = 'em_execucao', updated_at = NOW() WHERE id = ?", projetoId);
+        jdbc.update("UPDATE cadastros_projetos SET status = 'em_execucao', updated_at = NOW() WHERE id = ?", projetoId);
     }
 
     public Map<String, Object> validarCamada(long projetoId, int camada, Long userId) {
@@ -158,9 +158,9 @@ public class TepService {
     private void gravarSnapshot(long projetoId, Long userId) {
         try {
             var tepFinal = jdbc.queryForList("SELECT * FROM tep_termos_encerramento WHERE projeto_id = ?", projetoId);
-            var projetoFinal = jdbc.queryForList("SELECT * FROM vw_contratos_projetos_completo WHERE id = ?", projetoId);
+            var projetoFinal = jdbc.queryForList("SELECT * FROM vw_cadastros_projetos_completo WHERE id = ?", projetoId);
             var entregasFinal = jdbc.queryForList(
-                    "SELECT e.*, u.nome AS area_responsavel_nome FROM contratos_projetos_entregas e " +
+                    "SELECT e.*, u.nome AS area_responsavel_nome FROM cadastros_projetos_entregas e " +
                             "LEFT JOIN cadastros_unidades u ON u.id = e.area_responsavel_id " +
                             "WHERE e.projeto_id = ? AND e.ativo = TRUE ORDER BY e.ordem, e.id", projetoId);
             if (!tepFinal.isEmpty() && !projetoFinal.isEmpty()) {
@@ -268,7 +268,7 @@ public class TepService {
         var rows = jdbc.queryForList(
                 "SELECT p.*, ges.user_id AS gestor_user_id, pat.user_id AS patrocinador_user_id, " +
                         "area.gestor_user_id AS diretor_user_id " +
-                        "FROM contratos_projetos p " +
+                        "FROM cadastros_projetos p " +
                         "LEFT JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
                         "LEFT JOIN cadastros_pessoas pat ON pat.id = p.patrocinador_id " +
                         "LEFT JOIN cadastros_areas area ON area.sigla = p.diretoria AND area.ativo = TRUE " +
