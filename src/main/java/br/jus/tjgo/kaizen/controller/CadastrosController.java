@@ -2,7 +2,7 @@ package br.jus.tjgo.kaizen.controller;
 
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
-import br.jus.tjgo.kaizen.service.ContratosProjetosService;
+import br.jus.tjgo.kaizen.service.CadastrosProjetosService;
 import br.jus.tjgo.kaizen.service.TepService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,7 +26,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Porte fiel de contratos-projetos.ts. Montado em /api/contratos.
+ * Controller do módulo Cadastros — operações de Projetos (e seus aninhados:
+ * Entregas, Riscos, Entraves, Tarefas, Áreas, TAP/TEP).
+ *
+ * Nome histórico era ContratosController (espelhando contratos-projetos.ts do backend Node);
+ * renomeado em jun/2026 para refletir o módulo correto (Cadastros). NÃO confundir com o
+ * módulo PCA (Contratações de TI), que é distinto.
+ *
+ * Roteamento dual: responde tanto em /api/cadastros (caminho atual) quanto em
+ * /api/contratos (caminho legado, mantido por compatibilidade com o frontend institucional
+ * do TJGO durante o cutover Node → Java). Após o cutover estável, a forma /api/contratos
+ * pode ser removida.
  *
  * Autorização: entregas/evidências exigem ADMIN ou gestor do projeto (canEdit...).
  * TAP validar/recusar/revogar: identity-based por camada (no service). TEP create/delete:
@@ -34,11 +44,11 @@ import java.util.Map;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/contratos")
+@RequestMapping({"/api/cadastros", "/api/contratos"})
 @RequiredArgsConstructor
-public class ContratosController {
+public class CadastrosController {
 
-    private final ContratosProjetosService service;
+    private final CadastrosProjetosService service;
     private final TepService tepService;
     private final ObjectMapper objectMapper;
 
