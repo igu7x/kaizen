@@ -102,6 +102,25 @@
 
     <build>
         <plugins>
+            <!--
+                Necessário para que o Lombok rode como annotation processor durante a compilação.
+                Sem isto, o build falha com "cannot find symbol: variable log" (e similares para
+                getters/setters gerados) em qualquer ambiente sem o IDE injetando o processor
+                automaticamente — caso do GitLab CI / Tekton da infra do TJGO.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
