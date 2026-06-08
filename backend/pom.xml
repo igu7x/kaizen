@@ -20,6 +20,14 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <!--
+            Override do Lombok herdado do Spring Boot parent (1.18.34).
+            1.18.38+ é necessário para compilar com Java 24/25 — sem isso o build
+            falha com "ExceptionInInitializerError: com.sun.tools.javac.code.TypeTag :: UNKNOWN"
+            (Lombok velho não conhece os internals do javac novo). A infra do TJGO
+            usa openjdk-25, então fixamos uma versão compatível aqui.
+        -->
+        <lombok.version>1.18.38</lombok.version>
     </properties>
 
     <dependencies>
