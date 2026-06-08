@@ -32,6 +32,11 @@ db-export/
 *.sql.gz
 
 # =========================
+# Claude Code — config pessoal/local (não versionar)
+# =========================
+.claude/
+
+# =========================
 # OS / IDE
 # =========================
 .DS_Store
