@@ -1,3 +1,6 @@
+-- liquibase formatted sql
+-- changeset kaizen:152 splitStatements:false
+
 -- Migration 152: Renomeia tabelas/sequences/índices `contratos_projetos*` -> `cadastros_projetos*`
 --
 -- CONTEXTO E POR QUÊ
@@ -51,7 +54,6 @@
 -- Os RENAME só rodam se a tabela antiga ainda existir (IF EXISTS via TO_REGCLASS).
 -- Rodar duas vezes é seguro: na segunda execução, vira no-op.
 
-BEGIN;
 
 -- =============================================================================
 -- 1. TABELAS (7)
@@ -154,7 +156,6 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;
 
 -- =============================================================================
 -- ROLLBACK (manter comentado — copiar para arquivo separado se precisar reverter)
@@ -185,3 +186,5 @@ COMMIT;
 -- ALTER VIEW public.vw_cadastros_projetos_completo RENAME TO vw_contratos_projetos_completo;
 --
 -- COMMIT;
+
+
