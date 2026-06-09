@@ -87,12 +87,6 @@ public class AreasService {
             } catch (Exception e) {
                 log.warn("[Areas] Erro ao criar permissões padrão: {}", e.getMessage());
             }
-            try {
-                jdbc.update("INSERT INTO directorates (code, name) VALUES (?, ?) ON CONFLICT (code) DO NOTHING",
-                        sigla, area.get("nome"));
-            } catch (Exception e) {
-                log.warn("[Areas] Erro ao sincronizar directorates: {}", e.getMessage());
-            }
         }
 
         Object subordinacao = dto.get("subordinacao");

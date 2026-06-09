@@ -396,13 +396,14 @@ public class OkrService {
 
     public List<Map<String, Object>> findAllDirectorates() {
         return jdbc.queryForList(
-                "SELECT code, name, description, proad_link FROM directorates ORDER BY code");
+                "SELECT sigla AS code, nome AS name, '' AS description, proad_link " +
+                        "FROM cadastros_areas WHERE COALESCE(ativo, TRUE) = TRUE AND sigla IS NOT NULL ORDER BY sigla");
     }
 
     public Map<String, Object> updateDirectorateProadLink(String code, String proadLink) {
         var rows = jdbc.queryForList(
-                "UPDATE directorates SET proad_link = ? WHERE code = ? " +
-                        "RETURNING code, name, description, proad_link",
+                "UPDATE cadastros_areas SET proad_link = ? WHERE sigla = ? " +
+                        "RETURNING sigla AS code, nome AS name, '' AS description, proad_link",
                 proadLink, code);
         return rows.isEmpty() ? null : rows.get(0);
     }

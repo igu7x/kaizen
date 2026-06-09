@@ -9,6 +9,9 @@ spring:
     password: ${DB_PASSWORD:}
     hikari:
       maximum-pool-size: 10
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.xml
+    enabled: true
   servlet:
     multipart:
       max-file-size: 10MB

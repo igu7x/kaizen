@@ -1,0 +1,7 @@
+# Template para uso do Liquibase Maven Plugin (rollbacks)
+# Copie este arquivo para liquibase.properties e preencha a senha local
+#   cp src/main/resources/liquibase.properties.example src/main/resources/liquibase.properties
+
+url=jdbc:postgresql://localhost:5432/kaizen_java_dev
+username=postgres
+password=SUA_SENHA_AQUI
