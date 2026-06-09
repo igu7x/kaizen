@@ -1,64 +1,58 @@
-# Kaizen — Plataforma de Governança Judiciária e Tecnológica (TJGO)
+# kaizen-api-java
 
-Monorepo com **frontend React** + **backend Java/Spring Boot**.
+Backend Java (Spring Boot 3.3 / Java 21) do **Kaizen** — reescrita fiel do backend Node/Express
+(`../kaizen-source/api`). Contrato HTTP e comportamento idênticos: o cutover é só trocar a URL base
+no frontend. Node continua em `:8080`; este backend roda em `:8081`.
 
-> Este repositório é a versão pessoal/principal do autor. A versão institucional (com backend Node legado) vive em outro lugar e é mantida pela equipe TJGO.
+## Stack
+- Spring Boot 3.3.5, Java 21 LTS, Maven
+- JdbcTemplate (SQL bruto, **não** JPA) sobre PostgreSQL
+- Spring Security com filtro JWT permissivo (Keycloak + base64 de dev)
+- JJWT 0.12.6, Lombok
+- Contract tests (Sprint 10): RestAssured + JsonUnit
 
-## Estrutura
+## Setup local
 
-```
-kaizen/
-├── backend/    ← API Java 21 + Spring Boot 3.3.5 (porta 8081)
-├── frontend/   ← React + Vite + TypeScript (porta 5173)
-└── kaizen.code-workspace   ← workspace VS Code para abrir os dois juntos
-```
+1. **Java 21** e **Maven 3.9+** instalados (`java --version`, `mvn --version`).
+2. **Banco**: PostgreSQL em `localhost:5432`, database `kaizen_java_dev`.
+3. **Segredos** (não versionados): copie o template e preencha a senha do banco:
+   ```bash
+   cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
+   # edite application-local.yml e defina spring.datasource.password
+   ```
+   Alternativamente, exporte variáveis de ambiente (têm precedência sobre os defaults):
+   `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `PORT`.
+4. **Rodar**:
+   ```bash
+   mvn spring-boot:run
+   ```
+5. **Smoke test** (Bearer base64 de dev — só em desenvolvimento):
+   ```bash
+   TOKEN=$(printf '{"userId":N}' | base64 | tr -d '\n')   # N = userId válido, NÃO use 1
+   curl -H "Authorization: Bearer $TOKEN" http://localhost:8081/api/...
+   ```
+   `users.id = 1` está `is_deleted = TRUE` no dev DB — use outro id (Bug #8 em `docs/JAVA_BUGS_TO_AVOID.md`).
 
-## Como rodar localmente
+## Variáveis de ambiente
 
-### Pré-requisitos
-- Java 21 + Maven
-- Node.js 20+
-- PostgreSQL 14+ rodando em `localhost:5432` com a database `kaizen local` (com espaço no nome) já populada
+| Var | Default | Descrição |
+|---|---|---|
+| `PORT` | `8081` | Porta HTTP (Node usa 8080) |
+| `DB_HOST` / `DB_PORT` | `localhost` / `5432` | Postgres |
+| `DB_NAME` | `kaizen_java_dev` | Database |
+| `DB_USER` | `postgres` | Usuário do banco |
+| `DB_PASSWORD` | — | Senha do banco (segredo; via env ou `application-local.yml`) |
+| `SPRING_PROFILES_ACTIVE` | `local` | Profile ativo |
+| `CORS_ORIGINS` | — | Origins extras (CSV) além da lista fixa + regex `*.tjgo.jus.br` |
+| `FRONTEND_URL` | `http://localhost:5173` | URL do frontend |
+| `NODE_ENV` | `development` | Reportado em `/health` e `/api` |
 
-### 1. Backend Java
+## Documentação viva (`docs/`)
+- `KNOWN_DIVERGENCES.md` — divergências propositais Node × Java (manter vivo no Sprint 10)
+- `POST_CUTOVER_BUGS.md` — defeitos reais do Node a corrigir pós-cutover
+- `AUTH_AUDIT.md` — classificação dos 16 controllers em Cat. A (permissivo) / B (strict)
+- `JAVA_BUGS_TO_AVOID.md` — 8 armadilhas da 1ª tentativa, evitadas desde o Sprint 0
+- `PATTERNS_QUE_FUNCIONARAM.md` — receitas validadas (Jackson, CORS, AuthContext, etc.)
 
-```powershell
-cd backend
-mvn package -DskipTests
-$env:DB_HOST="localhost"; $env:DB_PORT="5432"; $env:DB_NAME="kaizen local"
-$env:DB_USER="postgres"; $env:DB_PASSWORD="<sua_senha>"
-$env:PORT="8081"; $env:TZ="America/Sao_Paulo"
-$env:SPRING_PROFILES_ACTIVE="local"; $env:SSO_ENABLED="false"
-java "-Duser.timezone=America/Sao_Paulo" -jar target\kaizen-api-java-1.0.0.jar
-```
-
-Aguardar `Started KaizenApiJavaApplication`. Testar: `curl http://localhost:8081/actuator/health`.
-
-### 2. Frontend React
-
-```powershell
-cd frontend
-npm install   # só na primeira vez
-npm run dev
-```
-
-Acessar http://localhost:5173.
-
-> Em `frontend/.env.local` (não versionado), a variável `VITE_API_URL` já está configurada para apontar para o backend Java (`http://localhost:8081`).
-
-## Documentação importante
-
-| Arquivo | Conteúdo |
-|---|---|
-| [`backend/docs/HANDOFF_PERMISSOES_TAP.md`](backend/docs/HANDOFF_PERMISSOES_TAP.md) | Spec da feature "Permissões do TAP" a implementar no Java (já existe no frontend). |
-| [`backend/docs/CUTOVER_RUNBOOK.md`](backend/docs/CUTOVER_RUNBOOK.md) | Runbook do cutover Node → Java (procedimento, rollback). |
-| [`backend/contract-tests/SHADOW_TRAFFIC_SPEC.md`](backend/contract-tests/SHADOW_TRAFFIC_SPEC.md) | Spec do shadow traffic 48h pré-cutover. |
-| [`backend/deploy/staging-shadow/README.md`](backend/deploy/staging-shadow/README.md) | Pacote pra equipe de infra do TJGO subir o Java em staging. |
-| [`backend/docs/AUTH_AUDIT.md`](backend/docs/AUTH_AUDIT.md) | Categorização dos controllers em Categoria A (permissivos) e B (strict). |
-| [`backend/docs/JAVA_BUGS_TO_AVOID.md`](backend/docs/JAVA_BUGS_TO_AVOID.md) | Bugs já pegos que não devem se repetir. |
-| [`CLAUDE.md`](CLAUDE.md) | Instruções pro Claude Code entender o layout do monorepo. |
-
-## Status
-
-- Migração Node → Java: **cutover-ready** (11 sprints completos, 100% paridade comportamental, 46/47 endpoints byte-EXACT em contract tests).
-- Feature "Permissões do TAP": implementada no frontend; backend Java aguarda implementação pós-cutover (ver handoff).
+## Disciplina (regra de ouro)
+Commit + push pro remote **após cada sprint**. A 1ª tentativa foi perdida por falta de versionamento.
