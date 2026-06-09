@@ -1,3 +1,6 @@
+-- liquibase formatted sql
+-- changeset kaizen:151 splitStatements:false
+
 -- Migration 151: Cria a tabela permissoes_tap para o módulo "Permissões do TAP"
 --
 -- CONTEXTO:
@@ -44,3 +47,5 @@ BEGIN
         RAISE NOTICE '151: Tabela permissoes_tap já existia, nenhuma alteração feita.';
     END IF;
 END $$;
+
+

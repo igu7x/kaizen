@@ -62,9 +62,6 @@ public class AmbientesService {
                     nomeRaiz, siglaRaiz, codigo, userId, userId);
         }
 
-        jdbc.update(
-                "INSERT INTO directorates (code, name) VALUES (?, ?) ON CONFLICT (code) DO NOTHING",
-                siglaRaiz, nomeRaiz);
 
         List<String> abas = jdbc.queryForList("SELECT DISTINCT aba_codigo FROM permissoes_diretoria", String.class);
         for (String aba : abas) {
