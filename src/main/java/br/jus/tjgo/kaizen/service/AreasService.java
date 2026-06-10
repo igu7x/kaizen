@@ -60,6 +60,9 @@ public class AreasService {
         if (siglaVal == null && nomeVal != null) {
             siglaVal = nomeVal;
         }
+        if (siglaVal != null && String.valueOf(siglaVal).length() > 10) {
+            siglaVal = String.valueOf(siglaVal).substring(0, 10).trim();
+        }
 
         Integer nextPos = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(ordem_posicao), -1) + 1 FROM cadastros_areas " +
@@ -120,6 +123,9 @@ public class AreasService {
             if (area.get("sigla") == null || String.valueOf(area.get("sigla")).isBlank()) {
                 siglaVal = nomeVal != null ? nomeVal : area.get("nome");
             }
+        }
+        if (siglaVal != null && String.valueOf(siglaVal).length() > 10) {
+            siglaVal = String.valueOf(siglaVal).substring(0, 10).trim();
         }
 
         Object gestorUserId = dto.containsKey("gestor_user_id") ? dto.get("gestor_user_id") : null;
