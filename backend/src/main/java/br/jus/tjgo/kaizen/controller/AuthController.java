@@ -9,8 +9,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -36,6 +42,7 @@ public class AuthController {
     private final UserService userService;
     private final ObjectMapper objectMapper;
     private final Environment env;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     // ---------- SSO (Keycloak) ----------
 
@@ -79,14 +86,87 @@ public class AuthController {
         String error = params.get("error");
         if (error != null) {
             String desc = params.getOrDefault("error_description", error);
+            log.warn("SSO callback recebeu error: {} ({})", error, desc);
             return redirect(frontend + "/login?error=" + enc(desc));
         }
         String code = params.get("code");
         if (code == null || code.isEmpty()) {
             return redirect(frontend + "/login?error=" + enc("Código de autorização não recebido"));
         }
-        // SSO desabilitado em dev: a troca de código exigiria Keycloak. Falha de forma fiel.
-        return redirect(frontend + "/login?error=" + enc("Erro na autenticação SSO"));
+        if (!sso.isEnabled()) {
+            return redirect(frontend + "/login?error=" + enc("SSO não está configurado"));
+        }
+
+        try {
+            // 1. Trocar code por token no Keycloak
+            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.add("grant_type", "authorization_code");
+            form.add("code", code);
+            form.add("client_id", sso.getClientId());
+            form.add("client_secret", sso.getClientSecret());
+            form.add("redirect_uri", sso.getRedirectUri());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            HttpEntity<MultiValueMap<String, String>> req = new HttpEntity<>(form, headers);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> tokenResp = restTemplate.postForObject(sso.getTokenUrl(), req, Map.class);
+            if (tokenResp == null || tokenResp.get("access_token") == null) {
+                log.warn("SSO callback: token response sem access_token: {}", tokenResp);
+                return redirect(frontend + "/login?error=" + enc("Falha ao obter token do Keycloak"));
+            }
+
+            String accessToken = String.valueOf(tokenResp.get("access_token"));
+            Object idTokenObj = tokenResp.get("id_token");
+            String tokenForClaims = idTokenObj != null ? String.valueOf(idTokenObj) : accessToken;
+
+            // 2. Decodificar JWT pra pegar email
+            String email = extractEmailFromJwt(tokenForClaims);
+            if (email == null || email.isBlank()) {
+                log.warn("SSO callback: email nao encontrado nos claims do token");
+                return redirect(frontend + "/login?error=" + enc("E-mail não encontrado no token SSO"));
+            }
+
+            // 3. Buscar user no banco
+            Map<String, Object> user = userService.findUserByEmail(email);
+            if (user == null) {
+                log.warn("SSO callback: usuario {} nao cadastrado", email);
+                return redirect(frontend + "/login?error=" + enc("Usuário não cadastrado: " + email));
+            }
+
+            // 4. Gerar token local (mesmo padrao do login local — base64, NAO JWT)
+            Map<String, Object> tokenPayload = new LinkedHashMap<>();
+            tokenPayload.put("userId", user.get("id"));
+            tokenPayload.put("email", user.get("email"));
+            String localToken = base64(tokenPayload);
+
+            // 5. Redirecionar pro frontend com token + user
+            String userJson = objectMapper.writeValueAsString(user);
+            log.info("SSO callback: login OK p/ {}", email);
+            return redirect(frontend + "/login?token=" + enc(localToken) + "&user=" + enc(userJson));
+        } catch (Exception e) {
+            log.error("SSO callback: erro inesperado", e);
+            return redirect(frontend + "/login?error=" + enc("Erro na autenticação SSO: " + e.getMessage()));
+        }
+    }
+
+    private String extractEmailFromJwt(String jwt) {
+        try {
+            String[] parts = jwt.split("\\.");
+            if (parts.length < 2) return null;
+            byte[] payloadBytes = Base64.getUrlDecoder().decode(parts[1]);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> claims = objectMapper.readValue(payloadBytes, Map.class);
+            Object email = claims.get("email");
+            if (email == null) {
+                email = claims.get("preferred_username");
+            }
+            return email == null ? null : String.valueOf(email);
+        } catch (Exception e) {
+            log.warn("SSO callback: falha ao decodificar JWT: {}", e.getMessage());
+            return null;
+        }
     }
 
     @PostMapping("/sso/refresh")

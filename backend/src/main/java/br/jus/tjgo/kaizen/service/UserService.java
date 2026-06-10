@@ -61,6 +61,11 @@ public class UserService {
         return u == null ? null : toResponseDto(u);
     }
 
+    public Map<String, Object> findUserByEmail(String email) {
+        Map<String, Object> u = findByEmailRaw(email);
+        return u == null ? null : toResponseDto(u);
+    }
+
     private Map<String, Object> findByEmailRaw(String email) {
         var rows = jdbc.queryForList("SELECT * FROM users WHERE email = ? AND is_deleted = FALSE", email);
         return rows.isEmpty() ? null : rows.get(0);
