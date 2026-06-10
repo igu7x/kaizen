@@ -117,9 +117,9 @@ public class AuthController {
                 return redirect(frontend + "/login?error=" + enc("Falha ao obter token do Keycloak"));
             }
 
-            String accessToken = String.valueOf(tokenResp.get("access_token"));
+            String keycloakAccessToken = String.valueOf(tokenResp.get("access_token"));
             Object idTokenObj = tokenResp.get("id_token");
-            String tokenForClaims = idTokenObj != null ? String.valueOf(idTokenObj) : accessToken;
+            String tokenForClaims = idTokenObj != null ? String.valueOf(idTokenObj) : keycloakAccessToken;
 
             // 2. Decodificar JWT pra pegar email
             String email = extractEmailFromJwt(tokenForClaims);
@@ -141,10 +141,37 @@ public class AuthController {
             tokenPayload.put("email", user.get("email"));
             String localToken = base64(tokenPayload);
 
-            // 5. Redirecionar pro frontend com token + user
+            // 5. Montar payload de tokens que o frontend (AuthCallback.tsx) espera
+            Map<String, Object> tokens = new LinkedHashMap<>();
+            tokens.put("accessToken", localToken);
+            tokens.put("refreshToken", String.valueOf(tokenResp.getOrDefault("refresh_token", "")));
+            tokens.put("expiresAt", System.currentTimeMillis() + TOKEN_TTL_MS);
+
+            // 6. Decodificar returnUrl do state (base64 de {"returnUrl": "..."})
+            String returnUrl = "/";
+            String state = params.get("state");
+            if (state != null && !state.isBlank()) {
+                try {
+                    byte[] stateBytes = Base64.getDecoder().decode(state);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> stateMap = objectMapper.readValue(stateBytes, Map.class);
+                    Object ru = stateMap.get("returnUrl");
+                    if (ru != null && !String.valueOf(ru).isBlank()) {
+                        returnUrl = String.valueOf(ru);
+                    }
+                } catch (Exception ignore) {
+                    // state malformado — ignora e usa "/"
+                }
+            }
+
+            // 7. Redirecionar pro AuthCallback do frontend com user+tokens+returnUrl
             String userJson = objectMapper.writeValueAsString(user);
+            String tokensJson = objectMapper.writeValueAsString(tokens);
             log.info("SSO callback: login OK p/ {}", email);
-            return redirect(frontend + "/login?token=" + enc(localToken) + "&user=" + enc(userJson));
+            return redirect(frontend + "/auth/callback"
+                    + "?user=" + enc(userJson)
+                    + "&tokens=" + enc(tokensJson)
+                    + "&returnUrl=" + enc(returnUrl));
         } catch (Exception e) {
             log.error("SSO callback: erro inesperado", e);
             return redirect(frontend + "/login?error=" + enc("Erro na autenticação SSO: " + e.getMessage()));
