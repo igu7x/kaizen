@@ -30,7 +30,7 @@ export const getApiBaseUrl = (): string => {
     // 2. Controle explícito por VITE_APP_ENV (definido no build do OpenShift)
     const appEnvRaw = (import.meta.env.VITE_APP_ENV || '').toString().trim().toLowerCase();
     if (appEnvRaw === 'staging') {
-        const url = (import.meta.env.VITE_API_URL_STAGING || 'https://painel-sgjt-stag-api.apps.ocp-prd.tjgo.jus.br').toString().trim();
+        const url = (import.meta.env.VITE_API_URL_STAGING || 'https://painel-sgjt-stag-api2.apps.ocp-prd.tjgo.jus.br').toString().trim();
         console.log('[API] Ambiente via VITE_APP_ENV=staging ->', url);
         return url;
     }
@@ -45,7 +45,7 @@ export const getApiBaseUrl = (): string => {
     console.log('[API] VITE_APP_ENV não definido — detectando pelo hostname:', hostname);
 
     if (hostname.includes('stag') && hostname.includes('tjgo.jus.br')) {
-        const url = (import.meta.env.VITE_API_URL_STAGING || 'https://painel-sgjt-stag-api.apps.ocp-prd.tjgo.jus.br').toString().trim();
+        const url = (import.meta.env.VITE_API_URL_STAGING || 'https://painel-sgjt-stag-api2.apps.ocp-prd.tjgo.jus.br').toString().trim();
         console.log('[API] Ambiente: STAGING ->', url);
         return url;
     }
