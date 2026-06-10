@@ -142,9 +142,12 @@ public class AuthController {
             String localToken = base64(tokenPayload);
 
             // 5. Montar payload de tokens que o frontend (AuthCallback.tsx) espera
+            //    idToken vai junto pra o frontend conseguir mandar como id_token_hint
+            //    quando chamar /sso/logout (Keycloak antigo exige isso pra encerrar sessao).
             Map<String, Object> tokens = new LinkedHashMap<>();
             tokens.put("accessToken", localToken);
             tokens.put("refreshToken", String.valueOf(tokenResp.getOrDefault("refresh_token", "")));
+            tokens.put("idToken", idTokenObj != null ? String.valueOf(idTokenObj) : "");
             tokens.put("expiresAt", System.currentTimeMillis() + TOKEN_TTL_MS);
 
             // 6. Decodificar returnUrl do state (base64 de {"returnUrl": "..."})
@@ -206,14 +209,21 @@ public class AuthController {
     }
 
     @GetMapping("/sso/logout")
-    public ResponseEntity<?> ssoLogout(@RequestParam(value = "redirect", required = false) String redirect) {
+    public ResponseEntity<?> ssoLogout(
+            @RequestParam(value = "redirect", required = false) String redirect,
+            @RequestParam(value = "id_token_hint", required = false) String idTokenHint) {
         String frontend = getFrontendUrl();
         if (!sso.isEnabled()) {
             return redirect(frontend + "/login");
         }
         String postLogoutUri = (redirect != null && !redirect.isBlank()) ? redirect : frontend + "/login";
-        String logoutUrl = sso.getLogoutUrl() + "?post_logout_redirect_uri=" + enc(postLogoutUri);
-        return redirect(logoutUrl);
+        StringBuilder logoutUrl = new StringBuilder(sso.getLogoutUrl())
+                .append("?post_logout_redirect_uri=").append(enc(postLogoutUri));
+        if (idTokenHint != null && !idTokenHint.isBlank()) {
+            // Keycloak < 19 (e configs antigas como o TJGO) exigem id_token_hint pra fechar a sessao.
+            logoutUrl.append("&id_token_hint=").append(enc(idTokenHint));
+        }
+        return redirect(logoutUrl.toString());
     }
 
     // ---------- Login local (dev/staging) ----------
