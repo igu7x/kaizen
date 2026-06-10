@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +22,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/areas")
 @RequiredArgsConstructor
+@Slf4j
 public class AreasController {
 
     private final AreasService areasService;
@@ -33,8 +35,7 @@ public class AreasController {
         return AuthContext.getCurrentUser().map(u -> u.id()).orElse(null);
     }
 
-    /** Deriva o domínio do usuário logado (principal ou Bearer base64). */
-    private String getUserDominio(HttpServletRequest req) {
+    private Map<String, Object> getRequestUser(HttpServletRequest req) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             String auth = req.getHeader("Authorization");
@@ -45,34 +46,46 @@ public class AreasController {
                     if (payload.hasNonNull("userId")) {
                         userId = payload.get("userId").asLong();
                     }
-                } catch (Exception ignored) {
-                    // segue
-                }
+                } catch (Exception ignored) {}
             }
         }
-        if (userId == null) {
-            return null;
-        }
-        Map<String, Object> user = userService.findUserById(userId);
-        if (user == null || user.get("diretoria") == null) {
-            return null;
-        }
+        if (userId == null) return null;
+        return userService.findUserById(userId);
+    }
+
+    private String getDominioFromUser(Map<String, Object> user) {
+        if (user == null || user.get("diretoria") == null) return null;
         return domainService.getDomainForDiretoria(String.valueOf(user.get("diretoria"))).dominio();
     }
 
-    // ---------- ÁREAS ----------
+    private String getUserDominio(HttpServletRequest req) {
+        return getDominioFromUser(getRequestUser(req));
+    }
 
     @GetMapping
     public List<Map<String, Object>> list(HttpServletRequest req,
                                           @RequestParam(value = "all", required = false) String all,
                                           @RequestParam(value = "dominio", required = false) String dominioOverride) {
-        if ("true".equals(all)) {
-            return areasService.getAll(null);
+        Map<String, Object> user = getRequestUser(req);
+        boolean isSuperadmin = user != null && Boolean.TRUE.equals(user.get("is_superadmin"));
+
+        log.info("GET /api/areas - User: {}, isSuperadmin: {}, all: {}", user != null ? user.get("id") : "null", isSuperadmin, all);
+
+        if (isSuperadmin) {
+            if ("true".equals(all)) {
+                return areasService.getAll(null);
+            }
+            if (dominioOverride != null && !dominioOverride.isBlank()) {
+                return areasService.getAll(dominioOverride);
+            }
+            // Se o superadmin não pedir all=true nem passar um domínio explícito,
+            // devolve as áreas do próprio domínio dele por padrão (comportamento REST previsível).
+            return areasService.getAll(getDominioFromUser(user));
         }
-        if (dominioOverride != null && !dominioOverride.isBlank()) {
-            return areasService.getAll(dominioOverride);
-        }
-        return areasService.getAll(getUserDominio(req));
+
+        String userDominio = getDominioFromUser(user);
+        log.info("GET /api/areas - Returning domain: {}", userDominio);
+        return areasService.getAll(userDominio);
     }
 
     @GetMapping("/select")

@@ -134,8 +134,8 @@ public class UserController {
         String dominio = (dominioParam != null && !dominioParam.isBlank()) ? dominioParam : null;
         if (dominio == null) {
             Map<String, Object> user = userService.findUserById(userId);
-            // SUPERADMIN vê todos (sem filtro). Senão, filtra pelo domínio da diretoria do usuário.
-            if (user != null && !Boolean.TRUE.equals(user.get("is_superadmin")) && user.get("diretoria") != null) {
+            // Filtra pelo domínio da diretoria do usuário, garantindo isolamento mesmo para superadmins
+            if (user != null && user.get("diretoria") != null) {
                 dominio = domainService.getDomainForDiretoria(String.valueOf(user.get("diretoria"))).dominio();
             }
         }
