@@ -52,7 +52,7 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Liquibase -->
+        <!-- Liquibase: gerenciamento de migrations via db.changelog-master.xml -->
         <dependency>
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
@@ -147,15 +147,15 @@
                     </excludes>
                 </configuration>
             </plugin>
-            
-            <!-- Plugin para Rollbacks via linha de comando -->
+
+            <!-- Plugin para rollbacks/operações Liquibase via linha de comando -->
             <plugin>
                 <groupId>org.liquibase</groupId>
                 <artifactId>liquibase-maven-plugin</artifactId>
                 <configuration>
                     <propertyFile>src/main/resources/liquibase.properties</propertyFile>
                     <changeLogFile>src/main/resources/db/changelog/db.changelog-master.xml</changeLogFile>
-                    <!-- Fallback: URL e Username padrão para DEV caso o liquibase.properties não exista -->
+                    <!-- Fallback DEV se liquibase.properties não existir -->
                     <url>jdbc:postgresql://localhost:5432/kaizen_java_dev</url>
                     <username>postgres</username>
                 </configuration>

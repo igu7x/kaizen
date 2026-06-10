@@ -1,5 +1,5 @@
 -- liquibase formatted sql
--- changeset kaizen:152 splitStatements:false
+-- changeset kaizen:152 splitStatements:false validCheckSum:ANY
 
 -- Migration 152: Renomeia tabelas/sequences/índices `contratos_projetos*` -> `cadastros_projetos*`
 --
@@ -144,15 +144,30 @@ BEGIN
 END $$;
 
 -- =============================================================================
--- 4. VIEW (1) — definição interna já vai referenciar cadastros_projetos*
---    automaticamente (PostgreSQL rastreia via OID); só falta renomear o nome
---    da view em si.
+-- 4. VIEW (1) — caminho preferido: RENAME; fallback: CREATE OR REPLACE
+--
+-- Em ambientes onde o app user é dono da view (dev local, prod inicial), o ALTER
+-- VIEW ... RENAME funciona. Em staging do TJGO a view foi criada por um DBA e o
+-- app user só tem SELECT — nesse caso o RENAME estoura `insufficient_privilege`.
+--
+-- Fallback: lê a definição da view antiga via pg_get_viewdef() e cria uma view
+-- NOVA com o nome `vw_cadastros_projetos_completo`. A view antiga continua
+-- existindo mas obsoleta (todo o código Java/Node passa a apontar pra nova).
+-- Requer só CREATE no schema public, que o app user já tem.
 -- =============================================================================
 DO $$
+DECLARE
+    v_def TEXT;
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema='public' AND table_name='vw_contratos_projetos_completo') THEN
-        ALTER VIEW public.vw_contratos_projetos_completo RENAME TO vw_cadastros_projetos_completo;
-        RAISE NOTICE '152: vw_contratos_projetos_completo -> vw_cadastros_projetos_completo';
+        BEGIN
+            ALTER VIEW public.vw_contratos_projetos_completo RENAME TO vw_cadastros_projetos_completo;
+            RAISE NOTICE '152: vw_contratos_projetos_completo -> vw_cadastros_projetos_completo (renamed)';
+        EXCEPTION WHEN insufficient_privilege THEN
+            SELECT pg_get_viewdef('public.vw_contratos_projetos_completo'::regclass, true) INTO v_def;
+            EXECUTE 'CREATE OR REPLACE VIEW public.vw_cadastros_projetos_completo AS ' || v_def;
+            RAISE NOTICE '152: vw_cadastros_projetos_completo created (app user is not owner of old view; old view kept as orphan)';
+        END;
     END IF;
 END $$;
 

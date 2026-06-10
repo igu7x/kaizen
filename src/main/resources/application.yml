@@ -1,12 +1,24 @@
+## ============================================================================
+## CONFIGURAÇÃO DE ENV VARS — DUAL-NAME FALLBACK
+## ============================================================================
+## Cada placeholder aceita 2 nomes de env var, nessa ordem de precedência:
+##   1. OPENSHIFT_* (nomes usados pelos Secrets do TJGO em staging/prod)
+##   2. Nome curto (DB_HOST, FRONTEND_URL, etc — usado em dev local e CI)
+## Se nenhum dos 2 estiver setado, cai no default (entre os :: e o final).
+##
+## Isso evita ter que mapear chave-por-chave no Deployment do OpenShift:
+## basta um `envFrom: secretRef:` apontando pros 3 Secrets (api2-postgres,
+## api2-default, api2-sso) e o Spring resolve.
+## ============================================================================
 spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
   application:
     name: kaizen-api-java
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kaizen_java_dev}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:}
+    url: jdbc:postgresql://${OPENSHIFT_POSTGRESQL_DB_HOST:${DB_HOST:localhost}}:${OPENSHIFT_POSTGRESQL_DB_PORT:${DB_PORT:5432}}/${OPENSHIFT_POSTGRESQL_DB_DATABASE:${DB_NAME:kaizen_java_dev}}
+    username: ${OPENSHIFT_POSTGRESQL_DB_USER:${DB_USER:postgres}}
+    password: ${OPENSHIFT_POSTGRESQL_DB_PASSWORD:${DB_PASSWORD:}}
     hikari:
       maximum-pool-size: 10
   liquibase:
@@ -20,6 +32,7 @@ spring:
     serialization:
       write-dates-as-timestamps: false
     default-property-inclusion: ALWAYS
+    time-zone: America/Sao_Paulo
 
 server:
   port: ${PORT:8081}
@@ -42,13 +55,13 @@ info:
 kaizen:
   sso:
     enabled: ${SSO_ENABLED:false}
-    realm: ${KEYCLOAK_REALM:}
-    client-id: ${KEYCLOAK_CLIENT_ID:}
-    keycloak-url: ${KEYCLOAK_URL:}
-    redirect-uri: ${KEYCLOAK_REDIRECT_URI:}
+    realm: ${OPENSHIFT_SSO_KEYCLOACK_REALM:${KEYCLOAK_REALM:}}
+    client-id: ${OPENSHIFT_SSO_CLIENT_ID:${KEYCLOAK_CLIENT_ID:}}
+    keycloak-url: ${OPENSHIFT_SSO_KEYCLOACK_URL:${KEYCLOAK_URL:}}
+    redirect-uri: ${OPENSHIFT_SSO_KEYCLOACK_REDIRECT_URI:${KEYCLOAK_REDIRECT_URI:}}
   frontend:
-    url: ${FRONTEND_URL:http://localhost:5173}
-  node-env: ${NODE_ENV:development}
+    url: ${OPENSHIFT_FRONTEND_URL:${FRONTEND_URL:http://localhost:5173}}
+  node-env: ${OPENSHIFT_NODE_ENV:${NODE_ENV:development}}
   jwt-secret: ${JWT_SECRET:}
   cors:
     extra-origins: ${CORS_ORIGINS:}
