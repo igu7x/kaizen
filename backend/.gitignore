@@ -11,6 +11,8 @@ application-local.yaml
 application-secret.yml
 src/main/resources/application-local.yml
 src/main/resources/application-local.yaml
+src/main/resources/liquibase.properties
+liquibase.properties
 *.pem
 *.key
 *.p12
