@@ -59,6 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser((prev) => {
             const merged: User = {
               ...(prev || savedUser),
+              diretoria: fresh.diretoria ?? prev?.diretoria ?? savedUser?.diretoria,
+              dominio: (fresh as any).dominio ?? (prev as any)?.dominio ?? (savedUser as any)?.dominio,
+              directorate_code: (fresh as any).directorate_code ?? (prev as any)?.directorate_code ?? (savedUser as any)?.directorate_code,
               foto_perfil: fresh.foto_perfil ?? null,
               matricula: fresh.matricula ?? null,
               cargo_funcao: fresh.cargo_funcao ?? null,
