@@ -252,10 +252,21 @@ public class UserService {
         }
         if (data.containsKey("diretoria")) {
             String diretoria = strOrNull(data.get("diretoria"));
+            String newDominio = domainService.getDomainForDiretoria(diretoria == null ? "SGJT" : diretoria).dominio();
+            String currentDominio = strOrNull(existing.get("dominio"));
+            
+            if (currentDominio != null && !currentDominio.equals(newDominio)) {
+                Map<String, Object> updater = findOneRaw(updatedByUserId);
+                boolean isSuperadmin = updater != null && Boolean.TRUE.equals(updater.get("is_superadmin"));
+                if (!isSuperadmin) {
+                    throw new ApiException(400, "Não é permitido alterar a diretoria para uma de outro domínio.");
+                }
+            }
+
             sets.add("diretoria = ?");
             values.add(diretoria);
             sets.add("dominio = ?");
-            values.add(domainService.getDomainForDiretoria(diretoria == null ? "SGJT" : diretoria).dominio());
+            values.add(newDominio);
         }
 
         if (sets.isEmpty()) {

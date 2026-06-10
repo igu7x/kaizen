@@ -55,6 +55,15 @@ public class AreasService {
 
     @Transactional
     public Map<String, Object> create(Map<String, Object> dto, Long userId, String dominio) {
+        Object nomeVal = orNull(dto.get("nome"));
+        Object siglaVal = orNull(dto.get("sigla"));
+        if (siglaVal == null && nomeVal != null) {
+            siglaVal = nomeVal;
+        }
+        if (siglaVal != null && String.valueOf(siglaVal).length() > 10) {
+            siglaVal = String.valueOf(siglaVal).substring(0, 10).trim();
+        }
+
         Integer nextPos = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(ordem_posicao), -1) + 1 FROM cadastros_areas " +
                         "WHERE COALESCE(ordem_linha, 0) = 0 AND COALESCE(ativo, TRUE) = TRUE", Integer.class);
@@ -64,7 +73,7 @@ public class AreasService {
                         "subdiretor, cargo_subdiretor, foto_subdiretor, gerido_por_unidade_superior, " +
                         "colaboradores_vinculados, ordem_linha, ordem_posicao, dominio, created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?) RETURNING *",
-                orNull(dto.get("nome")), orNull(dto.get("sigla")), orNull(dto.get("subordinacao")),
+                nomeVal, siglaVal, orNull(dto.get("subordinacao")),
                 orNull(dto.get("gestor")), orNull(dto.get("cargo_gestor")), orNull(dto.get("foto_gestor")),
                 orNull(dto.get("subdiretor")), orNull(dto.get("cargo_subdiretor")), orNull(dto.get("foto_subdiretor")),
                 dto.get("gerido_por_unidade_superior") != null ? dto.get("gerido_por_unidade_superior") : false,
@@ -102,6 +111,23 @@ public class AreasService {
         if (area == null) {
             return null;
         }
+
+        Object nomeVal = orNull(dto.get("nome"));
+        Object siglaVal = orNull(dto.get("sigla"));
+
+        if (dto.containsKey("sigla")) {
+            if (siglaVal == null) {
+                siglaVal = nomeVal != null ? nomeVal : area.get("nome");
+            }
+        } else {
+            if (area.get("sigla") == null || String.valueOf(area.get("sigla")).isBlank()) {
+                siglaVal = nomeVal != null ? nomeVal : area.get("nome");
+            }
+        }
+        if (siglaVal != null && String.valueOf(siglaVal).length() > 10) {
+            siglaVal = String.valueOf(siglaVal).substring(0, 10).trim();
+        }
+
         Object gestorUserId = dto.containsKey("gestor_user_id") ? dto.get("gestor_user_id") : null;
         Object subdiretorUserId = dto.containsKey("subdiretor_user_id") ? dto.get("subdiretor_user_id") : null;
 
@@ -122,7 +148,7 @@ public class AreasService {
                         "colaboradores_vinculados = COALESCE(?, colaboradores_vinculados), " +
                         "updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND COALESCE(ativo, TRUE) = TRUE RETURNING *",
-                orNull(dto.get("nome")), orNull(dto.get("sigla")), orNull(dto.get("subordinacao")),
+                nomeVal, siglaVal, orNull(dto.get("subordinacao")),
                 orNull(dto.get("gestor")),
                 gestorUserId, gestorUserId, orNull(dto.get("gestor")), orNull(dto.get("gestor")),
                 orNull(dto.get("cargo_gestor")), orNull(dto.get("foto_gestor")),
