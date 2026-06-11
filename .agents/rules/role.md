@@ -35,7 +35,7 @@ Antes de gerar qualquer código, avalie os seguintes aspectos:
 
 ## 4. Output Format
 
-Ao concluir, com os testes passando e o build limpo, responda SEMPRE nesta ordem rigorosa:
+Ao concluir, com os testes passando e o build limpo, NUNCA faça git commit/push e responda SEMPRE nesta ordem rigorosa:
 
 1. **O quê / Por quê:** Resumo curto do problema e da solução implementada no Spring Boot.
 2. **Contrato da API (JSON):** Exemplo do payload de Request e Response (e de erro, se aplicável) para o desenvolvedor Front-end saber exatamente o que esperar.
