@@ -11,17 +11,21 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Porte fiel de routes/ambientes.ts. TODAS as rotas passam por devOnly:
- * só o email DEV_EMAIL (ifccupertino@tjgo.jus.br) pode acessar.
+ * só emails da whitelist DEV_EMAILS podem acessar.
  */
 @RestController
 @RequestMapping("/api/ambientes")
 @RequiredArgsConstructor
 public class AmbientesController {
 
-    private static final String DEV_EMAIL = "ifccupertino@tjgo.jus.br";
+    private static final Set<String> DEV_EMAILS = Set.of(
+            "ifccupertino@tjgo.jus.br",
+            "acandrade@tjgo.jus.br",
+            "sgrocha@tjgo.jus.br");
 
     private final AmbientesService service;
 
@@ -42,7 +46,7 @@ public class AmbientesController {
             return ResponseEntity.status(403).body(Map.of("error", "Acesso negado: usuário não identificado"));
         }
         String email = service.getEmailById(userId);
-        if (email == null || !email.equals(DEV_EMAIL)) {
+        if (email == null || !DEV_EMAILS.contains(email)) {
             return ResponseEntity.status(403).body(Map.of("error", "Acesso negado: apenas desenvolvedores autorizados"));
         }
         return null;
