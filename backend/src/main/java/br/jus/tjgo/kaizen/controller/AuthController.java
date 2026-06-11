@@ -217,10 +217,13 @@ public class AuthController {
             return redirect(frontend + "/login");
         }
         String postLogoutUri = (redirect != null && !redirect.isBlank()) ? redirect : frontend + "/login";
+        // Manda nome novo (post_logout_redirect_uri, Keycloak 19+) e nome antigo (redirect_uri,
+        // Keycloak <19, que e o caso do TJGO). Tambem inclui client_id que algumas versoes exigem.
         StringBuilder logoutUrl = new StringBuilder(sso.getLogoutUrl())
-                .append("?post_logout_redirect_uri=").append(enc(postLogoutUri));
+                .append("?post_logout_redirect_uri=").append(enc(postLogoutUri))
+                .append("&redirect_uri=").append(enc(postLogoutUri))
+                .append("&client_id=").append(enc(sso.getClientId()));
         if (idTokenHint != null && !idTokenHint.isBlank()) {
-            // Keycloak < 19 (e configs antigas como o TJGO) exigem id_token_hint pra fechar a sessao.
             logoutUrl.append("&id_token_hint=").append(enc(idTokenHint));
         }
         return redirect(logoutUrl.toString());
