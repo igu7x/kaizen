@@ -18,6 +18,8 @@ import Pessoas from "./pages/Pessoas";
 import CadastroPessoasAreas from "./pages/CadastroPessoasAreas";
 import PcaItemDetailsPage from "./pages/PcaItemDetailsPage";
 import RenovacaoDetailsPage from "./pages/RenovacaoDetailsPage";
+import ContratosTI from "./pages/ContratosTI";
+import ContractDetails from "./pages/ContractDetails";
 import Administracao from "./pages/Administracao";
 import Placeholder from "./pages/Placeholder";
 import Comites from "./pages/Comites";
@@ -145,6 +147,22 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <RenovacaoDetailsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/contratos-ti"
+                    element={
+                      <ProtectedRoute>
+                        <ContratosTI />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/contratos-ti/:id"
+                    element={
+                      <ProtectedRoute>
+                        <ContractDetails />
                       </ProtectedRoute>
                     }
                   />
@@ -358,9 +376,9 @@ function App() {
             </BrowserRouter>
             <Toaster richColors position="bottom-right" />
           </GestaoProvider>
-        </EstrategiaModeloProvider>
-      </DirectorateProvider>
-    </AuthProvider>
+        </EstrategiaModeloProvider >
+      </DirectorateProvider >
+    </AuthProvider >
   );
 }
 

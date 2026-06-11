@@ -111,6 +111,12 @@ const menuItemsCompleto: MenuItem[] = [
         path: "/contratacoes-ti/novas",
         permissaoCodigo: "contratacoes_novas",
       },
+      {
+        title: "Contratos de TIC",
+        icon: FileText,
+        path: "/contratos-ti",
+        permissaoCodigo: "contratos_ti"
+      },
     ],
   },
   {
@@ -283,7 +289,7 @@ function MenuItemComponent({
                   className={cn(
                     "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors",
                     isSubActive &&
-                      "bg-white/15 text-white border-l-2 border-white ml-2",
+                    "bg-white/15 text-white border-l-2 border-white ml-2",
                   )}
                 >
                   {child.icon && (
