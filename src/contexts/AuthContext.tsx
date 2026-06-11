@@ -146,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_expires_at');
     localStorage.removeItem('is_sso_user');
+    localStorage.removeItem('id_token');
 
     // Limpar cache de dados
     Storage.remove('gestao_objectives');
@@ -158,6 +159,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async (): Promise<void> => {
     const isSsoUser = localStorage.getItem('is_sso_user') === 'true';
+    // Captura o id_token ANTES do handleLogout (ele limpa o localStorage).
+    // Sem id_token_hint, Keycloak antigo (TJGO) retorna "Parâmetros ausentes: id_token_hint".
+    const idTokenHint = localStorage.getItem('id_token') || '';
 
     try {
       await api.logout();
@@ -169,7 +173,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Se for usuário SSO, redirecionar para logout do Keycloak
       if (isSsoUser) {
         const currentUrl = window.location.origin;
-        window.location.href = `${API_BASE_URL}/api/auth/sso/logout?redirect=${encodeURIComponent(currentUrl + '/login')}`;
+        const params = new URLSearchParams({ redirect: currentUrl + '/login' });
+        if (idTokenHint) {
+          params.set('id_token_hint', idTokenHint);
+        }
+        window.location.href = `${API_BASE_URL}/api/auth/sso/logout?${params.toString()}`;
         return;
       }
     }
