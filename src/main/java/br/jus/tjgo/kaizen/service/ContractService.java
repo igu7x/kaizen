@@ -28,8 +28,18 @@ public class ContractService {
     private final PcaRepository pcaRepository;
     private final JdbcTemplate jdbcTemplate;
 
-    public List<Contract> findAll() {
-        return contractRepository.findAll().stream().filter(c -> !c.getIsDeleted()).toList();
+    public List<Contract> findAll(String startDate, String endDate, String contractType, String searchQuery) {
+        return contractRepository.findAll().stream()
+                .filter(c -> !c.getIsDeleted())
+                .filter(c -> startDate == null || (c.getStartDate() != null && !c.getStartDate().isBefore(LocalDate.parse(startDate))))
+                .filter(c -> endDate == null || (c.getEndDate() != null && !c.getEndDate().isAfter(LocalDate.parse(endDate))))
+                .filter(c -> contractType == null || (c.getContractType() != null && c.getContractType().getValue().equalsIgnoreCase(contractType)))
+                .filter(c -> searchQuery == null || searchQuery.isBlank() || 
+                             (c.getObjectName() != null && c.getObjectName().toLowerCase().contains(searchQuery.toLowerCase())) ||
+                             (c.getSupplier() != null && c.getSupplier().toLowerCase().contains(searchQuery.toLowerCase())) ||
+                             (c.getNoticeNumber() != null && c.getNoticeNumber().toLowerCase().contains(searchQuery.toLowerCase())) ||
+                             (String.valueOf(c.getId()).contains(searchQuery)))
+                .toList();
     }
 
     public Contract findById(Long id) {
@@ -66,7 +76,7 @@ public class ContractService {
             contract.setBaseContract(base);
         }
 
-        contract.setSupplierId(req.supplierId());
+        contract.setSupplier(req.supplier());
         contract.setContractModel(req.contractModel());
         contract.setProcess(req.process());
         contract.setStartDate(req.startDate() != null ? LocalDate.parse(req.startDate()) : null);
@@ -77,7 +87,6 @@ public class ContractService {
         contract.setDescription(req.description());
         contract.setNoticeNumber(req.noticeNumber());
         contract.setDirectory(req.directory());
-        contract.setType(req.type());
         contract.setCadastroAreaId(req.cadastroAreaId());
         contract.setCadastroUnidadeId(req.cadastroUnidadeId());
         contract.setTotalValueCents(req.totalValueCents() != null ? req.totalValueCents() : 0L);
@@ -100,7 +109,7 @@ public class ContractService {
     public Contract update(Long id, UpdateContractRequest req, Long userId) {
         Contract contract = findById(id);
 
-        if (req.supplierId() != null) contract.setSupplierId(req.supplierId());
+        if (req.supplier() != null) contract.setSupplier(req.supplier());
         if (req.contractModel() != null) contract.setContractModel(req.contractModel());
         if (req.process() != null) contract.setProcess(req.process());
         if (req.startDate() != null) contract.setStartDate(LocalDate.parse(req.startDate()));
@@ -111,7 +120,6 @@ public class ContractService {
         if (req.description() != null) contract.setDescription(req.description());
         if (req.noticeNumber() != null) contract.setNoticeNumber(req.noticeNumber());
         if (req.directory() != null) contract.setDirectory(req.directory());
-        if (req.type() != null) contract.setType(req.type());
         if (req.totalValueCents() != null) contract.setTotalValueCents(req.totalValueCents());
         if (req.monthlyValueCents() != null) contract.setMonthlyValueCents(req.monthlyValueCents());
 
