@@ -55,6 +55,10 @@ export default function AuthCallback() {
         localStorage.setItem('refresh_token', tokens.refreshToken);
         localStorage.setItem('token_expires_at', tokens.expiresAt.toString());
         localStorage.setItem('is_sso_user', 'true');
+        // id_token preservado pra mandar como id_token_hint no logout do Keycloak antigo
+        if (tokens.idToken) {
+          localStorage.setItem('id_token', tokens.idToken);
+        }
 
         // Limpar selectedDirectorate para que o DirectorateContext use a diretoria do usuário
         localStorage.removeItem('selectedDirectorate');

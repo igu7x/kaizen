@@ -33,7 +33,7 @@ import { isDomainRoot } from '@/utils/domain';
 type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
 
 export default function Administracao() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, setUser } = useAuth();
   const { devEnvironment } = useDirectorate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,8 +70,8 @@ export default function Administracao() {
     }).catch(err => console.error('Erro ao carregar áreas globais:', err));
   }, [currentUser, adminDiretoria, devEnvironment]);
 
-  // Áreas disponíveis no dropdown: domain root vê todas, outros veem só do domínio
-  const areasParaDropdown = canSelectDiretoria ? globalAreas : domainAreas;
+  // Áreas disponíveis no dropdown: apenas as do domínio atual (mesmo para superadmin)
+  const areasParaDropdown = domainAreas;
 
   // Siglas das diretorias do domínio do admin (para filtro de segurança client-side)
   const domainSiglas = useMemo(() => {
@@ -171,7 +171,13 @@ export default function Administracao() {
 
     try {
       if (editingUser) {
-        await api.updateUser(editingUser.id, data);
+        const updatedUser = await api.updateUser(editingUser.id, data);
+        // Se o usuário editou a si mesmo (ex: mudou sua própria diretoria), atualiza a sessão local
+        if (currentUser && currentUser.id === editingUser.id) {
+          const merged = { ...currentUser, ...updatedUser };
+          setUser(merged);
+          Storage.save('user', merged);
+        }
       } else {
         await api.createUser(data);
       }

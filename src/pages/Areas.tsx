@@ -289,6 +289,15 @@ export default function Areas() {
       return;
     }
 
+    if (!formData.sigla.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'A sigla da área é obrigatória',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       if (modalMode === 'create') {
@@ -1054,12 +1063,13 @@ export default function Areas() {
 
             {/* Sigla */}
             <div>
-              <Label htmlFor="sigla">Sigla</Label>
+              <Label htmlFor="sigla">Sigla *</Label>
               <Input
                 id="sigla"
+                maxLength={10}
                 value={formData.sigla}
                 onChange={(e) => setFormData({ ...formData, sigla: e.target.value })}
-                placeholder="Ex: DTI"
+                placeholder="Ex: DTI (máx. 10 caracteres)"
                 className="mt-1"
               />
             </div>
