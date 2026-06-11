@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.service.DomainService;
 import br.jus.tjgo.kaizen.service.PermissoesService;
+import br.jus.tjgo.kaizen.util.Flash;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -165,7 +166,7 @@ public class PermissoesController {
         body.put("success", true);
         body.put("message", "Permissões de " + diretoria + " atualizadas");
         body.put("permissoes", resultado);
-        return ResponseEntity.ok(body);
+        return Flash.success(body, "Permissões de " + diretoria + " atualizadas com sucesso!");
     }
 
     @PutMapping("/diretoria/{diretoria}/aba/{aba}")
@@ -226,7 +227,7 @@ public class PermissoesController {
         body.put("success", true);
         body.put("message", resultado.size() + " módulo(s) adicionado(s) com sucesso");
         body.put("modulos", resultado);
-        return ResponseEntity.ok(body);
+        return Flash.success(body, resultado.size() + " módulo(s) adicionado(s) com sucesso!");
     }
 
     @GetMapping("/debug")

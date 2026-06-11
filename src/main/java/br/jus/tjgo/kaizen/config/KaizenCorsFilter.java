@@ -71,6 +71,7 @@ public class KaizenCorsFilter extends OncePerRequestFilter {
         res.setHeader("Access-Control-Allow-Headers",
                 "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-User-Role, X-User-Id, X-User-Diretoria");
         res.setHeader("Access-Control-Allow-Credentials", "true");
+        res.setHeader("Access-Control-Expose-Headers", "X-Flash-Success, X-Flash-Notice, X-Flash-Error");
         res.setHeader("Access-Control-Max-Age", "86400");
 
         if ("OPTIONS".equalsIgnoreCase(req.getMethod())) {

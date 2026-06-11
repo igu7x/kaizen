@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.service.DomainService;
 import br.jus.tjgo.kaizen.service.UserService;
+import br.jus.tjgo.kaizen.util.Flash;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -193,7 +194,7 @@ public class UserController {
         if (!deleted) {
             return ResponseEntity.status(404).body(Map.of("error", "Usuário não encontrado"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/{id}/responses")
