@@ -327,7 +327,6 @@ export function AvaliacaoGestorForm({ onSubmitted, tipoInventario, formularioEdi
       }));
     } catch (err) {
       console.error('Erro ao carregar competencias:', err);
-      toast.error('Erro ao carregar competências da unidade.');
     } finally {
       setLoadingCompetencias(false);
     }
@@ -413,7 +412,6 @@ export function AvaliacaoGestorForm({ onSubmitted, tipoInventario, formularioEdi
       setForm(prev => ({ ...prev, respostas: novasRespostas }));
     } catch (err) {
       console.error('Erro ao carregar competências (edit):', err);
-      toast.error('Erro ao carregar competências da unidade.');
     } finally {
       setLoadingCompetencias(false);
     }
@@ -686,10 +684,9 @@ export function AvaliacaoGestorForm({ onSubmitted, tipoInventario, formularioEdi
       };
 
       const result = await avaliacaoGestorApi.create(payload);
-      toast.success('Avaliação do gestor enviada com sucesso!');
+      
       if (onSubmitted && result) onSubmitted(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao enviar avaliação do gestor.');
     } finally {
       setSaving(false);
     }

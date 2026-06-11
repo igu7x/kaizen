@@ -266,7 +266,6 @@ export function AutoavaliacaoForm({ onSubmitted, onViewResposta, tipoInventario,
       }));
     } catch (err) {
       console.error('Erro ao carregar competências:', err);
-      toast.error('Erro ao carregar competências da unidade.');
     } finally {
       setLoadingCompetencias(false);
     }
@@ -582,10 +581,9 @@ export function AutoavaliacaoForm({ onSubmitted, onViewResposta, tipoInventario,
       };
 
       const result = await autoavaliacaoApi.create(payload);
-      toast.success('Autoavaliação enviada com sucesso!');
+      
       if (onSubmitted && result) onSubmitted(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao enviar autoavaliação.');
     } finally {
       setSaving(false);
     }

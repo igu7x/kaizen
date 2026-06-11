@@ -152,11 +152,6 @@ export function EsteiraContratacoes() {
       setFilters(filtersData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      toast({
-        title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar os itens do PCA. Tente novamente.',
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
@@ -301,20 +296,11 @@ export function EsteiraContratacoes() {
         setStats(newStats);
       }
       
-      toast({
-        title: 'Item PCA adicionado',
-        description: 'O novo item foi criado com sucesso!',
-        duration: 3000
-      });
+      
       setIsAddModalOpen(false);
       resetForm();
     } catch (error: any) {
       console.error('Erro ao criar item:', error);
-      toast({
-        title: 'Erro ao criar item',
-        description: error.message || 'Não foi possível criar o item. Tente novamente.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -364,21 +350,12 @@ export function EsteiraContratacoes() {
         setStats(newStats);
       }
       
-      toast({
-        title: 'Item PCA atualizado',
-        description: 'As alterações foram salvas com sucesso!',
-        duration: 3000
-      });
+      
       setIsEditModalOpen(false);
       setSelectedItem(null);
       resetForm();
     } catch (error: any) {
       console.error('Erro ao atualizar item:', error);
-      toast({
-        title: 'Erro ao atualizar item',
-        description: error.message || 'Não foi possível atualizar o item. Tente novamente.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -431,11 +408,6 @@ export function EsteiraContratacoes() {
         else revertStats.naoIniciados++;
         setStats(revertStats);
       }
-      toast({
-        title: 'Erro ao atualizar status',
-        description: error.message || 'Não foi possível atualizar o status. Revertendo...',
-        variant: 'destructive'
-      });
     }
   }
 
@@ -464,11 +436,7 @@ export function EsteiraContratacoes() {
     try {
       setSaving(true);
       await pcaApi.deletePcaItem(deletedItem.id);
-      toast({
-        title: 'Item PCA excluído',
-        description: 'O item foi removido com sucesso!',
-        duration: 3000
-      });
+      
     } catch (error: any) {
       console.error('Erro ao excluir item:', error);
       // Reverter em caso de erro
@@ -481,11 +449,6 @@ export function EsteiraContratacoes() {
         revertStats.valorTotal = (Number(revertStats.valorTotal) || 0) + (Number(deletedItem.valor_estimado) || 0);
         setStats(revertStats);
       }
-      toast({
-        title: 'Erro ao excluir item',
-        description: error.message || 'Não foi possível excluir o item. Revertendo...',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }

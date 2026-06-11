@@ -129,7 +129,6 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
       setElegiveis(data);
     } catch (err) {
       console.error('Erro ao carregar elegiveis:', err);
-      toast.error('Erro ao carregar colaboradores elegíveis.');
     } finally {
       setLoadingElegiveis(false);
     }
@@ -166,7 +165,6 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
       buildRespostas(parData, pessoa, tecnicasMatriz);
     } catch (err) {
       console.error('Erro ao carregar dados das avaliacoes:', err);
-      toast.error('Erro ao carregar dados comparativos.');
     } finally {
       setLoadingParData(false);
     }
@@ -559,10 +557,9 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
       };
 
       const result = await avaliacaoIntegradaApi.create(payload);
-      toast.success('Avaliação Integrada enviada com sucesso!');
+      
       if (onSubmitted && result) onSubmitted(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao enviar avaliação integrada.');
     } finally {
       setSaving(false);
     }

@@ -352,11 +352,6 @@ export default function Cadastros() {
       setProjetos(data);
     } catch (error) {
       console.error('Erro ao carregar projetos:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os projetos',
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
@@ -541,17 +536,9 @@ export default function Cadastros() {
         setViewingProject(projetoAtualizado);
       }
 
-      toast({
-        title: 'Sucesso',
-        description: 'Status do projeto atualizado com sucesso',
-      });
+      
     } catch (error) {
       console.error('Erro ao atualizar status do projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status do projeto',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -675,11 +662,6 @@ export default function Cadastros() {
 
       } catch (error) {
         console.error('Erro ao carregar projeto:', error);
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível carregar os dados do projeto',
-          variant: 'destructive'
-        });
         return;
       }
     } else {
@@ -830,10 +812,7 @@ export default function Cadastros() {
 
       if (modalMode === 'create') {
         await cadastrosProjetosApi.createProjeto(dataToSend);
-        toast({
-          title: 'Sucesso',
-          description: 'Projeto criado com sucesso!'
-        });
+        
       } else if (modalMode === 'edit' && selectedProjeto) {
         await cadastrosProjetosApi.updateProjeto(selectedProjeto.id, dataToSend);
         const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(selectedProjeto.id);
@@ -843,21 +822,13 @@ export default function Cadastros() {
           setViewingProject(projetoAtualizado);
         }
         setSelectedProjeto(projetoAtualizado);
-        toast({
-          title: 'Sucesso',
-          description: 'Projeto atualizado com sucesso!'
-        });
+        
       }
 
       setShowModal(false);
       await loadProjetos();
     } catch (error) {
       console.error('Erro ao salvar projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar o projeto',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -867,18 +838,10 @@ export default function Cadastros() {
 
     try {
       await cadastrosProjetosApi.deleteProjeto(id);
-      toast({
-        title: 'Sucesso',
-        description: 'Projeto excluído com sucesso!'
-      });
+      
       loadProjetos();
     } catch (error) {
       console.error('Erro ao excluir projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir o projeto',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -984,10 +947,7 @@ export default function Cadastros() {
       impacto: novoRisco.impacto || 'medio'
     }]);
     setNovoRisco({ descricao: '', probabilidade: '', impacto: '', tratamento: '' });
-    toast({
-      title: 'Risco adicionado',
-      description: 'Risco foi adicionado à lista'
-    });
+    
   };
 
   // Adicionar entrave temporário
@@ -1002,10 +962,7 @@ export default function Cadastros() {
     }
     setTempEntraves(prev => [...prev, novoEntrave]);
     setNovoEntrave({ descricao: '' });
-    toast({
-      title: 'Entrave adicionado',
-      description: 'Entrave foi adicionado à lista'
-    });
+    
   };
 
   // Toggle área de execução
@@ -1054,11 +1011,6 @@ export default function Cadastros() {
       setShowMoreEntregas(false);
     } catch (error) {
       console.error('Erro ao carregar projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os dados do projeto',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1070,17 +1022,9 @@ export default function Cadastros() {
       const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
       setViewingProject(projetoAtualizado);
       loadProjetos();
-      toast({
-        title: 'Sucesso',
-        description: 'Status do projeto atualizado!'
-      });
+      
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1092,17 +1036,9 @@ export default function Cadastros() {
       const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
       setViewingProject(projetoAtualizado);
       loadProjetos();
-      toast({
-        title: 'Sucesso',
-        description: 'Status da entrega atualizado!'
-      });
+      
     } catch (error) {
       console.error('Erro ao atualizar status da entrega:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1138,17 +1074,9 @@ export default function Cadastros() {
       loadProjetos();
       setModalEditEntregaOpen(false);
       setEntregaEditando(null);
-      toast({
-        title: 'Sucesso',
-        description: 'Entrega atualizada com sucesso!'
-      });
+      
     } catch (error) {
       console.error('Erro ao atualizar entrega:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar a entrega',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1163,17 +1091,9 @@ export default function Cadastros() {
       loadProjetos();
       setModalConfirmDeleteOpen(false);
       setItemParaDeletar(null);
-      toast({
-        title: 'Sucesso',
-        description: 'Entrega excluída com sucesso!'
-      });
+      
     } catch (error) {
       console.error('Erro ao excluir entrega:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir a entrega',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1202,11 +1122,6 @@ export default function Cadastros() {
       setTarefasEntrega(tarefas);
     } catch (error) {
       console.error('[DEBUG] Erro ao carregar tarefas:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar as tarefas',
-        variant: 'destructive'
-      });
       setTarefasEntrega([]);
     } finally {
       setLoadingTarefas(false);
@@ -1261,11 +1176,6 @@ export default function Cadastros() {
       });
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status da tarefa',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1325,7 +1235,7 @@ export default function Cadastros() {
         setTarefasEntrega(prev =>
           prev.map(t => t.id === tarefaEntregaEditando.id ? tarefaAtualizada : t)
         );
-        toast({ title: 'Sucesso', description: 'Tarefa atualizada com sucesso!' });
+        
       } else {
         // Criar nova tarefa
         console.log('[DEBUG] Criando nova tarefa para entrega ID:', viewingEntrega.id);
@@ -1337,7 +1247,7 @@ export default function Cadastros() {
         });
         console.log('[DEBUG] Nova tarefa criada com sucesso:', novaTarefa);
         setTarefasEntrega(prev => [...prev, novaTarefa]);
-        toast({ title: 'Sucesso', description: 'Tarefa criada com sucesso!' });
+        
       }
 
       // Recarregar projeto para refletir mudanças
@@ -1352,11 +1262,6 @@ export default function Cadastros() {
     } catch (error: any) {
       console.error('[DEBUG] ERRO ao salvar tarefa:', error);
       console.error('[DEBUG] Detalhes do erro:', error?.message, error?.stack);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a tarefa',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1371,14 +1276,9 @@ export default function Cadastros() {
         setViewingProject(projetoAtualizado);
       }
 
-      toast({ title: 'Sucesso', description: 'Tarefa excluída com sucesso!' });
+      
     } catch (error) {
       console.error('Erro ao excluir tarefa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir a tarefa',
-        variant: 'destructive'
-      });
     } finally {
       setModalConfirmDeleteOpen(false);
       setItemParaDeletar(null);
@@ -1425,17 +1325,9 @@ export default function Cadastros() {
       setNewEntregaPrazo('');
       setShowAddEntrega(false);
 
-      toast({
-        title: 'Sucesso',
-        description: 'Entrega adicionada com sucesso!'
-      });
+      
     } catch (error) {
       console.error('Erro ao adicionar entrega:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível adicionar a entrega',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -1457,10 +1349,9 @@ export default function Cadastros() {
         const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
         setViewingProject(projetoAtualizado);
       }
-      toast({ title: 'Sucesso', description: 'Evidência enviada com sucesso!' });
+      
     } catch (error) {
       console.error('Erro ao enviar evidência:', error);
-      toast({ title: 'Erro', description: 'Não foi possível enviar a evidência.', variant: 'destructive' });
     } finally {
       setUploadingEvidencia(null);
     }
@@ -1474,10 +1365,9 @@ export default function Cadastros() {
         const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(viewingProject.id);
         setViewingProject(projetoAtualizado);
       }
-      toast({ title: 'Sucesso', description: 'Evidência removida com sucesso!' });
+      
     } catch (error) {
       console.error('Erro ao remover evidência:', error);
-      toast({ title: 'Erro', description: 'Não foi possível remover a evidência.', variant: 'destructive' });
     } finally {
       setUploadingEvidencia(null);
     }
@@ -1557,7 +1447,6 @@ export default function Cadastros() {
                   setViewingProject(projeto);
                   generateTAPPdf(projeto);
                 } catch (error) {
-                  toast({ title: 'Erro ao gerar TAP', variant: 'destructive' });
                 }
               }}
               className="bg-red-600 hover:bg-red-700 text-white font-medium"
@@ -1622,14 +1511,6 @@ export default function Cadastros() {
                           className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 w-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            cadastrosProjetosApi.validarTAP(viewingProject.id, 1)
-                              .then(() => cadastrosProjetosApi.getProjetoById(viewingProject.id))
-                              .then((updated) => {
-                                setViewingProject(updated);
-                                loadProjetos();
-                                toast({ title: 'TAP validado - Camada 1 (Gestor)' });
-                              })
-                              .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                           }}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
@@ -1677,14 +1558,6 @@ export default function Cadastros() {
                           className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 w-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            cadastrosProjetosApi.validarTAP(viewingProject.id, 2)
-                              .then(() => cadastrosProjetosApi.getProjetoById(viewingProject.id))
-                              .then((updated) => {
-                                setViewingProject(updated);
-                                loadProjetos();
-                                toast({ title: 'TAP validado - Camada 2 (Diretor)' });
-                              })
-                              .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                           }}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
@@ -1739,14 +1612,6 @@ export default function Cadastros() {
                           className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 w-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            cadastrosProjetosApi.validarTAP(viewingProject.id, 3)
-                              .then(() => cadastrosProjetosApi.getProjetoById(viewingProject.id))
-                              .then((updated) => {
-                                setViewingProject(updated);
-                                loadProjetos();
-                                toast({ title: 'TAP Vigente! Validação concluída.' });
-                              })
-                              .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                           }}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar

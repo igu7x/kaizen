@@ -74,7 +74,6 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({ isOpen, onClose, onSuc
       return response || [];
     } catch (error) {
       console.error('Erro ao buscar possíveis pais:', error);
-      toast.error('Erro ao carregar áreas superiores');
       setPossiveisPais([]);
       return [];
     } finally {
@@ -269,16 +268,15 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({ isOpen, onClose, onSuc
 
       if (gestorEditar) {
         await colaboradoresApi.updateGestor(gestorEditar.id, formDataToSend);
-        toast.success('Área atualizada com sucesso!');
+        
       } else {
         await colaboradoresApi.createGestor(formDataToSend);
-        toast.success('Área criada com sucesso!');
+        
       }
       onSuccess();
       handleClose();
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
-      toast.error(error.response?.data?.error || 'Erro ao salvar área');
     } finally {
       setLoading(false);
     }

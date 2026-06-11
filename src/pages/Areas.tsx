@@ -144,11 +144,6 @@ export default function Areas() {
       setAreas(allAreas);
     } catch (error) {
       console.error('Erro ao carregar áreas:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar as áreas',
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
@@ -167,11 +162,6 @@ export default function Areas() {
       setAreaSelecionada(data);
     } catch (error) {
       console.error('Erro ao carregar área:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os detalhes da área',
-        variant: 'destructive'
-      });
     } finally {
       setLoadingArea(false);
     }
@@ -301,33 +291,16 @@ export default function Areas() {
     setSaving(true);
     try {
       if (modalMode === 'create') {
-        console.log('[Areas] Criando área:', formData);
-        const result = await areasApi.create(formData);
-        console.log('[Areas] Área criada com sucesso:', result);
-        toast({
-          title: 'Sucesso',
-          description: `Área "${result.nome}" criada com sucesso!`
-        });
+        await areasApi.create(formData);
       } else if (editingArea) {
-        console.log('[Areas] Atualizando área:', editingArea.id, formData);
         await areasApi.update(editingArea.id, formData);
-        toast({
-          title: 'Sucesso',
-          description: 'Área atualizada com sucesso!'
-        });
       }
 
-      console.log('[Areas] Fechando modal e recarregando áreas...');
       handleCloseModal();
       await loadAreas();
-      console.log('[Areas] Áreas recarregadas com sucesso');
     } catch (error: any) {
-      console.error('[Areas] Erro ao salvar área:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: error?.message || 'Não foi possível salvar a área. Verifique o console (F12) para mais detalhes.',
-        variant: 'destructive'
-      });
+      // apiClient já exibe erro globalmente, log apenas para debug
+      console.error('[Areas] Falha ao salvar área:', error);
     } finally {
       setSaving(false);
     }
@@ -339,19 +312,11 @@ export default function Areas() {
     try {
       if (itemParaDeletar.tipo === 'unidade') {
         await areasApi.removeUnidade(itemParaDeletar.id);
-        toast({
-          title: 'Sucesso',
-          description: 'Unidade excluída com sucesso!'
-        });
         if (areaSelecionada) {
           await loadAreaCompleta(areaSelecionada.id);
         }
       } else {
         await areasApi.remove(itemParaDeletar.id);
-        toast({
-          title: 'Sucesso',
-          description: 'Área excluída com sucesso!'
-        });
         setAreaSelecionada(null);
         await loadAreas();
       }
@@ -359,11 +324,6 @@ export default function Areas() {
       setItemParaDeletar(null);
     } catch (error) {
       console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir a área',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -388,7 +348,6 @@ export default function Areas() {
       setUnidadeUsuarios(data);
     } catch (err: any) {
       console.error('Erro ao carregar usuários da unidade:', err);
-      toast({ title: 'Erro', description: err?.message || 'Erro ao carregar usuários', variant: 'destructive' });
     } finally {
       setUsuariosLoading(false);
     }
@@ -445,27 +404,14 @@ export default function Areas() {
 
       if (modalUnidadeMode === 'create') {
         await areasApi.createUnidade(areaSelecionada.id, formUnidade);
-        toast({
-          title: 'Sucesso',
-          description: 'Unidade criada com sucesso!'
-        });
       } else if (editingUnidade) {
         await areasApi.updateUnidade(editingUnidade.id, formUnidade);
-        toast({
-          title: 'Sucesso',
-          description: 'Unidade atualizada com sucesso!'
-        });
       }
 
       handleCloseModalUnidade();
       await loadAreaCompleta(areaSelecionada.id);
     } catch (error) {
       console.error('Erro ao salvar unidade:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a unidade',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -606,11 +552,6 @@ export default function Areas() {
       await areasApi.updateOrdenacao(ordenacao);
     } catch (error) {
       console.error('Erro ao salvar ordenação:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a ordenação',
-        variant: 'destructive'
-      });
     }
   };
 

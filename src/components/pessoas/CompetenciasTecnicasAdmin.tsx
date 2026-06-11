@@ -69,10 +69,6 @@ export function CompetenciasTecnicasAdmin() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    competenciasGestorApi.listarUnidadesGerenciaveis()
-      .then(setUnidades)
-      .catch((err: any) => toast.error(err?.message || 'Erro ao carregar unidades'))
-      .finally(() => setLoadingUnidades(false));
   }, []);
 
   const loadForm = async (formularioId: number) => {
@@ -82,7 +78,6 @@ export function CompetenciasTecnicasAdmin() {
       setItens(form.itens || []);
       setHasPending(form.hasPendingChanges || false);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao carregar formulário');
     } finally {
       setLoadingForm(false);
     }
@@ -121,15 +116,14 @@ export function CompetenciasTecnicasAdmin() {
       };
       if (editing.id) {
         await competenciasGestorApi.atualizarItemAdmin(editing.id, data);
-        toast.success('Competência atualizada');
+        
       } else {
         await competenciasGestorApi.criarItemAdmin(selectedFormId, data);
-        toast.success('Competência criada');
+        
       }
       setEditing(null);
       await loadForm(selectedFormId);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -139,10 +133,9 @@ export function CompetenciasTecnicasAdmin() {
     if (!selectedFormId) return;
     try {
       await competenciasGestorApi.removerItemAdmin(id);
-      toast.success('Competência removida');
+      
       await loadForm(selectedFormId);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao remover');
     }
   };
 
@@ -157,13 +150,10 @@ export function CompetenciasTecnicasAdmin() {
       if (!result.tiposMudancas) {
         toast.info('Nenhuma alteração detectada.');
       } else {
-        toast.success(
-          `Versão ${result.versao} publicada! A matriz voltou para validação. Após atingir "validado final", os formulários do inventário serão marcados para atualização.`
-        );
+        
       }
       await loadForm(selectedFormId);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao publicar');
     } finally {
       setPublishing(false);
     }

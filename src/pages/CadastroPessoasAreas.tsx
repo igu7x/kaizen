@@ -97,11 +97,6 @@ export default function Pessoas() {
       setAreas(allAreas);
     } catch (error) {
       console.error('Erro ao carregar áreas:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar as áreas',
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
@@ -116,11 +111,6 @@ export default function Pessoas() {
       setPessoas(sortedData);
     } catch (error) {
       console.error('Erro ao carregar pessoas:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar as pessoas',
-        variant: 'destructive'
-      });
     } finally {
       setLoadingPessoas(false);
     }
@@ -265,19 +255,13 @@ export default function Pessoas() {
           area_id: areaSelecionada?.id || 0,
           unidade_id: formData.unidade_id || null
         });
-        toast({
-          title: 'Sucesso',
-          description: 'Pessoa cadastrada com sucesso!'
-        });
+        
       } else if (editingPessoa) {
         await pessoasApi.update(editingPessoa.id, {
           ...formData,
           unidade_id: formData.unidade_id || null
         });
-        toast({
-          title: 'Sucesso',
-          description: 'Pessoa atualizada com sucesso!'
-        });
+        
       }
 
       handleCloseModal();
@@ -286,11 +270,6 @@ export default function Pessoas() {
       }
     } catch (error) {
       console.error('Erro ao salvar pessoa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a pessoa',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -299,10 +278,7 @@ export default function Pessoas() {
 
     try {
       await pessoasApi.remove(itemParaDeletar.id);
-      toast({
-        title: 'Sucesso',
-        description: 'Pessoa excluída com sucesso!'
-      });
+      
       setModalConfirmDeleteOpen(false);
       setItemParaDeletar(null);
       if (areaSelecionada) {
@@ -310,11 +286,6 @@ export default function Pessoas() {
       }
     } catch (error) {
       console.error('Erro ao excluir pessoa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir a pessoa',
-        variant: 'destructive'
-      });
     }
   };
 

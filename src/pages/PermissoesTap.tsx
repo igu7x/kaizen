@@ -57,11 +57,6 @@ export default function PermissoesTap() {
       setPermissoes(permsRes.value);
     } else {
       console.error('[PermissoesTap] erro ao listar permissões:', permsRes.reason);
-      toast({
-        title: 'Erro ao carregar permissões',
-        description: permsRes.reason?.message || 'Tente novamente.',
-        variant: 'destructive',
-      });
     }
 
     if (usersRes.status === 'fulfilled') {
@@ -69,11 +64,6 @@ export default function PermissoesTap() {
       setUsers(usersRes.value);
     } else {
       console.error('[PermissoesTap] erro ao listar usuários:', usersRes.reason);
-      toast({
-        title: 'Erro ao carregar usuários',
-        description: usersRes.reason?.message || 'Tente novamente.',
-        variant: 'destructive',
-      });
     }
 
     setLoading(false);
@@ -113,16 +103,11 @@ export default function PermissoesTap() {
     setSaving(true);
     try {
       await permissoesTapApi.conceder(userId);
-      toast({ title: 'Permissão concedida com sucesso' });
+      
       setModalOpen(false);
       setSelectedUserId('');
       await carregar();
     } catch (err: any) {
-      toast({
-        title: 'Erro ao conceder permissão',
-        description: err?.message || 'Tente novamente.',
-        variant: 'destructive',
-      });
     } finally {
       setSaving(false);
     }
@@ -132,15 +117,9 @@ export default function PermissoesTap() {
     if (!revogando) return;
     try {
       await permissoesTapApi.revogar(revogando.user_id);
-      toast({ title: 'Permissão revogada' });
       setRevogando(null);
       await carregar();
     } catch (err: any) {
-      toast({
-        title: 'Erro ao revogar',
-        description: err?.message || 'Tente novamente.',
-        variant: 'destructive',
-      });
     }
   };
 

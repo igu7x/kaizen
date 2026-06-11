@@ -122,7 +122,6 @@ export default function OkrsMetas() {
       setObjectives(objs);
       setKeyResults(krs);
     } catch {
-      toast({ title: 'Erro ao carregar OKRs', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -134,7 +133,6 @@ export default function OkrsMetas() {
       const data = await metasApi.getAll(devEnvironment || undefined);
       setMetas(data);
     } catch {
-      toast({ title: 'Erro ao carregar Metas', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -180,7 +178,7 @@ export default function OkrsMetas() {
           description: objForm.description,
           directorate: objForm.directorate,
         });
-        toast({ title: 'Objetivo atualizado' });
+        
       } else {
         await api.createObjective({
           code: objForm.code,
@@ -188,13 +186,12 @@ export default function OkrsMetas() {
           description: objForm.description,
           directorate: objForm.directorate,
         });
-        toast({ title: 'Objetivo criado' });
+        
       }
       setObjDialogOpen(false);
       loadOkrs();
     } catch (err: any) {
       const msg = err?.message?.includes('409') ? 'Código já existe nesta diretoria' : 'Erro ao salvar objetivo';
-      toast({ title: msg, variant: 'destructive' });
     }
   };
 
@@ -202,11 +199,10 @@ export default function OkrsMetas() {
     if (!confirmDeleteObj) return;
     try {
       await api.deleteObjective(confirmDeleteObj.id);
-      toast({ title: 'Objetivo excluído' });
+      
       setConfirmDeleteObj(null);
       loadOkrs();
     } catch {
-      toast({ title: 'Erro ao excluir objetivo', variant: 'destructive' });
     }
   };
 
@@ -252,7 +248,7 @@ export default function OkrsMetas() {
           deadline: krForm.deadline,
           directorate: krForm.directorate,
         });
-        toast({ title: 'KR atualizado' });
+        
       } else {
         await api.createKeyResult({
           objectiveId: krForm.objectiveId,
@@ -262,13 +258,12 @@ export default function OkrsMetas() {
           deadline: krForm.deadline,
           directorate: krForm.directorate,
         });
-        toast({ title: 'KR criado' });
+        
       }
       setKrDialogOpen(false);
       loadOkrs();
     } catch (err: any) {
       const msg = err?.message?.includes('409') ? 'Código já existe' : 'Erro ao salvar KR';
-      toast({ title: msg, variant: 'destructive' });
     }
   };
 
@@ -276,11 +271,10 @@ export default function OkrsMetas() {
     if (!confirmDeleteKr) return;
     try {
       await api.deleteKeyResult(confirmDeleteKr.id);
-      toast({ title: 'KR excluído' });
+      
       setConfirmDeleteKr(null);
       loadOkrs();
     } catch {
-      toast({ title: 'Erro ao excluir KR', variant: 'destructive' });
     }
   };
 
@@ -324,15 +318,13 @@ export default function OkrsMetas() {
       };
       if (metaEditMode && editingMeta) {
         await metasApi.update(editingMeta.id, dto);
-        toast({ title: 'Meta atualizada' });
+        
       } else {
         await metasApi.create(dto);
-        toast({ title: 'Meta criada' });
       }
       setMetaDialogOpen(false);
       loadMetas();
     } catch {
-      toast({ title: 'Erro ao salvar meta', variant: 'destructive' });
     }
   };
 
@@ -340,11 +332,10 @@ export default function OkrsMetas() {
     if (!confirmDeleteMeta) return;
     try {
       await metasApi.remove(confirmDeleteMeta.id);
-      toast({ title: 'Meta excluída' });
+      
       setConfirmDeleteMeta(null);
       loadMetas();
     } catch {
-      toast({ title: 'Erro ao excluir meta', variant: 'destructive' });
     }
   };
 

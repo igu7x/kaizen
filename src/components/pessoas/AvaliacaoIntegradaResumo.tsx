@@ -152,10 +152,9 @@ export function AvaliacaoIntegradaResumo({ formulario, onValidated, onEdit, tipo
     setValidando('gestor');
     try {
       const updated = await avaliacaoIntegradaApi.validarGestor(formulario.id);
-      toast.success('Validação do gestor realizada com sucesso!');
+      
       onValidated?.(updated);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar');
     } finally {
       setValidando(null);
     }
@@ -166,10 +165,9 @@ export function AvaliacaoIntegradaResumo({ formulario, onValidated, onEdit, tipo
     setValidando('colaborador');
     try {
       const updated = await avaliacaoIntegradaApi.validarColaborador(formulario.id);
-      toast.success('Validação do colaborador realizada com sucesso!');
+      
       onValidated?.(updated);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar');
     } finally {
       setValidando(null);
     }

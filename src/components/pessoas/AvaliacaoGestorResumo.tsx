@@ -45,10 +45,9 @@ export function AvaliacaoGestorResumo({ formulario, onValidated, onEdit, current
     setValidando(true);
     try {
       const updated = await avaliacaoGestorApi.validar(formulario.id);
-      toast.success('Formulário validado com sucesso!');
+      
       onValidated?.(updated);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar formulário');
     } finally {
       setValidando(false);
     }

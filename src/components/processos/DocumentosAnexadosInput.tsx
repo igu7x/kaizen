@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useRef, useState } from 'react';
 import { Upload, Paperclip, X, FileText, FileImage, File as FileIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -57,7 +58,7 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
 
   const pickFile = () => {
     if (!tipoSelecionado) {
-      alert('Selecione o tipo de documento antes de anexar.');
+      toast.warning('Selecione o tipo de documento antes de anexar.');
       return;
     }
     fileInputRef.current?.click();
@@ -70,7 +71,7 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
     if (!tipoSelecionado) return;
 
     if (file.size > MAX_BYTES_PER_FILE) {
-      alert(`Arquivo muito grande (${(file.size / 1_000_000).toFixed(1)}MB). Máximo por arquivo: ${MAX_BYTES_PER_FILE / 1_000_000}MB.`);
+      toast.warning(`Arquivo muito grande (${(file.size / 1_000_000).toFixed(1)}MB). Máximo por arquivo: ${MAX_BYTES_PER_FILE / 1_000_000}MB.`);
       return;
     }
 
@@ -88,7 +89,7 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
       setResetKey((k) => k + 1);
     } catch (err) {
       console.error('Erro ao ler arquivo:', err);
-      alert('Não foi possível ler o arquivo.');
+      toast.warning('Não foi possível ler o arquivo.');
     }
   };
 

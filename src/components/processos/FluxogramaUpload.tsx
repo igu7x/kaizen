@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useRef } from 'react';
 import { Upload, FileImage, FileText as FileIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -70,20 +71,20 @@ export function FluxogramaUpload({ data, filename, mime, onChange }: FluxogramaU
     if (file.size > MAX_BYTES * 2) {
       // 2x do limite final — se o usuário tenta um arquivo enorme, alerta na hora
       // (compressão pode reduzir, mas vale avisar).
-      alert(`Arquivo muito grande (${(file.size / 1_000_000).toFixed(1)}MB). Tamanho máximo: ${MAX_BYTES / 1_000_000}MB.`);
+      toast.warning(`Arquivo muito grande (${(file.size / 1_000_000).toFixed(1)}MB). Tamanho máximo: ${MAX_BYTES / 1_000_000}MB.`);
       return;
     }
 
     try {
       const { data: encoded, mime: outMime } = await compressIfImage(file);
       if (encoded.length > MAX_BYTES) {
-        alert(`Arquivo final ainda muito grande após compressão. Tente uma imagem menor.`);
+        toast.warning(`Arquivo final ainda muito grande após compressão. Tente uma imagem menor.`);
         return;
       }
       onChange({ data: encoded, filename: file.name, mime: outMime });
     } catch (err: any) {
       console.error('Erro ao processar arquivo:', err);
-      alert('Não foi possível processar o arquivo.');
+      toast.warning('Não foi possível processar o arquivo.');
     }
   };
 

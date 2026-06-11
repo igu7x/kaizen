@@ -66,7 +66,6 @@ export default function Perfil() {
         setFotoPerfil(me.foto_perfil || null);
       } catch (err: any) {
         console.error('Erro ao carregar perfil:', err);
-        toast.error(err?.message || 'Erro ao carregar perfil');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -89,7 +88,6 @@ export default function Perfil() {
       setFotoPerfil(compressed);
     } catch (err: any) {
       console.error('Erro ao processar imagem:', err);
-      toast.error('Não foi possível processar a imagem.');
     }
   };
 
@@ -111,10 +109,9 @@ export default function Perfil() {
         Storage.save('user', merged);
         setUser(merged);
       }
-      toast.success('Perfil atualizado com sucesso!');
+      
     } catch (err: any) {
       console.error('Erro ao salvar perfil:', err);
-      toast.error(err?.message || 'Erro ao salvar perfil');
     } finally {
       setSaving(false);
     }

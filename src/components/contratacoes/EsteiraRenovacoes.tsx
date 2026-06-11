@@ -138,11 +138,6 @@ export function EsteiraRenovacoes() {
     } catch (error: any) {
       console.error('❌ Erro ao carregar dados:', error);
       const errorMessage = error?.response?.data?.error || error?.message || 'Erro desconhecido';
-      toast({
-        title: 'Erro ao carregar dados',
-        description: `Não foi possível carregar as renovações: ${errorMessage}`,
-        variant: 'destructive'
-      });
       // Garantir que arrays estão inicializados mesmo em caso de erro
       setItems([]);
       setStats(null);
@@ -282,12 +277,6 @@ export function EsteiraRenovacoes() {
       } else if (errorMessage) {
         description = errorMessage;
       }
-      
-      toast({
-        title: 'Erro ao criar renovação',
-        description,
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -323,11 +312,6 @@ export function EsteiraRenovacoes() {
       setFilters(filtersData);
     } catch (error: any) {
       console.error('Erro ao atualizar:', error);
-      toast({
-        title: 'Erro ao atualizar renovação',
-        description: error?.response?.data?.error || 'Não foi possível atualizar a renovação.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -359,11 +343,6 @@ export function EsteiraRenovacoes() {
       });
     } catch (error) {
       console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro ao excluir renovação',
-        description: 'Não foi possível excluir a renovação.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -409,11 +388,6 @@ export function EsteiraRenovacoes() {
       });
       
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro ao atualizar status',
-        description: 'Não foi possível atualizar o status.',
-        variant: 'destructive'
-      });
     }
   }
 

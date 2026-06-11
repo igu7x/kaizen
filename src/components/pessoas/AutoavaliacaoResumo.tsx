@@ -49,10 +49,9 @@ export function AutoavaliacaoResumo({ formulario, onValidated, onEdit, currentUs
     setValidando(true);
     try {
       const updated = await autoavaliacaoApi.validar(formulario.id);
-      toast.success('Formulário validado com sucesso!');
+      
       onValidated?.(updated);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar formulário');
     } finally {
       setValidando(false);
     }

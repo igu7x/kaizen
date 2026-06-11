@@ -30,10 +30,45 @@ function buildUrl(path: string, params?: Record<string, string | undefined>): st
   return url.toString();
 }
 
+import { toast } from 'sonner';
+
 async function authFetch(path: string, params?: Record<string, string | undefined>, options?: RequestInit): Promise<Response> {
   const url = buildUrl(path, params);
-  return fetch(url, { ...options, headers: { ...getAuthHeaders(), ...options?.headers } });
+  const response = await fetch(url, { cache: 'no-store', ...options, headers: { ...getAuthHeaders(), ...options?.headers } });
+  
+  // Trata headers de erro e joga a exceção
+  if (!response.ok) {
+    let errMsg = `Erro HTTP ${response.status}`;
+    const errorHeader = response.headers.get('x-flash-error');
+    if (errorHeader) {
+      try { errMsg = decodeURIComponent(errorHeader); } catch(e) { errMsg = errorHeader; }
+    } else {
+      try {
+        const errData = await response.json();
+        errMsg = errData.error || errData.message || errMsg;
+      } catch {}
+    }
+    toast.error(errMsg);
+    throw new Error(errMsg);
+  }
+  
+  // Sucessos e Avisos (X-Flash)
+  const successHeader = response.headers.get('x-flash-success');
+  const noticeHeader = response.headers.get('x-flash-notice');
+  
+  if (successHeader) {
+    let msg = successHeader;
+    try { msg = decodeURIComponent(successHeader); } catch(e) {}
+    toast.success(msg);
+  } else if (noticeHeader) {
+    let msg = noticeHeader;
+    try { msg = decodeURIComponent(noticeHeader); } catch(e) {}
+    toast.info(msg);
+  }
+
+  return response;
 }
+
 
 // ============================================================
 // TIPOS

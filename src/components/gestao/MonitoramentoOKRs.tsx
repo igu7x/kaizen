@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useState, useMemo, useEffect } from 'react';
 import { useGestao } from '@/contexts/GestaoContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -152,7 +153,7 @@ export function MonitoramentoOKRs() {
     const prazo = formData.get('prazo') as string;
 
     if (!titulo?.trim() || !areaId) {
-      alert('Por favor, preencha os campos obrigatórios.');
+      toast.warning('Por favor, preencha os campos obrigatórios.');
       return;
     }
 
@@ -167,7 +168,6 @@ export function MonitoramentoOKRs() {
           situacao,
           prazo: prazo?.trim() || undefined,
         });
-        alert('Meta atualizada com sucesso!');
       } else {
         await metasApi.create({
           titulo: titulo.trim(),
@@ -177,14 +177,12 @@ export function MonitoramentoOKRs() {
           situacao,
           prazo: prazo?.trim() || undefined,
         });
-        alert('Meta criada com sucesso!');
       }
       await loadMetas();
       setMetaDialogOpen(false);
       setEditingMeta(null);
     } catch (error: any) {
       console.error('Erro ao salvar meta:', error);
-      alert(`Erro ao salvar meta: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSavingMeta(false);
     }
@@ -272,7 +270,7 @@ export function MonitoramentoOKRs() {
 
     // Validação no frontend
     if (!code?.trim() || !title?.trim()) {
-      alert('Por favor, preencha os campos obrigatórios: Código e Título');
+      toast.warning('Por favor, preencha os campos obrigatórios: Código e Título');
       return;
     }
 
@@ -291,12 +289,10 @@ export function MonitoramentoOKRs() {
       if (editingObjective) {
         console.log('[MonitoramentoOKRs] Atualizando objetivo:', editingObjective.id);
         await api.updateObjective(editingObjective.id, data);
-        alert('Objetivo atualizado com sucesso!');
       } else {
         console.log('[MonitoramentoOKRs] Criando novo objetivo');
         const result = await api.createObjective(data);
         console.log('[MonitoramentoOKRs] Objetivo criado:', result);
-        alert('Objetivo criado com sucesso!');
       }
 
       await refreshData();
@@ -310,11 +306,8 @@ export function MonitoramentoOKRs() {
 
       // Mostrar mensagem de erro específica
       if (error.status === 409) {
-        alert('Erro: Já existe um objetivo com este código nesta diretoria.');
       } else if (error.status === 400) {
-        alert('Erro: Dados inválidos. Verifique os campos e tente novamente.');
       } else {
-        alert(`Erro ao salvar objetivo: ${error.message || 'Erro desconhecido'}`);
       }
     } finally {
       setSavingObjective(false);
@@ -342,7 +335,7 @@ export function MonitoramentoOKRs() {
     const description = formData.get('description') as string;
 
     if (!objectiveId || !code?.trim() || !description?.trim()) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
+      toast.warning('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
 
@@ -361,17 +354,14 @@ export function MonitoramentoOKRs() {
     try {
       if (editingKR) {
         await api.updateKeyResult(editingKR.id, data);
-        alert('Key Result atualizado com sucesso!');
       } else {
         await api.createKeyResult(data);
-        alert('Key Result criado com sucesso!');
       }
       await refreshData();
       setKrDialogOpen(false);
       setEditingKR(null);
     } catch (error: any) {
       console.error('Erro ao salvar KR:', error);
-      alert(`Erro ao salvar Key Result: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSavingKR(false);
     }
@@ -391,13 +381,11 @@ export function MonitoramentoOKRs() {
 
     try {
       await api.updateKeyResult(editingKRStatus.id, data);
-      alert('Status atualizado com sucesso!');
       await refreshData();
       setStatusDialogOpen(false);
       setEditingKRStatus(null);
     } catch (error: any) {
       console.error('Erro ao atualizar status:', error);
-      alert(`Erro ao atualizar status: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSavingStatus(false);
     }
@@ -949,11 +937,9 @@ export function MonitoramentoOKRs() {
                 const dirs = await api.getDirectorates();
                 setDirectorates(dirs);
                 setProadLinkDialogOpen(false);
-                alert('Link do PROAD salvo com sucesso!');
               } catch (err: any) {
                 console.error('Erro ao salvar link do PROAD:', err);
                 const errorMessage = err?.message || err?.toString() || 'Erro desconhecido';
-                alert(`Erro ao salvar link do PROAD: ${errorMessage}`);
               } finally {
                 setSavingProadLink(false);
               }

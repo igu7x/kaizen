@@ -157,11 +157,6 @@ export function PcaItemDetalhes() {
       setFaseAtual(details.details.fase_atual || '');
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      toast({
-        title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar os detalhes do item.',
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
@@ -187,18 +182,10 @@ export function PcaItemDetalhes() {
       } : null);
 
       if (tipo === 'Pendente') {
-        toast({
-          title: 'Validação DG atualizada',
-          description: 'Status alterado para Pendente'
-        });
+        
       }
     } catch (error) {
       console.error('Erro ao atualizar Validação DG:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível atualizar a Validação DG.',
-        variant: 'destructive'
-      });
     }
   }
 
@@ -216,17 +203,9 @@ export function PcaItemDetalhes() {
         details: { ...prev.details, validacao_dg_data: data }
       } : null);
 
-      toast({
-        title: 'Validação DG atualizada',
-        description: 'Data de validação salva com sucesso!'
-      });
+      
     } catch (error) {
       console.error('Erro ao atualizar data:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível salvar a data.',
-        variant: 'destructive'
-      });
     }
   }
 
@@ -272,11 +251,6 @@ export function PcaItemDetalhes() {
       });
     } catch (error) {
       console.error('Erro ao atualizar checklist:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível atualizar o status.',
-        variant: 'destructive'
-      });
     }
   }
 
@@ -327,21 +301,16 @@ export function PcaItemDetalhes() {
 
       if (isEditingPonto && selectedPonto) {
         await pcaDetailsApi.updatePontoControle(pcaItemId, selectedPonto.id, pontoForm);
-        toast({ title: 'Ponto de controle atualizado com sucesso!' });
+        
       } else {
         await pcaDetailsApi.createPontoControle(pcaItemId, pontoForm);
-        toast({ title: 'Ponto de controle criado com sucesso!' });
+        
       }
 
       setIsPontoModalOpen(false);
       loadData();
     } catch (error: any) {
       console.error('Erro ao salvar ponto de controle:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: error.message || 'Não foi possível salvar.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -353,16 +322,11 @@ export function PcaItemDetalhes() {
     try {
       setSaving(true);
       await pcaDetailsApi.deletePontoControle(pcaItemId, selectedPonto.id);
-      toast({ title: 'Ponto de controle excluído com sucesso!' });
+      
       setIsDeletePontoDialogOpen(false);
       loadData();
     } catch (error) {
       console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro ao excluir',
-        description: 'Não foi possível excluir.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -416,21 +380,16 @@ export function PcaItemDetalhes() {
 
       if (isEditingTarefa && selectedTarefa) {
         await pcaDetailsApi.updateTarefa(pcaItemId, selectedTarefa.id, tarefaForm);
-        toast({ title: 'Tarefa atualizada com sucesso!' });
+        
       } else {
         await pcaDetailsApi.createTarefa(pcaItemId, tarefaForm);
-        toast({ title: 'Tarefa criada com sucesso!' });
+        
       }
 
       setIsTarefaModalOpen(false);
       loadData();
     } catch (error: any) {
       console.error('Erro ao salvar tarefa:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: error.message || 'Não foi possível salvar.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }
@@ -439,15 +398,10 @@ export function PcaItemDetalhes() {
   async function handleTarefaStatusChange(tarefa: PcaTarefa, status: TarefaStatus) {
     try {
       await pcaDetailsApi.updateTarefaStatus(pcaItemId, tarefa.id, status);
-      toast({ title: 'Status da tarefa atualizado!' });
+      
       loadData();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível atualizar o status.',
-        variant: 'destructive'
-      });
     }
   }
 
@@ -457,16 +411,11 @@ export function PcaItemDetalhes() {
     try {
       setSaving(true);
       await pcaDetailsApi.deleteTarefa(pcaItemId, selectedTarefa.id);
-      toast({ title: 'Tarefa excluída com sucesso!' });
+      
       setIsDeleteTarefaDialogOpen(false);
       loadData();
     } catch (error) {
       console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro ao excluir',
-        description: 'Não foi possível excluir.',
-        variant: 'destructive'
-      });
     } finally {
       setSaving(false);
     }

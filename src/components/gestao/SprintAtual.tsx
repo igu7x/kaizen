@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useState, useMemo, useEffect } from 'react';
 import { useGestao } from '@/contexts/GestaoContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -132,7 +133,6 @@ export function SprintAtual() {
       await loadExecutionData();
     } catch (error: any) {
       console.error('Erro ao atualizar iniciativa:', error);
-      alert(`Erro ao mover iniciativa: ${error.message || 'Erro desconhecido'}`);
       // Recarregar para reverter visualmente
       await refreshData();
     }
@@ -147,11 +147,11 @@ export function SprintAtual() {
     
     // Validação
     if (!formKeyResultId) {
-      alert('Por favor, selecione um KR associado.');
+      toast.warning('Por favor, selecione um KR associado.');
       return;
     }
     if (!title?.trim()) {
-      alert('Por favor, preencha o título.');
+      toast.warning('Por favor, preencha o título.');
       return;
     }
     
@@ -169,17 +169,14 @@ export function SprintAtual() {
     try {
       if (editingInitiative) {
         await api.updateInitiative(editingInitiative.id, data);
-        alert('Iniciativa atualizada com sucesso!');
       } else {
         await api.createInitiative(data);
-        alert('Iniciativa criada com sucesso!');
       }
       await refreshData();
       await loadExecutionData();
       handleCloseDialog();
     } catch (error: any) {
       console.error('Erro ao salvar iniciativa:', error);
-      alert(`Erro ao salvar iniciativa: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
     }

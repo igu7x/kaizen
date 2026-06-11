@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Send } from 'lucide-react';
@@ -44,7 +45,7 @@ export function FormFiller() {
       setLoading(true);
       const formData = await formApi.getFormById(id);
       if (!formData) {
-        alert('Formulário não encontrado');
+        toast.warning('Formulário não encontrado');
         navigate('/pessoas');
         return;
       }
@@ -71,7 +72,6 @@ export function FormFiller() {
       }
     } catch (error) {
       console.error('Erro ao carregar formulário:', error);
-      alert('Erro ao carregar formulário. Por favor, tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -99,10 +99,8 @@ export function FormFiller() {
       });
 
       setResponse(responseData as any);
-      alert('Rascunho salvo com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar rascunho:', error);
-      alert('Erro ao salvar rascunho. Por favor, tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -110,7 +108,7 @@ export function FormFiller() {
 
   const handleSubmit = async () => {
     if (!form || !user) {
-      alert('Erro: Formulário ou usuário não encontrado.');
+      toast.error('Erro: Formulário ou usuário não encontrado.');
       return;
     }
 
@@ -123,7 +121,7 @@ export function FormFiller() {
     });
 
     if (missingFields.length > 0) {
-      alert(`Por favor, preencha todos os campos obrigatórios: ${missingFields.map(f => f.label).join(', ')}`);
+      toast.warning(`Por favor, preencha todos os campos obrigatórios: ${missingFields.map(f => f.label).join(', ')}`);
       return;
     }
 
@@ -159,24 +157,22 @@ export function FormFiller() {
         answers: answersToSave
       });
 
-      alert('Formulário enviado com sucesso!');
       navigate('/pessoas');
     } catch (error: any) {
       console.error('[FormFiller] Erro ao enviar formulário:', error);
       
       // Tratamento específico para diferentes tipos de erro
       if (error.status === 409 || error.message?.includes('409') || error.message?.includes('já respondeu')) {
-        alert('Você já respondeu este formulário.');
+        toast.warning('Você já respondeu este formulário.');
       } else if (error.status === 400) {
-        alert('Dados inválidos. Verifique as respostas e tente novamente.');
+        toast.warning('Dados inválidos. Verifique as respostas e tente novamente.');
       } else if (error.status === 401) {
-        alert('Sessão expirada. Faça login novamente.');
+        toast.warning('Sessão expirada. Faça login novamente.');
         navigate('/login');
       } else {
         // Mostrar detalhes do erro em desenvolvimento
         const errorDetails = error.message || 'Erro desconhecido';
         console.error('[FormFiller] Detalhes do erro:', errorDetails);
-        alert(`Erro ao enviar formulário: ${errorDetails}`);
       }
     } finally {
       setSaving(false);

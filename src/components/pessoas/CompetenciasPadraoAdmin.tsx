@@ -60,7 +60,6 @@ export function CompetenciasPadraoAdmin() {
       setCompetencias(all);
       setHasPending(pending.hasPendingChanges);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao carregar competências');
     } finally {
       setLoading(false);
     }
@@ -84,19 +83,18 @@ export function CompetenciasPadraoAdmin() {
           nome: editing.nome.trim(),
           descricao: editing.descricao.trim(),
         });
-        toast.success('Competência atualizada');
+        
       } else {
         await competenciasPadraoApi.create({
           tipo: editing.tipo,
           nome: editing.nome.trim(),
           descricao: editing.descricao.trim(),
         });
-        toast.success('Competência criada');
+        
       }
       setEditing(null);
       await loadData();
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -105,20 +103,18 @@ export function CompetenciasPadraoAdmin() {
   const handleDelete = async (id: number) => {
     try {
       await competenciasPadraoApi.remove(id);
-      toast.success('Competência desativada');
+      
       await loadData();
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao desativar');
     }
   };
 
   const handleReactivate = async (id: number) => {
     try {
       await competenciasPadraoApi.reactivate(id);
-      toast.success('Competência reativada');
+      
       await loadData();
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao reativar');
     }
   };
 
@@ -129,13 +125,9 @@ export function CompetenciasPadraoAdmin() {
       if (result.tiposAfetados.length === 0) {
         toast.info('Nenhuma mudança detectada para publicar.');
       } else {
-        toast.success(
-          `Versão ${result.versao} publicada! ${result.formulariosAfetados} formulário(s) marcado(s) para atualização.`
-        );
       }
       await loadData();
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao publicar');
     } finally {
       setPublishing(false);
     }
@@ -152,7 +144,6 @@ export function CompetenciasPadraoAdmin() {
       setVersoes(v);
       setShowHistory(true);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao carregar histórico');
     } finally {
       setLoadingVersoes(false);
     }

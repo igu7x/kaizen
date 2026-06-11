@@ -254,7 +254,6 @@ export function RenovacaoDetails({ renovacaoId }: RenovacaoDetailsProps) {
             setLocalTarefasChanges(new Map());
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
-            toast({ title: 'Erro ao carregar dados', description: 'Não foi possível carregar os detalhes.', variant: 'destructive' });
         } finally {
             setLoading(false);
         }
@@ -339,7 +338,6 @@ export function RenovacaoDetails({ renovacaoId }: RenovacaoDetailsProps) {
             }
         } catch (error: any) {
             console.error('Erro ao salvar:', error);
-            toast({ title: 'Erro ao salvar', description: error.message || 'Não foi possível salvar.', variant: 'destructive' });
         } finally {
             setSaving(false);
         }
@@ -366,16 +364,15 @@ export function RenovacaoDetails({ renovacaoId }: RenovacaoDetailsProps) {
             if (editingPonto) {
                 const updated = await renovacoesDetailsApi.updatePontoControle(renovacaoId, editingPonto.id, pontoForm);
                 setPontosControleComTarefas(prev => prev.map(pc => pc.id === updated.id ? { ...pc, ...updated } : pc));
-                toast({ title: 'Ponto de Controle atualizado' });
+                
             } else {
                 const created = await renovacoesDetailsApi.createPontoControle(renovacaoId, pontoForm);
                 setPontosControleComTarefas(prev => [...prev, { ...created, tarefas: [] }]);
-                toast({ title: 'Ponto de Controle criado' });
+                
             }
             setIsPontoModalOpen(false);
         } catch (error) {
             console.error('Erro:', error);
-            toast({ title: 'Erro', description: 'Não foi possível salvar.', variant: 'destructive' });
         } finally {
             setSaving(false);
         }
@@ -394,10 +391,9 @@ export function RenovacaoDetails({ renovacaoId }: RenovacaoDetailsProps) {
             setPontosControleComTarefas(prev => prev.filter(pc => pc.id !== deletingPonto.id));
             setIsDeletePontoDialogOpen(false);
             setDeletePCWithTarefas(false);
-            toast({ title: 'Ponto de Controle excluído' });
+            
         } catch (error) {
             console.error('Erro:', error);
-            toast({ title: 'Erro', description: 'Não foi possível excluir.', variant: 'destructive' });
         } finally {
             setSaving(false);
         }
@@ -437,7 +433,7 @@ export function RenovacaoDetails({ renovacaoId }: RenovacaoDetailsProps) {
                 } else {
                     setTarefasOrfas(prev => prev.filter(t => t.id !== updated.id));
                 }
-                toast({ title: 'Tarefa atualizada' });
+                
             } else {
                 const created = await renovacoesDetailsApi.createTarefa(renovacaoId, { ...tarefaForm, ponto_controle_id: selectedPCForTarefa });
                 setTarefas(prev => [...prev, created]);
@@ -446,12 +442,10 @@ export function RenovacaoDetails({ renovacaoId }: RenovacaoDetailsProps) {
                 } else {
                     setTarefasOrfas(prev => [...prev, created]);
                 }
-                toast({ title: 'Tarefa criada' });
             }
             setIsTarefaModalOpen(false);
         } catch (error) {
             console.error('Erro:', error);
-            toast({ title: 'Erro', description: 'Não foi possível salvar.', variant: 'destructive' });
         } finally {
             setSaving(false);
         }
@@ -465,10 +459,9 @@ export function RenovacaoDetails({ renovacaoId }: RenovacaoDetailsProps) {
             setPontosControleComTarefas(prev => prev.map(pc => ({ ...pc, tarefas: pc.tarefas.filter(t => t.id !== deletingTarefa.id) })));
             setTarefasOrfas(prev => prev.filter(t => t.id !== deletingTarefa.id));
             setIsDeleteTarefaDialogOpen(false);
-            toast({ title: 'Tarefa excluída' });
+            
         } catch (error) {
             console.error('Erro:', error);
-            toast({ title: 'Erro', description: 'Não foi possível excluir.', variant: 'destructive' });
         } finally {
             setSaving(false);
         }

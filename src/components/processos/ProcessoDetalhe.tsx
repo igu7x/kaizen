@@ -382,10 +382,9 @@ export function ProcessoDetalhe({
     try {
       const next = await fn();
       onChanged(next);
-      toast.success(label + ' concluída.');
+      
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || `Erro ao ${label.toLowerCase()}.`);
     } finally {
       setBusy(null);
     }
@@ -405,12 +404,11 @@ export function ProcessoDetalhe({
     try {
       const next = await processosNegocioApi.recusar(processo.id, recusaCamada, recusaMotivo.trim());
       onChanged(next);
-      toast.success('Processo recusado.');
+      
       setRecusaOpen(false);
       setRecusaMotivo('');
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || 'Erro ao recusar.');
     } finally {
       setBusy(null);
     }
@@ -421,12 +419,11 @@ export function ProcessoDetalhe({
     setBusy('Exclusão');
     try {
       await processosNegocioApi.remove(processo.id);
-      toast.success('Processo excluído.');
+      
       onChanged(null);
       onOpenChange(false);
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || 'Erro ao excluir.');
     } finally {
       setBusy(null);
     }
@@ -438,7 +435,6 @@ export function ProcessoDetalhe({
       generateProcessoNegocioPDF(processo, diretoriaNome);
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || 'Erro ao gerar PDF.');
     }
   };
 
@@ -451,7 +447,6 @@ export function ProcessoDetalhe({
       setVersoes(data);
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || 'Erro ao carregar versões.');
     } finally {
       setLoadingVersoes(false);
     }
@@ -466,7 +461,6 @@ export function ProcessoDetalhe({
       generateProcessoNegocioPDF(snapshot, diretoriaNome);
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || 'Erro ao gerar PDF da versão.');
     } finally {
       setLoadingPdfVersao(null);
     }

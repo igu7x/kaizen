@@ -192,15 +192,14 @@ export function ProcessoFormDialog({
       }
       if (enviarApos) {
         saved = await processosNegocioApi.enviar(saved.id);
-        toast.success('Processo salvo e enviado para validação.');
+        
       } else {
-        toast.success(isEdit ? 'Processo atualizado.' : 'Processo criado como rascunho.');
+        
       }
       onSaved(saved);
       onOpenChange(false);
     } catch (err: any) {
       console.error('Erro ao salvar processo:', err);
-      toast.error(err?.message || 'Erro ao salvar o processo.');
     } finally {
       setSaving(false);
     }

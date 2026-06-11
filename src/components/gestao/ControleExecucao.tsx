@@ -160,17 +160,9 @@ export function ControleExecucao() {
     try {
       await api.updateExecutionControlOrdenacao(ordenacao);
       await loadData();
-      toast({
-        title: 'Ordem atualizada',
-        description: 'A ordenação foi salva com sucesso.',
-      });
+      
     } catch (error) {
       console.error('Erro ao salvar ordenação:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a ordenação.',
-        variant: 'destructive',
-      });
     }
     
     setDraggedItem(null);

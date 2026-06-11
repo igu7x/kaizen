@@ -74,11 +74,6 @@ export default function Desenvolvimento() {
       setAmbientes(data);
     } catch (error) {
       console.error('Erro ao carregar ambientes:', error);
-      toast({
-        title: 'Erro',
-        description: 'Falha ao carregar ambientes.',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
@@ -133,11 +128,6 @@ export default function Desenvolvimento() {
       await carregarAmbientes();
     } catch (error: any) {
       console.error('Erro ao criar ambiente:', error);
-      toast({
-        title: 'Erro ao criar',
-        description: error?.message || 'Falha ao criar ambiente.',
-        variant: 'destructive',
-      });
     } finally {
       setSaving(false);
     }
@@ -164,7 +154,6 @@ export default function Desenvolvimento() {
       setAdmins(data);
     } catch (error) {
       console.error('Erro ao carregar admins:', error);
-      toast({ title: 'Erro', description: 'Falha ao carregar admins.', variant: 'destructive' });
     } finally {
       setLoadingAdmins(false);
     }
@@ -179,7 +168,6 @@ export default function Desenvolvimento() {
     try {
       setSavingAdmin(true);
       await ambientesApi.addAdmin(adminModalCodigo, { email: newAdminEmail.trim(), name: newAdminName.trim() });
-      toast({ title: 'Admin adicionado', description: `${newAdminEmail.trim()} foi adicionado como admin.` });
       setNewAdminEmail('');
       setNewAdminName('');
       // Recarregar lista
@@ -187,7 +175,6 @@ export default function Desenvolvimento() {
       setAdmins(data);
     } catch (error: any) {
       console.error('Erro ao adicionar admin:', error);
-      toast({ title: 'Erro', description: error?.message || 'Falha ao adicionar admin.', variant: 'destructive' });
     } finally {
       setSavingAdmin(false);
     }
@@ -197,12 +184,11 @@ export default function Desenvolvimento() {
   const handleRemoveAdmin = async (userId: number) => {
     try {
       await ambientesApi.removeAdmin(adminModalCodigo, userId);
-      toast({ title: 'Admin removido' });
+      
       const data = await ambientesApi.getAdmins(adminModalCodigo);
       setAdmins(data);
     } catch (error: any) {
       console.error('Erro ao remover admin:', error);
-      toast({ title: 'Erro', description: error?.message || 'Falha ao remover admin.', variant: 'destructive' });
     }
   };
 

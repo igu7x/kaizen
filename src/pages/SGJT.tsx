@@ -176,7 +176,7 @@ export default function SGJT() {
             const resultado = await permissoesApi.atualizarPermissoesDiretoria(diretoria, permissoes);
             console.log('📥 RESPOSTA DO BACKEND:', resultado);
 
-            toast.success(`Permissões de ${diretoria} atualizadas com sucesso!`);
+            
 
             // Aguardar 2 segundos antes de recarregar (dar tempo pro banco processar)
             console.log('⏳ Aguardando 2 segundos antes de recarregar...');
@@ -189,7 +189,6 @@ export default function SGJT() {
             console.log('✅ DADOS RECARREGADOS');
         } catch (error: any) {
             console.error('[salvarPermissoes] Erro:', error);
-            toast.error(error.message || 'Erro ao salvar permissões');
         } finally {
             setSaving(null);
         }
@@ -203,7 +202,6 @@ export default function SGJT() {
             setModulosSelecionados(new Set());
         } catch (error: any) {
             console.error('Erro ao carregar módulos disponíveis:', error);
-            toast.error('Erro ao carregar módulos disponíveis');
         } finally {
             setCarregandoModulos(false);
         }
@@ -244,7 +242,7 @@ export default function SGJT() {
             const codigos = Array.from(modulosSelecionados);
             await permissoesApi.adicionarModulosExistentes(codigos);
 
-            toast.success(`${codigos.length} módulo(s) adicionado(s) com sucesso!`);
+
 
             setDialogOpen(false);
             setModulosSelecionados(new Set());
@@ -253,7 +251,6 @@ export default function SGJT() {
             await carregarPermissoes();
         } catch (error: any) {
             console.error('Erro ao adicionar módulos:', error);
-            toast.error(error.message || 'Erro ao adicionar módulos');
         } finally {
             setAdicionandoModulos(false);
         }

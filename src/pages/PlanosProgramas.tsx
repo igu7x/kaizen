@@ -141,11 +141,6 @@ export default function PlanosProgramas() {
       setInstrumentos(data);
     } catch (error) {
       console.error('Erro ao carregar instrumentos:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os instrumentos',
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
@@ -177,11 +172,6 @@ export default function PlanosProgramas() {
       setInstrumentoSelecionado(data);
     } catch (error) {
       console.error('Erro ao carregar detalhes:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os detalhes',
-        variant: 'destructive'
-      });
     } finally {
       setLoadingDetalhes(false);
     }
@@ -263,31 +253,20 @@ export default function PlanosProgramas() {
     try {
       if (modalMode === 'edit' && editingInstrumento) {
         await planosProgramasApi.updateInstrumento(editingInstrumento.id, formData);
-        toast({
-          title: 'Sucesso',
-          description: 'Instrumento atualizado com sucesso!'
-        });
+        
         // Recarregar detalhes se estiver visualizando
         if (instrumentoSelecionado?.id === editingInstrumento.id) {
           await loadInstrumentoCompleto(editingInstrumento.id);
         }
       } else {
         await planosProgramasApi.createInstrumento(formData);
-        toast({
-          title: 'Sucesso',
-          description: 'Instrumento criado com sucesso!'
-        });
+        
       }
 
       setModalOpen(false);
       await loadInstrumentos();
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar o instrumento',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -296,19 +275,11 @@ export default function PlanosProgramas() {
 
     try {
       await planosProgramasApi.deleteInstrumento(itemParaDeletar.id);
-      toast({
-        title: 'Sucesso',
-        description: 'Instrumento excluído com sucesso!'
-      });
+      
       setInstrumentoSelecionado(null);
       await loadInstrumentos();
     } catch (error) {
       console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir o instrumento.',
-        variant: 'destructive'
-      });
     } finally {
       setItemParaDeletar(null);
       setModalConfirmDeleteOpen(false);
@@ -404,11 +375,6 @@ export default function PlanosProgramas() {
       await planosProgramasApi.atualizarOrdenacao(ordenacao);
     } catch (error) {
       console.error('Erro ao salvar ordenação:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a ordenação.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -479,10 +445,7 @@ export default function PlanosProgramas() {
     // Salvar no backend
     salvarOrdenacao(novasLinhas);
 
-    toast({
-      title: 'Ordem atualizada',
-      description: 'A organização foi salva.',
-    });
+    
   };
 
   const handleDropNovaLinha = (e: React.DragEvent) => {

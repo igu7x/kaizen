@@ -438,11 +438,6 @@ export function ControleExecucaoNovo() {
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os dados.',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
@@ -461,11 +456,6 @@ export function ControleExecucaoNovo() {
       setInstrumentoDetalhes(instrumentoData);
     } catch (error) {
       console.error('Erro ao carregar plano:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os detalhes do plano.',
-        variant: 'destructive',
-      });
     } finally {
       setLoadingPlano(false);
     }
@@ -815,20 +805,12 @@ export function ControleExecucaoNovo() {
         nome: novoPlanoNome.trim(),
         diretoria: selectedDirectorate,
       });
-      toast({
-        title: 'Sucesso',
-        description: 'Plano criado com sucesso!',
-      });
+      
       setNovoPlanoNome('');
       setModalPlanoOpen(false);
       await carregarDados();
     } catch (error) {
       console.error('Erro ao criar plano:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível criar o plano.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -866,7 +848,7 @@ export function ControleExecucaoNovo() {
     setUploadingEvidencia(entregaId);
     try {
       await cadastrosProjetosApi.uploadEvidencia(entregaId, file);
-      toast({ title: 'Evidência enviada', description: 'O PDF foi anexado à entrega com sucesso.' });
+      
       // Recarregar projeto e lista para atualizar status/progresso
       if (projetoDetalhes) {
         const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
@@ -876,7 +858,6 @@ export function ControleExecucaoNovo() {
         setTodosProjetos(projetosAtualizados);
       }
     } catch (error) {
-      toast({ title: 'Erro ao enviar', description: 'Não foi possível enviar a evidência.', variant: 'destructive' });
     } finally {
       setUploadingEvidencia(null);
     }
@@ -886,7 +867,7 @@ export function ControleExecucaoNovo() {
     setUploadingEvidencia(entregaId);
     try {
       await cadastrosProjetosApi.deleteEvidencia(entregaId);
-      toast({ title: 'Evidência removida', description: 'O PDF foi removido da entrega.' });
+      
       if (projetoDetalhes) {
         const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
         setProjetoDetalhes(projeto);
@@ -895,7 +876,6 @@ export function ControleExecucaoNovo() {
         setTodosProjetos(projetosAtualizados);
       }
     } catch (error) {
-      toast({ title: 'Erro ao remover', description: 'Não foi possível remover a evidência.', variant: 'destructive' });
     } finally {
       setUploadingEvidencia(null);
     }
@@ -1034,11 +1014,6 @@ export function ControleExecucaoNovo() {
       });
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status da tarefa.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1085,7 +1060,7 @@ export function ControleExecucaoNovo() {
             t.id === tarefaEntregaEditando.id ? tarefaAtualizada : t
           )
         }));
-        toast({ title: 'Sucesso', description: 'Tarefa atualizada com sucesso!' });
+        
       } else {
         // Criar nova tarefa via API
         const novaTarefa = await cadastrosProjetosApi.createTarefaEntrega(entregaSelecionada.id, {
@@ -1098,7 +1073,7 @@ export function ControleExecucaoNovo() {
           ...prev,
           [entregaSelecionada.id]: [...(prev[entregaSelecionada.id] || []), novaTarefa]
         }));
-        toast({ title: 'Sucesso', description: 'Tarefa criada com sucesso!' });
+        
       }
 
       setModalTarefaEntregaOpen(false);
@@ -1106,11 +1081,6 @@ export function ControleExecucaoNovo() {
       setNovaTarefaEntrega({ nome: '', sprint_id: '', responsavel: '', status: 'a_fazer' });
     } catch (error) {
       console.error('Erro ao salvar tarefa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a tarefa. Verifique o console para mais detalhes.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1126,14 +1096,9 @@ export function ControleExecucaoNovo() {
         ...prev,
         [entregaSelecionada.id]: (prev[entregaSelecionada.id] || []).filter(t => t.id !== tarefaId)
       }));
-      toast({ title: 'Sucesso', description: 'Tarefa excluída com sucesso!' });
+      
     } catch (error) {
       console.error('Erro ao excluir tarefa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir a tarefa.',
-        variant: 'destructive',
-      });
     } finally {
       setModalConfirmDeleteOpen(false);
       setItemParaDeletar(null);
@@ -1147,11 +1112,6 @@ export function ControleExecucaoNovo() {
       setProjetoDetalhes(projeto);
     } catch (error) {
       console.error('Erro ao carregar projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os detalhes do projeto.',
-        variant: 'destructive',
-      });
     } finally {
       setLoadingProjeto(false);
     }
@@ -1164,14 +1124,9 @@ export function ControleExecucaoNovo() {
       // Recarregar detalhes do projeto
       const projeto = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
       setProjetoDetalhes(projeto);
-      toast({ title: 'Sucesso', description: 'Status da entrega atualizado!' });
+      
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1220,17 +1175,9 @@ export function ControleExecucaoNovo() {
       setNovaEntregaPrazo('');
       setModalNovaEntregaOpen(false);
 
-      toast({
-        title: 'Sucesso',
-        description: 'Entrega criada com sucesso!'
-      });
+      
     } catch (error) {
       console.error('Erro ao criar entrega:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível criar a entrega.',
-        variant: 'destructive',
-      });
     } finally {
       setSalvandoEntrega(false);
     }
@@ -1275,10 +1222,9 @@ export function ControleExecucaoNovo() {
       setProjetoDetalhes(projetoAtualizado);
       setModalEditEntregaOpen(false);
       setEntregaEditando(null);
-      toast({ title: 'Sucesso', description: 'Entrega atualizada com sucesso!' });
+      
     } catch (error) {
       console.error('Erro ao atualizar entrega:', error);
-      toast({ title: 'Erro', description: 'Não foi possível atualizar a entrega.', variant: 'destructive' });
     } finally {
       setSalvandoEditEntrega(false);
     }
@@ -1300,14 +1246,9 @@ export function ControleExecucaoNovo() {
         setProjetosVinculados(projetosData);
       }
 
-      toast({ title: 'Sucesso', description: 'Status do projeto atualizado!' });
+      
     } catch (error) {
       console.error('Erro ao atualizar status do projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status do projeto.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1333,20 +1274,12 @@ export function ControleExecucaoNovo() {
         nome: novoProjetoNome.trim(),
         instrumento_id: planoSelecionado.id,
       });
-      toast({
-        title: 'Sucesso',
-        description: 'Projeto criado com sucesso!',
-      });
+      
       setNovoProjetoNome('');
       setModalProjetoOpen(false);
       await carregarProjetosDoPlano(planoSelecionado.id);
     } catch (error) {
       console.error('Erro ao criar projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível criar o projeto.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1364,10 +1297,7 @@ export function ControleExecucaoNovo() {
       await gestaoEstrategicaApi.updateProjeto(projetoEditando.id, {
         nome: novoProjetoNome.trim(),
       });
-      toast({
-        title: 'Sucesso',
-        description: 'Projeto atualizado com sucesso!',
-      });
+      
       setNovoProjetoNome('');
       setProjetoEditando(null);
       setModalProjetoOpen(false);
@@ -1376,11 +1306,6 @@ export function ControleExecucaoNovo() {
       }
     } catch (error) {
       console.error('Erro ao atualizar projeto:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o projeto.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1426,20 +1351,14 @@ export function ControleExecucaoNovo() {
           status: tarefaEditando.status,
           progresso: tarefaEditando.progresso,
         });
-        toast({
-          title: 'Sucesso',
-          description: 'Tarefa atualizada com sucesso!',
-        });
+        
       } else {
         // Criar nova tarefa
         await gestaoEstrategicaApi.createTarefa({
           nome: novaTarefaNome.trim(),
           projeto_id: projetoIdParaTarefa!,
         });
-        toast({
-          title: 'Sucesso',
-          description: 'Tarefa criada com sucesso!',
-        });
+        
       }
       setNovaTarefaNome('');
       setTarefaEditando(null);
@@ -1448,11 +1367,6 @@ export function ControleExecucaoNovo() {
       await carregarProjetosDoPlano(planoSelecionado.id);
     } catch (error) {
       console.error('Erro ao salvar tarefa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a tarefa.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1467,11 +1381,6 @@ export function ControleExecucaoNovo() {
       }
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1486,11 +1395,6 @@ export function ControleExecucaoNovo() {
       }
     } catch (error) {
       console.error('Erro ao atualizar progresso:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o progresso.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -1504,17 +1408,17 @@ export function ControleExecucaoNovo() {
     try {
       if (itemParaDeletar.tipo === 'plano') {
         await gestaoEstrategicaApi.deletePlano(itemParaDeletar.id);
-        toast({ title: 'Sucesso', description: 'Plano excluído com sucesso!' });
+        
         setPlanoSelecionado(null);
         setPlanoFiltroId(null);
         await carregarDados();
       } else if (itemParaDeletar.tipo === 'projeto') {
         await gestaoEstrategicaApi.deleteProjeto(itemParaDeletar.id);
-        toast({ title: 'Sucesso', description: 'Projeto excluído com sucesso!' });
+        
         if (planoSelecionado) await carregarProjetosDoPlano(planoSelecionado.id);
       } else if (itemParaDeletar.tipo === 'tarefa') {
         await gestaoEstrategicaApi.deleteTarefa(itemParaDeletar.id);
-        toast({ title: 'Sucesso', description: 'Tarefa excluída com sucesso!' });
+        
         if (planoSelecionado) await carregarProjetosDoPlano(planoSelecionado.id);
       } else if (itemParaDeletar.tipo === 'tarefaEntrega') {
         // Tarefa de exemplo - excluir do estado local
@@ -1522,7 +1426,7 @@ export function ControleExecucaoNovo() {
         return; // handleExcluirTarefaEntrega já fecha o modal
       } else if (itemParaDeletar.tipo === 'entrega') {
         await cadastrosProjetosApi.deleteEntrega(itemParaDeletar.id);
-        toast({ title: 'Sucesso', description: 'Entrega excluída com sucesso!' });
+        
         if (projetoDetalhes) {
           const projetoAtualizado = await cadastrosProjetosApi.getProjetoById(projetoDetalhes.id);
           setProjetoDetalhes(projetoAtualizado);
@@ -1530,11 +1434,6 @@ export function ControleExecucaoNovo() {
       }
     } catch (error) {
       console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir o item.',
-        variant: 'destructive',
-      });
     } finally {
       setItemParaDeletar(null);
       setModalConfirmDeleteOpen(false);
@@ -1601,17 +1500,9 @@ export function ControleExecucaoNovo() {
     try {
       await gestaoEstrategicaApi.updateOrdenacaoTarefas(ordenacao);
       await carregarProjetosDoPlano(planoSelecionado.id);
-      toast({
-        title: 'Ordem atualizada',
-        description: 'A ordenação das tarefas foi salva.',
-      });
+      
     } catch (error) {
       console.error('Erro ao salvar ordenação:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar a ordenação.',
-        variant: 'destructive',
-      });
     }
 
     setDraggedTarefa(null);
@@ -4470,14 +4361,6 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TAP
                         </Button>
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                          cadastrosProjetosApi.validarTAP(tapDialogProjeto.id, 1)
-                            .then(() => cadastrosProjetosApi.getProjetoById(tapDialogProjeto.id))
-                            .then((updated) => {
-                              setTapDialogProjeto(updated);
-                              cadastrosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
-                              toast({ title: 'TAP validado - Camada 1 (Gestor)' });
-                            })
-                            .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                         }}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como Gestor
                         </Button>
@@ -4494,14 +4377,6 @@ export function ControleExecucaoNovo() {
                         <Eye className="h-3 w-3 mr-1" /> Visualizar TAP
                       </Button>
                       <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                        cadastrosProjetosApi.validarTAP(tapDialogProjeto.id, 2)
-                          .then(() => cadastrosProjetosApi.getProjetoById(tapDialogProjeto.id))
-                          .then((updated) => {
-                            setTapDialogProjeto(updated);
-                            cadastrosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
-                            toast({ title: 'TAP validado - Camada 2 (Diretor)' });
-                          })
-                          .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                       }}>
                         <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como Diretor
                       </Button>
@@ -4518,14 +4393,6 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TAP
                         </Button>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                          cadastrosProjetosApi.validarTAP(tapDialogProjeto.id, 3)
-                            .then(() => cadastrosProjetosApi.getProjetoById(tapDialogProjeto.id))
-                            .then((updated) => {
-                              setTapDialogProjeto(updated);
-                              cadastrosProjetosApi.getProjetos(dirFiltro).then(setTodosProjetos);
-                              toast({ title: 'TAP Vigente! Validação concluída.' });
-                            })
-                            .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                         }}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como Patrocinador
                         </Button>
@@ -4611,10 +4478,6 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TEP
                         </Button>
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                          cadastrosProjetosApi.validarTEP(tepDialogProjeto.id, 1)
-                            .then(refreshAfterValidate)
-                            .then(() => toast({ title: 'TEP validado - Camada 1 (Gestor)' }))
-                            .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                         }}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como Gestor
                         </Button>
@@ -4631,10 +4494,6 @@ export function ControleExecucaoNovo() {
                         <Eye className="h-3 w-3 mr-1" /> Visualizar TEP
                       </Button>
                       <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-                        cadastrosProjetosApi.validarTEP(tepDialogProjeto.id, 2)
-                          .then(refreshAfterValidate)
-                          .then(() => toast({ title: 'TEP validado - Camada 2 (Diretor)' }))
-                          .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                       }}>
                         <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como Diretor
                       </Button>
@@ -4651,10 +4510,6 @@ export function ControleExecucaoNovo() {
                           <Eye className="h-3 w-3 mr-1" /> Visualizar TEP
                         </Button>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                          cadastrosProjetosApi.validarTEP(tepDialogProjeto.id, 3)
-                            .then(refreshAfterValidate)
-                            .then(() => toast({ title: 'TEP Vigente! Validação concluída.' }))
-                            .catch((err: any) => toast({ title: err.message, variant: 'destructive' }));
                         }}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como Patrocinador
                         </Button>

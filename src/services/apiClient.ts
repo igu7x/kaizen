@@ -8,6 +8,8 @@
  * - Tratamento de erros amigável
  */
 
+import { toast } from 'sonner';
+
 // Detecta automaticamente a URL da API baseado no ambiente.
 //
 // Hierarquia de resolução (ordem de prioridade):
@@ -216,6 +218,7 @@ export class ApiClient {
 
         const config: RequestInit = {
             ...options,
+            cache: 'no-store', // Previne cache agressivo do navegador em requisições GET
             headers,
             credentials: 'include',
         };
@@ -258,7 +261,39 @@ export class ApiClient {
                     return this.request<T>(endpoint, options, retryCount + 1);
                 }
 
-                throw new ApiError(errorMessage, response.status, errorCode);
+                // O errorHeader vem URI encoded (pelo Flash.java), mas o errorMessage vem do JSON (não codificado)
+                let errorHeader = response.headers.get('x-flash-error');
+                let finalErrorMessage = '';
+                if (errorHeader) {
+                    try {
+                        finalErrorMessage = decodeURIComponent(errorHeader);
+                    } catch (e) {
+                        finalErrorMessage = errorHeader;
+                    }
+                } else {
+                    finalErrorMessage = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage);
+                }
+
+                console.log('[ApiClient] Disparando toast de erro:', finalErrorMessage);
+
+                // Dispara toast global de erro
+                toast.error(finalErrorMessage);
+
+                throw new ApiError(finalErrorMessage, response.status, errorCode);
+            }
+
+            // Tratamento de Flash Notices (Sucesso e Aviso) vindos do backend
+            let successHeader = response.headers.get('x-flash-success');
+            let noticeHeader = response.headers.get('x-flash-notice');
+            
+            if (successHeader) {
+                let msg = successHeader;
+                try { msg = decodeURIComponent(successHeader); } catch(e) {}
+                toast.success(msg);
+            } else if (noticeHeader) {
+                let msg = noticeHeader;
+                try { msg = decodeURIComponent(noticeHeader); } catch(e) {}
+                toast.info(msg);
             }
 
             // Se 204 No Content, retornar objeto vazio
@@ -274,6 +309,7 @@ export class ApiClient {
                     await this.delay(this.retryDelay * (retryCount + 1));
                     return this.request<T>(endpoint, options, retryCount + 1);
                 }
+                toast.error('Não foi possível conectar ao servidor. Verifique sua conexão.');
                 throw new NetworkError();
             }
 
@@ -284,6 +320,7 @@ export class ApiClient {
 
             // Erro desconhecido
             console.error(`API Error [${endpoint}]:`, error);
+            toast.error(error instanceof Error ? error.message : 'Ocorreu um erro inesperado.');
             throw error;
         }
     }

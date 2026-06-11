@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Save, Eye, Trash2, Info } from 'lucide-react';
@@ -56,7 +57,6 @@ export function FormBuilder() {
       }
     } catch (error) {
       console.error('Erro ao carregar formulário:', error);
-      alert('Erro ao carregar formulário. Por favor, tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -64,27 +64,27 @@ export function FormBuilder() {
 
   const handleSave = async (publish = false) => {
     if (!title.trim()) {
-      alert('Por favor, informe o título do formulário');
+      toast.warning('Por favor, informe o título do formulário');
       return;
     }
 
     // Validar diretorias (apenas para ADMIN)
     if (user?.role === 'ADMIN' && allowedDirectorates.length === 0) {
-      alert('Por favor, selecione pelo menos uma diretoria ou "Todas as diretorias"');
+      toast.warning('Por favor, selecione pelo menos uma diretoria ou "Todas as diretorias"');
       return;
     }
 
     // Validar campos
     for (const field of fields) {
       if (!field.label.trim()) {
-        alert('Todos os campos devem ter um rótulo. Por favor, preencha os rótulos vazios.');
+        toast.warning('Todos os campos devem ter um rótulo. Por favor, preencha os rótulos vazios.');
         return;
       }
 
       // Validar opções para campos que precisam delas
       if (['MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'].includes(field.type)) {
         if (!field.config?.options || field.config.options.length === 0) {
-          alert(`O campo "${field.label}" precisa ter pelo menos uma opção configurada.`);
+          toast.warning(`O campo "${field.label}" precisa ter pelo menos uma opção configurada.`);
           return;
         }
       }
@@ -119,11 +119,9 @@ export function FormBuilder() {
       // Salvar seções e campos em batch
       await formApi.saveSectionsAndFields(formId, sections, fields);
 
-      alert(publish ? 'Formulário publicado com sucesso! Agora está disponível para todos os usuários.' : 'Formulário salvo como rascunho com sucesso!');
       navigate('/pessoas');
     } catch (error) {
       console.error('Erro ao salvar formulário:', error);
-      alert('Erro ao salvar formulário. Por favor, tente novamente.');
     } finally {
       setSaving(false);
     }

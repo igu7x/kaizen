@@ -141,9 +141,8 @@ export function CompetenciasGestorForm({ onSubmitted, editFormulario, validation
           peso: c.peso ? (String(c.peso) as '1' | '2' | '3') : '',
         })),
       });
-      toast.success(`Carregando formulário de "${unidadeNome}" para edição.`);
+      
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao carregar formulário.');
     } finally {
       setLoadingEdit(false);
     }
@@ -232,17 +231,16 @@ export function CompetenciasGestorForm({ onSubmitted, editFormulario, validation
           result = isGestor
             ? await competenciasGestorApi.validarDiretoria(editingId)
             : await competenciasGestorApi.validarAutor(editingId);
-          toast.success('Formulário salvo e validado com sucesso!');
+          
         } else {
-          toast.success('Formulário atualizado com sucesso!');
+          
         }
       } else {
         result = await competenciasGestorApi.create(payload);
-        toast.success('Formulário de competências do gestor enviado com sucesso!');
+        
       }
       if (onSubmitted && result) onSubmitted(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao enviar formulário.');
     } finally {
       setSaving(false);
     }

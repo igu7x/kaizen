@@ -316,11 +316,6 @@ export function ProjetoFormDialog({
           }
         } catch (error) {
           console.error('Erro ao carregar projeto:', error);
-          toast({
-            title: 'Erro',
-            description: 'Não foi possível carregar os dados do projeto',
-            variant: 'destructive',
-          });
         }
       };
       loadProjeto();
@@ -477,7 +472,6 @@ export function ProjetoFormDialog({
       });
       onSaved?.(updated);
     } catch (err: any) {
-      toast({ title: 'Erro', description: err?.message || 'Erro ao validar TAP', variant: 'destructive' });
     } finally {
       setValidandoCamadaTAP(null);
     }
@@ -497,7 +491,6 @@ export function ProjetoFormDialog({
       const data = await cadastrosProjetosApi.getTapVersoes(selectedProjeto.id);
       setVersoes(data);
     } catch (err: any) {
-      toast({ title: 'Erro', description: err?.message || 'Erro ao carregar versões', variant: 'destructive' });
     } finally {
       setLoadingVersoes(false);
     }
@@ -510,7 +503,6 @@ export function ProjetoFormDialog({
       const dados = await cadastrosProjetosApi.getTapVersaoDados(selectedProjeto.id, versao);
       await generateTAPPdf(dados);
     } catch (err: any) {
-      toast({ title: 'Erro', description: err?.message || 'Erro ao gerar PDF da versão', variant: 'destructive' });
     } finally {
       setLoadingPdfVersao(null);
     }
@@ -523,13 +515,11 @@ export function ProjetoFormDialog({
       await cadastrosProjetosApi.recusarTAP(selectedProjeto.id, recusaCamada, recusaComentario.trim() || null);
       const updated = await cadastrosProjetosApi.getProjetoById(selectedProjeto.id);
       setSelectedProjeto(updated);
-      toast({ title: 'TAP recusado. O gestor foi notificado para ajustar e revalidar.' });
       onSaved?.(updated);
       setRecusaDialogOpen(false);
       setRecusaCamada(null);
       setRecusaComentario('');
     } catch (err: any) {
-      toast({ title: 'Erro', description: err?.message || 'Erro ao recusar TAP', variant: 'destructive' });
     } finally {
       setRecusandoTAP(false);
     }
@@ -609,14 +599,14 @@ export function ProjetoFormDialog({
       let projetoSalvo: Projeto;
       if (mode === 'create') {
         projetoSalvo = await cadastrosProjetosApi.createProjeto(dataToSend);
-        toast({ title: 'Sucesso', description: 'Projeto criado com sucesso!' });
+        
         onSaved?.(projetoSalvo);
         onOpenChange(false); // create finalizado — fecha o dialog
       } else if (mode === 'edit' && selectedProjeto) {
         await cadastrosProjetosApi.updateProjeto(selectedProjeto.id, dataToSend);
         projetoSalvo = await cadastrosProjetosApi.getProjetoById(selectedProjeto.id);
         setSelectedProjeto(projetoSalvo);
-        toast({ title: 'Sucesso', description: 'Projeto atualizado com sucesso!' });
+        
         onSaved?.(projetoSalvo);
         // Após salvar, volta para o modo de visualização travado (sem fechar
         // o dialog) — assim o usuário vê o resultado e decide continuar editando
@@ -625,9 +615,9 @@ export function ProjetoFormDialog({
       } else {
         return;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar projeto:', error);
-      toast({ title: 'Erro', description: 'Não foi possível salvar o projeto', variant: 'destructive' });
+      
     }
   };
 
@@ -1531,7 +1521,7 @@ export function ProjetoFormDialog({
                                 setEditingEntregaIdx(null);
                                 setEditEntregaAreaSearch('');
                                 setShowEditEntregaAreaDropdown(false);
-                                toast({ title: 'Entrega atualizada' });
+                                
                               }} className="bg-blue-600 hover:bg-blue-700">
                                 <Check className="h-4 w-4 mr-1" /> Salvar
                               </Button>

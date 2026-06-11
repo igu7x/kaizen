@@ -188,11 +188,6 @@ export default function ComiteMonitoramento() {
             }
         } catch (err: any) {
             console.error('Erro ao carregar comitê:', err);
-            toast({
-                title: 'Erro',
-                description: 'Não foi possível carregar os dados do comitê.',
-                variant: 'destructive'
-            });
         } finally {
             setLoading(false);
         }
@@ -242,21 +237,19 @@ export default function ComiteMonitoramento() {
                         await atasApi.upload(sigla, reuniaoId, ataFile, data.numero, data.ano);
                         // Recarregar reunião para pegar dados da ata
                         updatedReuniao = await reunioesApi.getById(comite.id, reuniaoId);
-                        toast({ title: 'Sucesso', description: 'Reunião atualizada e ata enviada!' });
+                        
                     } catch (uploadErr: any) {
-                        toast({ title: 'Aviso', description: 'Reunião atualizada, mas erro ao enviar ata: ' + uploadErr.message, variant: 'destructive' });
                     }
                 } else if (removeAta) {
                     try {
                         await atasApi.delete(sigla, reuniaoId);
                         // Recarregar reunião
                         updatedReuniao = await reunioesApi.getById(comite.id, reuniaoId);
-                        toast({ title: 'Sucesso', description: 'Reunião atualizada e ata removida!' });
+                        
                     } catch (deleteErr: any) {
-                        toast({ title: 'Aviso', description: 'Reunião atualizada, mas erro ao remover ata: ' + deleteErr.message, variant: 'destructive' });
                     }
                 } else {
-                    toast({ title: 'Sucesso', description: 'Reunião atualizada!' });
+                    
                 }
 
                 setReunioes(prev =>
@@ -277,12 +270,11 @@ export default function ComiteMonitoramento() {
                         await atasApi.upload(sigla, reuniaoId, ataFile, data.numero, data.ano);
                         // Recarregar reunião
                         updatedReuniao = await reunioesApi.getById(comite.id, reuniaoId);
-                        toast({ title: 'Sucesso', description: 'Reunião adicionada com ata!' });
+                        
                     } catch (uploadErr: any) {
-                        toast({ title: 'Aviso', description: 'Reunião criada, mas erro ao enviar ata: ' + uploadErr.message, variant: 'destructive' });
                     }
                 } else {
-                    toast({ title: 'Sucesso', description: 'Reunião adicionada!' });
+                    
                 }
 
                 setReunioes(prev =>
@@ -292,9 +284,7 @@ export default function ComiteMonitoramento() {
             setModalReuniao({ open: false, item: null });
         } catch (err: any) {
             if (err.status === 409) {
-                toast({ title: 'Erro', description: 'Já existe uma reunião com este número e ano.', variant: 'destructive' });
             } else {
-                toast({ title: 'Erro', description: err.message, variant: 'destructive' });
             }
         }
     };
@@ -312,9 +302,8 @@ export default function ComiteMonitoramento() {
                 setReuniaoAtiva(proxima || null);
             }
 
-            toast({ title: 'Sucesso', description: 'Reunião excluída!' });
+            
         } catch (err: any) {
-            toast({ title: 'Erro', description: err.message, variant: 'destructive' });
         }
         setDeleteConfirm(null);
     };
@@ -330,15 +319,14 @@ export default function ComiteMonitoramento() {
             if (modalPauta.item) {
                 const updated = await pautaApi.update(comite.id, reuniaoAtiva.id, modalPauta.item.id, data);
                 setPauta(prev => prev.map(p => p.id === updated.id ? updated : p));
-                toast({ title: 'Sucesso', description: 'Item atualizado!' });
+                
             } else {
                 const created = await pautaApi.create(comite.id, reuniaoAtiva.id, data);
                 setPauta(prev => [...prev, created].sort((a, b) => a.numero_item - b.numero_item));
-                toast({ title: 'Sucesso', description: 'Item adicionado!' });
+                
             }
             setModalPauta({ open: false, item: null });
         } catch (err: any) {
-            toast({ title: 'Erro', description: err.message, variant: 'destructive' });
         }
     };
 
@@ -348,9 +336,8 @@ export default function ComiteMonitoramento() {
         try {
             await pautaApi.delete(comite.id, reuniaoAtiva.id, id);
             setPauta(prev => prev.filter(p => p.id !== id));
-            toast({ title: 'Sucesso', description: 'Item removido!' });
+            
         } catch (err: any) {
-            toast({ title: 'Erro', description: err.message, variant: 'destructive' });
         }
         setDeleteConfirm(null);
     };
@@ -373,22 +360,17 @@ export default function ComiteMonitoramento() {
                 const updated = await quadroControleApi.update(comite.id, modalQuadro.item.id, data);
                 console.log('✅ Quadro atualizado:', updated);
                 setQuadroControle(prev => prev.map(q => q.id === updated.id ? updated : q));
-                toast({ title: 'Sucesso', description: 'Item atualizado com sucesso!' });
+                
             } else {
                 // Criar
                 const created = await quadroControleApi.create(comite.id, data as any);
                 console.log('✅ Quadro criado:', created);
                 setQuadroControle(prev => [...prev, created]);
-                toast({ title: 'Sucesso', description: 'Item adicionado com sucesso!' });
+                
             }
             setModalQuadro({ open: false, item: null });
         } catch (err: any) {
             console.error('❌ Erro ao salvar quadro:', err);
-            toast({
-                title: 'Erro ao salvar',
-                description: err.message || 'Não foi possível salvar o item',
-                variant: 'destructive'
-            });
         }
     };
 
@@ -398,9 +380,8 @@ export default function ComiteMonitoramento() {
         try {
             await quadroControleApi.delete(comite.id, id);
             setQuadroControle(prev => prev.filter(q => q.id !== id));
-            toast({ title: 'Sucesso', description: 'Item removido!' });
+            
         } catch (err: any) {
-            toast({ title: 'Erro', description: err.message, variant: 'destructive' });
         }
         setDeleteConfirm(null);
     };
@@ -416,15 +397,14 @@ export default function ComiteMonitoramento() {
             if (modalMembro.item) {
                 const updated = await membrosApi.update(comite.id, modalMembro.item.id, data);
                 setMembros(prev => prev.map(m => m.id === updated.id ? updated : m));
-                toast({ title: 'Sucesso', description: 'Membro atualizado!' });
+                
             } else {
                 const created = await membrosApi.create(comite.id, data);
                 setMembros(prev => [...prev, created]);
-                toast({ title: 'Sucesso', description: 'Membro adicionado!' });
+                
             }
             setModalMembro({ open: false, item: null });
         } catch (err: any) {
-            toast({ title: 'Erro', description: err.message, variant: 'destructive' });
         }
     };
 
@@ -434,9 +414,8 @@ export default function ComiteMonitoramento() {
         try {
             await membrosApi.delete(comite.id, id);
             setMembros(prev => prev.filter(m => m.id !== id));
-            toast({ title: 'Sucesso', description: 'Membro removido!' });
+            
         } catch (err: any) {
-            toast({ title: 'Erro', description: err.message, variant: 'destructive' });
         }
         setDeleteConfirm(null);
     };
@@ -451,10 +430,9 @@ export default function ComiteMonitoramento() {
         try {
             const updated = await comitesApi.update(comite.id, { descricao });
             setComite(updated);
-            toast({ title: 'Sucesso', description: 'Descrição atualizada!' });
+            
             setModalDescricao(false);
         } catch (err: any) {
-            toast({ title: 'Erro', description: err.message, variant: 'destructive' });
         }
     };
 
@@ -1004,9 +982,8 @@ export default function ComiteMonitoramento() {
                                                                                 try {
                                                                                     const updated = await quadroControleApi.update(comite.id, item.id, { status: newStatus as QuadroControleStatus });
                                                                                     setQuadroControle(prev => prev.map(q => q.id === updated.id ? updated : q));
-                                                                                    toast({ title: 'Sucesso', description: 'Status atualizado!' });
+                                                                                    
                                                                                 } catch (err: any) {
-                                                                                    toast({ title: 'Erro', description: err.message, variant: 'destructive' });
                                                                                 }
                                                                             }}
                                                                         >

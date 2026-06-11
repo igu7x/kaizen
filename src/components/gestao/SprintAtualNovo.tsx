@@ -81,11 +81,6 @@ export function SprintAtualNovo() {
       setTarefasSprint(tarefasComInfo);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar as tarefas da sprint.',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
@@ -207,17 +202,9 @@ export function SprintAtualNovo() {
         )
       );
 
-      toast({
-        title: 'Sucesso',
-        description: 'Progresso atualizado!',
-      });
+      
     } catch (error) {
       console.error('Erro ao atualizar progresso:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o progresso.',
-        variant: 'destructive',
-      });
       // Recarregar para reverter
       await carregarDados();
     }

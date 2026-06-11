@@ -164,7 +164,6 @@ const Organograma: React.FC<OrganogramaProps> = ({
       setDados(response);
     } catch (error) {
       console.error('Erro ao carregar organograma:', error);
-      toast.error('Erro ao carregar organograma');
     } finally {
       setLoading(false);
     }
@@ -247,15 +246,14 @@ const Organograma: React.FC<OrganogramaProps> = ({
         }));
 
         await colaboradoresApi.reordenarGestores(linha, nova_ordem);
-        toast.success('Ordem atualizada com sucesso!');
+        
       } catch (error) {
         console.error('Erro ao reordenar:', error);
-        toast.error('Erro ao salvar nova ordem');
         // Reverter para dados originais
         fetchOrganograma();
       }
     } else {
-      toast.success('Ordem atualizada!');
+      
     }
   };
 
@@ -480,13 +478,12 @@ const Organograma: React.FC<OrganogramaProps> = ({
     try {
       console.log('Tentando excluir gestor:', id);
       await colaboradoresApi.deleteGestor(id);
-      toast.success('Área excluída com sucesso!');
+      
       fetchOrganograma();
     } catch (error: any) {
       console.error('Erro ao excluir:', error);
       // Capturar mensagem do erro (ApiError tem .message)
       const mensagem = error?.message || 'Erro ao excluir área';
-      toast.error(mensagem);
     }
   };
 

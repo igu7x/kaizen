@@ -322,11 +322,6 @@ export function PcaItemDetailsPage() {
 
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
-            toast({
-                title: 'Erro ao carregar dados',
-                description: 'Não foi possível carregar os detalhes do item PCA.',
-                variant: 'destructive'
-            });
         } finally {
             setLoading(false);
         }
@@ -504,20 +499,11 @@ export function PcaItemDetailsPage() {
                 setIsSaveSuccessModalOpen(true);
 
             } else {
-                toast({
-                    title: 'Erro ao salvar',
-                    description: result.error || 'Não foi possível salvar as alterações',
-                    variant: 'destructive'
-                });
+                
             }
 
         } catch (error: any) {
             console.error('Erro ao salvar:', error);
-            toast({
-                title: 'Erro ao salvar alterações',
-                description: error.message || 'Tente novamente',
-                variant: 'destructive'
-            });
         } finally {
             setSaving(false);
         }
@@ -558,17 +544,16 @@ export function PcaItemDetailsPage() {
                 setPontosControleComTarefas(prev => prev.map(pc => 
                     pc.id === editingPonto.id ? { ...pc, ...updated } : pc
                 ));
-                toast({ title: 'Ponto de controle atualizado!', duration: 2000 });
+                
             } else {
                 const created = await pcaDetailsApi.createPontoControle(pcaItemId, pontoForm);
                 // Optimistic Update - adiciona novo PC com array vazio de tarefas
                 setPontosControle(prev => [...prev, created].sort((a, b) => a.ponto_controle.localeCompare(b.ponto_controle)));
                 setPontosControleComTarefas(prev => [...prev, { ...created, tarefas: [] }].sort((a, b) => a.ponto_controle.localeCompare(b.ponto_controle)));
-                toast({ title: 'Ponto de controle criado!', duration: 2000 });
+                
             }
             setIsPontoModalOpen(false);
         } catch (error: any) {
-            toast({ title: error.message || 'Erro ao salvar', variant: 'destructive' });
             // Recarregar em caso de erro para sincronizar
             loadData();
         } finally {
@@ -612,7 +597,6 @@ export function PcaItemDetailsPage() {
             if (!deletePCWithTarefas && hadTarefas.length > 0) {
                 setTarefasOrfas(prev => prev.filter(t => !hadTarefas.some(ht => ht.id === t.id)));
             }
-            toast({ title: 'Erro ao excluir. Revertendo...', variant: 'destructive' });
         } finally {
             setSaving(false);
             setDeletePCWithTarefas(false);
@@ -670,7 +654,7 @@ export function PcaItemDetailsPage() {
                     newMap.delete(editingTarefa.id);
                     return newMap;
                 });
-                toast({ title: 'Tarefa atualizada!', duration: 2000 });
+                
             } else {
                 // Criar tarefa com ponto_controle_id se selecionado
                 const createData = {
@@ -704,7 +688,6 @@ export function PcaItemDetailsPage() {
             setIsTarefaModalOpen(false);
             setSelectedPCForTarefa(null);
         } catch (error: any) {
-            toast({ title: error.message || 'Erro ao salvar', variant: 'destructive' });
             // Recarregar em caso de erro para sincronizar
             loadData();
         } finally {
@@ -743,7 +726,7 @@ export function PcaItemDetailsPage() {
         try {
             setSaving(true);
             await pcaDetailsApi.deleteTarefa(pcaItemId, deletedTarefa.id);
-            toast({ title: 'Tarefa excluída!', duration: 2000 });
+            
         } catch (error) {
             // Reverter em caso de erro
             setTarefas(prev => [...prev, deletedTarefa].sort((a, b) => new Date(a.prazo).getTime() - new Date(b.prazo).getTime()));
@@ -761,7 +744,6 @@ export function PcaItemDetailsPage() {
                 newMap.set(deletedTarefa.id, deletedTarefa.status);
                 return newMap;
             });
-            toast({ title: 'Erro ao excluir. Revertendo...', variant: 'destructive' });
         } finally {
             setSaving(false);
         }
@@ -1072,7 +1054,6 @@ export function PcaItemDetailsPage() {
                                                                 toast({ title: 'Tarefa associada ao PC!' });
                                                                 loadData();
                                                             } catch (err: any) {
-                                                                toast({ title: 'Erro', description: err.message, variant: 'destructive' });
                                                             }
                                                         }}
                                                     >

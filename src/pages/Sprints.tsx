@@ -212,11 +212,6 @@ export default function Sprints() {
         setSprints(data);
       } catch (error) {
         console.error('Erro ao carregar sprints:', error);
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível carregar os sprints',
-          variant: 'destructive',
-        });
       } finally {
         setLoading(false);
       }
@@ -280,11 +275,6 @@ export default function Sprints() {
         setBacklogEntregaFilter('todos');
       } catch (error) {
         console.error('Erro ao carregar dados do backlog:', error);
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível carregar as tarefas do projeto',
-          variant: 'destructive',
-        });
       } finally {
         setLoadingBacklog(false);
       }
@@ -337,11 +327,6 @@ export default function Sprints() {
         setSprintAtualEntregaFilter('todos');
       } catch (error) {
         console.error('Erro ao carregar dados do sprint atual:', error);
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível carregar as tarefas do projeto',
-          variant: 'destructive',
-        });
       } finally {
         setLoadingSprintAtual(false);
       }
@@ -436,11 +421,6 @@ export default function Sprints() {
       });
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status da tarefa',
-        variant: 'destructive',
-      });
     } finally {
       setDraggedTask(null);
     }
@@ -468,17 +448,9 @@ export default function Sprints() {
         }
         setBacklogTarefas(todasTarefas);
       }
-      toast({
-        title: 'Sucesso',
-        description: 'Status da tarefa atualizado',
-      });
+      
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar a tarefa',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -526,19 +498,11 @@ export default function Sprints() {
         setBacklogTarefas(todasTarefas);
       }
 
-      toast({
-        title: 'Sucesso',
-        description: 'Tarefa atualizada com sucesso',
-      });
+      
       setEditModalOpen(false);
       setTarefaEditando(null);
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar a tarefa',
-        variant: 'destructive',
-      });
     } finally {
       setSavingEdit(false);
     }

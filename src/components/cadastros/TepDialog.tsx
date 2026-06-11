@@ -70,7 +70,6 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
       const data = await cadastrosProjetosApi.getTepVersoes(projeto.id);
       setVersoes(data);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao carregar versões');
     } finally {
       setLoadingVersoes(false);
     }
@@ -82,7 +81,6 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
       const dados = await cadastrosProjetosApi.getTepVersaoDados(projeto.id, versao);
       generateTEPPdf(dados.projeto, dados.tep, dados.entregas || []);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao gerar PDF da versão');
     } finally {
       setLoadingPdfVersao(null);
     }
@@ -139,10 +137,9 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
     try {
       await cadastrosProjetosApi.validarTEP(projeto.id, camada);
       const labels = ['', 'Gestor', 'Diretor', 'Patrocinador'];
-      toast.success(camada === 3 ? 'TEP Vigente! Validação concluída.' : `TEP validado — Camada ${camada} (${labels[camada]})`);
+
       await recarregarTep();
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar TEP');
     } finally {
       setValidandoCamada(null);
     }
@@ -159,13 +156,12 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
     setRecusandoTEP(true);
     try {
       await cadastrosProjetosApi.recusarTEP(projeto.id, recusaCamada, recusaComentario.trim() || null);
-      toast.success('TEP recusado. O gestor foi notificado para ajustar e revalidar.');
+      
       await recarregarTep();
       setRecusaDialogOpen(false);
       setRecusaCamada(null);
       setRecusaComentario('');
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao recusar TEP');
     } finally {
       setRecusandoTEP(false);
     }
@@ -177,6 +173,7 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
     try {
       const token = localStorage.getItem('auth_token') || '';
       const response = await fetch(`/api/cadastros/entregas/${entregaId}/download-evidencia`, {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Falha ao baixar');
@@ -207,16 +204,11 @@ export function TepDialog({ open, onOpenChange, projeto, entregas: entregasProp,
         consideracoes_patrocinador: consideracoesPatrocinador.trim() || undefined,
       });
       const versao = tep.tep_versao || 1;
-      toast.success(
-        eraAtualizacao
-          ? `TEP atualizado — versão ${versao} gerada.`
-          : `Projeto ${tipo === 'concluido' ? 'concluído' : 'descontinuado'} com sucesso.`
-      );
+      
       setTepExistente(tep);
       setEditMode(false); // Sai do modo edição após salvar
       onFinalized(tep);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao salvar TEP');
     } finally {
       setSaving(false);
     }

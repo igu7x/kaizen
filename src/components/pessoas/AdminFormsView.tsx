@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Eye, Archive, FileText, Trash2, Search } from 'lucide-react';
@@ -89,12 +90,8 @@ export function AdminFormsView() {
       const newStatus: FormStatus = form.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
       await formApi.updateForm(form.id, { status: newStatus });
       await loadForms();
-      alert(newStatus === 'PUBLISHED'
-        ? 'Formulário publicado! Agora está disponível para todos os usuários.'
-        : 'Formulário despublicado. Não está mais visível para usuários comuns.');
     } catch (error) {
       console.error('Erro ao alterar status:', error);
-      alert('Erro ao alterar status do formulário.');
     }
   };
 
@@ -103,10 +100,8 @@ export function AdminFormsView() {
       try {
         await formApi.updateForm(id, { status: 'ARCHIVED' });
         await loadForms();
-        alert('Formulário arquivado com sucesso.');
       } catch (error) {
         console.error('Erro ao arquivar formulário:', error);
-        alert('Erro ao arquivar formulário.');
       }
     }
   };
@@ -118,21 +113,19 @@ export function AdminFormsView() {
         await formApi.deleteForm(id);
         console.log('[AdminFormsView] Formulário excluído com sucesso');
         await loadForms();
-        alert('Formulário excluído com sucesso.');
       } catch (error: any) {
         console.error('[AdminFormsView] Erro ao excluir formulário:', error);
         
         // Tratamento específico de erros
         if (error.status === 404) {
-          alert('Formulário não encontrado. Pode já ter sido excluído.');
+          toast.warning('Formulário não encontrado. Pode já ter sido excluído.');
           await loadForms(); // Recarregar lista
         } else if (error.status === 403) {
-          alert('Você não tem permissão para excluir este formulário.');
+          toast.warning('Você não tem permissão para excluir este formulário.');
         } else if (error.status === 401) {
-          alert('Sessão expirada. Faça login novamente.');
+          toast.warning('Sessão expirada. Faça login novamente.');
         } else {
           const errorMessage = error.message || 'Erro desconhecido';
-          alert(`Erro ao excluir formulário: ${errorMessage}`);
         }
       }
     }

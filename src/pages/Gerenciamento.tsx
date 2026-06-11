@@ -155,13 +155,12 @@ export default function Gerenciamento() {
             }
 
             await permissoesApi.atualizarPermissoesDiretoria(diretoria as Diretoria, permissoes);
-            toast.success(`Permissões de ${diretoria} atualizadas com sucesso!`);
+            
 
             await new Promise(resolve => setTimeout(resolve, 2000));
             await carregarPermissoes();
         } catch (error: any) {
             console.error('[salvarPermissoes] Erro:', error);
-            toast.error(error.message || 'Erro ao salvar permissões');
         } finally {
             setSaving(null);
         }
@@ -175,7 +174,6 @@ export default function Gerenciamento() {
             setModulosSelecionados(new Set());
         } catch (error: any) {
             console.error('Erro ao carregar módulos disponíveis:', error);
-            toast.error('Erro ao carregar módulos disponíveis');
         } finally {
             setCarregandoModulos(false);
         }
@@ -214,13 +212,12 @@ export default function Gerenciamento() {
             setAdicionandoModulos(true);
             const codigos = Array.from(modulosSelecionados);
             await permissoesApi.adicionarModulosExistentes(codigos);
-            toast.success(`${codigos.length} módulo(s) adicionado(s) com sucesso!`);
+
             setDialogOpen(false);
             setModulosSelecionados(new Set());
             await carregarPermissoes();
         } catch (error: any) {
             console.error('Erro ao adicionar módulos:', error);
-            toast.error(error.message || 'Erro ao adicionar módulos');
         } finally {
             setAdicionandoModulos(false);
         }

@@ -352,7 +352,7 @@ function App() {
             </Routes>
             </SessionRedirect>
           </BrowserRouter>
-          <Toaster richColors position="top-right" />
+          <Toaster richColors position="bottom-right" />
         </GestaoProvider>
         </EstrategiaModeloProvider>
       </DirectorateProvider>

@@ -143,10 +143,9 @@ export function CompetenciasGestorResumo({ formulario, onValidated, onEdit }: Co
     setValidating(true);
     try {
       const result = await competenciasGestorApi.validarAutor(formulario.id);
-      toast.success('Validação do autor realizada com sucesso!');
+      
       if (onValidated) onValidated(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar.');
     } finally {
       setValidating(false);
     }
@@ -156,10 +155,9 @@ export function CompetenciasGestorResumo({ formulario, onValidated, onEdit }: Co
     setValidating(true);
     try {
       const result = await competenciasGestorApi.validarDiretoria(formulario.id);
-      toast.success('Validação da diretoria realizada com sucesso!');
+      
       if (onValidated) onValidated(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar.');
     } finally {
       setValidating(false);
     }
@@ -169,10 +167,9 @@ export function CompetenciasGestorResumo({ formulario, onValidated, onEdit }: Co
     setValidating(true);
     try {
       const result = await competenciasGestorApi.validarFinal(formulario.id);
-      toast.success('Validação final realizada com sucesso!');
+      
       if (onValidated) onValidated(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao validar.');
     } finally {
       setValidating(false);
     }
@@ -191,13 +188,12 @@ export function CompetenciasGestorResumo({ formulario, onValidated, onEdit }: Co
       const result = recusaCamada === 'final'
         ? await competenciasGestorApi.recusarFinal(formulario.id, recusaComentario)
         : await competenciasGestorApi.recusarDiretoria(formulario.id, recusaComentario);
-      toast.success('Formulário recusado e devolvido ao autor.');
+      
       setRecusaDialogOpen(false);
       setRecusaCamada(null);
       setRecusaComentario('');
       if (onValidated) onValidated(result);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao recusar formulário.');
     } finally {
       setValidating(false);
     }
