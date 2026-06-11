@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   X as XIcon,
   Loader2,
@@ -22,19 +22,19 @@ import {
   Calendar,
   Workflow,
   Paperclip,
-} from 'lucide-react';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { toast } from "sonner";
 import {
   processosNegocioApi,
   ProcessoNegocio,
   CreateProcessoNegocioDto,
-} from '@/services/processosNegocioApi';
-import { areasApi, Area } from '@/services/areasApi';
-import { ListInput } from './ListInput';
-import { UserMultiPicker } from './UserMultiPicker';
-import { UnidadeMultiPicker } from './UnidadeMultiPicker';
-import { FluxogramaUpload } from './FluxogramaUpload';
-import { DocumentosAnexadosInput } from './DocumentosAnexadosInput';
+} from "@/services/processosNegocioApi";
+import { areasApi, Area } from "@/services/areasApi";
+import { ListInput } from "./ListInput";
+import { UserMultiPicker } from "./UserMultiPicker";
+import { UnidadeMultiPicker } from "./UnidadeMultiPicker";
+import { FluxogramaUpload } from "./FluxogramaUpload";
+import { DocumentosAnexadosInput } from "./DocumentosAnexadosInput";
 
 interface ProcessoFormDialogProps {
   open: boolean;
@@ -48,14 +48,14 @@ interface ProcessoFormDialogProps {
 }
 
 const emptyForm: CreateProcessoNegocioDto = {
-  macroprocesso: '',
-  diretoria: '',
-  periodo: '',
-  revisao: '',
-  codigo_versao: '',
-  nome_processo: '',
-  descricao: '',
-  detalhamento: '',
+  macroprocesso: "",
+  diretoria: "",
+  periodo: "",
+  revisao: "",
+  codigo_versao: "",
+  nome_processo: "",
+  descricao: "",
+  detalhamento: "",
   proprietarios: [],
   atores: [],
   areas_responsaveis: [],
@@ -67,9 +67,9 @@ const emptyForm: CreateProcessoNegocioDto = {
   fluxograma_filename: null,
   fluxograma_mime: null,
   documentos_anexados: [],
-  periodicidade_revisao: '',
-  numero_proad: '',
-  observacoes_gerais: '',
+  periodicidade_revisao: "",
+  numero_proad: "",
+  observacoes_gerais: "",
 };
 
 /**
@@ -77,13 +77,13 @@ const emptyForm: CreateProcessoNegocioDto = {
  * Retorna formato brasileiro DD/MM/AAAA. Se o período não estiver definido, retorna '—'.
  */
 function addOneYearToDate(periodo: string | null | undefined): string {
-  if (!periodo || !periodo.trim()) return '—';
+  if (!periodo || !periodo.trim()) return "—";
   const m = periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return '—';
+  if (!m) return "—";
   const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return "—";
   d.setFullYear(d.getFullYear() + 1);
-  const pad = (n: number) => n.toString().padStart(2, '0');
+  const pad = (n: number) => n.toString().padStart(2, "0");
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
@@ -103,7 +103,9 @@ function Section({
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-600">
           {icon}
         </div>
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">{title}</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+          {title}
+        </h3>
       </div>
       <div className="pl-1">{children}</div>
     </section>
@@ -126,10 +128,17 @@ export function ProcessoFormDialog({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    areasApi.getAll()
-      .then((data) => { if (!cancelled) setAreas(data); })
-      .catch((err) => console.warn('[ProcessoFormDialog] erro ao carregar áreas:', err));
-    return () => { cancelled = true; };
+    areasApi
+      .getAll()
+      .then((data) => {
+        if (!cancelled) setAreas(data);
+      })
+      .catch((err) =>
+        console.warn("[ProcessoFormDialog] erro ao carregar áreas:", err),
+      );
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   // Carregar valores ao abrir (modo edição) ou resetar (criação)
@@ -137,14 +146,14 @@ export function ProcessoFormDialog({
     if (!open) return;
     if (processo) {
       setForm({
-        macroprocesso: processo.macroprocesso || '',
-        diretoria: processo.diretoria || '',
-        periodo: processo.periodo || '',
-        revisao: processo.revisao || '',
-        codigo_versao: processo.codigo_versao || '',
-        nome_processo: processo.nome_processo || '',
-        descricao: processo.descricao || '',
-        detalhamento: processo.detalhamento || '',
+        macroprocesso: processo.macroprocesso || "",
+        diretoria: processo.diretoria || "",
+        periodo: processo.periodo || "",
+        revisao: processo.revisao || "",
+        codigo_versao: processo.codigo_versao || "",
+        nome_processo: processo.nome_processo || "",
+        descricao: processo.descricao || "",
+        detalhamento: processo.detalhamento || "",
         proprietarios: processo.proprietarios || [],
         atores: processo.atores || [],
         areas_responsaveis: processo.areas_responsaveis || [],
@@ -156,23 +165,26 @@ export function ProcessoFormDialog({
         fluxograma_filename: processo.fluxograma_filename || null,
         fluxograma_mime: processo.fluxograma_mime || null,
         documentos_anexados: processo.documentos_anexados || [],
-        periodicidade_revisao: processo.periodicidade_revisao || '',
-        numero_proad: processo.numero_proad || '',
-        observacoes_gerais: processo.observacoes_gerais || '',
+        periodicidade_revisao: processo.periodicidade_revisao || "",
+        numero_proad: processo.numero_proad || "",
+        observacoes_gerais: processo.observacoes_gerais || "",
       });
     } else {
-      setForm({ ...emptyForm, diretoria: diretoriaPadrao || '' });
+      setForm({ ...emptyForm, diretoria: diretoriaPadrao || "" });
     }
   }, [open, processo, diretoriaPadrao]);
 
-  const update = <K extends keyof CreateProcessoNegocioDto>(field: K, value: CreateProcessoNegocioDto[K]) => {
+  const update = <K extends keyof CreateProcessoNegocioDto>(
+    field: K,
+    value: CreateProcessoNegocioDto[K],
+  ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const validate = (): string | null => {
-    if (!form.nome_processo?.trim()) return 'O nome do processo é obrigatório.';
-    if (!form.macroprocesso?.trim()) return 'O macroprocesso é obrigatório.';
-    if (!form.diretoria?.trim()) return 'A diretoria é obrigatória.';
+    if (!form.nome_processo?.trim()) return "O nome do processo é obrigatório.";
+    if (!form.macroprocesso?.trim()) return "O macroprocesso é obrigatório.";
+    if (!form.diretoria?.trim()) return "A diretoria é obrigatória.";
     return null;
   };
 
@@ -192,15 +204,12 @@ export function ProcessoFormDialog({
       }
       if (enviarApos) {
         saved = await processosNegocioApi.enviar(saved.id);
-        toast.success('Processo salvo e enviado para validação.');
       } else {
-        toast.success(isEdit ? 'Processo atualizado.' : 'Processo criado como rascunho.');
       }
       onSaved(saved);
       onOpenChange(false);
     } catch (err: any) {
-      console.error('Erro ao salvar processo:', err);
-      toast.error(err?.message || 'Erro ao salvar o processo.');
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -213,7 +222,7 @@ export function ProcessoFormDialog({
         <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-white">
-              {isEdit ? 'Editar Processo' : 'Novo Processo'}
+              {isEdit ? "Editar Processo" : "Novo Processo"}
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
               Cadastro de processo de negócio — siga o template institucional.
@@ -231,39 +240,51 @@ export function ProcessoFormDialog({
         {/* Corpo rolável */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 bg-slate-50">
           {/* Identificação */}
-          <Section icon={<FileText className="h-4 w-4" />} title="Identificação">
+          <Section
+            icon={<FileText className="h-4 w-4" />}
+            title="Identificação"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <Label htmlFor="nome_processo" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="nome_processo"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Nome do Processo <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="nome_processo"
                   value={form.nome_processo}
-                  onChange={(e) => update('nome_processo', e.target.value)}
+                  onChange={(e) => update("nome_processo", e.target.value)}
                   placeholder="Ex.: Gerenciamento de Riscos de Segurança da Informação"
                   className="mt-1 bg-white"
                 />
               </div>
               <div>
-                <Label htmlFor="macroprocesso" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="macroprocesso"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Macroprocesso <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="macroprocesso"
                   value={form.macroprocesso}
-                  onChange={(e) => update('macroprocesso', e.target.value)}
+                  onChange={(e) => update("macroprocesso", e.target.value)}
                   placeholder="Ex.: Segurança da Informação"
                   className="mt-1 bg-white"
                 />
               </div>
               <div>
-                <Label htmlFor="diretoria" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="diretoria"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Diretoria <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={form.diretoria || undefined}
-                  onValueChange={(v) => update('diretoria', v)}
+                  onValueChange={(v) => update("diretoria", v)}
                 >
                   <SelectTrigger id="diretoria" className="mt-1 bg-white">
                     <SelectValue placeholder="Selecione a diretoria" />
@@ -286,39 +307,50 @@ export function ProcessoFormDialog({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="periodo" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="periodo"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Período
                 </Label>
                 <Input
                   id="periodo"
                   type="date"
-                  value={form.periodo || ''}
-                  onChange={(e) => update('periodo', e.target.value)}
+                  value={form.periodo || ""}
+                  onChange={(e) => update("periodo", e.target.value)}
                   className="mt-1 bg-white"
                 />
-                <p className="text-xs text-slate-500 mt-1">No PDF será exibido apenas o mês e o ano.</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  No PDF será exibido apenas o mês e o ano.
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="revisao" className="text-xs font-semibold text-slate-700">
+                  <Label
+                    htmlFor="revisao"
+                    className="text-xs font-semibold text-slate-700"
+                  >
                     Revisão
                   </Label>
                   <Input
                     id="revisao"
-                    value={form.revisao || ''}
-                    onChange={(e) => update('revisao', e.target.value)}
+                    value={form.revisao || ""}
+                    onChange={(e) => update("revisao", e.target.value)}
                     placeholder="Ex.: 007"
                     className="mt-1 bg-white"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="codigo_versao" className="text-xs font-semibold text-slate-700">
+                  <Label
+                    htmlFor="codigo_versao"
+                    className="text-xs font-semibold text-slate-700"
+                  >
                     Código/Versão
                   </Label>
                   <Input
                     id="codigo_versao"
-                    value={form.codigo_versao || ''}
-                    onChange={(e) => update('codigo_versao', e.target.value)}
+                    value={form.codigo_versao || ""}
+                    onChange={(e) => update("codigo_versao", e.target.value)}
                     placeholder="Ex.: NSI-005"
                     className="mt-1 bg-white"
                   />
@@ -328,10 +360,13 @@ export function ProcessoFormDialog({
           </Section>
 
           {/* Descrição */}
-          <Section icon={<FileText className="h-4 w-4" />} title="Descrição do Processo">
+          <Section
+            icon={<FileText className="h-4 w-4" />}
+            title="Descrição do Processo"
+          >
             <Textarea
-              value={form.descricao || ''}
-              onChange={(e) => update('descricao', e.target.value)}
+              value={form.descricao || ""}
+              onChange={(e) => update("descricao", e.target.value)}
               placeholder="Descreva brevemente o objetivo deste processo..."
               rows={4}
               className="bg-white resize-none"
@@ -339,36 +374,45 @@ export function ProcessoFormDialog({
           </Section>
 
           {/* Governança e Responsáveis */}
-          <Section icon={<Users className="h-4 w-4" />} title="Governança e Responsáveis">
+          <Section
+            icon={<Users className="h-4 w-4" />}
+            title="Governança e Responsáveis"
+          >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Proprietário</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Proprietário
+                </Label>
                 <div className="mt-1.5">
                   <UserMultiPicker
                     value={form.proprietarios || []}
-                    onChange={(next) => update('proprietarios', next)}
+                    onChange={(next) => update("proprietarios", next)}
                     placeholder="Selecionar proprietário"
                     emptyMessage="Nenhum proprietário"
                   />
                 </div>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Atores</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Atores
+                </Label>
                 <div className="mt-1.5">
                   <UserMultiPicker
                     value={form.atores || []}
-                    onChange={(next) => update('atores', next)}
+                    onChange={(next) => update("atores", next)}
                     placeholder="Selecionar ator"
                     emptyMessage="Nenhum ator"
                   />
                 </div>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Áreas Responsáveis</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Áreas Responsáveis
+                </Label>
                 <div className="mt-1.5">
                   <UnidadeMultiPicker
                     value={form.areas_responsaveis || []}
-                    onChange={(next) => update('areas_responsaveis', next)}
+                    onChange={(next) => update("areas_responsaveis", next)}
                     placeholder="Digite para buscar..."
                     emptyMessage="Nenhuma área"
                   />
@@ -378,25 +422,32 @@ export function ProcessoFormDialog({
           </Section>
 
           {/* Informações Utilizadas */}
-          <Section icon={<Info className="h-4 w-4" />} title="Informações Utilizadas">
+          <Section
+            icon={<Info className="h-4 w-4" />}
+            title="Informações Utilizadas"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Entrada</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Entrada
+                </Label>
                 <div className="mt-1.5">
                   <ListInput
                     value={form.entradas || []}
-                    onChange={(next) => update('entradas', next)}
+                    onChange={(next) => update("entradas", next)}
                     placeholder="Adicionar entrada (ex.: Proad 516136/2024)"
                     emptyMessage="Nenhuma entrada"
                   />
                 </div>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Saída</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Saída
+                </Label>
                 <div className="mt-1.5">
                   <ListInput
                     value={form.saidas || []}
-                    onChange={(next) => update('saidas', next)}
+                    onChange={(next) => update("saidas", next)}
                     placeholder="Adicionar saída"
                     emptyMessage="Nenhuma saída"
                   />
@@ -406,39 +457,50 @@ export function ProcessoFormDialog({
           </Section>
 
           {/* Detalhamento */}
-          <Section icon={<FileText className="h-4 w-4" />} title="Detalhamento do Processo">
+          <Section
+            icon={<FileText className="h-4 w-4" />}
+            title="Detalhamento do Processo"
+          >
             <Textarea
-              value={form.detalhamento || ''}
-              onChange={(e) => update('detalhamento', e.target.value)}
+              value={form.detalhamento || ""}
+              onChange={(e) => update("detalhamento", e.target.value)}
               placeholder="Descreva as etapas, regras, fluxos e diretrizes do processo..."
               rows={10}
               className="bg-white resize-y"
             />
             <p className="text-xs text-slate-500 mt-1">
-              Use quebras de linha pra separar parágrafos e numerar etapas (1., 2., 3....).
+              Use quebras de linha pra separar parágrafos e numerar etapas (1.,
+              2., 3....).
             </p>
           </Section>
 
           {/* Recursos Utilizados */}
-          <Section icon={<Settings className="h-4 w-4" />} title="Recursos Utilizados">
+          <Section
+            icon={<Settings className="h-4 w-4" />}
+            title="Recursos Utilizados"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Sistemas / Ferramentas</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Sistemas / Ferramentas
+                </Label>
                 <div className="mt-1.5">
                   <ListInput
                     value={form.sistemas_ferramentas || []}
-                    onChange={(next) => update('sistemas_ferramentas', next)}
+                    onChange={(next) => update("sistemas_ferramentas", next)}
                     placeholder="Ex.: Bizagi 3.7.0"
                     emptyMessage="Nenhum item"
                   />
                 </div>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Normativo / Referências</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Normativo / Referências
+                </Label>
                 <div className="mt-1.5">
                   <ListInput
                     value={form.normativos_referencias || []}
-                    onChange={(next) => update('normativos_referencias', next)}
+                    onChange={(next) => update("normativos_referencias", next)}
                     placeholder="Ex.: Resoluções do CNJ"
                     emptyMessage="Nenhum item"
                   />
@@ -448,7 +510,10 @@ export function ProcessoFormDialog({
           </Section>
 
           {/* Modelagem / Fluxograma */}
-          <Section icon={<Workflow className="h-4 w-4" />} title="Modelagem / Fluxograma">
+          <Section
+            icon={<Workflow className="h-4 w-4" />}
+            title="Modelagem / Fluxograma"
+          >
             <FluxogramaUpload
               data={form.fluxograma_data || null}
               filename={form.fluxograma_filename || null}
@@ -465,28 +530,39 @@ export function ProcessoFormDialog({
           </Section>
 
           {/* Anexar Documentos */}
-          <Section icon={<Paperclip className="h-4 w-4" />} title="Anexar Documentos">
+          <Section
+            icon={<Paperclip className="h-4 w-4" />}
+            title="Anexar Documentos"
+          >
             <DocumentosAnexadosInput
               value={form.documentos_anexados || []}
-              onChange={(next) => update('documentos_anexados', next)}
+              onChange={(next) => update("documentos_anexados", next)}
             />
           </Section>
 
           {/* Periodicidade da Revisão — calculada automaticamente (Período + 1 ano) */}
-          <Section icon={<Calendar className="h-4 w-4" />} title="Periodicidade da Revisão">
+          <Section
+            icon={<Calendar className="h-4 w-4" />}
+            title="Periodicidade da Revisão"
+          >
             <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
               {form.periodo ? (
                 <p className="text-sm text-slate-700">
-                  Próxima revisão prevista: <span className="font-semibold text-slate-900">{addOneYearToDate(form.periodo)}</span>
+                  Próxima revisão prevista:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {addOneYearToDate(form.periodo)}
+                  </span>
                 </p>
               ) : (
                 <p className="text-sm italic text-slate-400">
-                  Defina o "Período" do processo na seção de Identificação para que a próxima revisão seja calculada.
+                  Defina o "Período" do processo na seção de Identificação para
+                  que a próxima revisão seja calculada.
                 </p>
               )}
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              A próxima revisão é calculada automaticamente: 1 ano após o período cadastrado no processo.
+              A próxima revisão é calculada automaticamente: 1 ano após o
+              período cadastrado no processo.
             </p>
           </Section>
 
@@ -494,25 +570,31 @@ export function ProcessoFormDialog({
           <Section icon={<FileText className="h-4 w-4" />} title="Formalização">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="numero_proad" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="numero_proad"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Nº do Proad
                 </Label>
                 <Input
                   id="numero_proad"
-                  value={form.numero_proad || ''}
-                  onChange={(e) => update('numero_proad', e.target.value)}
+                  value={form.numero_proad || ""}
+                  onChange={(e) => update("numero_proad", e.target.value)}
                   placeholder="Número do Proad"
                   className="mt-1 bg-white"
                 />
               </div>
               <div>
-                <Label htmlFor="observacoes_gerais" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="observacoes_gerais"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Observações Gerais
                 </Label>
                 <Textarea
                   id="observacoes_gerais"
-                  value={form.observacoes_gerais || ''}
-                  onChange={(e) => update('observacoes_gerais', e.target.value)}
+                  value={form.observacoes_gerais || ""}
+                  onChange={(e) => update("observacoes_gerais", e.target.value)}
                   placeholder="Observações adicionais sobre o processo"
                   rows={3}
                   className="mt-1 bg-white resize-y"

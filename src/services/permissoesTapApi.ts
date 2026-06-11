@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface PermissaoTap {
   user_id: number;
@@ -16,16 +16,20 @@ export interface MinhaPermissaoTap {
 }
 
 export const permissoesTapApi = {
-  listar: (): Promise<PermissaoTap[]> => apiClient.get<PermissaoTap[]>('/api/permissoes-tap'),
+  listar: (): Promise<PermissaoTap[]> =>
+    apiClient.get<PermissaoTap[]>("/api/permissoes-tap"),
 
   conceder: (userId: number): Promise<PermissaoTap> =>
-    apiClient.post<PermissaoTap>('/api/permissoes-tap', { user_id: userId }),
+    apiClient.post<PermissaoTap>("/api/permissoes-tap", { user_id: userId }),
 
   revogar: (userId: number): Promise<void> =>
     apiClient.delete<void>(`/api/permissoes-tap/${userId}`),
 
-  minha: (): Promise<MinhaPermissaoTap> => apiClient.get<MinhaPermissaoTap>('/api/permissoes-tap/me'),
+  minha: (): Promise<MinhaPermissaoTap> =>
+    apiClient.get<MinhaPermissaoTap>("/api/permissoes-tap/me"),
 
   podeEditarProjeto: (projetoId: number): Promise<{ podeEditar: boolean }> =>
-    apiClient.get<{ podeEditar: boolean }>(`/api/permissoes-tap/projeto/${projetoId}`),
+    apiClient.get<{ podeEditar: boolean }>(
+      `/api/permissoes-tap/projeto/${projetoId}`,
+    ),
 };

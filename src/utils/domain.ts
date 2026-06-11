@@ -1,5 +1,5 @@
-import { User } from '@/types';
-import { Area } from '@/services/areasApi';
+import { User } from "@/types";
+import { Area } from "@/services/areasApi";
 
 /**
  * Check if user is a SUPERADMIN (can see all diretorias).
@@ -26,7 +26,7 @@ export function isDomainRoot(user: User | null, areas?: Area[]): boolean {
   if (areas && areas.length > 0) {
     const userDiretoria = (user as any)?.diretoria;
     if (userDiretoria) {
-      const area = areas.find(a => (a.sigla || a.nome) === userDiretoria);
+      const area = areas.find((a) => (a.sigla || a.nome) === userDiretoria);
       if (area) return area.is_domain_root === true;
     }
   }
@@ -43,7 +43,7 @@ export function isDomainRoot(user: User | null, areas?: Area[]): boolean {
  * If user.dominio is not set, falls back to looking up the user's diretoria in the areas list.
  */
 export function getUserDominio(user: User | null, areas?: Area[]): string {
-  if (!user) return 'SGJT';
+  if (!user) return "SGJT";
 
   // Primary: use dominio from user data
   if ((user as any)?.dominio) return (user as any).dominio;
@@ -52,12 +52,12 @@ export function getUserDominio(user: User | null, areas?: Area[]): string {
   if (areas) {
     const userDiretoria = (user as any)?.diretoria;
     if (userDiretoria) {
-      const area = areas.find(a => (a.sigla || a.nome) === userDiretoria);
+      const area = areas.find((a) => (a.sigla || a.nome) === userDiretoria);
       if (area?.dominio) return area.dominio;
     }
   }
 
-  return 'SGJT';
+  return "SGJT";
 }
 
 /**
@@ -65,5 +65,5 @@ export function getUserDominio(user: User | null, areas?: Area[]): string {
  */
 export function getAreasInDomain(areas: Area[], user: User | null): Area[] {
   const dominio = getUserDominio(user, areas);
-  return areas.filter(a => a.dominio === dominio);
+  return areas.filter((a) => a.dominio === dominio);
 }

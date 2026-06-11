@@ -1,20 +1,26 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Loader2, Shield, Lock } from 'lucide-react';
-import { apiClient, API_BASE_URL } from '@/services/apiClient';
-import { isLocalLoginEnabled } from '@/utils/environment';
-import Storage from '@/utils/storage';
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2, Shield, Lock } from "lucide-react";
+import { apiClient, API_BASE_URL } from "@/services/apiClient";
+import { isLocalLoginEnabled } from "@/utils/environment";
+import Storage from "@/utils/storage";
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const [ssoLoading, setSsoLoading] = useState(false);
   const [localLoginAvailable, setLocalLoginAvailable] = useState(false);
@@ -29,11 +35,12 @@ export function LoginForm() {
     const checkAuthMethods = async () => {
       // Verificar SSO — independente do login local
       try {
-        const ssoResponse = await apiClient.get<{ enabled: boolean }>('/api/auth/sso/status');
-        console.log('[LoginForm] SSO Status:', ssoResponse);
+        const ssoResponse = await apiClient.get<{ enabled: boolean }>(
+          "/api/auth/sso/status",
+        );
+
         setSsoEnabled(ssoResponse.enabled);
       } catch (err) {
-        console.log('[LoginForm] SSO check error:', err);
         // Se o status check falhar (ex: erro de cert/rede), assumir SSO habilitado
         // para não bloquear o login em ambientes onde SSO é o único método
         setSsoEnabled(true);
@@ -41,17 +48,20 @@ export function LoginForm() {
 
       // Verificar Login Local — bloco separado, não afetado por falha no SSO
       const localEnabledByEnv = isLocalLoginEnabled();
-      console.log('[LoginForm] Local login allowed by frontend env check:', localEnabledByEnv);
-      console.log('[LoginForm] Current hostname:', window.location.hostname);
+
       try {
-        const localResponse = await apiClient.get<{ enabled: boolean; _debug?: any }>('/api/auth/local/status');
-        console.log('[LoginForm] Local login API response:', localResponse);
+        const localResponse = await apiClient.get<{
+          enabled: boolean;
+          _debug?: any;
+        }>("/api/auth/local/status");
+
         setLocalLoginAvailable(localResponse.enabled);
         if (localResponse.enabled && !localEnabledByEnv) {
-          console.warn('[LoginForm] API habilitou login local, mas frontend não detectou staging. Usando decisão da API.');
+          console.warn(
+            "[LoginForm] API habilitou login local, mas frontend não detectou staging. Usando decisão da API.",
+          );
         }
       } catch (err) {
-        console.log('[LoginForm] Local login API check error:', err);
         // Se a API falhar, usar a verificação local do frontend como fallback
         setLocalLoginAvailable(localEnabledByEnv);
       }
@@ -59,7 +69,7 @@ export function LoginForm() {
     checkAuthMethods();
 
     // Verificar se há erro vindo da URL (callback SSO)
-    const errorParam = searchParams.get('error');
+    const errorParam = searchParams.get("error");
     if (errorParam) {
       setError(errorParam);
     }
@@ -67,11 +77,10 @@ export function LoginForm() {
 
   const handleSSOLogin = () => {
     setSsoLoading(true);
-    setError('');
+    setError("");
     // Redirecionar para o endpoint de login SSO (usa URL detectada automaticamente)
-    const returnUrl = '/';
+    const returnUrl = "/";
     const targetUrl = `${API_BASE_URL}/api/auth/sso/login?returnUrl=${encodeURIComponent(returnUrl)}`;
-    console.log('[SSO] Redirect ->', targetUrl);
 
     // Fallback: caso a navegação não ocorra (URL inválida / bloqueio / erro), reabilita o botão
     window.setTimeout(() => {
@@ -85,18 +94,20 @@ export function LoginForm() {
   const hashPassword = async (password: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const hashHex = hashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
     return hashHex;
   };
 
   const handleLocalLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!email || !password) {
-      setError('Email e senha são obrigatórios');
+      setError("Email e senha são obrigatórios");
       return;
     }
 
@@ -111,34 +122,36 @@ export function LoginForm() {
         user: any;
         accessToken: string;
         expiresAt: number;
-      }>('/api/auth/local/login', {
+      }>("/api/auth/local/login", {
         email,
         password: passwordHash,
       });
 
       // Salvar dados no localStorage
-      localStorage.setItem('auth_token', response.accessToken);
-      localStorage.setItem('token_expires_at', response.expiresAt.toString());
-      Storage.save('user', response.user);
-      localStorage.removeItem('is_sso_user'); // Marcar como login local
+      localStorage.setItem("auth_token", response.accessToken);
+      localStorage.setItem("token_expires_at", response.expiresAt.toString());
+      Storage.save("user", response.user);
+      localStorage.removeItem("is_sso_user"); // Marcar como login local
 
       // Redirecionar para dashboard (Forçar reload para atualizar AuthContext)
-      window.location.href = '/';
+      window.location.href = "/";
     } catch (err: any) {
-      console.error('[Local Login] Erro:', err);
-      setError(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
+      setError(
+        err.message || "Erro ao fazer login. Verifique suas credenciais.",
+      );
     } finally {
       setLocalLoading(false);
     }
   };
 
   // Debug log
-  console.log('[LoginForm] Render state:', { ssoEnabled, localLoginAvailable, useLocalLogin });
 
   return (
     <div
       className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #0A2547 0%, #1565C0 100%)' }}
+      style={{
+        background: "linear-gradient(135deg, #0A2547 0%, #1565C0 100%)",
+      }}
     >
       <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="space-y-6 text-center pb-2">
@@ -151,15 +164,19 @@ export function LoginForm() {
             />
             <div className="text-left flex-1">
               <p className="text-xs text-gray-700 leading-relaxed">
-                <strong className="text-gray-900">PODER JUDICIÁRIO</strong><br />
-                Tribunal de Justiça do Estado de Goiás<br />
+                <strong className="text-gray-900">PODER JUDICIÁRIO</strong>
+                <br />
+                Tribunal de Justiça do Estado de Goiás
+                <br />
                 <span className="text-gray-500 text-[10px]">
-                  Diretoria de Soluções em Tecnologia da Informação<br />
+                  Diretoria de Soluções em Tecnologia da Informação
+                  <br />
                   Coordenadoria de Transformação Digital
                 </span>
               </p>
               <p className="text-sm font-semibold text-blue-700 mt-2 leading-tight">
-                Secretaria de Governança<br />
+                Secretaria de Governança
+                <br />
                 Judiciária e Tecnológica
               </p>
             </div>
@@ -170,8 +187,8 @@ export function LoginForm() {
             <CardTitle
               className="text-4xl font-bold tracking-wide"
               style={{
-                color: '#0A2547',
-                fontFamily: "'Segoe UI', 'Roboto', sans-serif"
+                color: "#0A2547",
+                fontFamily: "'Segoe UI', 'Roboto', sans-serif",
               }}
             >
               Kaizen
@@ -183,7 +200,10 @@ export function LoginForm() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="animate-in fade-in-50 duration-300 mb-4">
+            <Alert
+              variant="destructive"
+              className="animate-in fade-in-50 duration-300 mb-4"
+            >
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
@@ -195,10 +215,11 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => setUseLocalLogin(false)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${!useLocalLogin
-                    ? 'bg-white text-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  !useLocalLogin
+                    ? "bg-white text-blue-700 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
               >
                 <Shield className="inline-block w-4 h-4 mr-1" />
                 SSO
@@ -206,10 +227,11 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => setUseLocalLogin(true)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${useLocalLogin
-                    ? 'bg-white text-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  useLocalLogin
+                    ? "bg-white text-blue-700 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
               >
                 <Lock className="inline-block w-4 h-4 mr-1" />
                 Login Local
@@ -248,7 +270,9 @@ export function LoginForm() {
           {localLoginAvailable && (useLocalLogin || !ssoEnabled) && (
             <form onSubmit={handleLocalLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">E-mail</Label>
+                <Label htmlFor="email" className="text-gray-700">
+                  E-mail
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -262,7 +286,9 @@ export function LoginForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">Senha</Label>
+                <Label htmlFor="password" className="text-gray-700">
+                  Senha
+                </Label>
                 <Input
                   id="password"
                   type="password"
@@ -300,7 +326,10 @@ export function LoginForm() {
           {/* SSO não disponível */}
           {!ssoEnabled && !localLoginAvailable && (
             <div className="space-y-4">
-              <Alert variant="destructive" className="animate-in fade-in-50 duration-300">
+              <Alert
+                variant="destructive"
+                className="animate-in fade-in-50 duration-300"
+              >
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   Nenhum método de autenticação está disponível no momento.

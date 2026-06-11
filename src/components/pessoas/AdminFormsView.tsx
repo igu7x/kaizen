@@ -1,21 +1,30 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Eye, Archive, FileText, Trash2, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { formApi } from '@/services/formApi';
-import { Form, FormStatus, Directorate } from '@/types';
-import { areasApi, Area } from '@/services/areasApi';
-import { useDirectorate } from '@/contexts/DirectorateContext';
+import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Plus,
+  Pencil,
+  Eye,
+  Archive,
+  FileText,
+  Trash2,
+  Search,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formApi } from "@/services/formApi";
+import { Form, FormStatus, Directorate } from "@/types";
+import { areasApi, Area } from "@/services/areasApi";
+import { useDirectorate } from "@/contexts/DirectorateContext";
 
 export function AdminFormsView() {
   const navigate = useNavigate();
   const { selectedDirectorate } = useDirectorate();
   const [forms, setForms] = useState<Form[]>([]);
   const [filteredForms, setFilteredForms] = useState<Form[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [areas, setAreas] = useState<Area[]>([]);
 
@@ -33,25 +42,27 @@ export function AdminFormsView() {
       const data = await areasApi.getAll();
       setAreas(data);
     } catch (error) {
-      console.error('Erro ao carregar áreas:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
   const getAreaLabel = (code: string) => {
-    const area = areas.find(a => a.sigla === code || a.nome === code);
-    return area ? (area.sigla || area.nome) : code;
+    const area = areas.find((a) => a.sigla === code || a.nome === code);
+    return area ? area.sigla || area.nome : code;
   };
 
   const loadForms = async () => {
     try {
       setLoading(true);
-      console.log('[AdminFormsView] Loading forms as ADMIN for directorate:', selectedDirectorate);
+
       // ADMIN vê todos os formulários da diretoria (filtrado por diretoria do criador)
-      const data = await formApi.getForms(selectedDirectorate, { isAdmin: true });
-      console.log('[AdminFormsView] Forms loaded:', data.length);
+      const data = await formApi.getForms(selectedDirectorate, {
+        isAdmin: true,
+      });
+
       setForms(data);
     } catch (error) {
-      console.error('Erro ao carregar formulários:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
@@ -64,7 +75,7 @@ export function AdminFormsView() {
     }
 
     const query = searchQuery.toLowerCase().trim();
-    const filtered = forms.filter(form => {
+    const filtered = forms.filter((form) => {
       const titleMatch = form.title.toLowerCase().includes(query);
       const descriptionMatch = form.description?.toLowerCase().includes(query);
       return titleMatch || descriptionMatch;
@@ -73,7 +84,7 @@ export function AdminFormsView() {
   };
 
   const handleCreateForm = () => {
-    navigate('/pessoas/criar');
+    navigate("/pessoas/criar");
   };
 
   const handleEditForm = (id: string) => {
@@ -86,53 +97,49 @@ export function AdminFormsView() {
 
   const handleToggleStatus = async (form: Form) => {
     try {
-      const newStatus: FormStatus = form.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+      const newStatus: FormStatus =
+        form.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
       await formApi.updateForm(form.id, { status: newStatus });
       await loadForms();
-      alert(newStatus === 'PUBLISHED'
-        ? 'Formulário publicado! Agora está disponível para todos os usuários.'
-        : 'Formulário despublicado. Não está mais visível para usuários comuns.');
     } catch (error) {
-      console.error('Erro ao alterar status:', error);
-      alert('Erro ao alterar status do formulário.');
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
   const handleArchiveForm = async (id: string) => {
-    if (confirm('Tem certeza que deseja arquivar este formulário?')) {
+    if (confirm("Tem certeza que deseja arquivar este formulário?")) {
       try {
-        await formApi.updateForm(id, { status: 'ARCHIVED' });
+        await formApi.updateForm(id, { status: "ARCHIVED" });
         await loadForms();
-        alert('Formulário arquivado com sucesso.');
       } catch (error) {
-        console.error('Erro ao arquivar formulário:', error);
-        alert('Erro ao arquivar formulário.');
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       }
     }
   };
 
   const handleDeleteForm = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este formulário? Esta ação não pode ser desfeita e todas as respostas serão perdidas.')) {
+    if (
+      confirm(
+        "Tem certeza que deseja excluir este formulário? Esta ação não pode ser desfeita e todas as respostas serão perdidas.",
+      )
+    ) {
       try {
-        console.log('[AdminFormsView] Excluindo formulário:', id);
         await formApi.deleteForm(id);
-        console.log('[AdminFormsView] Formulário excluído com sucesso');
+
         await loadForms();
-        alert('Formulário excluído com sucesso.');
       } catch (error: any) {
-        console.error('[AdminFormsView] Erro ao excluir formulário:', error);
-        
         // Tratamento específico de erros
         if (error.status === 404) {
-          alert('Formulário não encontrado. Pode já ter sido excluído.');
+          toast.warning(
+            "Formulário não encontrado. Pode já ter sido excluído.",
+          );
           await loadForms(); // Recarregar lista
         } else if (error.status === 403) {
-          alert('Você não tem permissão para excluir este formulário.');
+          toast.warning("Você não tem permissão para excluir este formulário.");
         } else if (error.status === 401) {
-          alert('Sessão expirada. Faça login novamente.');
+          toast.warning("Sessão expirada. Faça login novamente.");
         } else {
-          const errorMessage = error.message || 'Erro desconhecido';
-          alert(`Erro ao excluir formulário: ${errorMessage}`);
+          const errorMessage = error.message || "Erro desconhecido";
         }
       }
     }
@@ -140,16 +147,29 @@ export function AdminFormsView() {
 
   const getStatusBadge = (status: FormStatus) => {
     const config = {
-      DRAFT: { label: 'Rascunho', className: 'bg-gray-400 hover:bg-gray-500 text-white border-0' },
-      PUBLISHED: { label: 'Publicado', className: 'bg-green-500 hover:bg-green-600 text-white border-0' },
-      ARCHIVED: { label: 'Arquivado', className: 'bg-orange-400 hover:bg-orange-500 text-white border-0' }
+      DRAFT: {
+        label: "Rascunho",
+        className: "bg-gray-400 hover:bg-gray-500 text-white border-0",
+      },
+      PUBLISHED: {
+        label: "Publicado",
+        className: "bg-green-500 hover:bg-green-600 text-white border-0",
+      },
+      ARCHIVED: {
+        label: "Arquivado",
+        className: "bg-orange-400 hover:bg-orange-500 text-white border-0",
+      },
     };
 
     // ✅ CORREÇÃO: Verificação de segurança para evitar destructuring de undefined
     const statusConfig = config[status];
     if (!statusConfig) {
       console.warn(`Status inválido: ${status}, usando fallback`);
-      return <Badge className="bg-gray-400 hover:bg-gray-500 text-white border-0">Desconhecido</Badge>;
+      return (
+        <Badge className="bg-gray-400 hover:bg-gray-500 text-white border-0">
+          Desconhecido
+        </Badge>
+      );
     }
 
     const { label, className } = statusConfig;
@@ -169,10 +189,17 @@ export function AdminFormsView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-white">Gerenciar Formulários</h1>
-          <p className="text-sm text-white/80 mt-1">Crie e gerencie formulários para a equipe</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-white">
+            Gerenciar Formulários
+          </h1>
+          <p className="text-sm text-white/80 mt-1">
+            Crie e gerencie formulários para a equipe
+          </p>
         </div>
-        <Button onClick={handleCreateForm} className="bg-blue-600 hover:bg-blue-700">
+        <Button
+          onClick={handleCreateForm}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Criar Novo Formulário
         </Button>
@@ -197,9 +224,16 @@ export function AdminFormsView() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum formulário criado</h3>
-            <p className="text-sm text-gray-600 mb-4">Comece criando seu primeiro formulário</p>
-            <Button onClick={handleCreateForm} className="bg-blue-600 hover:bg-blue-700">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Nenhum formulário criado
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Comece criando seu primeiro formulário
+            </p>
+            <Button
+              onClick={handleCreateForm}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               <Plus className="mr-2 h-4 w-4" />
               Criar Formulário
             </Button>
@@ -209,8 +243,12 @@ export function AdminFormsView() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Search className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum formulário encontrado</h3>
-            <p className="text-sm text-gray-600">Tente pesquisar com outros termos</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Nenhum formulário encontrado
+            </h3>
+            <p className="text-sm text-gray-600">
+              Tente pesquisar com outros termos
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -220,9 +258,13 @@ export function AdminFormsView() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg font-bold text-gray-900">{form.title}</CardTitle>
+                    <CardTitle className="text-lg font-bold text-gray-900">
+                      {form.title}
+                    </CardTitle>
                     {form.description && (
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{form.description}</p>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        {form.description}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -232,8 +274,11 @@ export function AdminFormsView() {
 
                 {/* Badges de Visibilidade */}
                 <div className="mt-3 flex flex-wrap gap-2 items-center">
-                  <span className="text-xs text-gray-500 font-medium">Visível para:</span>
-                  {form.allowedDirectorates?.includes('ALL') || !form.allowedDirectorates ? (
+                  <span className="text-xs text-gray-500 font-medium">
+                    Visível para:
+                  </span>
+                  {form.allowedDirectorates?.includes("ALL") ||
+                  !form.allowedDirectorates ? (
                     <Badge className="bg-purple-500 hover:bg-purple-600 text-white border-0 text-xs">
                       Todas as diretorias
                     </Badge>
@@ -249,8 +294,14 @@ export function AdminFormsView() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span>Criado em: {new Date(form.createdAt).toLocaleDateString('pt-BR')}</span>
-                    <span>Atualizado: {new Date(form.updatedAt).toLocaleDateString('pt-BR')}</span>
+                    <span>
+                      Criado em:{" "}
+                      {new Date(form.createdAt).toLocaleDateString("pt-BR")}
+                    </span>
+                    <span>
+                      Atualizado:{" "}
+                      {new Date(form.updatedAt).toLocaleDateString("pt-BR")}
+                    </span>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -273,12 +324,18 @@ export function AdminFormsView() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleToggleStatus(form)}
-                      title={form.status === 'PUBLISHED' ? 'Despublicar' : 'Publicar'}
-                      className={form.status === 'PUBLISHED' ? 'text-orange-600' : 'text-green-600'}
+                      title={
+                        form.status === "PUBLISHED" ? "Despublicar" : "Publicar"
+                      }
+                      className={
+                        form.status === "PUBLISHED"
+                          ? "text-orange-600"
+                          : "text-green-600"
+                      }
                     >
-                      {form.status === 'PUBLISHED' ? 'Despublicar' : 'Publicar'}
+                      {form.status === "PUBLISHED" ? "Despublicar" : "Publicar"}
                     </Button>
-                    {form.status !== 'ARCHIVED' && (
+                    {form.status !== "ARCHIVED" && (
                       <Button
                         size="sm"
                         variant="outline"

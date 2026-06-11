@@ -1,6 +1,6 @@
-import React from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
-import { API_BASE_URL } from '../../services/apiClient';
+import React from "react";
+import { Edit2, Trash2 } from "lucide-react";
+import { API_BASE_URL } from "../../services/apiClient";
 
 interface CardGestorProps {
   gestor: {
@@ -20,21 +20,21 @@ interface CardGestorProps {
   canDrag?: boolean;
 }
 
-const CardGestor: React.FC<CardGestorProps> = ({ 
-  gestor, 
-  onEdit, 
-  onDelete, 
+const CardGestor: React.FC<CardGestorProps> = ({
+  gestor,
+  onEdit,
+  onDelete,
   isDragging = false,
-  canDrag = false 
+  canDrag = false,
 }) => {
-  const { 
+  const {
     id,
-    nome_area, 
+    nome_area,
     nome_exibicao,
-    nome_gestor, 
-    nome_cargo, 
-    foto_gestor, 
-    linha_organograma 
+    nome_gestor,
+    nome_cargo,
+    foto_gestor,
+    linha_organograma,
   } = gestor;
 
   // Usar nome_exibicao se existir, senão usar nome_area
@@ -44,7 +44,7 @@ const CardGestor: React.FC<CardGestorProps> = ({
   const getAvatarUrl = () => {
     if (foto_gestor) {
       // Se a foto já é uma URL completa (http/https), usar diretamente
-      if (foto_gestor.startsWith('http')) {
+      if (foto_gestor.startsWith("http")) {
         return foto_gestor;
       }
       // Senão, adicionar base URL
@@ -58,18 +58,16 @@ const CardGestor: React.FC<CardGestorProps> = ({
 
   // Classes do card baseadas no nível
   const cardClasses = [
-    'card-gestor',
+    "card-gestor",
     `card-gestor-linha-${linha_organograma}`,
-    linha_organograma === 1 ? 'card-gestor-diretoria' : '',
-    isDragging ? 'card-gestor-dragging' : ''
-  ].filter(Boolean).join(' ');
+    linha_organograma === 1 ? "card-gestor-diretoria" : "",
+    isDragging ? "card-gestor-dragging" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div 
-      className={cardClasses}
-      id={`card-gestor-${id}`}
-      data-gestor-id={id}
-    >
+    <div className={cardClasses} id={`card-gestor-${id}`} data-gestor-id={id}>
       {/* Botões de ação (aparecem no hover) */}
       {(onEdit || onDelete) && (
         <div className="card-gestor-actions">
@@ -103,7 +101,7 @@ const CardGestor: React.FC<CardGestorProps> = ({
       {/* FOTO CIRCULAR - ESQUERDA */}
       <div className="card-gestor-foto-container">
         <div className="card-gestor-foto-circular">
-          <img 
+          <img
             src={avatarUrl}
             alt={nome_gestor}
             onError={(e) => {

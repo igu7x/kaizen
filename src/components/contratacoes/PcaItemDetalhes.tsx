@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { 
-  PcaItem, 
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  PcaItem,
   PcaFullDetails,
   PcaChecklistItem,
   PcaPontoControle,
@@ -11,29 +11,29 @@ import {
   TarefaStatus,
   CreatePontoControleDto,
   CreateTarefaDto,
-  ValidacaoDgTipo
-} from '@/types';
-import { pcaApi, formatCurrency, getStatusBadgeClass } from '@/services/pcaApi';
-import { 
-  pcaDetailsApi, 
-  formatDate, 
+  ValidacaoDgTipo,
+} from "@/types";
+import { pcaApi, formatCurrency, getStatusBadgeClass } from "@/services/pcaApi";
+import {
+  pcaDetailsApi,
+  formatDate,
   formatDateForInput,
   getChecklistStatusClass,
-  getTarefaStatusClass
-} from '@/services/pcaDetailsApi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+  getTarefaStatusClass,
+} from "@/services/pcaDetailsApi";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,7 +51,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -59,9 +59,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import { 
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import {
   ArrowLeft,
   FileText,
   DollarSign,
@@ -77,9 +77,9 @@ import {
   Trash2,
   Check,
   ClipboardCheck,
-  Target
-} from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+  Target,
+} from "lucide-react";
+import { Layout } from "@/components/layout/Layout";
 
 export function PcaItemDetalhes() {
   const { id } = useParams<{ id: string }>();
@@ -94,38 +94,43 @@ export function PcaItemDetalhes() {
   const [saving, setSaving] = useState(false);
 
   // Estados para campos estáticos
-  const [faseAtual, setFaseAtual] = useState('');
+  const [faseAtual, setFaseAtual] = useState("");
   const [faseAtualSaved, setFaseAtualSaved] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
+    null,
+  );
 
   // Estados para modais
   const [isPontoModalOpen, setIsPontoModalOpen] = useState(false);
   const [isTarefaModalOpen, setIsTarefaModalOpen] = useState(false);
   const [isDeletePontoDialogOpen, setIsDeletePontoDialogOpen] = useState(false);
-  const [isDeleteTarefaDialogOpen, setIsDeleteTarefaDialogOpen] = useState(false);
-  const [selectedPonto, setSelectedPonto] = useState<PcaPontoControle | null>(null);
+  const [isDeleteTarefaDialogOpen, setIsDeleteTarefaDialogOpen] =
+    useState(false);
+  const [selectedPonto, setSelectedPonto] = useState<PcaPontoControle | null>(
+    null,
+  );
   const [selectedTarefa, setSelectedTarefa] = useState<PcaTarefa | null>(null);
   const [isEditingPonto, setIsEditingPonto] = useState(false);
   const [isEditingTarefa, setIsEditingTarefa] = useState(false);
 
   // Estados do formulário de Ponto de Controle
   const [pontoForm, setPontoForm] = useState<CreatePontoControleDto>({
-    ponto_controle: '',
-    data: '',
-    proxima_reuniao: ''
+    ponto_controle: "",
+    data: "",
+    proxima_reuniao: "",
   });
 
   // Estados do formulário de Tarefa
   const [tarefaForm, setTarefaForm] = useState<CreateTarefaDto>({
-    tarefa: '',
-    responsavel: '',
-    prazo: '',
-    status: 'Não iniciada'
+    tarefa: "",
+    responsavel: "",
+    prazo: "",
+    status: "Não iniciada",
   });
 
   // Verificar permissões
-  const canEdit = user?.role === 'MANAGER' || user?.role === 'ADMIN';
-  const pcaItemId = parseInt(id || '0');
+  const canEdit = user?.role === "MANAGER" || user?.role === "ADMIN";
+  const pcaItemId = parseInt(id || "0");
 
   // Carregar dados
   useEffect(() => {
@@ -139,29 +144,24 @@ export function PcaItemDetalhes() {
       setLoading(true);
       const [item, details] = await Promise.all([
         pcaApi.getPcaItemById(pcaItemId),
-        pcaDetailsApi.getFullDetails(pcaItemId)
+        pcaDetailsApi.getFullDetails(pcaItemId),
       ]);
 
       if (!item) {
         toast({
-          title: 'Item não encontrado',
-          description: 'O item PCA solicitado não existe.',
-          variant: 'destructive'
+          title: "Item não encontrado",
+          description: "O item PCA solicitado não existe.",
+          variant: "destructive",
         });
-        navigate('/contratacoes-ti');
+        navigate("/contratacoes-ti");
         return;
       }
 
       setPcaItem(item);
       setFullDetails(details);
-      setFaseAtual(details.details.fase_atual || '');
+      setFaseAtual(details.details.fase_atual || "");
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast({
-        title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar os detalhes do item.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
@@ -175,30 +175,31 @@ export function PcaItemDetalhes() {
     if (!fullDetails) return;
 
     try {
-      const data = tipo === 'Pendente' 
-        ? { validacao_dg_tipo: tipo, validacao_dg_data: null }
-        : { validacao_dg_tipo: tipo };
+      const data =
+        tipo === "Pendente"
+          ? { validacao_dg_tipo: tipo, validacao_dg_data: null }
+          : { validacao_dg_tipo: tipo };
 
       await pcaDetailsApi.updateDetails(pcaItemId, data);
-      
-      setFullDetails(prev => prev ? {
-        ...prev,
-        details: { ...prev.details, validacao_dg_tipo: tipo, validacao_dg_data: tipo === 'Pendente' ? null : prev.details.validacao_dg_data }
-      } : null);
 
-      if (tipo === 'Pendente') {
-        toast({
-          title: 'Validação DG atualizada',
-          description: 'Status alterado para Pendente'
-        });
+      setFullDetails((prev) =>
+        prev
+          ? {
+              ...prev,
+              details: {
+                ...prev.details,
+                validacao_dg_tipo: tipo,
+                validacao_dg_data:
+                  tipo === "Pendente" ? null : prev.details.validacao_dg_data,
+              },
+            }
+          : null,
+      );
+
+      if (tipo === "Pendente") {
       }
     } catch (error) {
-      console.error('Erro ao atualizar Validação DG:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível atualizar a Validação DG.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   }
 
@@ -206,77 +207,78 @@ export function PcaItemDetalhes() {
     if (!fullDetails) return;
 
     try {
-      await pcaDetailsApi.updateDetails(pcaItemId, { 
-        validacao_dg_tipo: 'Data',
-        validacao_dg_data: data 
+      await pcaDetailsApi.updateDetails(pcaItemId, {
+        validacao_dg_tipo: "Data",
+        validacao_dg_data: data,
       });
-      
-      setFullDetails(prev => prev ? {
-        ...prev,
-        details: { ...prev.details, validacao_dg_data: data }
-      } : null);
 
-      toast({
-        title: 'Validação DG atualizada',
-        description: 'Data de validação salva com sucesso!'
-      });
+      setFullDetails((prev) =>
+        prev
+          ? {
+              ...prev,
+              details: { ...prev.details, validacao_dg_data: data },
+            }
+          : null,
+      );
     } catch (error) {
-      console.error('Erro ao atualizar data:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível salvar a data.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   }
 
   // Debounce para fase atual
-  const handleFaseAtualChange = useCallback((value: string) => {
-    if (value.length > 20) return;
-    
-    setFaseAtual(value);
-    setFaseAtualSaved(false);
+  const handleFaseAtualChange = useCallback(
+    (value: string) => {
+      if (value.length > 20) return;
 
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
+      setFaseAtual(value);
+      setFaseAtualSaved(false);
 
-    const timer = setTimeout(async () => {
-      try {
-        await pcaDetailsApi.updateDetails(pcaItemId, { fase_atual: value || null });
-        setFaseAtualSaved(true);
-        setTimeout(() => setFaseAtualSaved(false), 2000);
-      } catch (error) {
-        console.error('Erro ao salvar fase atual:', error);
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
       }
-    }, 1000);
 
-    setDebounceTimer(timer);
-  }, [pcaItemId, debounceTimer]);
+      const timer = setTimeout(async () => {
+        try {
+          await pcaDetailsApi.updateDetails(pcaItemId, {
+            fase_atual: value || null,
+          });
+          setFaseAtualSaved(true);
+          setTimeout(() => setFaseAtualSaved(false), 2000);
+        } catch (error) {
+          /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+        }
+      }, 1000);
+
+      setDebounceTimer(timer);
+    },
+    [pcaItemId, debounceTimer],
+  );
 
   // ============================================================
   // HANDLERS - CHECKLIST
   // ============================================================
 
-  async function handleChecklistStatusChange(checklistItem: PcaChecklistItem, status: ChecklistStatus) {
+  async function handleChecklistStatusChange(
+    checklistItem: PcaChecklistItem,
+    status: ChecklistStatus,
+  ) {
     try {
-      await pcaDetailsApi.updateChecklistStatus(pcaItemId, checklistItem.id, status);
-      
+      await pcaDetailsApi.updateChecklistStatus(
+        pcaItemId,
+        checklistItem.id,
+        status,
+      );
+
       // Recarregar dados
       const newDetails = await pcaDetailsApi.getFullDetails(pcaItemId);
       setFullDetails(newDetails);
 
       toast({
-        title: 'Status atualizado',
-        description: `${checklistItem.item_nome} alterado para "${status}"`
+        title: "Status atualizado",
+        description: `${checklistItem.item_nome} alterado para "${status}"`,
       });
     } catch (error) {
-      console.error('Erro ao atualizar checklist:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível atualizar o status.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   }
 
@@ -285,7 +287,7 @@ export function PcaItemDetalhes() {
   // ============================================================
 
   function openAddPontoModal() {
-    setPontoForm({ ponto_controle: '', data: '', proxima_reuniao: '' });
+    setPontoForm({ ponto_controle: "", data: "", proxima_reuniao: "" });
     setIsEditingPonto(false);
     setSelectedPonto(null);
     setIsPontoModalOpen(true);
@@ -296,7 +298,7 @@ export function PcaItemDetalhes() {
     setPontoForm({
       ponto_controle: ponto.ponto_controle,
       data: formatDateForInput(ponto.data),
-      proxima_reuniao: formatDateForInput(ponto.proxima_reuniao)
+      proxima_reuniao: formatDateForInput(ponto.proxima_reuniao),
     });
     setIsEditingPonto(true);
     setIsPontoModalOpen(true);
@@ -310,15 +312,18 @@ export function PcaItemDetalhes() {
   async function handleSavePonto() {
     // Validações
     if (!pontoForm.ponto_controle.trim()) {
-      toast({ title: 'Ponto de controle é obrigatório', variant: 'destructive' });
+      toast({
+        title: "Ponto de controle é obrigatório",
+        variant: "destructive",
+      });
       return;
     }
     if (!pontoForm.data) {
-      toast({ title: 'Data é obrigatória', variant: 'destructive' });
+      toast({ title: "Data é obrigatória", variant: "destructive" });
       return;
     }
     if (!pontoForm.proxima_reuniao) {
-      toast({ title: 'Próxima reunião é obrigatória', variant: 'destructive' });
+      toast({ title: "Próxima reunião é obrigatória", variant: "destructive" });
       return;
     }
 
@@ -326,22 +331,19 @@ export function PcaItemDetalhes() {
       setSaving(true);
 
       if (isEditingPonto && selectedPonto) {
-        await pcaDetailsApi.updatePontoControle(pcaItemId, selectedPonto.id, pontoForm);
-        toast({ title: 'Ponto de controle atualizado com sucesso!' });
+        await pcaDetailsApi.updatePontoControle(
+          pcaItemId,
+          selectedPonto.id,
+          pontoForm,
+        );
       } else {
         await pcaDetailsApi.createPontoControle(pcaItemId, pontoForm);
-        toast({ title: 'Ponto de controle criado com sucesso!' });
       }
 
       setIsPontoModalOpen(false);
       loadData();
     } catch (error: any) {
-      console.error('Erro ao salvar ponto de controle:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: error.message || 'Não foi possível salvar.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -353,16 +355,11 @@ export function PcaItemDetalhes() {
     try {
       setSaving(true);
       await pcaDetailsApi.deletePontoControle(pcaItemId, selectedPonto.id);
-      toast({ title: 'Ponto de controle excluído com sucesso!' });
+
       setIsDeletePontoDialogOpen(false);
       loadData();
     } catch (error) {
-      console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro ao excluir',
-        description: 'Não foi possível excluir.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -373,7 +370,12 @@ export function PcaItemDetalhes() {
   // ============================================================
 
   function openAddTarefaModal() {
-    setTarefaForm({ tarefa: '', responsavel: '', prazo: '', status: 'Não iniciada' });
+    setTarefaForm({
+      tarefa: "",
+      responsavel: "",
+      prazo: "",
+      status: "Não iniciada",
+    });
     setIsEditingTarefa(false);
     setSelectedTarefa(null);
     setIsTarefaModalOpen(true);
@@ -385,7 +387,7 @@ export function PcaItemDetalhes() {
       tarefa: tarefa.tarefa,
       responsavel: tarefa.responsavel,
       prazo: formatDateForInput(tarefa.prazo),
-      status: tarefa.status
+      status: tarefa.status,
     });
     setIsEditingTarefa(true);
     setIsTarefaModalOpen(true);
@@ -399,15 +401,15 @@ export function PcaItemDetalhes() {
   async function handleSaveTarefa() {
     // Validações
     if (!tarefaForm.tarefa.trim()) {
-      toast({ title: 'Tarefa é obrigatória', variant: 'destructive' });
+      toast({ title: "Tarefa é obrigatória", variant: "destructive" });
       return;
     }
     if (!tarefaForm.responsavel.trim()) {
-      toast({ title: 'Responsável é obrigatório', variant: 'destructive' });
+      toast({ title: "Responsável é obrigatório", variant: "destructive" });
       return;
     }
     if (!tarefaForm.prazo) {
-      toast({ title: 'Prazo é obrigatório', variant: 'destructive' });
+      toast({ title: "Prazo é obrigatório", variant: "destructive" });
       return;
     }
 
@@ -415,39 +417,34 @@ export function PcaItemDetalhes() {
       setSaving(true);
 
       if (isEditingTarefa && selectedTarefa) {
-        await pcaDetailsApi.updateTarefa(pcaItemId, selectedTarefa.id, tarefaForm);
-        toast({ title: 'Tarefa atualizada com sucesso!' });
+        await pcaDetailsApi.updateTarefa(
+          pcaItemId,
+          selectedTarefa.id,
+          tarefaForm,
+        );
       } else {
         await pcaDetailsApi.createTarefa(pcaItemId, tarefaForm);
-        toast({ title: 'Tarefa criada com sucesso!' });
       }
 
       setIsTarefaModalOpen(false);
       loadData();
     } catch (error: any) {
-      console.error('Erro ao salvar tarefa:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: error.message || 'Não foi possível salvar.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleTarefaStatusChange(tarefa: PcaTarefa, status: TarefaStatus) {
+  async function handleTarefaStatusChange(
+    tarefa: PcaTarefa,
+    status: TarefaStatus,
+  ) {
     try {
       await pcaDetailsApi.updateTarefaStatus(pcaItemId, tarefa.id, status);
-      toast({ title: 'Status da tarefa atualizado!' });
+
       loadData();
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Não foi possível atualizar o status.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   }
 
@@ -457,16 +454,11 @@ export function PcaItemDetalhes() {
     try {
       setSaving(true);
       await pcaDetailsApi.deleteTarefa(pcaItemId, selectedTarefa.id);
-      toast({ title: 'Tarefa excluída com sucesso!' });
+
       setIsDeleteTarefaDialogOpen(false);
       loadData();
     } catch (error) {
-      console.error('Erro ao excluir:', error);
-      toast({
-        title: 'Erro ao excluir',
-        description: 'Não foi possível excluir.',
-        variant: 'destructive'
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -494,8 +486,14 @@ export function PcaItemDetalhes() {
       <Layout>
         <div className="text-center py-12">
           <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">Item não encontrado</h3>
-          <Button variant="outline" className="mt-4" onClick={() => navigate('/contratacoes-ti')}>
+          <h3 className="text-lg font-medium text-gray-900">
+            Item não encontrado
+          </h3>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => navigate("/contratacoes-ti")}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar para Esteira
           </Button>
@@ -509,10 +507,10 @@ export function PcaItemDetalhes() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4">
-          <Button 
-            variant="ghost" 
-            className="w-fit" 
-            onClick={() => navigate('/contratacoes-ti')}
+          <Button
+            variant="ghost"
+            className="w-fit"
+            onClick={() => navigate("/contratacoes-ti")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar para Esteira de Contratações
@@ -551,14 +549,18 @@ export function PcaItemDetalhes() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-gray-500 text-xs uppercase">Valor Anual</Label>
+                <Label className="text-gray-500 text-xs uppercase">
+                  Valor Anual
+                </Label>
                 <p className="font-medium flex items-center gap-2 mt-1">
                   <DollarSign className="h-4 w-4 text-gray-400" />
                   {formatCurrency(pcaItem.valor_anual)}
                 </p>
               </div>
               <div>
-                <Label className="text-gray-500 text-xs uppercase">Previsão de Contratação</Label>
+                <Label className="text-gray-500 text-xs uppercase">
+                  Previsão de Contratação
+                </Label>
                 <p className="font-medium flex items-center gap-2 mt-1">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   {pcaItem.data_estimada_contratacao}
@@ -581,9 +583,11 @@ export function PcaItemDetalhes() {
             <div className="space-y-2">
               <Label>Validação DG</Label>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Select 
+                <Select
                   value={fullDetails.details.validacao_dg_tipo}
-                  onValueChange={(value: ValidacaoDgTipo) => handleValidacaoDgChange(value)}
+                  onValueChange={(value: ValidacaoDgTipo) =>
+                    handleValidacaoDgChange(value)
+                  }
                   disabled={!canEdit}
                 >
                   <SelectTrigger className="w-full sm:w-48">
@@ -595,13 +599,19 @@ export function PcaItemDetalhes() {
                   </SelectContent>
                 </Select>
 
-                {fullDetails.details.validacao_dg_tipo === 'Data' && (
+                {fullDetails.details.validacao_dg_tipo === "Data" && (
                   <div className="flex items-center gap-2">
-                    <Label className="text-gray-500 whitespace-nowrap">Data da Validação:</Label>
+                    <Label className="text-gray-500 whitespace-nowrap">
+                      Data da Validação:
+                    </Label>
                     <Input
                       type="date"
-                      value={formatDateForInput(fullDetails.details.validacao_dg_data)}
-                      onChange={(e) => handleValidacaoDataChange(e.target.value)}
+                      value={formatDateForInput(
+                        fullDetails.details.validacao_dg_data,
+                      )}
+                      onChange={(e) =>
+                        handleValidacaoDataChange(e.target.value)
+                      }
                       disabled={!canEdit}
                       className="w-44"
                     />
@@ -649,8 +659,8 @@ export function PcaItemDetalhes() {
           <CardContent className="space-y-4">
             <div className="space-y-3">
               {fullDetails.checklist.map((item) => (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                 >
                   <span className="font-medium">{item.item_nome}</span>
@@ -658,14 +668,20 @@ export function PcaItemDetalhes() {
                     {canEdit ? (
                       <Select
                         value={item.status}
-                        onValueChange={(value: ChecklistStatus) => handleChecklistStatusChange(item, value)}
+                        onValueChange={(value: ChecklistStatus) =>
+                          handleChecklistStatusChange(item, value)
+                        }
                       >
                         <SelectTrigger className="w-40">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                          <SelectItem value="Em andamento">Em andamento</SelectItem>
+                          <SelectItem value="Não Iniciada">
+                            Não Iniciada
+                          </SelectItem>
+                          <SelectItem value="Em andamento">
+                            Em andamento
+                          </SelectItem>
                           <SelectItem value="Concluída">Concluída</SelectItem>
                         </SelectContent>
                       </Select>
@@ -682,12 +698,19 @@ export function PcaItemDetalhes() {
             {/* Barra de Progresso */}
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Progresso</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Progresso
+                </span>
                 <span className="text-sm text-gray-500">
-                  {fullDetails.checklistProgress.percentual}% ({fullDetails.checklistProgress.concluidos} de {fullDetails.checklistProgress.total} concluídas)
+                  {fullDetails.checklistProgress.percentual}% (
+                  {fullDetails.checklistProgress.concluidos} de{" "}
+                  {fullDetails.checklistProgress.total} concluídas)
                 </span>
               </div>
-              <Progress value={fullDetails.checklistProgress.percentual} className="h-3" />
+              <Progress
+                value={fullDetails.checklistProgress.percentual}
+                className="h-3"
+              />
             </div>
           </CardContent>
         </Card>
@@ -712,30 +735,44 @@ export function PcaItemDetalhes() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-sky-500 hover:bg-sky-500">
-                      <TableHead className="text-white font-bold">Ponto de Controle</TableHead>
-                      <TableHead className="text-white font-bold">Data</TableHead>
-                      <TableHead className="text-white font-bold">Próxima Reunião</TableHead>
-                      {canEdit && <TableHead className="text-white font-bold w-24">Ações</TableHead>}
+                      <TableHead className="text-white font-bold">
+                        Ponto de Controle
+                      </TableHead>
+                      <TableHead className="text-white font-bold">
+                        Data
+                      </TableHead>
+                      <TableHead className="text-white font-bold">
+                        Próxima Reunião
+                      </TableHead>
+                      {canEdit && (
+                        <TableHead className="text-white font-bold w-24">
+                          Ações
+                        </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fullDetails.pontosControle.map((ponto) => (
                       <TableRow key={ponto.id} className="hover:bg-gray-50">
-                        <TableCell className="font-medium">{ponto.ponto_controle}</TableCell>
+                        <TableCell className="font-medium">
+                          {ponto.ponto_controle}
+                        </TableCell>
                         <TableCell>{formatDate(ponto.data)}</TableCell>
-                        <TableCell>{formatDate(ponto.proxima_reuniao)}</TableCell>
+                        <TableCell>
+                          {formatDate(ponto.proxima_reuniao)}
+                        </TableCell>
                         {canEdit && (
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => openEditPontoModal(ponto)}
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 className="text-red-600 hover:text-red-700"
                                 onClick={() => openDeletePontoDialog(ponto)}
@@ -779,36 +816,60 @@ export function PcaItemDetalhes() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-purple-700 hover:bg-purple-700">
-                      <TableHead className="text-white font-bold">Tarefa</TableHead>
-                      <TableHead className="text-white font-bold">Responsável</TableHead>
-                      <TableHead className="text-white font-bold">Prazo</TableHead>
-                      <TableHead className="text-white font-bold">Status</TableHead>
-                      {canEdit && <TableHead className="text-white font-bold w-24">Ações</TableHead>}
+                      <TableHead className="text-white font-bold">
+                        Tarefa
+                      </TableHead>
+                      <TableHead className="text-white font-bold">
+                        Responsável
+                      </TableHead>
+                      <TableHead className="text-white font-bold">
+                        Prazo
+                      </TableHead>
+                      <TableHead className="text-white font-bold">
+                        Status
+                      </TableHead>
+                      {canEdit && (
+                        <TableHead className="text-white font-bold w-24">
+                          Ações
+                        </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fullDetails.tarefas.map((tarefa) => (
                       <TableRow key={tarefa.id} className="hover:bg-gray-50">
-                        <TableCell className="font-medium">{tarefa.tarefa}</TableCell>
+                        <TableCell className="font-medium">
+                          {tarefa.tarefa}
+                        </TableCell>
                         <TableCell>{tarefa.responsavel}</TableCell>
                         <TableCell>{formatDate(tarefa.prazo)}</TableCell>
                         <TableCell>
                           {canEdit ? (
                             <Select
                               value={tarefa.status}
-                              onValueChange={(value: TarefaStatus) => handleTarefaStatusChange(tarefa, value)}
+                              onValueChange={(value: TarefaStatus) =>
+                                handleTarefaStatusChange(tarefa, value)
+                              }
                             >
                               <SelectTrigger className="w-36">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Não iniciada">Não iniciada</SelectItem>
-                                <SelectItem value="Em andamento">Em andamento</SelectItem>
-                                <SelectItem value="Concluída">Concluída</SelectItem>
+                                <SelectItem value="Não iniciada">
+                                  Não iniciada
+                                </SelectItem>
+                                <SelectItem value="Em andamento">
+                                  Em andamento
+                                </SelectItem>
+                                <SelectItem value="Concluída">
+                                  Concluída
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           ) : (
-                            <Badge className={getTarefaStatusClass(tarefa.status)}>
+                            <Badge
+                              className={getTarefaStatusClass(tarefa.status)}
+                            >
                               {tarefa.status}
                             </Badge>
                           )}
@@ -816,15 +877,15 @@ export function PcaItemDetalhes() {
                         {canEdit && (
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => openEditTarefaModal(tarefa)}
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 className="text-red-600 hover:text-red-700"
                                 onClick={() => openDeleteTarefaDialog(tarefa)}
@@ -853,10 +914,14 @@ export function PcaItemDetalhes() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {isEditingPonto ? 'Editar Ponto de Controle' : 'Novo Ponto de Controle'}
+                {isEditingPonto
+                  ? "Editar Ponto de Controle"
+                  : "Novo Ponto de Controle"}
               </DialogTitle>
               <DialogDescription>
-                {isEditingPonto ? 'Altere os campos desejados.' : 'Preencha os campos para adicionar um novo ponto de controle.'}
+                {isEditingPonto
+                  ? "Altere os campos desejados."
+                  : "Preencha os campos para adicionar um novo ponto de controle."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -866,7 +931,12 @@ export function PcaItemDetalhes() {
                   id="ponto_controle"
                   placeholder="Ex: PC-1, PC-2"
                   value={pontoForm.ponto_controle}
-                  onChange={(e) => setPontoForm({ ...pontoForm, ponto_controle: e.target.value })}
+                  onChange={(e) =>
+                    setPontoForm({
+                      ...pontoForm,
+                      ponto_controle: e.target.value,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -875,7 +945,9 @@ export function PcaItemDetalhes() {
                   id="ponto_data"
                   type="date"
                   value={pontoForm.data}
-                  onChange={(e) => setPontoForm({ ...pontoForm, data: e.target.value })}
+                  onChange={(e) =>
+                    setPontoForm({ ...pontoForm, data: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -884,12 +956,21 @@ export function PcaItemDetalhes() {
                   id="proxima_reuniao"
                   type="date"
                   value={pontoForm.proxima_reuniao}
-                  onChange={(e) => setPontoForm({ ...pontoForm, proxima_reuniao: e.target.value })}
+                  onChange={(e) =>
+                    setPontoForm({
+                      ...pontoForm,
+                      proxima_reuniao: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsPontoModalOpen(false)} disabled={saving}>
+              <Button
+                variant="outline"
+                onClick={() => setIsPontoModalOpen(false)}
+                disabled={saving}
+              >
                 Cancelar
               </Button>
               <Button onClick={handleSavePonto} disabled={saving}>
@@ -905,10 +986,12 @@ export function PcaItemDetalhes() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {isEditingTarefa ? 'Editar Tarefa' : 'Nova Tarefa'}
+                {isEditingTarefa ? "Editar Tarefa" : "Nova Tarefa"}
               </DialogTitle>
               <DialogDescription>
-                {isEditingTarefa ? 'Altere os campos desejados.' : 'Preencha os campos para adicionar uma nova tarefa.'}
+                {isEditingTarefa
+                  ? "Altere os campos desejados."
+                  : "Preencha os campos para adicionar uma nova tarefa."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -918,7 +1001,9 @@ export function PcaItemDetalhes() {
                   id="tarefa"
                   placeholder="Ex: Elaborar ETP"
                   value={tarefaForm.tarefa}
-                  onChange={(e) => setTarefaForm({ ...tarefaForm, tarefa: e.target.value })}
+                  onChange={(e) =>
+                    setTarefaForm({ ...tarefaForm, tarefa: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -927,7 +1012,12 @@ export function PcaItemDetalhes() {
                   id="responsavel_tarefa"
                   placeholder="Nome do responsável"
                   value={tarefaForm.responsavel}
-                  onChange={(e) => setTarefaForm({ ...tarefaForm, responsavel: e.target.value })}
+                  onChange={(e) =>
+                    setTarefaForm({
+                      ...tarefaForm,
+                      responsavel: e.target.value,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -936,14 +1026,18 @@ export function PcaItemDetalhes() {
                   id="prazo"
                   type="date"
                   value={tarefaForm.prazo}
-                  onChange={(e) => setTarefaForm({ ...tarefaForm, prazo: e.target.value })}
+                  onChange={(e) =>
+                    setTarefaForm({ ...tarefaForm, prazo: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status_tarefa">Status</Label>
                 <Select
                   value={tarefaForm.status}
-                  onValueChange={(value: TarefaStatus) => setTarefaForm({ ...tarefaForm, status: value })}
+                  onValueChange={(value: TarefaStatus) =>
+                    setTarefaForm({ ...tarefaForm, status: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -957,7 +1051,11 @@ export function PcaItemDetalhes() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsTarefaModalOpen(false)} disabled={saving}>
+              <Button
+                variant="outline"
+                onClick={() => setIsTarefaModalOpen(false)}
+                disabled={saving}
+              >
                 Cancelar
               </Button>
               <Button onClick={handleSaveTarefa} disabled={saving}>
@@ -969,7 +1067,10 @@ export function PcaItemDetalhes() {
         </Dialog>
 
         {/* Dialog de Exclusão de Ponto */}
-        <AlertDialog open={isDeletePontoDialogOpen} onOpenChange={setIsDeletePontoDialogOpen}>
+        <AlertDialog
+          open={isDeletePontoDialogOpen}
+          onOpenChange={setIsDeletePontoDialogOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
@@ -977,8 +1078,9 @@ export function PcaItemDetalhes() {
                 Confirmar Exclusão
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir o ponto de controle <strong>{selectedPonto?.ponto_controle}</strong>?
-                Esta ação não pode ser desfeita.
+                Tem certeza que deseja excluir o ponto de controle{" "}
+                <strong>{selectedPonto?.ponto_controle}</strong>? Esta ação não
+                pode ser desfeita.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -996,7 +1098,10 @@ export function PcaItemDetalhes() {
         </AlertDialog>
 
         {/* Dialog de Exclusão de Tarefa */}
-        <AlertDialog open={isDeleteTarefaDialogOpen} onOpenChange={setIsDeleteTarefaDialogOpen}>
+        <AlertDialog
+          open={isDeleteTarefaDialogOpen}
+          onOpenChange={setIsDeleteTarefaDialogOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
@@ -1004,8 +1109,9 @@ export function PcaItemDetalhes() {
                 Confirmar Exclusão
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir a tarefa <strong>{selectedTarefa?.tarefa}</strong>?
-                Esta ação não pode ser desfeita.
+                Tem certeza que deseja excluir a tarefa{" "}
+                <strong>{selectedTarefa?.tarefa}</strong>? Esta ação não pode
+                ser desfeita.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1027,4 +1133,3 @@ export function PcaItemDetalhes() {
 }
 
 export default PcaItemDetalhes;
-

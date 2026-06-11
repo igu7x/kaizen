@@ -1,27 +1,36 @@
-import { useRef, useState } from 'react';
-import { Upload, Paperclip, X, FileText, FileImage, File as FileIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { toast } from "sonner";
+import { useRef, useState } from "react";
+import {
+  Upload,
+  Paperclip,
+  X,
+  FileText,
+  FileImage,
+  File as FileIcon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   DocumentoAnexado,
   TipoDocumentoAnexado,
   TIPO_DOCUMENTO_LABEL,
   TIPO_DOCUMENTO_BADGE,
-} from '@/services/processosNegocioApi';
+} from "@/services/processosNegocioApi";
 
 interface DocumentosAnexadosInputProps {
   value: DocumentoAnexado[];
   onChange: (next: DocumentoAnexado[]) => void;
 }
 
-const ACCEPT = 'image/png,image/jpeg,image/jpg,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain';
+const ACCEPT =
+  "image/png,image/jpeg,image/jpg,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain";
 const MAX_BYTES_PER_FILE = 5_000_000; // 5MB por arquivo
 
 async function readFileAsDataURL(file: File): Promise<string> {
@@ -34,8 +43,10 @@ async function readFileAsDataURL(file: File): Promise<string> {
 }
 
 function fileIconFor(mime: string) {
-  if (mime.startsWith('image/')) return <FileImage className="h-4 w-4 text-blue-500" />;
-  if (mime === 'application/pdf') return <FileText className="h-4 w-4 text-red-500" />;
+  if (mime.startsWith("image/"))
+    return <FileImage className="h-4 w-4 text-blue-500" />;
+  if (mime === "application/pdf")
+    return <FileText className="h-4 w-4 text-red-500" />;
   return <FileIcon className="h-4 w-4 text-slate-500" />;
 }
 
@@ -48,8 +59,12 @@ function fileIconFor(mime: string) {
  *  3. Arquivo é lido como base64 e adicionado à lista
  *  4. Lista abaixo mostra cada arquivo com badge do tipo + botão remover
  */
-export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosInputProps) {
-  const [tipoSelecionado, setTipoSelecionado] = useState<TipoDocumentoAnexado | null>(null);
+export function DocumentosAnexadosInput({
+  value,
+  onChange,
+}: DocumentosAnexadosInputProps) {
+  const [tipoSelecionado, setTipoSelecionado] =
+    useState<TipoDocumentoAnexado | null>(null);
   // Contador usado como `key` do Select pra forçar remount após reset —
   // Radix Select não reseta o display visual ao trocar value controlado pra undefined.
   const [resetKey, setResetKey] = useState(0);
@@ -57,7 +72,7 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
 
   const pickFile = () => {
     if (!tipoSelecionado) {
-      alert('Selecione o tipo de documento antes de anexar.');
+      toast.warning("Selecione o tipo de documento antes de anexar.");
       return;
     }
     fileInputRef.current?.click();
@@ -65,12 +80,14 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = '';
+    e.target.value = "";
     if (!file) return;
     if (!tipoSelecionado) return;
 
     if (file.size > MAX_BYTES_PER_FILE) {
-      alert(`Arquivo muito grande (${(file.size / 1_000_000).toFixed(1)}MB). Máximo por arquivo: ${MAX_BYTES_PER_FILE / 1_000_000}MB.`);
+      toast.warning(
+        `Arquivo muito grande (${(file.size / 1_000_000).toFixed(1)}MB). Máximo por arquivo: ${MAX_BYTES_PER_FILE / 1_000_000}MB.`,
+      );
       return;
     }
 
@@ -79,7 +96,7 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
       const novo: DocumentoAnexado = {
         tipo: tipoSelecionado,
         nome: file.name,
-        mime: file.type || 'application/octet-stream',
+        mime: file.type || "application/octet-stream",
         data,
       };
       onChange([...value, novo]);
@@ -87,8 +104,7 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
       setTipoSelecionado(null);
       setResetKey((k) => k + 1);
     } catch (err) {
-      console.error('Erro ao ler arquivo:', err);
-      alert('Não foi possível ler o arquivo.');
+      toast.warning("Não foi possível ler o arquivo.");
     }
   };
 
@@ -109,7 +125,9 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
       {/* Linha de adição: tipo + botão de upload */}
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
         <div>
-          <Label className="text-xs font-semibold text-slate-700">Tipo de Documento</Label>
+          <Label className="text-xs font-semibold text-slate-700">
+            Tipo de Documento
+          </Label>
           <Select
             key={resetKey}
             value={tipoSelecionado || undefined}
@@ -139,12 +157,15 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
       </div>
 
       <p className="text-xs text-slate-500">
-        Formatos aceitos: PNG, JPG, WEBP, PDF, DOC, DOCX, XLS, XLSX, TXT — máx. 5MB por arquivo.
+        Formatos aceitos: PNG, JPG, WEBP, PDF, DOC, DOCX, XLS, XLSX, TXT — máx.
+        5MB por arquivo.
       </p>
 
       {/* Lista de documentos anexados */}
       {value.length === 0 ? (
-        <p className="text-xs italic text-slate-400 px-1">Nenhum documento anexado</p>
+        <p className="text-xs italic text-slate-400 px-1">
+          Nenhum documento anexado
+        </p>
       ) : (
         <ul className="space-y-2">
           {value.map((doc, idx) => (
@@ -160,7 +181,9 @@ export function DocumentosAnexadosInput({ value, onChange }: DocumentosAnexadosI
                   >
                     {doc.tipo}
                   </span>
-                  <span className="text-sm font-medium text-slate-800 truncate">{doc.nome}</span>
+                  <span className="text-sm font-medium text-slate-800 truncate">
+                    {doc.nome}
+                  </span>
                 </div>
               </div>
               <button
