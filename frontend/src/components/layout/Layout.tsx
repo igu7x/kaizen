@@ -4,6 +4,7 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { useDirectorate } from '@/contexts/DirectorateContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { isDevEmail } from '@/utils/devEmails';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,7 +16,7 @@ export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { devEnvironment, setDevEnvironment } = useDirectorate();
-  const showDevBanner = user?.email === 'ifccupertino@tjgo.jus.br' && devEnvironment && location.pathname !== '/desenvolvimento';
+  const showDevBanner = isDevEmail(user?.email) && devEnvironment && location.pathname !== '/desenvolvimento';
   const isHomePage = location.pathname === '/';
   const isOKRPage = location.pathname === '/gestao-estrategica/okrs';
   const isExecucaoPage = location.pathname === '/gestao-estrategica/execucao';
