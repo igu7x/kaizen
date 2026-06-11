@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useEffect, useState } from 'react
 import { useLocalStorage } from '@/utils/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDomainRoot } from '@/utils/domain';
+import { isDevEmail } from '@/utils/devEmails';
 import { areasApi, Area } from '@/services/areasApi';
 
 // Diretoria agora é uma string dinâmica (carregada de cadastros_areas)
@@ -15,8 +16,6 @@ interface DirectorateContextType {
 }
 
 const DirectorateContext = createContext<DirectorateContextType | undefined>(undefined);
-
-const DEV_EMAIL = 'ifccupertino@tjgo.jus.br';
 
 export function DirectorateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -59,7 +58,7 @@ export function DirectorateProvider({ children }: { children: ReactNode }) {
   const [selectedDirectorate, setSelectedDirectorate] = useLocalStorage<Directorate>('selectedDirectorate', getUserDefaultDirectorate());
 
   // Verificar se é o dev
-  const isDev = user?.email === DEV_EMAIL;
+  const isDev = isDevEmail(user?.email);
 
   // Força a diretoria correta quando o usuário muda ou faz login
   useEffect(() => {
