@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   X as XIcon,
   Pencil,
@@ -25,9 +25,9 @@ import {
   File as FileIcon,
   FileDown,
   History,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   processosNegocioApi,
   ProcessoNegocio,
@@ -36,9 +36,9 @@ import {
   STATUS_COLOR,
   TIPO_DOCUMENTO_LABEL,
   TIPO_DOCUMENTO_BADGE,
-} from '@/services/processosNegocioApi';
-import { areasApi, Area } from '@/services/areasApi';
-import { generateProcessoNegocioPDF } from '@/utils/generateProcessoNegocioPDF';
+} from "@/services/processosNegocioApi";
+import { areasApi, Area } from "@/services/areasApi";
+import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
 
 interface ProcessoDetalheProps {
   open: boolean;
@@ -59,13 +59,13 @@ interface ProcessoDetalheProps {
  * Retorna formato brasileiro DD/MM/AAAA, ou '—' se o período não estiver definido.
  */
 function addOneYearToDate(periodo: string | null | undefined): string {
-  if (!periodo || !periodo.trim()) return '—';
+  if (!periodo || !periodo.trim()) return "—";
   const m = periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return '—';
+  if (!m) return "—";
   const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return "—";
   d.setFullYear(d.getFullYear() + 1);
-  const pad = (n: number) => n.toString().padStart(2, '0');
+  const pad = (n: number) => n.toString().padStart(2, "0");
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
@@ -74,12 +74,22 @@ function addOneYearToDate(periodo: string | null | undefined): string {
  * Mantém compatibilidade com valores antigos em texto livre.
  */
 function formatPeriodoMesAno(periodo: string | null | undefined): string {
-  if (!periodo || !periodo.trim()) return '—';
+  if (!periodo || !periodo.trim()) return "—";
   const m = periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) {
     const meses = [
-      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+      "janeiro",
+      "fevereiro",
+      "março",
+      "abril",
+      "maio",
+      "junho",
+      "julho",
+      "agosto",
+      "setembro",
+      "outubro",
+      "novembro",
+      "dezembro",
     ];
     const idx = parseInt(m[2], 10) - 1;
     if (idx >= 0 && idx < 12) return `${meses[idx]}/${m[1]}`;
@@ -99,29 +109,36 @@ function CabecalhoInstitucional({ processo }: { processo: ProcessoNegocio }) {
             alt="Brasão"
             className="h-14 w-14 object-contain mb-1"
           />
-          <p className="text-[10px] font-bold tracking-wide text-slate-800">PODER JUDICIÁRIO</p>
-          <p className="text-[9px] text-slate-600">Tribunal de Justiça do Estado de Goiás</p>
+          <p className="text-[10px] font-bold tracking-wide text-slate-800">
+            PODER JUDICIÁRIO
+          </p>
+          <p className="text-[9px] text-slate-600">
+            Tribunal de Justiça do Estado de Goiás
+          </p>
         </div>
 
         {/* Tabela de identificação */}
         <div className="divide-y divide-slate-300">
           <div className="px-4 py-3 text-center bg-white">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Processo de Negócio da Diretoria de {processo.diretoria || '—'}
+              Processo de Negócio da Diretoria de {processo.diretoria || "—"}
             </p>
           </div>
-          <CabecalhoRow label="Macroprocesso:" value={processo.macroprocesso || '—'} />
+          <CabecalhoRow
+            label="Macroprocesso:"
+            value={processo.macroprocesso || "—"}
+          />
           <CabecalhoRow
             label="Diretoria"
-            value={processo.diretoria || '—'}
+            value={processo.diretoria || "—"}
             label2="Período"
             value2={formatPeriodoMesAno(processo.periodo)}
           />
           <CabecalhoRow
             label="Revisão:"
-            value={processo.revisao || '—'}
+            value={processo.revisao || "—"}
             label2="Código/Versão"
-            value2={processo.codigo_versao || '—'}
+            value2={processo.codigo_versao || "—"}
           />
         </div>
       </div>
@@ -132,7 +149,9 @@ function CabecalhoInstitucional({ processo }: { processo: ProcessoNegocio }) {
           NOME DO PROCESSO
         </div>
         <div className="px-4 py-3 bg-white">
-          <p className="text-sm font-bold italic text-blue-700">{processo.nome_processo}</p>
+          <p className="text-sm font-bold italic text-blue-700">
+            {processo.nome_processo}
+          </p>
         </div>
       </div>
     </div>
@@ -153,16 +172,22 @@ function CabecalhoRow({
   if (label2) {
     return (
       <div className="grid grid-cols-[140px_1fr_120px_1fr] divide-x divide-slate-300">
-        <div className="px-3 py-2 text-xs font-bold text-blue-700 bg-amber-50">{label}</div>
+        <div className="px-3 py-2 text-xs font-bold text-blue-700 bg-amber-50">
+          {label}
+        </div>
         <div className="px-3 py-2 text-xs text-slate-700">{value}</div>
-        <div className="px-3 py-2 text-xs font-bold text-blue-700 bg-amber-50">{label2}</div>
+        <div className="px-3 py-2 text-xs font-bold text-blue-700 bg-amber-50">
+          {label2}
+        </div>
         <div className="px-3 py-2 text-xs text-slate-700">{value2}</div>
       </div>
     );
   }
   return (
     <div className="grid grid-cols-[140px_1fr] divide-x divide-slate-300">
-      <div className="px-3 py-2 text-xs font-bold text-blue-700 bg-amber-50">{label}</div>
+      <div className="px-3 py-2 text-xs font-bold text-blue-700 bg-amber-50">
+        {label}
+      </div>
       <div className="px-3 py-2 text-xs text-slate-700">{value}</div>
     </div>
   );
@@ -184,7 +209,9 @@ function SectionBlock({
         <div className="flex h-6 w-6 items-center justify-center rounded text-slate-700">
           {icon}
         </div>
-        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">{title}</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">
+          {title}
+        </h3>
       </div>
       <div className="px-4 py-3 text-sm text-slate-700">{children}</div>
     </section>
@@ -214,9 +241,14 @@ function TableColunas({
       <tbody>
         <tr className="align-top">
           {cols.map((c) => (
-            <td key={c.title} className="border border-slate-300 px-3 py-3 bg-white text-sm">
+            <td
+              key={c.title}
+              className="border border-slate-300 px-3 py-3 bg-white text-sm"
+            >
               {c.items.length === 0 ? (
-                <span className="text-xs italic text-slate-400">Não informado</span>
+                <span className="text-xs italic text-slate-400">
+                  Não informado
+                </span>
               ) : (
                 <ul className="space-y-1">
                   {c.items.map((item, idx) => (
@@ -240,7 +272,7 @@ function MultiParagraph({ text }: { text: string | null }) {
   if (!text || !text.trim()) {
     return <p className="text-xs italic text-slate-400">Não informado</p>;
   }
-  const lines = text.split('\n').filter((l) => l.trim().length > 0);
+  const lines = text.split("\n").filter((l) => l.trim().length > 0);
   return (
     <div className="space-y-2">
       {lines.map((line, idx) => {
@@ -250,7 +282,9 @@ function MultiParagraph({ text }: { text: string | null }) {
           return (
             <div key={idx} className="flex items-start gap-2">
               <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-slate-700" />
-              <span className="flex-1 break-words">{line.replace(/^\s*[-•*\d\.\)]+\s*/, '')}</span>
+              <span className="flex-1 break-words">
+                {line.replace(/^\s*[-•*\d\.\)]+\s*/, "")}
+              </span>
             </div>
           );
         }
@@ -267,26 +301,34 @@ function MultiParagraph({ text }: { text: string | null }) {
 /** Histórico de validação — tabela final do PDF */
 function HistoricoValidacao({ processo }: { processo: ProcessoNegocio }) {
   const fmt = (d: string | null, nome: string | null) =>
-    d && nome ? `${nome} — ${new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'Pendente';
+    d && nome
+      ? `${nome} — ${new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+      : "Pendente";
   const rows: Array<{ label: string; value: string; isPending: boolean }> = [
     {
-      label: 'Validação do Autor',
+      label: "Validação do Autor",
       value: fmt(processo.validado_autor_em, processo.validado_autor_nome),
       isPending: !processo.validado_autor_em,
     },
     {
-      label: 'Validação da Diretoria',
-      value: fmt(processo.validado_diretoria_em, processo.validado_diretoria_nome),
+      label: "Validação da Diretoria",
+      value: fmt(
+        processo.validado_diretoria_em,
+        processo.validado_diretoria_nome,
+      ),
       isPending: !processo.validado_diretoria_em,
     },
     {
-      label: 'Validação Final',
+      label: "Validação Final",
       value: fmt(processo.validado_final_em, processo.validado_final_nome),
       isPending: !processo.validado_final_em,
     },
   ];
   return (
-    <SectionBlock icon={<ClipboardCheck className="h-4 w-4" />} title="Histórico de Validação">
+    <SectionBlock
+      icon={<ClipboardCheck className="h-4 w-4" />}
+      title="Histórico de Validação"
+    >
       <table className="w-full border-collapse">
         <tbody>
           {rows.map((row) => (
@@ -295,7 +337,11 @@ function HistoricoValidacao({ processo }: { processo: ProcessoNegocio }) {
                 {row.label}
               </td>
               <td className="border border-slate-300 px-3 py-2 text-sm text-slate-700">
-                {row.isPending ? <span className="text-slate-500">Pendente</span> : row.value}
+                {row.isPending ? (
+                  <span className="text-slate-500">Pendente</span>
+                ) : (
+                  row.value
+                )}
               </td>
             </tr>
           ))}
@@ -303,12 +349,15 @@ function HistoricoValidacao({ processo }: { processo: ProcessoNegocio }) {
       </table>
 
       {/* Mostra recusa se houver */}
-      {processo.status === 'recusado' && processo.recusa_motivo && (
+      {processo.status === "recusado" && processo.recusa_motivo && (
         <div className="mt-3 border border-red-200 bg-red-50 rounded-md px-4 py-3">
           <p className="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">
-            Recusado por {processo.recusado_por_nome} — camada {processo.recusado_camada}
+            Recusado por {processo.recusado_por_nome} — camada{" "}
+            {processo.recusado_camada}
           </p>
-          <p className="text-sm text-red-900 leading-relaxed">{processo.recusa_motivo}</p>
+          <p className="text-sm text-red-900 leading-relaxed">
+            {processo.recusa_motivo}
+          </p>
         </div>
       )}
     </SectionBlock>
@@ -329,8 +378,10 @@ export function ProcessoDetalhe({
   const { user } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
   const [recusaOpen, setRecusaOpen] = useState(false);
-  const [recusaCamada, setRecusaCamada] = useState<'autor' | 'diretoria' | 'final'>('autor');
-  const [recusaMotivo, setRecusaMotivo] = useState('');
+  const [recusaCamada, setRecusaCamada] = useState<
+    "autor" | "diretoria" | "final"
+  >("autor");
+  const [recusaMotivo, setRecusaMotivo] = useState("");
   const [areas, setAreas] = useState<Area[]>([]);
   // Estados do diálogo "Histórico de Versões"
   const [versoesOpen, setVersoesOpen] = useState(false);
@@ -343,18 +394,29 @@ export function ProcessoDetalhe({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    areasApi.getAll()
-      .then((data) => { if (!cancelled) setAreas(data); })
-      .catch((err) => console.warn('[ProcessoDetalhe] erro ao carregar áreas:', err));
-    return () => { cancelled = true; };
+    areasApi
+      .getAll()
+      .then((data) => {
+        if (!cancelled) setAreas(data);
+      })
+      .catch((err) =>
+        console.warn("[ProcessoDetalhe] erro ao carregar áreas:", err),
+      );
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   // Nome completo da diretoria do processo (resolve sigla → nome). Se não encontrar,
   // usa a sigla mesmo.
   const diretoriaNome = useMemo(() => {
-    if (!processo) return '';
-    const match = areas.find((a) => a.sigla?.trim().toUpperCase() === processo.diretoria?.trim().toUpperCase());
-    return match?.nome || processo.diretoria || '';
+    if (!processo) return "";
+    const match = areas.find(
+      (a) =>
+        a.sigla?.trim().toUpperCase() ===
+        processo.diretoria?.trim().toUpperCase(),
+    );
+    return match?.nome || processo.diretoria || "";
   }, [areas, processo]);
 
   // Diretor da área cadastrada no processo = user.id === gestor_user_id da área
@@ -363,67 +425,91 @@ export function ProcessoDetalhe({
   const isDiretorDaArea = useMemo(() => {
     if (!user?.id || !processo) return false;
     const area = areas.find(
-      (a) => a.sigla?.trim().toUpperCase() === processo.diretoria?.trim().toUpperCase()
+      (a) =>
+        a.sigla?.trim().toUpperCase() ===
+        processo.diretoria?.trim().toUpperCase(),
     );
-    return area?.gestor_user_id != null && Number(area.gestor_user_id) === Number(user.id);
+    return (
+      area?.gestor_user_id != null &&
+      Number(area.gestor_user_id) === Number(user.id)
+    );
   }, [user, processo, areas]);
 
   if (!processo) return null;
 
-  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  const isAuthor = user?.id != null && Number(user.id) === Number(processo.created_by);
+  const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isAuthor =
+    user?.id != null && Number(user.id) === Number(processo.created_by);
   const isSuperadmin = (user as any)?.is_superadmin === true;
 
   const handleAcao = async (
     label: string,
-    fn: () => Promise<ProcessoNegocio>
+    fn: () => Promise<ProcessoNegocio>,
   ) => {
     setBusy(label);
     try {
       const next = await fn();
       onChanged(next);
-      
     } catch (err: any) {
-      console.error(err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setBusy(null);
     }
   };
 
-  const handleEnviar = () => handleAcao('Envio para validação', () => processosNegocioApi.enviar(processo.id));
-  const handleValidarAutor = () => handleAcao('Validação do autor', () => processosNegocioApi.validarAutor(processo.id));
-  const handleValidarDiretoria = () => handleAcao('Validação da diretoria', () => processosNegocioApi.validarDiretoria(processo.id));
-  const handleValidarFinal = () => handleAcao('Validação final', () => processosNegocioApi.validarFinal(processo.id));
+  const handleEnviar = () =>
+    handleAcao("Envio para validação", () =>
+      processosNegocioApi.enviar(processo.id),
+    );
+  const handleValidarAutor = () =>
+    handleAcao("Validação do autor", () =>
+      processosNegocioApi.validarAutor(processo.id),
+    );
+  const handleValidarDiretoria = () =>
+    handleAcao("Validação da diretoria", () =>
+      processosNegocioApi.validarDiretoria(processo.id),
+    );
+  const handleValidarFinal = () =>
+    handleAcao("Validação final", () =>
+      processosNegocioApi.validarFinal(processo.id),
+    );
 
   const handleRecusarConfirm = async () => {
     if (!recusaMotivo.trim()) {
-      toast.error('Informe um motivo pra recusa.');
+      toast.error("Informe um motivo pra recusa.");
       return;
     }
-    setBusy('Recusa');
+    setBusy("Recusa");
     try {
-      const next = await processosNegocioApi.recusar(processo.id, recusaCamada, recusaMotivo.trim());
+      const next = await processosNegocioApi.recusar(
+        processo.id,
+        recusaCamada,
+        recusaMotivo.trim(),
+      );
       onChanged(next);
-      
+
       setRecusaOpen(false);
-      setRecusaMotivo('');
+      setRecusaMotivo("");
     } catch (err: any) {
-      console.error(err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setBusy(null);
     }
   };
 
   const handleExcluir = async () => {
-    if (!window.confirm('Excluir este processo? Esta ação não pode ser desfeita.')) return;
-    setBusy('Exclusão');
+    if (
+      !window.confirm("Excluir este processo? Esta ação não pode ser desfeita.")
+    )
+      return;
+    setBusy("Exclusão");
     try {
       await processosNegocioApi.remove(processo.id);
-      
+
       onChanged(null);
       onOpenChange(false);
     } catch (err: any) {
-      console.error(err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setBusy(null);
     }
@@ -434,7 +520,7 @@ export function ProcessoDetalhe({
     try {
       generateProcessoNegocioPDF(processo, diretoriaNome);
     } catch (err: any) {
-      console.error(err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
@@ -446,7 +532,7 @@ export function ProcessoDetalhe({
       const data = await processosNegocioApi.listVersoes(processo.id);
       setVersoes(data);
     } catch (err: any) {
-      console.error(err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingVersoes(false);
     }
@@ -457,10 +543,13 @@ export function ProcessoDetalhe({
   const handleBaixarVersao = async (historicoId: number) => {
     setLoadingPdfVersao(historicoId);
     try {
-      const snapshot = await processosNegocioApi.getVersaoSnapshot(processo.id, historicoId);
+      const snapshot = await processosNegocioApi.getVersaoSnapshot(
+        processo.id,
+        historicoId,
+      );
       generateProcessoNegocioPDF(snapshot, diretoriaNome);
     } catch (err: any) {
-      console.error(err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingPdfVersao(null);
     }
@@ -471,28 +560,40 @@ export function ProcessoDetalhe({
   //   e salva, o backend reseta o status pra 'em_elaboracao' (homologação fica
   //   invalidada), e aí o "Enviar para Validação" passa a aparecer.
   // - 'em_elaboracao' / 'recusado': tanto "Editar" quanto "Enviar" aparecem.
-  const podeEditar = isAdminOrManager && (processo.status === 'em_elaboracao' || processo.status === 'recusado' || processo.status === 'validado_final');
-  const podeEnviar = isAuthor && (processo.status === 'em_elaboracao' || processo.status === 'recusado');
+  const podeEditar =
+    isAdminOrManager &&
+    (processo.status === "em_elaboracao" ||
+      processo.status === "recusado" ||
+      processo.status === "validado_final");
+  const podeEnviar =
+    isAuthor &&
+    (processo.status === "em_elaboracao" || processo.status === "recusado");
   // Regras de validação por camada:
   // - Camada 1 (Autor): quem preencheu o formulário valida
   // - Camada 2 (Diretoria): diretor da diretoria cadastrada no processo valida
   // - Camada 3 (Final): superadmin valida
-  const podeValidarAutor = isAuthor && processo.status === 'enviado';
-  const podeValidarDiretoria = isDiretorDaArea && processo.status === 'validado_autor';
-  const podeValidarFinal = isSuperadmin && processo.status === 'validado_diretoria';
+  const podeValidarAutor = isAuthor && processo.status === "enviado";
+  const podeValidarDiretoria =
+    isDiretorDaArea && processo.status === "validado_autor";
+  const podeValidarFinal =
+    isSuperadmin && processo.status === "validado_diretoria";
 
   // Recusar: quem pode validar a camada atual também pode recusar
   const podeRecusar =
-    (processo.status === 'enviado' && isAuthor) ||
-    (processo.status === 'validado_autor' && isDiretorDaArea) ||
-    (processo.status === 'validado_diretoria' && isSuperadmin);
+    (processo.status === "enviado" && isAuthor) ||
+    (processo.status === "validado_autor" && isDiretorDaArea) ||
+    (processo.status === "validado_diretoria" && isSuperadmin);
 
-  const podeExcluir = user?.role === 'ADMIN';
+  const podeExcluir = user?.role === "ADMIN";
 
-  const camadaSugerida: 'autor' | 'diretoria' | 'final' =
-    processo.status === 'enviado' ? 'autor' :
-    processo.status === 'validado_autor' ? 'diretoria' :
-    processo.status === 'validado_diretoria' ? 'final' : 'autor';
+  const camadaSugerida: "autor" | "diretoria" | "final" =
+    processo.status === "enviado"
+      ? "autor"
+      : processo.status === "validado_autor"
+        ? "diretoria"
+        : processo.status === "validado_diretoria"
+          ? "final"
+          : "autor";
 
   return (
     <>
@@ -501,8 +602,12 @@ export function ProcessoDetalhe({
           {/* Header fixo */}
           <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <h2 className="text-lg font-bold text-white truncate">{processo.nome_processo}</h2>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${STATUS_COLOR[processo.status]}`}>
+              <h2 className="text-lg font-bold text-white truncate">
+                {processo.nome_processo}
+              </h2>
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${STATUS_COLOR[processo.status]}`}
+              >
                 {STATUS_LABEL[processo.status]}
               </span>
             </div>
@@ -519,83 +624,127 @@ export function ProcessoDetalhe({
           <div className="flex-1 overflow-y-auto bg-slate-100 px-6 py-6 space-y-4">
             <CabecalhoInstitucional processo={processo} />
 
-            <SectionBlock icon={<FileText className="h-4 w-4" />} title="Descrição do Processo">
+            <SectionBlock
+              icon={<FileText className="h-4 w-4" />}
+              title="Descrição do Processo"
+            >
               <MultiParagraph text={processo.descricao} />
             </SectionBlock>
 
-            <SectionBlock icon={<Users className="h-4 w-4" />} title="Governança e Responsáveis">
+            <SectionBlock
+              icon={<Users className="h-4 w-4" />}
+              title="Governança e Responsáveis"
+            >
               <TableColunas
                 cols={[
-                  { title: 'Proprietário:', items: processo.proprietarios || [] },
-                  { title: 'Atores:', items: processo.atores || [] },
-                  { title: 'Áreas Responsáveis', items: processo.areas_responsaveis || [] },
+                  {
+                    title: "Proprietário:",
+                    items: processo.proprietarios || [],
+                  },
+                  { title: "Atores:", items: processo.atores || [] },
+                  {
+                    title: "Áreas Responsáveis",
+                    items: processo.areas_responsaveis || [],
+                  },
                 ]}
               />
             </SectionBlock>
 
-            <SectionBlock icon={<Info className="h-4 w-4" />} title="Informações Utilizadas">
+            <SectionBlock
+              icon={<Info className="h-4 w-4" />}
+              title="Informações Utilizadas"
+            >
               <TableColunas
                 cols={[
-                  { title: 'Entrada', items: processo.entradas || [] },
-                  { title: 'Saída', items: processo.saidas || [] },
+                  { title: "Entrada", items: processo.entradas || [] },
+                  { title: "Saída", items: processo.saidas || [] },
                 ]}
               />
             </SectionBlock>
 
-            <SectionBlock icon={<Cog className="h-4 w-4" />} title="Detalhamento do Processo">
+            <SectionBlock
+              icon={<Cog className="h-4 w-4" />}
+              title="Detalhamento do Processo"
+            >
               <MultiParagraph text={processo.detalhamento} />
             </SectionBlock>
 
-            <SectionBlock icon={<Settings className="h-4 w-4" />} title="Recursos Utilizados">
+            <SectionBlock
+              icon={<Settings className="h-4 w-4" />}
+              title="Recursos Utilizados"
+            >
               <TableColunas
                 cols={[
-                  { title: 'Sistemas / Ferramentas', items: processo.sistemas_ferramentas || [] },
-                  { title: 'Normativo / Referências', items: processo.normativos_referencias || [] },
+                  {
+                    title: "Sistemas / Ferramentas",
+                    items: processo.sistemas_ferramentas || [],
+                  },
+                  {
+                    title: "Normativo / Referências",
+                    items: processo.normativos_referencias || [],
+                  },
                 ]}
               />
             </SectionBlock>
 
-            <SectionBlock icon={<Workflow className="h-4 w-4" />} title="Modelagem / Fluxograma">
+            <SectionBlock
+              icon={<Workflow className="h-4 w-4" />}
+              title="Modelagem / Fluxograma"
+            >
               {processo.fluxograma_data ? (
-                processo.fluxograma_mime?.startsWith('image/') ? (
+                processo.fluxograma_mime?.startsWith("image/") ? (
                   <img
                     src={processo.fluxograma_data}
-                    alt={processo.fluxograma_filename || 'Fluxograma'}
+                    alt={processo.fluxograma_filename || "Fluxograma"}
                     className="w-full max-h-[700px] object-contain rounded bg-white border border-slate-200"
                   />
-                ) : processo.fluxograma_mime === 'application/pdf' ? (
+                ) : processo.fluxograma_mime === "application/pdf" ? (
                   <iframe
                     src={processo.fluxograma_data}
-                    title={processo.fluxograma_filename || 'Fluxograma'}
+                    title={processo.fluxograma_filename || "Fluxograma"}
                     className="w-full h-[700px] rounded bg-white border border-slate-200"
                   />
                 ) : (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <FileImage className="h-4 w-4" />
-                    Pré-visualização indisponível ({processo.fluxograma_filename})
+                    Pré-visualização indisponível (
+                    {processo.fluxograma_filename})
                   </div>
                 )
               ) : (
-                <p className="text-xs italic text-slate-400">Nenhum fluxograma anexado.</p>
+                <p className="text-xs italic text-slate-400">
+                  Nenhum fluxograma anexado.
+                </p>
               )}
             </SectionBlock>
 
-            <SectionBlock icon={<Paperclip className="h-4 w-4" />} title="Documentos Anexados">
+            <SectionBlock
+              icon={<Paperclip className="h-4 w-4" />}
+              title="Documentos Anexados"
+            >
               {(processo.documentos_anexados || []).length === 0 ? (
-                <p className="text-xs italic text-slate-400">Nenhum documento anexado.</p>
+                <p className="text-xs italic text-slate-400">
+                  Nenhum documento anexado.
+                </p>
               ) : (
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
-                      <th className="border border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700 w-[180px]">Tipo</th>
-                      <th className="border border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700">Documento</th>
-                      <th className="border border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700 w-[100px]">Ações</th>
+                      <th className="border border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700 w-[180px]">
+                        Tipo
+                      </th>
+                      <th className="border border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700">
+                        Documento
+                      </th>
+                      <th className="border border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700 w-[100px]">
+                        Ações
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {processo.documentos_anexados.map((doc, idx) => {
-                      const isImage = doc.mime.startsWith('image/');
-                      const isPdf = doc.mime === 'application/pdf';
+                      const isImage = doc.mime.startsWith("image/");
+                      const isPdf = doc.mime === "application/pdf";
                       return (
                         <tr key={`${idx}-${doc.nome}`} className="align-middle">
                           <td className="border border-slate-300 px-3 py-2 bg-white text-center">
@@ -608,10 +757,16 @@ export function ProcessoDetalhe({
                           </td>
                           <td className="border border-slate-300 px-3 py-2 bg-white">
                             <div className="flex items-center gap-2">
-                              {isImage ? <FileImage className="h-4 w-4 text-blue-500 flex-shrink-0" /> :
-                               isPdf ? <FileText className="h-4 w-4 text-red-500 flex-shrink-0" /> :
-                               <FileIcon className="h-4 w-4 text-slate-500 flex-shrink-0" />}
-                              <span className="text-sm text-slate-700 break-words">{doc.nome}</span>
+                              {isImage ? (
+                                <FileImage className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                              ) : isPdf ? (
+                                <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+                              ) : (
+                                <FileIcon className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                              )}
+                              <span className="text-sm text-slate-700 break-words">
+                                {doc.nome}
+                              </span>
                             </div>
                           </td>
                           <td className="border border-slate-300 px-3 py-2 bg-white text-center">
@@ -633,27 +788,44 @@ export function ProcessoDetalhe({
               )}
             </SectionBlock>
 
-            <SectionBlock icon={<Calendar className="h-4 w-4" />} title="Periodicidade da Revisão">
+            <SectionBlock
+              icon={<Calendar className="h-4 w-4" />}
+              title="Periodicidade da Revisão"
+            >
               {processo.periodo ? (
                 <p className="text-sm text-slate-700">
-                  Próxima revisão prevista: <span className="font-semibold text-slate-900">{addOneYearToDate(processo.periodo)}</span>
-                  <span className="text-xs text-slate-500 ml-2">(1 ano após o período cadastrado)</span>
+                  Próxima revisão prevista:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {addOneYearToDate(processo.periodo)}
+                  </span>
+                  <span className="text-xs text-slate-500 ml-2">
+                    (1 ano após o período cadastrado)
+                  </span>
                 </p>
               ) : (
-                <p className="text-xs italic text-slate-400">Período não informado.</p>
+                <p className="text-xs italic text-slate-400">
+                  Período não informado.
+                </p>
               )}
             </SectionBlock>
 
-            <SectionBlock icon={<FileText className="h-4 w-4" />} title="Formalização">
+            <SectionBlock
+              icon={<FileText className="h-4 w-4" />}
+              title="Formalização"
+            >
               <div className="space-y-3">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5">
                     Nº do Proad
                   </p>
                   {processo.numero_proad ? (
-                    <p className="text-sm text-slate-700">{processo.numero_proad}</p>
+                    <p className="text-sm text-slate-700">
+                      {processo.numero_proad}
+                    </p>
                   ) : (
-                    <p className="text-xs italic text-slate-400">Não informado</p>
+                    <p className="text-xs italic text-slate-400">
+                      Não informado
+                    </p>
                   )}
                 </div>
                 <div>
@@ -674,19 +846,27 @@ export function ProcessoDetalhe({
                 - Data da atualização: timestamp de updated_at do processo */}
             <div className="grid grid-cols-3 gap-4 px-4 pt-4 mt-2 text-center text-xs text-slate-600">
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">Elaborado por:</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                  Elaborado por:
+                </div>
                 <div className="mt-1 font-bold text-slate-700 leading-tight">
-                  {diretoriaNome || '—'}
+                  {diretoriaNome || "—"}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">Versão:</div>
-                <div className="mt-1 font-bold text-slate-700">{processo.versao || '1.0'}</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                  Versão:
+                </div>
+                <div className="mt-1 font-bold text-slate-700">
+                  {processo.versao || "1.0"}
+                </div>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">Data da atualização:</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                  Data da atualização:
+                </div>
                 <div className="mt-1 font-bold text-slate-700">
-                  {new Date(processo.updated_at).toLocaleDateString('pt-BR')}
+                  {new Date(processo.updated_at).toLocaleDateString("pt-BR")}
                 </div>
               </div>
             </div>
@@ -746,7 +926,11 @@ export function ProcessoDetalhe({
                   disabled={!!busy}
                   className="bg-amber-600 hover:bg-amber-700 text-white"
                 >
-                  {busy === 'Envio para validação' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                  {busy === "Envio para validação" ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
                   Enviar para Validação
                 </Button>
               )}
@@ -754,7 +938,10 @@ export function ProcessoDetalhe({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => { setRecusaCamada(camadaSugerida); setRecusaOpen(true); }}
+                  onClick={() => {
+                    setRecusaCamada(camadaSugerida);
+                    setRecusaOpen(true);
+                  }}
                   disabled={!!busy}
                   className="border-red-300 text-red-700 hover:bg-red-50"
                 >
@@ -769,7 +956,11 @@ export function ProcessoDetalhe({
                   disabled={!!busy}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {busy === 'Validação do autor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                  {busy === "Validação do autor" ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
                   Validar (Autor)
                 </Button>
               )}
@@ -780,7 +971,11 @@ export function ProcessoDetalhe({
                   disabled={!!busy}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
-                  {busy === 'Validação da diretoria' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                  {busy === "Validação da diretoria" ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
                   Validar (Diretoria)
                 </Button>
               )}
@@ -791,7 +986,11 @@ export function ProcessoDetalhe({
                   disabled={!!busy}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {busy === 'Validação final' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                  {busy === "Validação final" ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
                   Validação Final
                 </Button>
               )}
@@ -805,32 +1004,42 @@ export function ProcessoDetalhe({
         <DialogContent className="max-w-md">
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Recusar Processo</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                Recusar Processo
+              </h3>
               <p className="text-sm text-slate-500 mt-1">
                 Informe o motivo da recusa. O autor poderá editar e re-enviar.
               </p>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-slate-700">Camada</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Camada
+              </Label>
               <div className="mt-1 flex gap-2">
-                {(['autor', 'diretoria', 'final'] as const).map((c) => (
+                {(["autor", "diretoria", "final"] as const).map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => setRecusaCamada(c)}
                     className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                       recusaCamada === c
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
                     }`}
                   >
-                    {c === 'autor' ? 'Autor' : c === 'diretoria' ? 'Diretoria' : 'Final'}
+                    {c === "autor"
+                      ? "Autor"
+                      : c === "diretoria"
+                        ? "Diretoria"
+                        : "Final"}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-slate-700">Motivo</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Motivo
+              </Label>
               <Textarea
                 value={recusaMotivo}
                 onChange={(e) => setRecusaMotivo(e.target.value)}
@@ -840,16 +1049,25 @@ export function ProcessoDetalhe({
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setRecusaOpen(false)} disabled={busy === 'Recusa'}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRecusaOpen(false)}
+                disabled={busy === "Recusa"}
+              >
                 Cancelar
               </Button>
               <Button
                 type="button"
                 onClick={handleRecusarConfirm}
-                disabled={busy === 'Recusa' || !recusaMotivo.trim()}
+                disabled={busy === "Recusa" || !recusaMotivo.trim()}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
-                {busy === 'Recusa' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+                {busy === "Recusa" ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-2" />
+                )}
                 Confirmar Recusa
               </Button>
             </div>
@@ -864,10 +1082,13 @@ export function ProcessoDetalhe({
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <History className="h-5 w-5 text-blue-600" />
-              <h3 className="text-lg font-bold text-slate-900">Histórico de Versões</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                Histórico de Versões
+              </h3>
             </div>
             <p className="text-sm text-slate-500 -mt-2">
-              Cada versão é um snapshot homologado do processo. Baixe o PDF na versão exata em que foi aprovada.
+              Cada versão é um snapshot homologado do processo. Baixe o PDF na
+              versão exata em que foi aprovada.
             </p>
 
             {loadingVersoes ? (
@@ -875,7 +1096,9 @@ export function ProcessoDetalhe({
                 <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
               </div>
             ) : versoes.length === 0 ? (
-              <p className="text-center text-slate-400 py-6 text-sm">Nenhuma versão homologada ainda.</p>
+              <p className="text-center text-slate-400 py-6 text-sm">
+                Nenhuma versão homologada ainda.
+              </p>
             ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                 {versoes.map((v) => (
@@ -884,10 +1107,17 @@ export function ProcessoDetalhe({
                     className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
                   >
                     <div>
-                      <span className="font-semibold text-emerald-700 font-mono">v{v.versao}</span>
+                      <span className="font-semibold text-emerald-700 font-mono">
+                        v{v.versao}
+                      </span>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Homologado em {new Date(v.validado_final_em).toLocaleDateString('pt-BR')}
-                        {v.validado_final_nome ? ` por ${v.validado_final_nome}` : ''}
+                        Homologado em{" "}
+                        {new Date(v.validado_final_em).toLocaleDateString(
+                          "pt-BR",
+                        )}
+                        {v.validado_final_nome
+                          ? ` por ${v.validado_final_nome}`
+                          : ""}
                       </p>
                     </div>
                     <Button
@@ -897,7 +1127,11 @@ export function ProcessoDetalhe({
                       disabled={loadingPdfVersao === v.id}
                       className="gap-1.5"
                     >
-                      {loadingPdfVersao === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                      {loadingPdfVersao === v.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileDown className="h-4 w-4" />
+                      )}
                       PDF
                     </Button>
                   </div>
@@ -906,7 +1140,11 @@ export function ProcessoDetalhe({
             )}
 
             <div className="flex justify-end">
-              <Button type="button" variant="outline" onClick={() => setVersoesOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setVersoesOpen(false)}
+              >
                 Fechar
               </Button>
             </div>

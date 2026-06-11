@@ -1,23 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Layout } from '@/components/layout/Layout';
-import { VoltarCadastros } from '@/components/ui/VoltarCadastros';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDirectorate } from '@/contexts/DirectorateContext';
-import { useToast } from '@/hooks/use-toast';
-import { areasApi, Area, Unidade } from '@/services/areasApi';
-import { pessoasApi, Pessoa, CreatePessoaDto } from '@/services/pessoasApi';
+import { useState, useEffect, useCallback } from "react";
+import { Layout } from "@/components/layout/Layout";
+import { VoltarCadastros } from "@/components/ui/VoltarCadastros";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDirectorate } from "@/contexts/DirectorateContext";
+import { useToast } from "@/hooks/use-toast";
+import { areasApi, Area, Unidade } from "@/services/areasApi";
+import { pessoasApi, Pessoa, CreatePessoaDto } from "@/services/pessoasApi";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 // UI Components
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -25,17 +25,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 // Icons
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Users,
-  ArrowLeft,
-  Building2
-} from 'lucide-react';
+import { Plus, Edit, Trash2, Users, ArrowLeft, Building2 } from "lucide-react";
 
 export default function Pessoas() {
   const { user } = useAuth();
@@ -53,10 +46,13 @@ export default function Pessoas() {
 
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editingPessoa, setEditingPessoa] = useState<Pessoa | null>(null);
   const [modalConfirmDeleteOpen, setModalConfirmDeleteOpen] = useState(false);
-  const [itemParaDeletar, setItemParaDeletar] = useState<{ id: number; nome: string } | null>(null);
+  const [itemParaDeletar, setItemParaDeletar] = useState<{
+    id: number;
+    nome: string;
+  } | null>(null);
 
   // Estado para unidades da área
   const [unidades, setUnidades] = useState<Unidade[]>([]);
@@ -66,24 +62,30 @@ export default function Pessoas() {
   const [formData, setFormData] = useState<CreatePessoaDto>({
     area_id: 0,
     unidade_id: null,
-    nome: '',
-    usuario: '',
-    email: '',
-    situacao: '',
-    cc_fc: '',
-    cc_fc_classe: '',
-    cargo_efetivo: '',
-    cargo_efetivo_classe: ''
+    nome: "",
+    usuario: "",
+    email: "",
+    situacao: "",
+    cc_fc: "",
+    cc_fc_classe: "",
+    cargo_efetivo: "",
+    cargo_efetivo_classe: "",
   });
 
   // Drag and drop states (para áreas)
   const [linhas, setLinhas] = useState<Area[][]>([[]]);
-  const [draggedItem, setDraggedItem] = useState<{ linha: number; index: number } | null>(null);
-  const [dragOverTarget, setDragOverTarget] = useState<{ linha: number; index: number } | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{
+    linha: number;
+    index: number;
+  } | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{
+    linha: number;
+    index: number;
+  } | null>(null);
 
   // Permissões
-  const canEdit = user?.role === 'MANAGER' || user?.role === 'ADMIN';
-  const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const canEdit = user?.role === "MANAGER" || user?.role === "ADMIN";
+  const canCreate = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   // ============================================================
   // CARREGAR DADOS
@@ -93,28 +95,35 @@ export default function Pessoas() {
     try {
       setLoading(true);
       // Se devEnvironment está ativo, filtra por domínio do ambiente selecionado
-      const allAreas = devEnvironment ? await areasApi.getByDominio(devEnvironment) : await areasApi.getAll();
+      const allAreas = devEnvironment
+        ? await areasApi.getByDominio(devEnvironment)
+        : await areasApi.getAll();
       setAreas(allAreas);
     } catch (error) {
-      console.error('Erro ao carregar áreas:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
   }, [toast, devEnvironment]);
 
-  const loadPessoas = useCallback(async (areaId: number) => {
-    try {
-      setLoadingPessoas(true);
-      const data = await pessoasApi.getByAreaId(areaId);
-      // Ordenar colaboradores alfabeticamente por nome
-      const sortedData = [...data].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
-      setPessoas(sortedData);
-    } catch (error) {
-      console.error('Erro ao carregar pessoas:', error);
-    } finally {
-      setLoadingPessoas(false);
-    }
-  }, [toast]);
+  const loadPessoas = useCallback(
+    async (areaId: number) => {
+      try {
+        setLoadingPessoas(true);
+        const data = await pessoasApi.getByAreaId(areaId);
+        // Ordenar colaboradores alfabeticamente por nome
+        const sortedData = [...data].sort((a, b) =>
+          (a.nome || "").localeCompare(b.nome || "", "pt-BR"),
+        );
+        setPessoas(sortedData);
+      } catch (error) {
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+      } finally {
+        setLoadingPessoas(false);
+      }
+    },
+    [toast],
+  );
 
   const loadUnidades = useCallback(async (areaId: number) => {
     try {
@@ -122,7 +131,6 @@ export default function Pessoas() {
       const data = await areasApi.getUnidades(areaId);
       setUnidades(data);
     } catch (error) {
-      console.error('Erro ao carregar unidades:', error);
       setUnidades([]);
     } finally {
       setLoadingUnidades(false);
@@ -141,7 +149,7 @@ export default function Pessoas() {
     }
 
     const linhasMap = new Map<number, Area[]>();
-    areas.forEach(area => {
+    areas.forEach((area) => {
       const linha = area.ordem_linha ?? 0;
       if (!linhasMap.has(linha)) {
         linhasMap.set(linha, []);
@@ -150,7 +158,9 @@ export default function Pessoas() {
     });
 
     linhasMap.forEach((areasLinha) => {
-      areasLinha.sort((a, b) => (a.ordem_posicao ?? 0) - (b.ordem_posicao ?? 0));
+      areasLinha.sort(
+        (a, b) => (a.ordem_posicao ?? 0) - (b.ordem_posicao ?? 0),
+      );
     });
 
     const linhasArray: Area[][] = [];
@@ -159,7 +169,10 @@ export default function Pessoas() {
       linhasArray.push(linhasMap.get(i) || []);
     }
 
-    if (linhasArray.length === 0 || (linhasArray.length === 1 && linhasArray[0].length === 0)) {
+    if (
+      linhasArray.length === 0 ||
+      (linhasArray.length === 1 && linhasArray[0].length === 0)
+    ) {
       setLinhas([[]]);
     } else {
       setLinhas(linhasArray);
@@ -180,7 +193,7 @@ export default function Pessoas() {
     setPessoas([]);
   };
 
-  const handleOpenModal = (mode: 'create' | 'edit', pessoa?: Pessoa) => {
+  const handleOpenModal = (mode: "create" | "edit", pessoa?: Pessoa) => {
     setModalMode(mode);
 
     // Carregar unidades da área selecionada
@@ -188,33 +201,33 @@ export default function Pessoas() {
       loadUnidades(areaSelecionada.id);
     }
 
-    if (mode === 'edit' && pessoa) {
+    if (mode === "edit" && pessoa) {
       setEditingPessoa(pessoa);
       setFormData({
         area_id: pessoa.area_id,
         unidade_id: pessoa.unidade_id || null,
         nome: pessoa.nome,
-        usuario: pessoa.usuario || '',
-        email: pessoa.email || '',
-        situacao: pessoa.situacao || '',
-        cc_fc: pessoa.cc_fc || '',
-        cc_fc_classe: pessoa.cc_fc_classe || '',
-        cargo_efetivo: pessoa.cargo_efetivo || '',
-        cargo_efetivo_classe: pessoa.cargo_efetivo_classe || ''
+        usuario: pessoa.usuario || "",
+        email: pessoa.email || "",
+        situacao: pessoa.situacao || "",
+        cc_fc: pessoa.cc_fc || "",
+        cc_fc_classe: pessoa.cc_fc_classe || "",
+        cargo_efetivo: pessoa.cargo_efetivo || "",
+        cargo_efetivo_classe: pessoa.cargo_efetivo_classe || "",
       });
     } else {
       setEditingPessoa(null);
       setFormData({
         area_id: areaSelecionada?.id || 0,
         unidade_id: null,
-        nome: '',
-        usuario: '',
-        email: '',
-        situacao: '',
-        cc_fc: '',
-        cc_fc_classe: '',
-        cargo_efetivo: '',
-        cargo_efetivo_classe: ''
+        nome: "",
+        usuario: "",
+        email: "",
+        situacao: "",
+        cc_fc: "",
+        cc_fc_classe: "",
+        cargo_efetivo: "",
+        cargo_efetivo_classe: "",
       });
     }
     setModalOpen(true);
@@ -227,14 +240,14 @@ export default function Pessoas() {
     setFormData({
       area_id: areaSelecionada?.id || 0,
       unidade_id: null,
-      nome: '',
-      usuario: '',
-      email: '',
-      situacao: '',
-      cc_fc: '',
-      cc_fc_classe: '',
-      cargo_efetivo: '',
-      cargo_efetivo_classe: ''
+      nome: "",
+      usuario: "",
+      email: "",
+      situacao: "",
+      cc_fc: "",
+      cc_fc_classe: "",
+      cargo_efetivo: "",
+      cargo_efetivo_classe: "",
     });
   };
 
@@ -242,26 +255,24 @@ export default function Pessoas() {
     try {
       if (!formData.nome.trim()) {
         toast({
-          title: 'Erro',
-          description: 'O nome do colaborador é obrigatório',
-          variant: 'destructive'
+          title: "Erro",
+          description: "O nome do colaborador é obrigatório",
+          variant: "destructive",
         });
         return;
       }
 
-      if (modalMode === 'create') {
+      if (modalMode === "create") {
         await pessoasApi.create({
           ...formData,
           area_id: areaSelecionada?.id || 0,
-          unidade_id: formData.unidade_id || null
+          unidade_id: formData.unidade_id || null,
         });
-        
       } else if (editingPessoa) {
         await pessoasApi.update(editingPessoa.id, {
           ...formData,
-          unidade_id: formData.unidade_id || null
+          unidade_id: formData.unidade_id || null,
         });
-        
       }
 
       handleCloseModal();
@@ -269,7 +280,7 @@ export default function Pessoas() {
         await loadPessoas(areaSelecionada.id);
       }
     } catch (error) {
-      console.error('Erro ao salvar pessoa:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
@@ -278,14 +289,14 @@ export default function Pessoas() {
 
     try {
       await pessoasApi.remove(itemParaDeletar.id);
-      
+
       setModalConfirmDeleteOpen(false);
       setItemParaDeletar(null);
       if (areaSelecionada) {
         await loadPessoas(areaSelecionada.id);
       }
     } catch (error) {
-      console.error('Erro ao excluir pessoa:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
@@ -293,8 +304,12 @@ export default function Pessoas() {
   // DRAG AND DROP (para áreas - apenas visual, sem salvar)
   // ============================================================
 
-  const handleDragStart = (e: React.DragEvent, linha: number, index: number) => {
-    e.dataTransfer.effectAllowed = 'move';
+  const handleDragStart = (
+    e: React.DragEvent,
+    linha: number,
+    index: number,
+  ) => {
+    e.dataTransfer.effectAllowed = "move";
     setTimeout(() => setDraggedItem({ linha, index }), 0);
   };
 
@@ -313,19 +328,27 @@ export default function Pessoas() {
   };
 
   // Função para extrair sigla e nome da área
-  const parseSiglaENome = (nome: string): { sigla: string; nomeCompleto: string } => {
-    const trimmed = (nome || '').trim();
+  const parseSiglaENome = (
+    nome: string,
+  ): { sigla: string; nomeCompleto: string } => {
+    const trimmed = (nome || "").trim();
 
     // Ex: "DTI: Diretoria de ..." ou "DTI - Diretoria de ..."
     const prefixMatch = trimmed.match(/^([A-Z]{2,6})\s*[:\-]\s*(.+)$/);
     if (prefixMatch) {
-      return { sigla: prefixMatch[1].trim(), nomeCompleto: prefixMatch[2].trim() };
+      return {
+        sigla: prefixMatch[1].trim(),
+        nomeCompleto: prefixMatch[2].trim(),
+      };
     }
 
     // Ex: "Diretoria de ... (DTI)"
     const suffixMatch = trimmed.match(/^(.*)\(([^)]+)\)\s*$/);
     if (suffixMatch) {
-      return { sigla: suffixMatch[2].trim(), nomeCompleto: suffixMatch[1].trim() };
+      return {
+        sigla: suffixMatch[2].trim(),
+        nomeCompleto: suffixMatch[1].trim(),
+      };
     }
 
     return { sigla: trimmed, nomeCompleto: trimmed };
@@ -336,8 +359,10 @@ export default function Pessoas() {
   // ============================================================
 
   const renderCardArea = (area: Area, linha: number, index: number) => {
-    const isDragging = draggedItem?.linha === linha && draggedItem?.index === index;
-    const isDragOver = dragOverTarget?.linha === linha && dragOverTarget?.index === index;
+    const isDragging =
+      draggedItem?.linha === linha && draggedItem?.index === index;
+    const isDragOver =
+      dragOverTarget?.linha === linha && dragOverTarget?.index === index;
 
     let sigla = area.sigla;
     let nomeExibicao = area.nome;
@@ -358,8 +383,8 @@ export default function Pessoas() {
           border border-slate-200 hover:border-slate-300
           rounded-xl p-4 text-left transition-all duration-300
           hover:shadow-md cursor-pointer
-          ${isDragging ? 'opacity-50 scale-95' : ''}
-          ${isDragOver ? 'border-green-500 border-2 bg-green-50' : ''}
+          ${isDragging ? "opacity-50 scale-95" : ""}
+          ${isDragOver ? "border-green-500 border-2 bg-green-50" : ""}
           min-w-[180px] max-w-[220px] flex-shrink-0
         `}
         title={area.nome}
@@ -371,9 +396,7 @@ export default function Pessoas() {
           <h3 className="text-slate-900 font-bold text-lg group-hover:text-blue-600 transition-colors">
             {sigla}
           </h3>
-          <p className="text-slate-600 text-xs leading-snug">
-            {nomeExibicao}
-          </p>
+          <p className="text-slate-600 text-xs leading-snug">{nomeExibicao}</p>
         </div>
       </div>
     );
@@ -404,7 +427,9 @@ export default function Pessoas() {
                 <Building2 className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">{areaSelecionada.nome}</h2>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {areaSelecionada.nome}
+                </h2>
                 <p className="text-slate-500 text-sm">Pessoas vinculadas</p>
               </div>
             </div>
@@ -412,7 +437,7 @@ export default function Pessoas() {
 
           {canCreate && (
             <Button
-              onClick={() => handleOpenModal('create')}
+              onClick={() => handleOpenModal("create")}
               className="bg-[#5A8A7A] hover:bg-[#4A7A6A] text-white"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -424,7 +449,9 @@ export default function Pessoas() {
         {/* Tabela de Pessoas */}
         <div className="rounded-2xl overflow-hidden shadow-2xl">
           {loadingPessoas ? (
-            <div className="bg-white text-center py-12 text-gray-500">Carregando pessoas...</div>
+            <div className="bg-white text-center py-12 text-gray-500">
+              Carregando pessoas...
+            </div>
           ) : pessoas.length === 0 ? (
             <div className="bg-white text-center py-12 text-gray-400">
               Nenhuma pessoa cadastrada nesta área.
@@ -435,52 +462,90 @@ export default function Pessoas() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gradient-to-r from-slate-700 to-slate-800">
-                    <th className="px-5 py-4 text-left text-sm font-bold text-white uppercase tracking-wide">Colaborador(a)</th>
-                    <th className="px-5 py-4 text-left text-sm font-bold text-white uppercase tracking-wide">Lotação</th>
-                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">Situação Funcional</th>
-                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">CC/FC</th>
-                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">Código</th>
-                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">Cargo Efetivo</th>
-                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">Classe</th>
-                    {canEdit && <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide w-28">Ações</th>}
+                    <th className="px-5 py-4 text-left text-sm font-bold text-white uppercase tracking-wide">
+                      Colaborador(a)
+                    </th>
+                    <th className="px-5 py-4 text-left text-sm font-bold text-white uppercase tracking-wide">
+                      Lotação
+                    </th>
+                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">
+                      Situação Funcional
+                    </th>
+                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">
+                      CC/FC
+                    </th>
+                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">
+                      Código
+                    </th>
+                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">
+                      Cargo Efetivo
+                    </th>
+                    <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide">
+                      Classe
+                    </th>
+                    {canEdit && (
+                      <th className="px-5 py-4 text-center text-sm font-bold text-white uppercase tracking-wide w-28">
+                        Ações
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {pessoas.map((pessoa, index) => (
-                    <tr key={pessoa.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50/50 transition-colors`}>
+                    <tr
+                      key={pessoa.id}
+                      className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"} hover:bg-blue-50/50 transition-colors`}
+                    >
                       <td className="px-5 py-4">
-                        <span className="font-semibold text-gray-900">{pessoa.nome}</span>
+                        <span className="font-semibold text-gray-900">
+                          {pessoa.nome}
+                        </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-gray-600">{pessoa.unidade_nome || '—'}</span>
+                        <span className="text-gray-600">
+                          {pessoa.unidade_nome || "—"}
+                        </span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className="text-gray-600">{pessoa.situacao || '—'}</span>
+                        <span className="text-gray-600">
+                          {pessoa.situacao || "—"}
+                        </span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className="text-gray-600">{pessoa.cc_fc || '—'}</span>
+                        <span className="text-gray-600">
+                          {pessoa.cc_fc || "—"}
+                        </span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className="text-gray-600">{pessoa.cc_fc_classe || '—'}</span>
+                        <span className="text-gray-600">
+                          {pessoa.cc_fc_classe || "—"}
+                        </span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className="text-gray-600">{pessoa.cargo_efetivo || '—'}</span>
+                        <span className="text-gray-600">
+                          {pessoa.cargo_efetivo || "—"}
+                        </span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className="text-gray-600">{pessoa.cargo_efetivo_classe || '—'}</span>
+                        <span className="text-gray-600">
+                          {pessoa.cargo_efetivo_classe || "—"}
+                        </span>
                       </td>
                       {canEdit && (
                         <td className="px-5 py-4">
                           <div className="flex gap-2 justify-center">
                             <button
-                              onClick={() => handleOpenModal('edit', pessoa)}
+                              onClick={() => handleOpenModal("edit", pessoa)}
                               className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => {
-                                setItemParaDeletar({ id: pessoa.id, nome: pessoa.nome });
+                                setItemParaDeletar({
+                                  id: pessoa.id,
+                                  nome: pessoa.nome,
+                                });
                                 setModalConfirmDeleteOpen(true);
                               }}
                               className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-colors"
@@ -514,27 +579,29 @@ export default function Pessoas() {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Pessoas</h1>
-          <p className="text-slate-500 text-sm">Selecione uma área para ver as pessoas</p>
+          <p className="text-slate-500 text-sm">
+            Selecione uma área para ver as pessoas
+          </p>
         </div>
       </div>
 
       {/* Lista de Áreas */}
       {loading ? (
-        <div className="text-center py-12 text-slate-500">Carregando áreas...</div>
+        <div className="text-center py-12 text-slate-500">
+          Carregando áreas...
+        </div>
       ) : areas.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
-          Nenhuma área cadastrada.
-          Cadastre áreas em Cadastros → Áreas.
+          Nenhuma área cadastrada. Cadastre áreas em Cadastros → Áreas.
         </div>
       ) : (
         <div className="space-y-3">
           {linhas.map((areasLinha, linhaIndex) => (
-            <div
-              key={linhaIndex}
-              className="min-h-[90px] p-2"
-            >
+            <div key={linhaIndex} className="min-h-[90px] p-2">
               <div className="flex flex-wrap gap-4">
-                {areasLinha.map((area, index) => renderCardArea(area, linhaIndex, index))}
+                {areasLinha.map((area, index) =>
+                  renderCardArea(area, linhaIndex, index),
+                )}
               </div>
             </div>
           ))}
@@ -560,12 +627,12 @@ export default function Pessoas() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {modalMode === 'create' ? 'Nova Pessoa' : 'Editar Pessoa'}
+              {modalMode === "create" ? "Nova Pessoa" : "Editar Pessoa"}
             </DialogTitle>
             <DialogDescription>
-              {modalMode === 'create'
+              {modalMode === "create"
                 ? `Cadastrar pessoa na área "${areaSelecionada?.nome}"`
-                : 'Edite os dados da pessoa'}
+                : "Edite os dados da pessoa"}
             </DialogDescription>
           </DialogHeader>
 
@@ -576,7 +643,9 @@ export default function Pessoas() {
               <Input
                 id="nome"
                 value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, nome: e.target.value })
+                }
                 placeholder="Nome completo"
                 className="mt-1"
               />
@@ -595,15 +664,23 @@ export default function Pessoas() {
                 </div>
               ) : (
                 <Select
-                  value={formData.unidade_id?.toString() || ''}
-                  onValueChange={(value) => setFormData({ ...formData, unidade_id: value ? parseInt(value, 10) : null })}
+                  value={formData.unidade_id?.toString() || ""}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      unidade_id: value ? parseInt(value, 10) : null,
+                    })
+                  }
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Selecione uma unidade" />
                   </SelectTrigger>
                   <SelectContent>
                     {unidades.map((unidade) => (
-                      <SelectItem key={unidade.id} value={unidade.id.toString()}>
+                      <SelectItem
+                        key={unidade.id}
+                        value={unidade.id.toString()}
+                      >
                         {unidade.nome}
                       </SelectItem>
                     ))}
@@ -618,8 +695,10 @@ export default function Pessoas() {
                 <Label htmlFor="usuario">Usuário</Label>
                 <Input
                   id="usuario"
-                  value={formData.usuario || ''}
-                  onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
+                  value={formData.usuario || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, usuario: e.target.value })
+                  }
                   placeholder="Nome de usuário"
                   className="mt-1"
                 />
@@ -629,8 +708,10 @@ export default function Pessoas() {
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email || ''}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  value={formData.email || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   placeholder="email@exemplo.com"
                   className="mt-1"
                 />
@@ -643,7 +724,9 @@ export default function Pessoas() {
               <Input
                 id="situacao"
                 value={formData.situacao}
-                onChange={(e) => setFormData({ ...formData, situacao: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, situacao: e.target.value })
+                }
                 placeholder="Ex: Ativo, Cedido, Licença..."
                 className="mt-1"
               />
@@ -656,7 +739,9 @@ export default function Pessoas() {
                 <Input
                   id="cc_fc"
                   value={formData.cc_fc}
-                  onChange={(e) => setFormData({ ...formData, cc_fc: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cc_fc: e.target.value })
+                  }
                   placeholder="Cargo Comissionado / Função"
                   className="mt-1"
                 />
@@ -668,7 +753,9 @@ export default function Pessoas() {
                 <Input
                   id="cc_fc_classe"
                   value={formData.cc_fc_classe}
-                  onChange={(e) => setFormData({ ...formData, cc_fc_classe: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cc_fc_classe: e.target.value })
+                  }
                   placeholder="Ex: A, B, C..."
                   className="mt-1"
                 />
@@ -682,7 +769,9 @@ export default function Pessoas() {
                 <Input
                   id="cargo_efetivo"
                   value={formData.cargo_efetivo}
-                  onChange={(e) => setFormData({ ...formData, cargo_efetivo: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cargo_efetivo: e.target.value })
+                  }
                   placeholder="Cargo efetivo"
                   className="mt-1"
                 />
@@ -690,11 +779,18 @@ export default function Pessoas() {
 
               {/* Classe Cargo Efetivo */}
               <div>
-                <Label htmlFor="cargo_efetivo_classe">Classe (Cargo Efetivo)</Label>
+                <Label htmlFor="cargo_efetivo_classe">
+                  Classe (Cargo Efetivo)
+                </Label>
                 <Input
                   id="cargo_efetivo_classe"
                   value={formData.cargo_efetivo_classe}
-                  onChange={(e) => setFormData({ ...formData, cargo_efetivo_classe: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      cargo_efetivo_classe: e.target.value,
+                    })
+                  }
                   placeholder="Ex: I, II, III..."
                   className="mt-1"
                 />
@@ -706,26 +802,38 @@ export default function Pessoas() {
             <Button variant="outline" onClick={handleCloseModal}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} className="bg-[#5A8A7A] hover:bg-[#4A7A6A]">
-              {modalMode === 'create' ? 'Cadastrar' : 'Salvar'}
+            <Button
+              onClick={handleSave}
+              className="bg-[#5A8A7A] hover:bg-[#4A7A6A]"
+            >
+              {modalMode === "create" ? "Cadastrar" : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Modal Confirmar Exclusão */}
-      <Dialog open={modalConfirmDeleteOpen} onOpenChange={setModalConfirmDeleteOpen}>
+      <Dialog
+        open={modalConfirmDeleteOpen}
+        onOpenChange={setModalConfirmDeleteOpen}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Confirmar Exclusão</DialogTitle>
             <DialogDescription>
-              Deseja realmente excluir <strong>"{itemParaDeletar?.nome}"</strong>?
+              Deseja realmente excluir{" "}
+              <strong>"{itemParaDeletar?.nome}"</strong>?
               <br />
-              <span className="text-red-500">Esta ação não pode ser desfeita.</span>
+              <span className="text-red-500">
+                Esta ação não pode ser desfeita.
+              </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalConfirmDeleteOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setModalConfirmDeleteOpen(false)}
+            >
               Cancelar
             </Button>
             <Button variant="destructive" onClick={handleConfirmDelete}>

@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { areasApi } from '@/services/areasApi';
-import { competenciasGestorApi, UnidadeAutorizada, CompetenciaPorUnidade } from '@/services/competenciasGestorApi';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { areasApi } from "@/services/areasApi";
+import {
+  competenciasGestorApi,
+  UnidadeAutorizada,
+  CompetenciaPorUnidade,
+} from "@/services/competenciasGestorApi";
 import {
   avaliacaoIntegradaApi,
   AvaliacaoIntegradaFormulario,
   PessoaElegivel,
   ParData,
-} from '@/services/avaliacaoIntegradaApi';
+} from "@/services/avaliacaoIntegradaApi";
 import {
   ESCALA_NOTAS,
   ESCALA_COMPORTAMENTAL,
@@ -18,22 +22,22 @@ import {
   NOTA_COMPORTAMENTAL_LABELS,
   NOTA_ESTRATEGICA_LABELS,
   NOTA_GERENCIAL_LABELS,
-} from '@/constants/competencias';
-import { EscalaLegenda, EscalaRadioGroup } from './EscalaUI';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+} from "@/constants/competencias";
+import { EscalaLegenda, EscalaRadioGroup } from "./EscalaUI";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { toast } from 'sonner';
-import { Loader2, Send, Info, AlertCircle } from 'lucide-react';
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { Loader2, Send, Info, AlertCircle } from "lucide-react";
 
 interface IntegradaRespostaState {
   competencia_unidade_id?: number;
@@ -47,7 +51,7 @@ interface IntegradaRespostaState {
   comentario: string;
   comentario_autoavaliacao: string;
   comentario_gestor: string;
-  tipo: 'tecnica' | 'comportamental' | 'estrategica' | 'gerencial';
+  tipo: "tecnica" | "comportamental" | "estrategica" | "gerencial";
 }
 
 interface FormState {
@@ -66,14 +70,20 @@ interface AvaliacaoIntegradaFormProps {
   formularioEdit?: AvaliacaoIntegradaFormulario;
 }
 
-export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formularioEdit }: AvaliacaoIntegradaFormProps) {
+export function AvaliacaoIntegradaForm({
+  onSubmitted,
+  tipoInventario,
+  formularioEdit,
+}: AvaliacaoIntegradaFormProps) {
   const isEditMode = !!formularioEdit;
   const { user } = useAuth();
 
-  const [unidadesAutorizadas, setUnidadesAutorizadas] = useState<UnidadeAutorizada[]>([]);
+  const [unidadesAutorizadas, setUnidadesAutorizadas] = useState<
+    UnidadeAutorizada[]
+  >([]);
   const [loadingUnidades, setLoadingUnidades] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [diretoriaUsuario, setDiretoriaUsuario] = useState<string>('');
+  const [diretoriaUsuario, setDiretoriaUsuario] = useState<string>("");
 
   const [elegiveis, setElegiveis] = useState<PessoaElegivel[]>([]);
   const [loadingElegiveis, setLoadingElegiveis] = useState(false);
@@ -82,24 +92,30 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
   // Conjunto de chaves "nome|tipo" das competências que MUDARAM em relação à v1
   // (em modo edit). As inalteradas vêm travadas com nota_integrada da v1 preservada.
   const [changedKeys, setChangedKeys] = useState<Set<string>>(new Set());
-  const isItemChanged = (nome: string, tipo: string) => changedKeys.has(`${nome}|${tipo || 'tecnica'}`);
+  const isItemChanged = (nome: string, tipo: string) =>
+    changedKeys.has(`${nome}|${tipo || "tecnica"}`);
 
-  const renderNotaBadge = (nota: number | null, labels: Record<number, string>) => {
+  const renderNotaBadge = (
+    nota: number | null,
+    labels: Record<number, string>,
+  ) => {
     if (nota == null) {
-      return <Badge className="bg-gray-100 text-gray-500 italic">Sem resposta</Badge>;
+      return (
+        <Badge className="bg-gray-100 text-gray-500 italic">Sem resposta</Badge>
+      );
     }
     return (
-      <Badge className={NOTA_COLORS[nota] || 'bg-gray-100 text-gray-700'}>
+      <Badge className={NOTA_COLORS[nota] || "bg-gray-100 text-gray-700"}>
         {nota} — {labels[nota] || `Nota ${nota}`}
       </Badge>
     );
   };
 
   const [form, setForm] = useState<FormState>({
-    unidade_id: '',
+    unidade_id: "",
     unidade_path: [],
-    pessoa_id: '',
-    pessoa_nome: '',
+    pessoa_id: "",
+    pessoa_nome: "",
     autoavaliacao_id: null,
     avaliacao_gestor_id: null,
     respostas: [],
@@ -107,12 +123,12 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
 
   // Handler para seleção de unidade
   const handleUnidadeSelect = (value: string) => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       unidade_id: value,
       unidade_path: [value],
-      pessoa_id: '',
-      pessoa_nome: '',
+      pessoa_id: "",
+      pessoa_nome: "",
       autoavaliacao_id: null,
       avaliacao_gestor_id: null,
       respostas: [],
@@ -125,10 +141,13 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
   const loadElegiveis = async (unidadeId: number) => {
     setLoadingElegiveis(true);
     try {
-      const data = await avaliacaoIntegradaApi.getElegiveis(unidadeId, tipoInventario || 'equipe');
+      const data = await avaliacaoIntegradaApi.getElegiveis(
+        unidadeId,
+        tipoInventario || "equipe",
+      );
       setElegiveis(data);
     } catch (err) {
-      console.error('Erro ao carregar elegiveis:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingElegiveis(false);
     }
@@ -136,10 +155,10 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
 
   // Handler para selecao de pessoa elegivel
   const handlePessoaSelect = async (pessoaId: string) => {
-    const pessoa = elegiveis.find(p => String(p.pessoa_id) === pessoaId);
+    const pessoa = elegiveis.find((p) => String(p.pessoa_id) === pessoaId);
     if (!pessoa) return;
 
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       pessoa_id: pessoaId,
       pessoa_nome: pessoa.pessoa_nome,
@@ -154,17 +173,20 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
     try {
       const unidadeId = Number(form.unidade_id);
       const [parData, tecnicasMatriz] = await Promise.all([
-        avaliacaoIntegradaApi.getParData(pessoa.autoavaliacao_id, pessoa.avaliacao_gestor_id),
+        avaliacaoIntegradaApi.getParData(
+          pessoa.autoavaliacao_id,
+          pessoa.avaliacao_gestor_id,
+        ),
         unidadeId
-          ? (tipoInventario === 'gestor'
+          ? (tipoInventario === "gestor"
               ? competenciasGestorApi.getCompetenciasGestorPorUnidade(unidadeId)
-              : competenciasGestorApi.getCompetenciasPorUnidade(unidadeId))
-              .catch(() => [] as CompetenciaPorUnidade[])
+              : competenciasGestorApi.getCompetenciasPorUnidade(unidadeId)
+            ).catch(() => [] as CompetenciaPorUnidade[])
           : Promise.resolve([] as CompetenciaPorUnidade[]),
       ]);
       buildRespostas(parData, pessoa, tecnicasMatriz);
     } catch (err) {
-      console.error('Erro ao carregar dados das avaliacoes:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingParData(false);
     }
@@ -173,9 +195,13 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
   // Construir respostas mescladas a partir dos dados do par.
   // tecnicasMatriz é a fonte de verdade das técnicas da unidade — todas devem
   // aparecer, mesmo que ausentes em uma das fontes (auto / gestor).
-  const buildRespostas = (parData: ParData, pessoa: PessoaElegivel, tecnicasMatriz: CompetenciaPorUnidade[]) => {
+  const buildRespostas = (
+    parData: ParData,
+    pessoa: PessoaElegivel,
+    tecnicasMatriz: CompetenciaPorUnidade[],
+  ) => {
     if (!parData.autoavaliacao || !parData.avaliacaoGestor) {
-      toast.error('Dados incompletos para a avaliação integrada.');
+      toast.error("Dados incompletos para a avaliação integrada.");
       return;
     }
 
@@ -183,16 +209,16 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
     const gestorRespostas = parData.avaliacaoGestor.respostas || [];
 
     // Criar mapa de respostas do gestor por competencia_nome + tipo
-    const gestorMap = new Map<string, typeof gestorRespostas[0]>();
-    gestorRespostas.forEach(r => {
-      const key = `${r.competencia_nome}|${r.tipo || 'tecnica'}`;
+    const gestorMap = new Map<string, (typeof gestorRespostas)[0]>();
+    gestorRespostas.forEach((r) => {
+      const key = `${r.competencia_nome}|${r.tipo || "tecnica"}`;
       gestorMap.set(key, r);
     });
 
     // Criar mapa de respostas da autoavaliacao por competencia_nome + tipo
-    const autoMap = new Map<string, typeof autoRespostas[0]>();
-    autoRespostas.forEach(r => {
-      const key = `${r.competencia_nome}|${r.tipo || 'tecnica'}`;
+    const autoMap = new Map<string, (typeof autoRespostas)[0]>();
+    autoRespostas.forEach((r) => {
+      const key = `${r.competencia_nome}|${r.tipo || "tecnica"}`;
       autoMap.set(key, r);
     });
 
@@ -214,53 +240,71 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
       // correspondente nas fontes. Isso garante 1-pra-1 mesmo com nomes repetidos.
       const consumedAuto = new Set<number>();
       const consumedGestor = new Set<number>();
-      const findUnused = (list: typeof autoRespostas, consumed: Set<number>, nome: string) => {
+      const findUnused = (
+        list: typeof autoRespostas,
+        consumed: Set<number>,
+        nome: string,
+      ) => {
         for (let i = 0; i < list.length; i++) {
           if (consumed.has(i)) continue;
           const r = list[i];
-          if ((r.tipo || 'tecnica') !== 'tecnica') continue;
+          if ((r.tipo || "tecnica") !== "tecnica") continue;
           if (r.competencia_nome !== nome) continue;
           consumed.add(i);
           return r;
         }
         return undefined;
       };
-      tecnicasMatriz.forEach(t => {
+      tecnicasMatriz.forEach((t) => {
         const autoResp = findUnused(autoRespostas, consumedAuto, t.nome);
         const gestorResp = findUnused(gestorRespostas, consumedGestor, t.nome);
         merged.push({
-          competencia_unidade_id: tipoInventario === 'gestor' ? undefined : t.id,
+          competencia_unidade_id:
+            tipoInventario === "gestor" ? undefined : t.id,
           competencia_nome: t.nome,
-          competencia_descricao: t.descricao || '',
+          competencia_descricao: t.descricao || "",
           nota_autoavaliacao: sanitizeNota(autoResp?.nota),
           nota_gestor: sanitizeNota(gestorResp?.nota),
-          nota_integrada: '',
-          comentario: '',
-          comentario_autoavaliacao: autoResp?.comentario || '',
-          comentario_gestor: gestorResp?.comentario || '',
-          tipo: 'tecnica',
+          nota_integrada: "",
+          comentario: "",
+          comentario_autoavaliacao: autoResp?.comentario || "",
+          comentario_gestor: gestorResp?.comentario || "",
+          tipo: "tecnica",
         });
       });
     } else {
       // Fallback: união das técnicas presentes nas duas fontes
       const tecnicasKeys = new Set<string>();
-      autoRespostas.forEach(r => { if ((r.tipo || 'tecnica') === 'tecnica') tecnicasKeys.add(`${r.competencia_nome}|tecnica`); });
-      gestorRespostas.forEach(r => { if ((r.tipo || 'tecnica') === 'tecnica') tecnicasKeys.add(`${r.competencia_nome}|tecnica`); });
-      tecnicasKeys.forEach(key => {
+      autoRespostas.forEach((r) => {
+        if ((r.tipo || "tecnica") === "tecnica")
+          tecnicasKeys.add(`${r.competencia_nome}|tecnica`);
+      });
+      gestorRespostas.forEach((r) => {
+        if ((r.tipo || "tecnica") === "tecnica")
+          tecnicasKeys.add(`${r.competencia_nome}|tecnica`);
+      });
+      tecnicasKeys.forEach((key) => {
         const autoResp = autoMap.get(key);
         const gestorResp = gestorMap.get(key);
-        const [nome] = key.split('|');
+        const [nome] = key.split("|");
         merged.push({
-          competencia_unidade_id: tipoInventario === 'gestor' ? undefined : (autoResp?.competencia_unidade_id || gestorResp?.competencia_unidade_id),
+          competencia_unidade_id:
+            tipoInventario === "gestor"
+              ? undefined
+              : autoResp?.competencia_unidade_id ||
+                gestorResp?.competencia_unidade_id,
           competencia_nome: nome,
-          competencia_descricao: autoResp?.competencia_descricao || gestorResp?.competencia_descricao || '',
+          competencia_descricao:
+            autoResp?.competencia_descricao ||
+            gestorResp?.competencia_descricao ||
+            "",
           nota_autoavaliacao: sanitizeNota(autoResp?.nota),
           nota_gestor: sanitizeNota(gestorResp?.nota),
-          nota_integrada: '',
-          comentario: '',
-          comentario_autoavaliacao: autoResp?.comentario || '',
-          comentario_gestor: gestorResp?.comentario || '',
-          tipo: 'tecnica',
+          nota_integrada: "",
+          comentario: "",
+          comentario_autoavaliacao: autoResp?.comentario || "",
+          comentario_gestor: gestorResp?.comentario || "",
+          tipo: "tecnica",
         });
       });
     }
@@ -268,25 +312,42 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
     // 2) COMPORTAMENTAIS / ESTRATÉGICAS / GERENCIAIS — união das fontes
     //    (vêm dos padrões correntes; cada fonte foi preenchida com os padrões
     //    do momento em que foi salva, então a união cobre o que existe).
-    const padraoTipos: Array<'comportamental' | 'estrategica' | 'gerencial'> = ['comportamental', 'estrategica', 'gerencial'];
-    padraoTipos.forEach(tipo => {
+    const padraoTipos: Array<"comportamental" | "estrategica" | "gerencial"> = [
+      "comportamental",
+      "estrategica",
+      "gerencial",
+    ];
+    padraoTipos.forEach((tipo) => {
       const keys = new Set<string>();
-      autoRespostas.forEach(r => { if ((r.tipo || 'tecnica') === tipo) keys.add(`${r.competencia_nome}|${tipo}`); });
-      gestorRespostas.forEach(r => { if ((r.tipo || 'tecnica') === tipo) keys.add(`${r.competencia_nome}|${tipo}`); });
-      keys.forEach(key => {
+      autoRespostas.forEach((r) => {
+        if ((r.tipo || "tecnica") === tipo)
+          keys.add(`${r.competencia_nome}|${tipo}`);
+      });
+      gestorRespostas.forEach((r) => {
+        if ((r.tipo || "tecnica") === tipo)
+          keys.add(`${r.competencia_nome}|${tipo}`);
+      });
+      keys.forEach((key) => {
         const autoResp = autoMap.get(key);
         const gestorResp = gestorMap.get(key);
-        const [nome] = key.split('|');
+        const [nome] = key.split("|");
         merged.push({
-          competencia_unidade_id: tipoInventario === 'gestor' ? undefined : (autoResp?.competencia_unidade_id || gestorResp?.competencia_unidade_id),
+          competencia_unidade_id:
+            tipoInventario === "gestor"
+              ? undefined
+              : autoResp?.competencia_unidade_id ||
+                gestorResp?.competencia_unidade_id,
           competencia_nome: nome,
-          competencia_descricao: autoResp?.competencia_descricao || gestorResp?.competencia_descricao || '',
+          competencia_descricao:
+            autoResp?.competencia_descricao ||
+            gestorResp?.competencia_descricao ||
+            "",
           nota_autoavaliacao: sanitizeNota(autoResp?.nota),
           nota_gestor: sanitizeNota(gestorResp?.nota),
-          nota_integrada: '',
-          comentario: '',
-          comentario_autoavaliacao: autoResp?.comentario || '',
-          comentario_gestor: gestorResp?.comentario || '',
+          nota_integrada: "",
+          comentario: "",
+          comentario_autoavaliacao: autoResp?.comentario || "",
+          comentario_gestor: gestorResp?.comentario || "",
           tipo,
         });
       });
@@ -296,10 +357,17 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
     void pessoa;
 
     // Ordenar: tecnicas, comportamentais, estrategicas, gerenciais
-    const tipoOrder: Record<string, number> = { tecnica: 0, comportamental: 1, estrategica: 2, gerencial: 3 };
-    merged.sort((a, b) => (tipoOrder[a.tipo] ?? 99) - (tipoOrder[b.tipo] ?? 99));
+    const tipoOrder: Record<string, number> = {
+      tecnica: 0,
+      comportamental: 1,
+      estrategica: 2,
+      gerencial: 3,
+    };
+    merged.sort(
+      (a, b) => (tipoOrder[a.tipo] ?? 99) - (tipoOrder[b.tipo] ?? 99),
+    );
 
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       autoavaliacao_id: pessoa.autoavaliacao_id,
       avaliacao_gestor_id: pessoa.avaliacao_gestor_id,
@@ -312,9 +380,10 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
     const load = async () => {
       try {
         // Para Avaliação Integrada do Gestor (tipoInventario='gestor'), carregar unidades macroárea do domínio
-        const fetchUnidades = tipoInventario === 'gestor'
-          ? competenciasGestorApi.getUnidadesLideranca()
-          : competenciasGestorApi.getUnidadesAutorizadasInventario();
+        const fetchUnidades =
+          tipoInventario === "gestor"
+            ? competenciasGestorApi.getUnidadesLideranca()
+            : competenciasGestorApi.getUnidadesAutorizadasInventario();
 
         const [allAreas, autorizadas] = await Promise.all([
           areasApi.getAll(),
@@ -322,10 +391,11 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
         ]);
 
         if (allAreas.length > 0) {
-          const userArea = allAreas.find(a => a.sigla === user?.diretoria)
-            || allAreas.find(a => a.is_domain_root === true)
-            || allAreas[0];
-          setDiretoriaUsuario(userArea?.sigla || userArea?.nome || '');
+          const userArea =
+            allAreas.find((a) => a.sigla === user?.diretoria) ||
+            allAreas.find((a) => a.is_domain_root === true) ||
+            allAreas[0];
+          setDiretoriaUsuario(userArea?.sigla || userArea?.nome || "");
         }
 
         setUnidadesAutorizadas(autorizadas);
@@ -333,7 +403,8 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
         if (isEditMode && formularioEdit) {
           // Pré-popular a partir do formulário existente
           const autoavaliacao_id = (formularioEdit as any).autoavaliacao_id;
-          const avaliacao_gestor_id = (formularioEdit as any).avaliacao_gestor_id;
+          const avaliacao_gestor_id = (formularioEdit as any)
+            .avaliacao_gestor_id;
           const respostasV1 = formularioEdit.respostas || [];
 
           // Buscar dados ATUAIS de autoavaliação + avaliação_gestor (já podem ter sido re-validadas
@@ -346,14 +417,23 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
               // Carregar parData (auto + gestor) e a matriz da unidade em paralelo.
               // A matriz é a fonte de verdade das técnicas — assim a integrada
               // sempre traz TODAS as técnicas cadastradas, mesmo as duplicadas.
-              const unidadeIdEdit = formularioEdit.unidade_id ? Number(formularioEdit.unidade_id) : null;
+              const unidadeIdEdit = formularioEdit.unidade_id
+                ? Number(formularioEdit.unidade_id)
+                : null;
               const [parData, tecnicasMatriz] = await Promise.all([
-                avaliacaoIntegradaApi.getParData(autoavaliacao_id, avaliacao_gestor_id),
+                avaliacaoIntegradaApi.getParData(
+                  autoavaliacao_id,
+                  avaliacao_gestor_id,
+                ),
                 unidadeIdEdit
-                  ? (tipoInventario === 'gestor'
-                      ? competenciasGestorApi.getCompetenciasGestorPorUnidade(unidadeIdEdit)
-                      : competenciasGestorApi.getCompetenciasPorUnidade(unidadeIdEdit))
-                      .catch(() => [] as CompetenciaPorUnidade[])
+                  ? (tipoInventario === "gestor"
+                      ? competenciasGestorApi.getCompetenciasGestorPorUnidade(
+                          unidadeIdEdit,
+                        )
+                      : competenciasGestorApi.getCompetenciasPorUnidade(
+                          unidadeIdEdit,
+                        )
+                    ).catch(() => [] as CompetenciaPorUnidade[])
                   : Promise.resolve([] as CompetenciaPorUnidade[]),
               ]);
               if (parData?.autoavaliacao && parData?.avaliacaoGestor) {
@@ -370,11 +450,16 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                 const consumedAuto = new Set<number>();
                 const consumedGestor = new Set<number>();
                 const consumedV1 = new Set<number>();
-                const findUnused = (list: any[], consumed: Set<number>, tipo: string, nome: string) => {
+                const findUnused = (
+                  list: any[],
+                  consumed: Set<number>,
+                  tipo: string,
+                  nome: string,
+                ) => {
                   for (let i = 0; i < list.length; i++) {
                     if (consumed.has(i)) continue;
                     const r = list[i];
-                    if ((r.tipo || 'tecnica') !== tipo) continue;
+                    if ((r.tipo || "tecnica") !== tipo) continue;
                     if (r.competencia_nome !== nome) continue;
                     consumed.add(i);
                     return r;
@@ -382,29 +467,58 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                   return undefined;
                 };
 
-                const pushItem = (nome: string, tipo: 'tecnica' | 'comportamental' | 'estrategica' | 'gerencial', a: any, g: any, descMatriz?: string, idMatriz?: number) => {
+                const pushItem = (
+                  nome: string,
+                  tipo:
+                    | "tecnica"
+                    | "comportamental"
+                    | "estrategica"
+                    | "gerencial",
+                  a: any,
+                  g: any,
+                  descMatriz?: string,
+                  idMatriz?: number,
+                ) => {
                   const v1 = findUnused(respostasV1, consumedV1, tipo, nome);
                   const notaAuto = sanitizeNota(a?.nota);
                   const notaGestor = sanitizeNota(g?.nota);
-                  const v1NotaAuto = v1 && v1.nota_autoavaliacao != null ? Number(v1.nota_autoavaliacao) : null;
-                  const v1NotaGestor = v1 && v1.nota_gestor != null ? Number(v1.nota_gestor) : null;
-                  const desc = descMatriz || a?.competencia_descricao || g?.competencia_descricao || '';
-                  const inalterado = !!v1
-                    && (v1.competencia_descricao || '') === desc
-                    && v1NotaAuto === notaAuto
-                    && v1NotaGestor === notaGestor;
+                  const v1NotaAuto =
+                    v1 && v1.nota_autoavaliacao != null
+                      ? Number(v1.nota_autoavaliacao)
+                      : null;
+                  const v1NotaGestor =
+                    v1 && v1.nota_gestor != null
+                      ? Number(v1.nota_gestor)
+                      : null;
+                  const desc =
+                    descMatriz ||
+                    a?.competencia_descricao ||
+                    g?.competencia_descricao ||
+                    "";
+                  const inalterado =
+                    !!v1 &&
+                    (v1.competencia_descricao || "") === desc &&
+                    v1NotaAuto === notaAuto &&
+                    v1NotaGestor === notaGestor;
                   const key = `${nome}|${tipo}`;
                   if (!inalterado) changedSet.add(key);
                   respostasFinais.push({
-                    competencia_unidade_id: tipoInventario === 'gestor' ? undefined : (idMatriz ?? a?.competencia_unidade_id ?? g?.competencia_unidade_id),
+                    competencia_unidade_id:
+                      tipoInventario === "gestor"
+                        ? undefined
+                        : (idMatriz ??
+                          a?.competencia_unidade_id ??
+                          g?.competencia_unidade_id),
                     competencia_nome: nome,
                     competencia_descricao: desc,
                     nota_autoavaliacao: notaAuto,
                     nota_gestor: notaGestor,
-                    nota_integrada: inalterado ? String(v1?.nota_integrada || '') : '',
-                    comentario: inalterado ? (v1?.comentario || '') : '',
-                    comentario_autoavaliacao: a?.comentario || '',
-                    comentario_gestor: g?.comentario || '',
+                    nota_integrada: inalterado
+                      ? String(v1?.nota_integrada || "")
+                      : "",
+                    comentario: inalterado ? v1?.comentario || "" : "",
+                    comentario_autoavaliacao: a?.comentario || "",
+                    comentario_gestor: g?.comentario || "",
                     tipo,
                   });
                 };
@@ -413,32 +527,61 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                 //    ocorrência puxa uma resposta auto/gestor que ainda não foi
                 //    consumida (preserva duplicatas com mesmo nome).
                 if (tecnicasMatriz && tecnicasMatriz.length > 0) {
-                  tecnicasMatriz.forEach(t => {
-                    const a = findUnused(autoR, consumedAuto, 'tecnica', t.nome);
-                    const g = findUnused(gestorR, consumedGestor, 'tecnica', t.nome);
-                    pushItem(t.nome, 'tecnica', a, g, t.descricao || '', t.id);
+                  tecnicasMatriz.forEach((t) => {
+                    const a = findUnused(
+                      autoR,
+                      consumedAuto,
+                      "tecnica",
+                      t.nome,
+                    );
+                    const g = findUnused(
+                      gestorR,
+                      consumedGestor,
+                      "tecnica",
+                      t.nome,
+                    );
+                    pushItem(t.nome, "tecnica", a, g, t.descricao || "", t.id);
                   });
                 } else {
                   // Fallback: união das técnicas presentes nas duas fontes.
                   const tecnicasSet = new Set<string>();
-                  autoR.forEach(r => { if ((r.tipo || 'tecnica') === 'tecnica') tecnicasSet.add(`${r.competencia_nome}|tecnica`); });
-                  gestorR.forEach(r => { if ((r.tipo || 'tecnica') === 'tecnica') tecnicasSet.add(`${r.competencia_nome}|tecnica`); });
-                  tecnicasSet.forEach(key => {
-                    const [nome] = key.split('|');
-                    const a = findUnused(autoR, consumedAuto, 'tecnica', nome);
-                    const g = findUnused(gestorR, consumedGestor, 'tecnica', nome);
-                    pushItem(nome, 'tecnica', a, g);
+                  autoR.forEach((r) => {
+                    if ((r.tipo || "tecnica") === "tecnica")
+                      tecnicasSet.add(`${r.competencia_nome}|tecnica`);
+                  });
+                  gestorR.forEach((r) => {
+                    if ((r.tipo || "tecnica") === "tecnica")
+                      tecnicasSet.add(`${r.competencia_nome}|tecnica`);
+                  });
+                  tecnicasSet.forEach((key) => {
+                    const [nome] = key.split("|");
+                    const a = findUnused(autoR, consumedAuto, "tecnica", nome);
+                    const g = findUnused(
+                      gestorR,
+                      consumedGestor,
+                      "tecnica",
+                      nome,
+                    );
+                    pushItem(nome, "tecnica", a, g);
                   });
                 }
 
                 // 2) COMPORTAMENTAIS / ESTRATÉGICAS / GERENCIAIS — união entre fontes.
-                const padraoTipos: Array<'comportamental' | 'estrategica' | 'gerencial'> = ['comportamental', 'estrategica', 'gerencial'];
-                padraoTipos.forEach(tipo => {
+                const padraoTipos: Array<
+                  "comportamental" | "estrategica" | "gerencial"
+                > = ["comportamental", "estrategica", "gerencial"];
+                padraoTipos.forEach((tipo) => {
                   const keys = new Set<string>();
-                  autoR.forEach(r => { if ((r.tipo || 'tecnica') === tipo) keys.add(`${r.competencia_nome}|${tipo}`); });
-                  gestorR.forEach(r => { if ((r.tipo || 'tecnica') === tipo) keys.add(`${r.competencia_nome}|${tipo}`); });
-                  keys.forEach(key => {
-                    const [nome] = key.split('|');
+                  autoR.forEach((r) => {
+                    if ((r.tipo || "tecnica") === tipo)
+                      keys.add(`${r.competencia_nome}|${tipo}`);
+                  });
+                  gestorR.forEach((r) => {
+                    if ((r.tipo || "tecnica") === tipo)
+                      keys.add(`${r.competencia_nome}|${tipo}`);
+                  });
+                  keys.forEach((key) => {
+                    const [nome] = key.split("|");
                     const a = findUnused(autoR, consumedAuto, tipo, nome);
                     const g = findUnused(gestorR, consumedGestor, tipo, nome);
                     pushItem(nome, tipo, a, g);
@@ -446,7 +589,7 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                 });
               }
             } catch (errPar) {
-              console.error('Erro ao buscar parData em edit mode:', errPar);
+              /* erro já tratado pelo apiClient ou ignorado intencionalmente */
             }
           }
 
@@ -455,25 +598,43 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
             respostasFinais = respostasV1.map((r: any) => ({
               competencia_unidade_id: r.competencia_unidade_id || undefined,
               competencia_nome: r.competencia_nome,
-              competencia_descricao: r.competencia_descricao || '',
-              nota_autoavaliacao: r.nota_autoavaliacao != null ? Number(r.nota_autoavaliacao) : null,
+              competencia_descricao: r.competencia_descricao || "",
+              nota_autoavaliacao:
+                r.nota_autoavaliacao != null
+                  ? Number(r.nota_autoavaliacao)
+                  : null,
               nota_gestor: r.nota_gestor != null ? Number(r.nota_gestor) : null,
-              nota_integrada: String(r.nota_integrada || ''),
-              comentario: r.comentario || '',
-              comentario_autoavaliacao: r.comentario_autoavaliacao || '',
-              comentario_gestor: r.comentario_gestor || '',
-              tipo: (r.tipo || 'tecnica') as 'tecnica' | 'comportamental' | 'estrategica' | 'gerencial',
+              nota_integrada: String(r.nota_integrada || ""),
+              comentario: r.comentario || "",
+              comentario_autoavaliacao: r.comentario_autoavaliacao || "",
+              comentario_gestor: r.comentario_gestor || "",
+              tipo: (r.tipo || "tecnica") as
+                | "tecnica"
+                | "comportamental"
+                | "estrategica"
+                | "gerencial",
             }));
           }
 
           // Ordenar: tecnicas, comportamentais, estrategicas, gerenciais
-          const tipoOrder: Record<string, number> = { tecnica: 0, comportamental: 1, estrategica: 2, gerencial: 3 };
-          respostasFinais.sort((a, b) => (tipoOrder[a.tipo] ?? 99) - (tipoOrder[b.tipo] ?? 99));
+          const tipoOrder: Record<string, number> = {
+            tecnica: 0,
+            comportamental: 1,
+            estrategica: 2,
+            gerencial: 3,
+          };
+          respostasFinais.sort(
+            (a, b) => (tipoOrder[a.tipo] ?? 99) - (tipoOrder[b.tipo] ?? 99),
+          );
 
           setChangedKeys(changedSet);
           setForm({
-            unidade_id: formularioEdit.unidade_id ? String(formularioEdit.unidade_id) : '',
-            unidade_path: formularioEdit.unidade_id ? [String(formularioEdit.unidade_id)] : [],
+            unidade_id: formularioEdit.unidade_id
+              ? String(formularioEdit.unidade_id)
+              : "",
+            unidade_path: formularioEdit.unidade_id
+              ? [String(formularioEdit.unidade_id)]
+              : [],
             pessoa_id: String(formularioEdit.pessoa_id),
             pessoa_nome: formularioEdit.pessoa_nome,
             autoavaliacao_id,
@@ -482,7 +643,7 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
           });
         } else if (autorizadas.length === 1) {
           const u = autorizadas[0];
-          setForm(prev => ({
+          setForm((prev) => ({
             ...prev,
             unidade_id: String(u.id),
             unidade_path: [String(u.id)],
@@ -490,7 +651,7 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
           loadElegiveis(u.id);
         }
       } catch (err) {
-        console.error('Erro ao carregar dados:', err);
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       } finally {
         setLoadingUnidades(false);
       }
@@ -499,8 +660,12 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
   }, []);
 
   // Handlers
-  const updateResposta = (index: number, field: 'nota_integrada' | 'comentario', value: string) => {
-    setForm(prev => {
+  const updateResposta = (
+    index: number,
+    field: "nota_integrada" | "comentario",
+    value: string,
+  ) => {
+    setForm((prev) => {
       const respostas = [...prev.respostas];
       respostas[index] = { ...respostas[index], [field]: value };
       return { ...prev, respostas };
@@ -509,14 +674,14 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
 
   const handleSubmit = async () => {
     // Validacao
-    if (!form.unidade_id) return toast.error('Selecione a unidade.');
-    if (!form.pessoa_id) return toast.error('Selecione o colaborador.');
+    if (!form.unidade_id) return toast.error("Selecione a unidade.");
+    if (!form.pessoa_id) return toast.error("Selecione o colaborador.");
     if (!form.autoavaliacao_id || !form.avaliacao_gestor_id) {
-      return toast.error('Dados das avaliações não encontrados.');
+      return toast.error("Dados das avaliações não encontrados.");
     }
 
     if (form.respostas.length === 0) {
-      return toast.error('Nenhuma competência encontrada para avaliar.');
+      return toast.error("Nenhuma competência encontrada para avaliar.");
     }
 
     for (let i = 0; i < form.respostas.length; i++) {
@@ -524,17 +689,22 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
       // Em modo edição, itens travados (inalterados) preservam dados v1 — não validam.
       if (isEditMode && !isItemChanged(r.competencia_nome, r.tipo)) continue;
       if (!r.nota_integrada) {
-        return toast.error(`Selecione a nota integrada para a competência "${r.competencia_nome}".`);
+        return toast.error(
+          `Selecione a nota integrada para a competência "${r.competencia_nome}".`,
+        );
       }
       if (!r.comentario.trim()) {
-        return toast.error(`Preencha o comentário para a competência "${r.competencia_nome}".`);
+        return toast.error(
+          `Preencha o comentário para a competência "${r.competencia_nome}".`,
+        );
       }
     }
 
     setSaving(true);
     try {
-      const respostas = form.respostas.map(r => ({
-        competencia_unidade_id: tipoInventario === 'gestor' ? undefined : r.competencia_unidade_id,
+      const respostas = form.respostas.map((r) => ({
+        competencia_unidade_id:
+          tipoInventario === "gestor" ? undefined : r.competencia_unidade_id,
         competencia_nome: r.competencia_nome,
         competencia_descricao: r.competencia_descricao || undefined,
         nota_autoavaliacao: r.nota_autoavaliacao,
@@ -549,17 +719,18 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
         avaliacao_gestor_id: form.avaliacao_gestor_id!,
         pessoa_id: Number(form.pessoa_id),
         pessoa_nome: form.pessoa_nome,
-        avaliador_nome: user?.name || '',
+        avaliador_nome: user?.name || "",
         diretoria: diretoriaUsuario,
         unidade_id: form.unidade_id ? Number(form.unidade_id) : undefined,
-        tipo_inventario: tipoInventario || 'equipe',
+        tipo_inventario: tipoInventario || "equipe",
         respostas,
       };
 
       const result = await avaliacaoIntegradaApi.create(payload);
-      
+
       if (onSubmitted && result) onSubmitted(result);
     } catch (err: any) {
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -569,11 +740,22 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
   // índice REAL da resposta em form.respostas. Usar findIndex direto no JSX
   // falhava com nomes duplicados (sempre apontava pra primeira ocorrência —
   // bloqueando a interação com as demais). Aqui cada item tem seu índice próprio.
-  const respostasComIndice = form.respostas.map((resposta, globalIndex) => ({ resposta, globalIndex }));
-  const respostasTecnicas = respostasComIndice.filter(x => x.resposta.tipo === 'tecnica');
-  const respostasComportamentais = respostasComIndice.filter(x => x.resposta.tipo === 'comportamental');
-  const respostasEstrategicas = respostasComIndice.filter(x => x.resposta.tipo === 'estrategica');
-  const respostasGerenciais = respostasComIndice.filter(x => x.resposta.tipo === 'gerencial');
+  const respostasComIndice = form.respostas.map((resposta, globalIndex) => ({
+    resposta,
+    globalIndex,
+  }));
+  const respostasTecnicas = respostasComIndice.filter(
+    (x) => x.resposta.tipo === "tecnica",
+  );
+  const respostasComportamentais = respostasComIndice.filter(
+    (x) => x.resposta.tipo === "comportamental",
+  );
+  const respostasEstrategicas = respostasComIndice.filter(
+    (x) => x.resposta.tipo === "estrategica",
+  );
+  const respostasGerenciais = respostasComIndice.filter(
+    (x) => x.resposta.tipo === "gerencial",
+  );
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -585,21 +767,30 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
           </div>
           <div className="text-base text-gray-700 space-y-4">
             <p>
-              <strong className="text-gray-900">Avaliação Integrada:</strong> Nesta etapa, são analisadas
-              conjuntamente a autoavaliação do colaborador e a avaliação do gestor, permitindo a definição
+              <strong className="text-gray-900">Avaliação Integrada:</strong>{" "}
+              Nesta etapa, são analisadas conjuntamente a autoavaliação do
+              colaborador e a avaliação do gestor, permitindo a definição
               consensual da nota final de cada competência.
             </p>
             <p>
-              Este momento é destinado ao alinhamento de percepções e à troca de feedback entre gestor e
-              colaborador, contribuindo para uma avaliação mais transparente e aderente ao desempenho
-              apresentado.
+              Este momento é destinado ao alinhamento de percepções e à troca de
+              feedback entre gestor e colaborador, contribuindo para uma
+              avaliação mais transparente e aderente ao desempenho apresentado.
             </p>
             <p className="font-semibold text-gray-900">Orientações:</p>
             <ul className="list-disc ml-6 space-y-2">
               <li>Selecione a unidade e o colaborador elegível.</li>
-              <li>Compare as notas da autoavaliação e da avaliação do gestor.</li>
-              <li>Defina a nota de consenso (avaliação integrada) para cada competência.</li>
-              <li>Utilize o campo de comentários para registrar observações relevantes sobre o consenso definido, quando aplicável.</li>
+              <li>
+                Compare as notas da autoavaliação e da avaliação do gestor.
+              </li>
+              <li>
+                Defina a nota de consenso (avaliação integrada) para cada
+                competência.
+              </li>
+              <li>
+                Utilize o campo de comentários para registrar observações
+                relevantes sobre o consenso definido, quando aplicável.
+              </li>
             </ul>
           </div>
         </div>
@@ -612,8 +803,12 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
         </CardHeader>
         <CardContent>
           <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-            <span className="text-sm text-gray-500">Identificação da Diretoria</span>
-            <p className="font-medium text-gray-800 mt-0.5">{diretoriaUsuario || 'Carregando...'}</p>
+            <span className="text-sm text-gray-500">
+              Identificação da Diretoria
+            </span>
+            <p className="font-medium text-gray-800 mt-0.5">
+              {diretoriaUsuario || "Carregando..."}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -625,10 +820,14 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
-            <Label>Identificação da Unidade <span className="text-red-500">*</span></Label>
+            <Label>
+              Identificação da Unidade <span className="text-red-500">*</span>
+            </Label>
             {isEditMode ? (
               <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-                <p className="font-medium text-gray-800">{formularioEdit?.unidade_nome || '-'}</p>
+                <p className="font-medium text-gray-800">
+                  {formularioEdit?.unidade_nome || "-"}
+                </p>
               </div>
             ) : loadingUnidades ? (
               <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
@@ -639,12 +838,15 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-amber-700">
-                  Nenhuma unidade autorizada encontrada para seu usuário. Verifique com o administrador.
+                  Nenhuma unidade autorizada encontrada para seu usuário.
+                  Verifique com o administrador.
                 </p>
               </div>
             ) : unidadesAutorizadas.length === 1 ? (
               <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-                <p className="font-medium text-gray-800">{unidadesAutorizadas[0].nome}</p>
+                <p className="font-medium text-gray-800">
+                  {unidadesAutorizadas[0].nome}
+                </p>
               </div>
             ) : (
               <>
@@ -656,8 +858,10 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                     <SelectValue placeholder="Selecione a unidade" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    {unidadesAutorizadas.map(u => (
-                      <SelectItem key={u.id} value={String(u.id)}>{u.nome}</SelectItem>
+                    {unidadesAutorizadas.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.nome}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -674,7 +878,10 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
             <CardTitle className="text-lg">Colaborador</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Label>Selecione o colaborador {!isEditMode && <span className="text-red-500">*</span>}</Label>
+            <Label>
+              Selecione o colaborador{" "}
+              {!isEditMode && <span className="text-red-500">*</span>}
+            </Label>
             {isEditMode ? (
               <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
                 <p className="font-medium text-gray-800">{form.pessoa_nome}</p>
@@ -688,8 +895,9 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-amber-700">
-                  Nenhum colaborador elegível para avaliação integrada nesta unidade.
-                  Ambas as avaliações (autoavaliação e avaliação do gestor) precisam estar preenchidas.
+                  Nenhum colaborador elegível para avaliação integrada nesta
+                  unidade. Ambas as avaliações (autoavaliação e avaliação do
+                  gestor) precisam estar preenchidas.
                 </p>
               </div>
             ) : (
@@ -698,7 +906,7 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                   <SelectValue placeholder="Selecione o colaborador" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {elegiveis.map(p => (
+                  {elegiveis.map((p) => (
                     <SelectItem key={p.pessoa_id} value={String(p.pessoa_id)}>
                       {p.pessoa_nome}
                     </SelectItem>
@@ -727,35 +935,54 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                 <Info className="h-5 w-5 text-amber-600" />
               </div>
               <div className="text-base text-gray-700 space-y-4">
-                <p className="font-semibold text-gray-900 text-lg">Competências Técnicas</p>
-                <p>
-                  Compare as notas da autoavaliação e da avaliação do gestor para definir a nota de consenso de cada competência.
+                <p className="font-semibold text-gray-900 text-lg">
+                  Competências Técnicas
                 </p>
-                <p className="font-semibold text-gray-900">Escala de Avaliação:</p>
+                <p>
+                  Compare as notas da autoavaliação e da avaliação do gestor
+                  para definir a nota de consenso de cada competência.
+                </p>
+                <p className="font-semibold text-gray-900">
+                  Escala de Avaliação:
+                </p>
                 <EscalaLegenda items={ESCALA_NOTAS} />
               </div>
             </div>
           </div>
 
           {respostasTecnicas.map(({ resposta, globalIndex }, index) => {
-            const isChanged = isItemChanged(resposta.competencia_nome, resposta.tipo);
+            const isChanged = isItemChanged(
+              resposta.competencia_nome,
+              resposta.tipo,
+            );
             const isLocked = isEditMode && !isChanged;
 
             return (
-              <Card key={`tec-${index}`} className="border border-gray-200 shadow-sm">
+              <Card
+                key={`tec-${index}`}
+                className="border border-gray-200 shadow-sm"
+              >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <span className="text-teal-600 font-bold mr-2">{index + 1}.</span>
+                    <span className="text-teal-600 font-bold mr-2">
+                      {index + 1}.
+                    </span>
                     <span className="flex-1">{resposta.competencia_nome}</span>
                     {isEditMode && isChanged && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">Alterada</span>
+                      <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                        Alterada
+                      </span>
                     )}
                     {isLocked && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">Travada</span>
+                      <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">
+                        Travada
+                      </span>
                     )}
                   </CardTitle>
                   {resposta.competencia_descricao && (
-                    <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">{resposta.competencia_descricao}</p>
+                    <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">
+                      {resposta.competencia_descricao}
+                    </p>
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -763,48 +990,78 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                   <div className="space-y-3">
                     <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Autoavaliação do Colaborador:</span>
-                        {renderNotaBadge(resposta.nota_autoavaliacao, NOTA_TECNICA_LABELS)}
+                        <span className="text-sm font-medium text-gray-700">
+                          Autoavaliação do Colaborador:
+                        </span>
+                        {renderNotaBadge(
+                          resposta.nota_autoavaliacao,
+                          NOTA_TECNICA_LABELS,
+                        )}
                       </div>
                       {resposta.comentario_autoavaliacao && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_autoavaliacao}"</p>
+                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                          "{resposta.comentario_autoavaliacao}"
+                        </p>
                       )}
                     </div>
                     <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Avaliação do Gestor:</span>
-                        {renderNotaBadge(resposta.nota_gestor, NOTA_TECNICA_LABELS)}
+                        <span className="text-sm font-medium text-gray-700">
+                          Avaliação do Gestor:
+                        </span>
+                        {renderNotaBadge(
+                          resposta.nota_gestor,
+                          NOTA_TECNICA_LABELS,
+                        )}
                       </div>
                       {resposta.comentario_gestor && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_gestor}"</p>
+                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                          "{resposta.comentario_gestor}"
+                        </p>
                       )}
                     </div>
                   </div>
 
                   {/* Nota integrada */}
-                  <fieldset disabled={isLocked} className={isLocked ? 'opacity-70' : ''}>
-                  <div>
-                    <Label>Avaliação Integrada (consenso) <span className="text-red-500">*</span></Label>
-                    <EscalaRadioGroup
-                      items={ESCALA_NOTAS}
-                      name={`nota-integrada-tec-${index}`}
-                      value={resposta.nota_integrada}
-                      onChange={v => updateResposta(globalIndex, 'nota_integrada', v)}
-                      accentColor="teal"
-                    />
-                  </div>
+                  <fieldset
+                    disabled={isLocked}
+                    className={isLocked ? "opacity-70" : ""}
+                  >
+                    <div>
+                      <Label>
+                        Avaliação Integrada (consenso){" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <EscalaRadioGroup
+                        items={ESCALA_NOTAS}
+                        name={`nota-integrada-tec-${index}`}
+                        value={resposta.nota_integrada}
+                        onChange={(v) =>
+                          updateResposta(globalIndex, "nota_integrada", v)
+                        }
+                        accentColor="teal"
+                      />
+                    </div>
 
-                  {/* Comentário */}
-                  <div>
-                    <Label>Comentário <span className="text-red-500">*</span></Label>
-                    <Textarea
-                      value={resposta.comentario}
-                      onChange={e => updateResposta(globalIndex, 'comentario', e.target.value)}
-                      placeholder="Observações sobre o consenso"
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
+                    {/* Comentário */}
+                    <div>
+                      <Label>
+                        Comentário <span className="text-red-500">*</span>
+                      </Label>
+                      <Textarea
+                        value={resposta.comentario}
+                        onChange={(e) =>
+                          updateResposta(
+                            globalIndex,
+                            "comentario",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Observações sobre o consenso"
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
                   </fieldset>
                 </CardContent>
               </Card>
@@ -814,191 +1071,299 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
       )}
 
       {/* Secao - Competencias Comportamentais */}
-      {form.pessoa_id && !loadingParData && respostasComportamentais.length > 0 && (
-        <>
-          <div className="rounded-xl bg-violet-50 border border-violet-200 p-8">
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Info className="h-5 w-5 text-violet-600" />
-              </div>
-              <div className="text-base text-gray-700 space-y-4">
-                <p className="font-semibold text-gray-900 text-lg">Competências Comportamentais</p>
-                <p>
-                  Compare as notas da autoavaliação e da avaliação do gestor para definir a nota de consenso de cada competência.
-                </p>
-                <p className="font-semibold text-gray-900">Escala de Avaliação:</p>
-                <EscalaLegenda items={ESCALA_COMPORTAMENTAL} />
+      {form.pessoa_id &&
+        !loadingParData &&
+        respostasComportamentais.length > 0 && (
+          <>
+            <div className="rounded-xl bg-violet-50 border border-violet-200 p-8">
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Info className="h-5 w-5 text-violet-600" />
+                </div>
+                <div className="text-base text-gray-700 space-y-4">
+                  <p className="font-semibold text-gray-900 text-lg">
+                    Competências Comportamentais
+                  </p>
+                  <p>
+                    Compare as notas da autoavaliação e da avaliação do gestor
+                    para definir a nota de consenso de cada competência.
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    Escala de Avaliação:
+                  </p>
+                  <EscalaLegenda items={ESCALA_COMPORTAMENTAL} />
+                </div>
               </div>
             </div>
-          </div>
 
-          {respostasComportamentais.map(({ resposta, globalIndex }, index) => {
-            const isChanged = isItemChanged(resposta.competencia_nome, resposta.tipo);
-            const isLocked = isEditMode && !isChanged;
+            {respostasComportamentais.map(
+              ({ resposta, globalIndex }, index) => {
+                const isChanged = isItemChanged(
+                  resposta.competencia_nome,
+                  resposta.tipo,
+                );
+                const isLocked = isEditMode && !isChanged;
 
-            return (
-              <Card key={`comp-${index}`} className="border border-gray-200 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <span className="text-violet-600 font-bold mr-2">{index + 1}.</span>
-                    <span className="flex-1">{resposta.competencia_nome}</span>
-                    {isEditMode && isChanged && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">Alterada</span>
-                    )}
-                    {isLocked && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">Travada</span>
-                    )}
-                  </CardTitle>
-                  {resposta.competencia_descricao && (
-                    <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">{resposta.competencia_descricao}</p>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Notas comparativas */}
-                  <div className="space-y-3">
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Autoavaliação do Colaborador:</span>
-                        {renderNotaBadge(resposta.nota_autoavaliacao, NOTA_COMPORTAMENTAL_LABELS)}
-                      </div>
-                      {resposta.comentario_autoavaliacao && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_autoavaliacao}"</p>
+                return (
+                  <Card
+                    key={`comp-${index}`}
+                    className="border border-gray-200 shadow-sm"
+                  >
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <span className="text-violet-600 font-bold mr-2">
+                          {index + 1}.
+                        </span>
+                        <span className="flex-1">
+                          {resposta.competencia_nome}
+                        </span>
+                        {isEditMode && isChanged && (
+                          <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                            Alterada
+                          </span>
+                        )}
+                        {isLocked && (
+                          <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">
+                            Travada
+                          </span>
+                        )}
+                      </CardTitle>
+                      {resposta.competencia_descricao && (
+                        <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">
+                          {resposta.competencia_descricao}
+                        </p>
                       )}
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Avaliação do Gestor:</span>
-                        {renderNotaBadge(resposta.nota_gestor, NOTA_COMPORTAMENTAL_LABELS)}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Notas comparativas */}
+                      <div className="space-y-3">
+                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">
+                              Autoavaliação do Colaborador:
+                            </span>
+                            {renderNotaBadge(
+                              resposta.nota_autoavaliacao,
+                              NOTA_COMPORTAMENTAL_LABELS,
+                            )}
+                          </div>
+                          {resposta.comentario_autoavaliacao && (
+                            <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                              "{resposta.comentario_autoavaliacao}"
+                            </p>
+                          )}
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">
+                              Avaliação do Gestor:
+                            </span>
+                            {renderNotaBadge(
+                              resposta.nota_gestor,
+                              NOTA_COMPORTAMENTAL_LABELS,
+                            )}
+                          </div>
+                          {resposta.comentario_gestor && (
+                            <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                              "{resposta.comentario_gestor}"
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      {resposta.comentario_gestor && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_gestor}"</p>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Nota integrada */}
-                  <fieldset disabled={isLocked} className={isLocked ? 'opacity-70' : ''}>
-                  <div>
-                    <Label>Avaliação Integrada (consenso) <span className="text-red-500">*</span></Label>
-                    <EscalaRadioGroup
-                      items={ESCALA_COMPORTAMENTAL}
-                      name={`nota-integrada-comp-${index}`}
-                      value={resposta.nota_integrada}
-                      onChange={v => updateResposta(globalIndex, 'nota_integrada', v)}
-                      accentColor="violet"
-                    />
-                  </div>
+                      {/* Nota integrada */}
+                      <fieldset
+                        disabled={isLocked}
+                        className={isLocked ? "opacity-70" : ""}
+                      >
+                        <div>
+                          <Label>
+                            Avaliação Integrada (consenso){" "}
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <EscalaRadioGroup
+                            items={ESCALA_COMPORTAMENTAL}
+                            name={`nota-integrada-comp-${index}`}
+                            value={resposta.nota_integrada}
+                            onChange={(v) =>
+                              updateResposta(globalIndex, "nota_integrada", v)
+                            }
+                            accentColor="violet"
+                          />
+                        </div>
 
-                  {/* Comentário */}
-                  <div>
-                    <Label>Comentário <span className="text-red-500">*</span></Label>
-                    <Textarea
-                      value={resposta.comentario}
-                      onChange={e => updateResposta(globalIndex, 'comentario', e.target.value)}
-                      placeholder="Observações sobre o consenso"
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
-                  </fieldset>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </>
-      )}
+                        {/* Comentário */}
+                        <div>
+                          <Label>
+                            Comentário <span className="text-red-500">*</span>
+                          </Label>
+                          <Textarea
+                            value={resposta.comentario}
+                            onChange={(e) =>
+                              updateResposta(
+                                globalIndex,
+                                "comentario",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Observações sobre o consenso"
+                            className="mt-1"
+                            rows={3}
+                          />
+                        </div>
+                      </fieldset>
+                    </CardContent>
+                  </Card>
+                );
+              },
+            )}
+          </>
+        )}
 
       {/* Secao - Competencias Estrategicas (apenas gestor) */}
-      {form.pessoa_id && !loadingParData && respostasEstrategicas.length > 0 && (
-        <>
-          <div className="rounded-xl bg-blue-50 border border-blue-200 p-8">
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Info className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="text-base text-gray-700 space-y-4">
-                <p className="font-semibold text-gray-900 text-lg">Competências Estratégicas</p>
-                <p>
-                  Compare as notas da autoavaliação e da avaliação do gestor para definir a nota de consenso de cada competência.
-                </p>
-                <p className="font-semibold text-gray-900">Escala de Avaliação:</p>
-                <EscalaLegenda items={ESCALA_ESTRATEGICA} />
+      {form.pessoa_id &&
+        !loadingParData &&
+        respostasEstrategicas.length > 0 && (
+          <>
+            <div className="rounded-xl bg-blue-50 border border-blue-200 p-8">
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Info className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="text-base text-gray-700 space-y-4">
+                  <p className="font-semibold text-gray-900 text-lg">
+                    Competências Estratégicas
+                  </p>
+                  <p>
+                    Compare as notas da autoavaliação e da avaliação do gestor
+                    para definir a nota de consenso de cada competência.
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    Escala de Avaliação:
+                  </p>
+                  <EscalaLegenda items={ESCALA_ESTRATEGICA} />
+                </div>
               </div>
             </div>
-          </div>
 
-          {respostasEstrategicas.map(({ resposta, globalIndex }, index) => {
-            const isChanged = isItemChanged(resposta.competencia_nome, resposta.tipo);
-            const isLocked = isEditMode && !isChanged;
+            {respostasEstrategicas.map(({ resposta, globalIndex }, index) => {
+              const isChanged = isItemChanged(
+                resposta.competencia_nome,
+                resposta.tipo,
+              );
+              const isLocked = isEditMode && !isChanged;
 
-            return (
-              <Card key={`estr-${index}`} className="border border-gray-200 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <span className="text-blue-600 font-bold mr-2">{index + 1}.</span>
-                    <span className="flex-1">{resposta.competencia_nome}</span>
-                    {isEditMode && isChanged && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">Alterada</span>
-                    )}
-                    {isLocked && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">Travada</span>
-                    )}
-                  </CardTitle>
-                  {resposta.competencia_descricao && (
-                    <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">{resposta.competencia_descricao}</p>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Autoavaliação:</span>
-                        {renderNotaBadge(resposta.nota_autoavaliacao, NOTA_ESTRATEGICA_LABELS)}
-                      </div>
-                      {resposta.comentario_autoavaliacao && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_autoavaliacao}"</p>
+              return (
+                <Card
+                  key={`estr-${index}`}
+                  className="border border-gray-200 shadow-sm"
+                >
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <span className="text-blue-600 font-bold mr-2">
+                        {index + 1}.
+                      </span>
+                      <span className="flex-1">
+                        {resposta.competencia_nome}
+                      </span>
+                      {isEditMode && isChanged && (
+                        <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                          Alterada
+                        </span>
                       )}
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Avaliação da Liderança:</span>
-                        {renderNotaBadge(resposta.nota_gestor, NOTA_ESTRATEGICA_LABELS)}
-                      </div>
-                      {resposta.comentario_gestor && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_gestor}"</p>
+                      {isLocked && (
+                        <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">
+                          Travada
+                        </span>
                       )}
+                    </CardTitle>
+                    {resposta.competencia_descricao && (
+                      <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">
+                        {resposta.competencia_descricao}
+                      </p>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">
+                            Autoavaliação:
+                          </span>
+                          {renderNotaBadge(
+                            resposta.nota_autoavaliacao,
+                            NOTA_ESTRATEGICA_LABELS,
+                          )}
+                        </div>
+                        {resposta.comentario_autoavaliacao && (
+                          <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                            "{resposta.comentario_autoavaliacao}"
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">
+                            Avaliação da Liderança:
+                          </span>
+                          {renderNotaBadge(
+                            resposta.nota_gestor,
+                            NOTA_ESTRATEGICA_LABELS,
+                          )}
+                        </div>
+                        {resposta.comentario_gestor && (
+                          <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                            "{resposta.comentario_gestor}"
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <fieldset disabled={isLocked} className={isLocked ? 'opacity-70' : ''}>
-                  <div>
-                    <Label>Avaliação Integrada (consenso) <span className="text-red-500">*</span></Label>
-                    <EscalaRadioGroup
-                      items={ESCALA_ESTRATEGICA}
-                      name={`nota-integrada-estr-${index}`}
-                      value={resposta.nota_integrada}
-                      onChange={v => updateResposta(globalIndex, 'nota_integrada', v)}
-                      accentColor="blue"
-                    />
-                  </div>
+                    <fieldset
+                      disabled={isLocked}
+                      className={isLocked ? "opacity-70" : ""}
+                    >
+                      <div>
+                        <Label>
+                          Avaliação Integrada (consenso){" "}
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <EscalaRadioGroup
+                          items={ESCALA_ESTRATEGICA}
+                          name={`nota-integrada-estr-${index}`}
+                          value={resposta.nota_integrada}
+                          onChange={(v) =>
+                            updateResposta(globalIndex, "nota_integrada", v)
+                          }
+                          accentColor="blue"
+                        />
+                      </div>
 
-                  <div>
-                    <Label>Comentário <span className="text-red-500">*</span></Label>
-                    <Textarea
-                      value={resposta.comentario}
-                      onChange={e => updateResposta(globalIndex, 'comentario', e.target.value)}
-                      placeholder="Observações sobre o consenso"
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
-                  </fieldset>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </>
-      )}
+                      <div>
+                        <Label>
+                          Comentário <span className="text-red-500">*</span>
+                        </Label>
+                        <Textarea
+                          value={resposta.comentario}
+                          onChange={(e) =>
+                            updateResposta(
+                              globalIndex,
+                              "comentario",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Observações sobre o consenso"
+                          className="mt-1"
+                          rows={3}
+                        />
+                      </div>
+                    </fieldset>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </>
+        )}
 
       {/* Secao - Competencias Gerenciais (apenas gestor) */}
       {form.pessoa_id && !loadingParData && respostasGerenciais.length > 0 && (
@@ -1009,81 +1374,130 @@ export function AvaliacaoIntegradaForm({ onSubmitted, tipoInventario, formulario
                 <Info className="h-5 w-5 text-rose-600" />
               </div>
               <div className="text-base text-gray-700 space-y-4">
-                <p className="font-semibold text-gray-900 text-lg">Competências Gerenciais</p>
-                <p>
-                  Compare as notas da autoavaliação e da avaliação do gestor para definir a nota de consenso de cada competência.
+                <p className="font-semibold text-gray-900 text-lg">
+                  Competências Gerenciais
                 </p>
-                <p className="font-semibold text-gray-900">Escala de Avaliação:</p>
+                <p>
+                  Compare as notas da autoavaliação e da avaliação do gestor
+                  para definir a nota de consenso de cada competência.
+                </p>
+                <p className="font-semibold text-gray-900">
+                  Escala de Avaliação:
+                </p>
                 <EscalaLegenda items={ESCALA_GERENCIAL} />
               </div>
             </div>
           </div>
 
           {respostasGerenciais.map(({ resposta, globalIndex }, index) => {
-            const isChanged = isItemChanged(resposta.competencia_nome, resposta.tipo);
+            const isChanged = isItemChanged(
+              resposta.competencia_nome,
+              resposta.tipo,
+            );
             const isLocked = isEditMode && !isChanged;
 
             return (
-              <Card key={`ger-${index}`} className="border border-gray-200 shadow-sm">
+              <Card
+                key={`ger-${index}`}
+                className="border border-gray-200 shadow-sm"
+              >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <span className="text-rose-600 font-bold mr-2">{index + 1}.</span>
+                    <span className="text-rose-600 font-bold mr-2">
+                      {index + 1}.
+                    </span>
                     <span className="flex-1">{resposta.competencia_nome}</span>
                     {isEditMode && isChanged && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">Alterada</span>
+                      <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                        Alterada
+                      </span>
                     )}
                     {isLocked && (
-                      <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">Travada</span>
+                      <span className="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full">
+                        Travada
+                      </span>
                     )}
                   </CardTitle>
                   {resposta.competencia_descricao && (
-                    <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">{resposta.competencia_descricao}</p>
+                    <p className="text-sm text-gray-500 mt-1 [overflow-wrap:anywhere]">
+                      {resposta.competencia_descricao}
+                    </p>
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Autoavaliação:</span>
-                        {renderNotaBadge(resposta.nota_autoavaliacao, NOTA_GERENCIAL_LABELS)}
+                        <span className="text-sm font-medium text-gray-700">
+                          Autoavaliação:
+                        </span>
+                        {renderNotaBadge(
+                          resposta.nota_autoavaliacao,
+                          NOTA_GERENCIAL_LABELS,
+                        )}
                       </div>
                       {resposta.comentario_autoavaliacao && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_autoavaliacao}"</p>
+                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                          "{resposta.comentario_autoavaliacao}"
+                        </p>
                       )}
                     </div>
                     <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Avaliação da Liderança:</span>
-                        {renderNotaBadge(resposta.nota_gestor, NOTA_GERENCIAL_LABELS)}
+                        <span className="text-sm font-medium text-gray-700">
+                          Avaliação da Liderança:
+                        </span>
+                        {renderNotaBadge(
+                          resposta.nota_gestor,
+                          NOTA_GERENCIAL_LABELS,
+                        )}
                       </div>
                       {resposta.comentario_gestor && (
-                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">"{resposta.comentario_gestor}"</p>
+                        <p className="text-xs text-gray-500 italic ml-1 [overflow-wrap:anywhere]">
+                          "{resposta.comentario_gestor}"
+                        </p>
                       )}
                     </div>
                   </div>
 
-                  <fieldset disabled={isLocked} className={isLocked ? 'opacity-70' : ''}>
-                  <div>
-                    <Label>Avaliação Integrada (consenso) <span className="text-red-500">*</span></Label>
-                    <EscalaRadioGroup
-                      items={ESCALA_GERENCIAL}
-                      name={`nota-integrada-ger-${index}`}
-                      value={resposta.nota_integrada}
-                      onChange={v => updateResposta(globalIndex, 'nota_integrada', v)}
-                      accentColor="rose"
-                    />
-                  </div>
+                  <fieldset
+                    disabled={isLocked}
+                    className={isLocked ? "opacity-70" : ""}
+                  >
+                    <div>
+                      <Label>
+                        Avaliação Integrada (consenso){" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <EscalaRadioGroup
+                        items={ESCALA_GERENCIAL}
+                        name={`nota-integrada-ger-${index}`}
+                        value={resposta.nota_integrada}
+                        onChange={(v) =>
+                          updateResposta(globalIndex, "nota_integrada", v)
+                        }
+                        accentColor="rose"
+                      />
+                    </div>
 
-                  <div>
-                    <Label>Comentário <span className="text-red-500">*</span></Label>
-                    <Textarea
-                      value={resposta.comentario}
-                      onChange={e => updateResposta(globalIndex, 'comentario', e.target.value)}
-                      placeholder="Observações sobre o consenso"
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
+                    <div>
+                      <Label>
+                        Comentário <span className="text-red-500">*</span>
+                      </Label>
+                      <Textarea
+                        value={resposta.comentario}
+                        onChange={(e) =>
+                          updateResposta(
+                            globalIndex,
+                            "comentario",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Observações sobre o consenso"
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
                   </fieldset>
                 </CardContent>
               </Card>

@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface HomePendencia {
   tipo: string;
@@ -27,6 +27,6 @@ export interface HomeResumo {
 
 export const homeApi = {
   getResumo(): Promise<HomeResumo> {
-    return apiClient.request<HomeResumo>('/api/home/resumo');
+    return apiClient.request<HomeResumo>("/api/home/resumo");
   },
 };

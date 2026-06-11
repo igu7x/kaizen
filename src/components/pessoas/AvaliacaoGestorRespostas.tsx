@@ -1,21 +1,54 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { Eye, Loader2, FileText, Filter, Trash2, History, FileDown } from 'lucide-react';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { avaliacaoGestorApi, AvaliacaoGestorFormulario, VersaoHistoricoGestor } from '@/services/avaliacaoGestorApi';
-import { generateAvaliacaoGestorPDF } from '@/utils/generateAvaliacaoGestorPDF';
+  Eye,
+  Loader2,
+  FileText,
+  Filter,
+  Trash2,
+  History,
+  FileDown,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  avaliacaoGestorApi,
+  AvaliacaoGestorFormulario,
+  VersaoHistoricoGestor,
+} from "@/services/avaliacaoGestorApi";
+import { generateAvaliacaoGestorPDF } from "@/utils/generateAvaliacaoGestorPDF";
 
 interface AvaliacaoGestorRespostasProps {
   diretoria: string;
@@ -25,21 +58,31 @@ interface AvaliacaoGestorRespostasProps {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+  return new Date(dateStr).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 }
 
-export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventario, onViewFormulario }: AvaliacaoGestorRespostasProps) {
-  const [formularios, setFormularios] = useState<AvaliacaoGestorFormulario[]>([]);
+export function AvaliacaoGestorRespostas({
+  diretoria,
+  isDomainRoot,
+  tipoInventario,
+  onViewFormulario,
+}: AvaliacaoGestorRespostasProps) {
+  const [formularios, setFormularios] = useState<AvaliacaoGestorFormulario[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [loadingId, setLoadingId] = useState<number | null>(null);
 
-  const [filtroDiretoria, setFiltroDiretoria] = useState<string>('__all__');
-  const [filtroUnidade, setFiltroUnidade] = useState<string>('__all__');
+  const [filtroDiretoria, setFiltroDiretoria] = useState<string>("__all__");
+  const [filtroUnidade, setFiltroUnidade] = useState<string>("__all__");
 
   // Histórico de versões
-  const [versaoDialogFormulario, setVersaoDialogFormulario] = useState<AvaliacaoGestorFormulario | null>(null);
+  const [versaoDialogFormulario, setVersaoDialogFormulario] =
+    useState<AvaliacaoGestorFormulario | null>(null);
   const [versoes, setVersoes] = useState<VersaoHistoricoGestor[]>([]);
   const [loadingVersoes, setLoadingVersoes] = useState(false);
   const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
@@ -52,7 +95,7 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
       const data = await avaliacaoGestorApi.getVersoes(f.id);
       setVersoes(data);
     } catch (err) {
-      console.error('Erro ao carregar versões:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingVersoes(false);
     }
@@ -61,10 +104,13 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
   const handlePdfVersao = async (formularioId: number, versao: number) => {
     setLoadingPdfVersao(versao);
     try {
-      const snapshot = await avaliacaoGestorApi.getVersaoDados(formularioId, versao);
+      const snapshot = await avaliacaoGestorApi.getVersaoDados(
+        formularioId,
+        versao,
+      );
       generateAvaliacaoGestorPDF(snapshot);
     } catch (err) {
-      console.error('Erro ao gerar PDF da versão:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingPdfVersao(null);
     }
@@ -75,10 +121,13 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
       try {
         // Super-diretoria: carrega todos; demais: filtra pela propria diretoria
         const filterDiretoria = isDomainRoot ? undefined : diretoria;
-        const data = await avaliacaoGestorApi.getAll(filterDiretoria, tipoInventario);
+        const data = await avaliacaoGestorApi.getAll(
+          filterDiretoria,
+          tipoInventario,
+        );
         setFormularios(data);
       } catch (err) {
-        console.error('Erro ao carregar respostas:', err);
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       } finally {
         setLoading(false);
       }
@@ -88,38 +137,48 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
 
   const diretorias = useMemo(() => {
     const set = new Set<string>();
-    formularios.forEach(f => { if (f.diretoria) set.add(f.diretoria); });
+    formularios.forEach((f) => {
+      if (f.diretoria) set.add(f.diretoria);
+    });
     return Array.from(set).sort();
   }, [formularios]);
 
   const unidades = useMemo(() => {
     const set = new Set<string>();
-    const filtered = filtroDiretoria !== '__all__'
-      ? formularios.filter(f => f.diretoria === filtroDiretoria)
-      : formularios;
-    filtered.forEach(f => { if (f.unidade_nome) set.add(f.unidade_nome); });
+    const filtered =
+      filtroDiretoria !== "__all__"
+        ? formularios.filter((f) => f.diretoria === filtroDiretoria)
+        : formularios;
+    filtered.forEach((f) => {
+      if (f.unidade_nome) set.add(f.unidade_nome);
+    });
     return Array.from(set).sort();
   }, [formularios, filtroDiretoria]);
 
   const formulariosFiltrados = useMemo(() => {
-    return formularios.filter(f => {
-      if (filtroDiretoria !== '__all__' && f.diretoria !== filtroDiretoria) return false;
-      if (filtroUnidade !== '__all__' && (f.unidade_nome || '') !== filtroUnidade) return false;
+    return formularios.filter((f) => {
+      if (filtroDiretoria !== "__all__" && f.diretoria !== filtroDiretoria)
+        return false;
+      if (
+        filtroUnidade !== "__all__" &&
+        (f.unidade_nome || "") !== filtroUnidade
+      )
+        return false;
       return true;
     });
   }, [formularios, filtroDiretoria, filtroUnidade]);
 
   const handleDiretoriaChange = (value: string) => {
     setFiltroDiretoria(value);
-    setFiltroUnidade('__all__');
+    setFiltroUnidade("__all__");
   };
 
   const handleDelete = async (id: number) => {
     try {
       await avaliacaoGestorApi.remove(id);
-      setFormularios(prev => prev.filter(f => f.id !== id));
+      setFormularios((prev) => prev.filter((f) => f.id !== id));
     } catch (err) {
-      console.error('Erro ao excluir formulário:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
@@ -129,7 +188,7 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
       const full = await avaliacaoGestorApi.getById(id);
       onViewFormulario(full);
     } catch (err) {
-      console.error('Erro ao carregar formulario:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingId(null);
     }
@@ -148,7 +207,9 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
       <Card className="border border-gray-200 shadow-sm">
         <CardContent className="p-12 text-center">
           <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">Nenhuma avaliacao do gestor enviada</p>
+          <p className="text-gray-500 text-lg">
+            Nenhuma avaliacao do gestor enviada
+          </p>
           <p className="text-gray-400 text-sm mt-2">
             As avaliacoes do gestor enviadas aparecerao aqui.
           </p>
@@ -170,14 +231,19 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
             {isDomainRoot && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Diretoria:</span>
-                <Select value={filtroDiretoria} onValueChange={handleDiretoriaChange}>
+                <Select
+                  value={filtroDiretoria}
+                  onValueChange={handleDiretoriaChange}
+                >
                   <SelectTrigger className="w-[180px] h-9">
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Todas</SelectItem>
-                    {diretorias.map(d => (
-                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    {diretorias.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -191,8 +257,10 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todas</SelectItem>
-                  {unidades.map(u => (
-                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  {unidades.map((u) => (
+                    <SelectItem key={u} value={u}>
+                      {u}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -204,9 +272,10 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
       {/* Contador */}
       <div className="flex items-center gap-2">
         <Badge variant="secondary" className="text-sm px-3 py-1">
-          {formulariosFiltrados.length} {formulariosFiltrados.length === 1 ? 'resposta' : 'respostas'}
+          {formulariosFiltrados.length}{" "}
+          {formulariosFiltrados.length === 1 ? "resposta" : "respostas"}
         </Badge>
-        {(filtroDiretoria !== '__all__' || filtroUnidade !== '__all__') && (
+        {(filtroDiretoria !== "__all__" || filtroUnidade !== "__all__") && (
           <span className="text-xs text-gray-400">
             (de {formularios.length} total)
           </span>
@@ -232,7 +301,10 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
           <TableBody>
             {formulariosFiltrados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-gray-400 py-8">
+                <TableCell
+                  colSpan={9}
+                  className="text-center text-gray-400 py-8"
+                >
                   Nenhum resultado para os filtros selecionados.
                 </TableCell>
               </TableRow>
@@ -241,15 +313,22 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
                 <TableRow key={f.id}>
                   <TableCell className="font-medium">{f.pessoa_nome}</TableCell>
                   <TableCell>{f.avaliador_nome}</TableCell>
-                  <TableCell>{f.diretoria || '-'}</TableCell>
-                  <TableCell>{f.unidade_nome || '-'}</TableCell>
+                  <TableCell>{f.diretoria || "-"}</TableCell>
+                  <TableCell>{f.unidade_nome || "-"}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline">{f.total_respostas || '—'}</Badge>
+                    <Badge variant="outline">{f.total_respostas || "—"}</Badge>
                   </TableCell>
                   <TableCell>{formatDate(f.created_at)}</TableCell>
                   <TableCell className="text-center">
                     {f.versao_formulario && f.versao_formulario > 0 ? (
-                      <Badge variant="outline" className={f.status === 'atualizacao_requisitada' ? 'border-amber-400 text-amber-700' : 'border-gray-300 text-gray-600'}>
+                      <Badge
+                        variant="outline"
+                        className={
+                          f.status === "atualizacao_requisitada"
+                            ? "border-amber-400 text-amber-700"
+                            : "border-gray-300 text-gray-600"
+                        }
+                      >
                         v{f.versao_formulario}
                       </Badge>
                     ) : (
@@ -257,8 +336,20 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge className={f.status === 'validado' ? 'bg-emerald-100 text-emerald-700' : f.status === 'atualizacao_requisitada' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}>
-                      {f.status === 'validado' ? 'Validado' : f.status === 'atualizacao_requisitada' ? 'Atualização Pendente' : 'Enviado'}
+                    <Badge
+                      className={
+                        f.status === "validado"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : f.status === "atualizacao_requisitada"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-amber-100 text-amber-700"
+                      }
+                    >
+                      {f.status === "validado"
+                        ? "Validado"
+                        : f.status === "atualizacao_requisitada"
+                          ? "Atualização Pendente"
+                          : "Enviado"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">
@@ -288,20 +379,31 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
                       {isDomainRoot && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" title="Excluir formulário">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Excluir formulário"
+                            >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir formulário</AlertDialogTitle>
+                              <AlertDialogTitle>
+                                Excluir formulário
+                              </AlertDialogTitle>
                               <AlertDialogDescription>
-                                Tem certeza que deseja excluir a avaliação do gestor de <strong>{f.pessoa_nome}</strong>? Esta ação não pode ser desfeita.
+                                Tem certeza que deseja excluir a avaliação do
+                                gestor de <strong>{f.pessoa_nome}</strong>? Esta
+                                ação não pode ser desfeita.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(f.id)} className="bg-red-600 hover:bg-red-700">
+                              <AlertDialogAction
+                                onClick={() => handleDelete(f.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
                                 Excluir
                               </AlertDialogAction>
                             </AlertDialogFooter>
@@ -317,7 +419,12 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
         </Table>
       </Card>
 
-      <Dialog open={!!versaoDialogFormulario} onOpenChange={open => { if (!open) setVersaoDialogFormulario(null); }}>
+      <Dialog
+        open={!!versaoDialogFormulario}
+        onOpenChange={(open) => {
+          if (!open) setVersaoDialogFormulario(null);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -328,33 +435,52 @@ export function AvaliacaoGestorRespostas({ diretoria, isDomainRoot, tipoInventar
           {versaoDialogFormulario && (
             <p className="text-sm text-gray-500 -mt-2 mb-2">
               {versaoDialogFormulario.pessoa_nome}
-              {versaoDialogFormulario.unidade_nome ? ` — ${versaoDialogFormulario.unidade_nome}` : ''}
+              {versaoDialogFormulario.unidade_nome
+                ? ` — ${versaoDialogFormulario.unidade_nome}`
+                : ""}
             </p>
           )}
           {loadingVersoes ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
           ) : versoes.length === 0 ? (
-            <p className="text-center text-gray-400 py-6 text-sm">Nenhuma versão encontrada.</p>
+            <p className="text-center text-gray-400 py-6 text-sm">
+              Nenhuma versão encontrada.
+            </p>
           ) : (
             <div className="space-y-2">
-              {versoes.map(v => (
-                <div key={v.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+              {versoes.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
+                >
                   <div>
-                    <span className="font-semibold text-emerald-700 font-mono">v{v.versao}</span>
+                    <span className="font-semibold text-emerald-700 font-mono">
+                      v{v.versao}
+                    </span>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Validado em {new Date(v.validado_em).toLocaleDateString('pt-BR')}
-                      {v.validado_nome ? ` por ${v.validado_nome}` : ''}
+                      Validado em{" "}
+                      {new Date(v.validado_em).toLocaleDateString("pt-BR")}
+                      {v.validado_nome ? ` por ${v.validado_nome}` : ""}
                     </p>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => versaoDialogFormulario && handlePdfVersao(versaoDialogFormulario.id, v.versao)}
+                    onClick={() =>
+                      versaoDialogFormulario &&
+                      handlePdfVersao(versaoDialogFormulario.id, v.versao)
+                    }
                     disabled={loadingPdfVersao === v.versao}
                     title={`Gerar PDF da versão ${v.versao}`}
                     className="gap-1.5"
                   >
-                    {loadingPdfVersao === v.versao ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                    {loadingPdfVersao === v.versao ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileDown className="h-4 w-4" />
+                    )}
                     PDF
                   </Button>
                 </div>

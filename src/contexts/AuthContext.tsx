@@ -1,14 +1,26 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthContextType } from '@/types';
-import { api } from '@/services/api';
-import Storage from '@/utils/storage';
-import { ApiError, AuthError, NetworkError, apiClient, API_BASE_URL } from '@/services/apiClient';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { User, AuthContextType } from "@/types";
+import { api } from "@/services/api";
+import Storage from "@/utils/storage";
+import {
+  ApiError,
+  AuthError,
+  NetworkError,
+  apiClient,
+  API_BASE_URL,
+} from "@/services/apiClient";
 import {
   validateAndFixLocalStorageUser,
   validateLoginResponse,
   syncUserDiretoria,
-  debugUserValidation
-} from '@/utils/userValidator';
+  debugUserValidation,
+} from "@/utils/userValidator";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -18,9 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Verificar se há usuário e token salvos
-    const savedUser = Storage.load<User | null>('user', null);
-    const token = localStorage.getItem('auth_token');
-    const isSsoUser = localStorage.getItem('is_sso_user') === 'true';
+    const savedUser = Storage.load<User | null>("user", null);
+    const token = localStorage.getItem("auth_token");
+    const isSsoUser = localStorage.getItem("is_sso_user") === "true";
 
     // Se tiver usuário salvo
     if (savedUser) {
@@ -29,11 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (validation?.user) {
         // Usar usuário validado e sincronizado
-        console.log('[AuthContext] Usuário validado:', {
-          id: validation.user.id,
-          diretoria: validation.user.diretoria,
-          directorate_code: (validation.user as any).directorate_code
-        });
+
         setUser(validation.user);
       } else {
         // Fallback: usar usuário salvo como está
@@ -42,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Se for usuário SSO, verificar se o token ainda é válido
       if (isSsoUser && token) {
-        const expiresAt = localStorage.getItem('token_expires_at');
+        const expiresAt = localStorage.getItem("token_expires_at");
         if (expiresAt && Date.now() > parseInt(expiresAt)) {
           // Token expirado, tentar renovar
           refreshSsoToken();
@@ -59,9 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser((prev) => {
             const merged: User = {
               ...(prev || savedUser),
-              diretoria: fresh.diretoria ?? prev?.diretoria ?? savedUser?.diretoria,
-              dominio: (fresh as any).dominio ?? (prev as any)?.dominio ?? (savedUser as any)?.dominio,
-              directorate_code: (fresh as any).directorate_code ?? (prev as any)?.directorate_code ?? (savedUser as any)?.directorate_code,
+              diretoria:
+                fresh.diretoria ?? prev?.diretoria ?? savedUser?.diretoria,
+              dominio:
+                (fresh as any).dominio ??
+                (prev as any)?.dominio ??
+                (savedUser as any)?.dominio,
+              directorate_code:
+                (fresh as any).directorate_code ??
+                (prev as any)?.directorate_code ??
+                (savedUser as any)?.directorate_code,
               foto_perfil: fresh.foto_perfil ?? null,
               matricula: fresh.matricula ?? null,
               cargo_funcao: fresh.cargo_funcao ?? null,
@@ -69,11 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               cargo_efetivo: fresh.cargo_efetivo ?? null,
               codigo: fresh.codigo ?? null,
             };
-            Storage.save('user', merged);
+            Storage.save("user", merged);
             return merged;
           });
         } catch (err) {
-          console.warn('[AuthContext] Falha ao hidratar perfil — usando dados do localStorage', err);
+          console.warn(
+            "[AuthContext] Falha ao hidratar perfil — usando dados do localStorage",
+            err,
+          );
         }
       })();
     }
@@ -83,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Renovar token SSO
   const refreshSsoToken = async () => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = localStorage.getItem("refresh_token");
       if (!refreshToken) {
         // Sem refresh token, fazer logout
         handleLogout();
@@ -94,13 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accessToken: string;
         refreshToken: string;
         expiresAt: number;
-      }>('/api/auth/sso/refresh', { refreshToken });
+      }>("/api/auth/sso/refresh", { refreshToken });
 
-      localStorage.setItem('auth_token', response.accessToken);
-      localStorage.setItem('refresh_token', response.refreshToken);
-      localStorage.setItem('token_expires_at', response.expiresAt.toString());
+      localStorage.setItem("auth_token", response.accessToken);
+      localStorage.setItem("refresh_token", response.refreshToken);
+      localStorage.setItem("token_expires_at", response.expiresAt.toString());
     } catch (error) {
-      console.error('Erro ao renovar token SSO:', error);
       // Falha ao renovar, fazer logout
       handleLogout();
     }
@@ -111,23 +128,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const loggedUser = await api.login(email, password);
 
       if (!loggedUser) {
-        throw new Error('Credenciais inválidas');
+        throw new Error("Credenciais inválidas");
       }
 
       setUser(loggedUser);
-      Storage.save('user', loggedUser);
-      localStorage.removeItem('is_sso_user'); // Login local
+      Storage.save("user", loggedUser);
+      localStorage.removeItem("is_sso_user"); // Login local
     } catch (error) {
       // Propagar erro com mensagem apropriada
       if (error instanceof ApiError) {
         if (error.status === 401) {
-          throw new Error('E-mail ou senha incorretos.');
+          throw new Error("E-mail ou senha incorretos.");
         }
         throw new Error(error.message);
       }
 
       if (error instanceof NetworkError) {
-        throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
+        throw new Error(
+          "Erro de conexão. Verifique sua internet e tente novamente.",
+        );
       }
 
       if (error instanceof AuthError) {
@@ -135,47 +154,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Erro genérico
-      throw new Error('Erro ao fazer login. Tente novamente.');
+      throw new Error("Erro ao fazer login. Tente novamente.");
     }
   };
 
   const handleLogout = () => {
     setUser(null);
-    Storage.remove('user');
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('token_expires_at');
-    localStorage.removeItem('is_sso_user');
-    localStorage.removeItem('id_token');
+    Storage.remove("user");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("token_expires_at");
+    localStorage.removeItem("is_sso_user");
+    localStorage.removeItem("id_token");
 
     // Limpar cache de dados
-    Storage.remove('gestao_objectives');
-    Storage.remove('gestao_keyResults');
-    Storage.remove('gestao_initiatives');
-    Storage.remove('gestao_programs');
-    Storage.remove('gestao_programInitiatives');
-    Storage.remove('gestao_executionControls');
+    Storage.remove("gestao_objectives");
+    Storage.remove("gestao_keyResults");
+    Storage.remove("gestao_initiatives");
+    Storage.remove("gestao_programs");
+    Storage.remove("gestao_programInitiatives");
+    Storage.remove("gestao_executionControls");
   };
 
   const logout = async (): Promise<void> => {
-    const isSsoUser = localStorage.getItem('is_sso_user') === 'true';
+    const isSsoUser = localStorage.getItem("is_sso_user") === "true";
     // Captura o id_token ANTES do handleLogout (ele limpa o localStorage).
     // Sem id_token_hint, Keycloak antigo (TJGO) retorna "Parâmetros ausentes: id_token_hint".
-    const idTokenHint = localStorage.getItem('id_token') || '';
+    const idTokenHint = localStorage.getItem("id_token") || "";
 
     try {
       await api.logout();
     } catch (error) {
-      console.warn('Erro no logout:', error);
+      console.warn("Erro no logout:", error);
     } finally {
       handleLogout();
 
       // Se for usuário SSO, redirecionar para logout do Keycloak
       if (isSsoUser) {
         const currentUrl = window.location.origin;
-        const params = new URLSearchParams({ redirect: currentUrl + '/login' });
+        const params = new URLSearchParams({ redirect: currentUrl + "/login" });
         if (idTokenHint) {
-          params.set('id_token_hint', idTokenHint);
+          params.set("id_token_hint", idTokenHint);
         }
         window.location.href = `${API_BASE_URL}/api/auth/sso/logout?${params.toString()}`;
         return;
@@ -195,7 +214,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, setUser }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, isAuthenticated: !!user, setUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -204,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

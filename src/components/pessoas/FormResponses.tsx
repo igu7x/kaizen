@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Download, Eye, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -11,16 +11,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Layout } from '@/components/layout/Layout';
-import { formApi } from '@/services/formApi';
-import { FormWithDetails, ResponseWithAnswers, FormField } from '@/types';
+} from "@/components/ui/dialog";
+import { Layout } from "@/components/layout/Layout";
+import { formApi } from "@/services/formApi";
+import { FormWithDetails, ResponseWithAnswers, FormField } from "@/types";
 
 export function FormResponses() {
   const { id } = useParams();
@@ -28,7 +28,8 @@ export function FormResponses() {
   const [form, setForm] = useState<FormWithDetails | null>(null);
   const [responses, setResponses] = useState<ResponseWithAnswers[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedResponse, setSelectedResponse] = useState<ResponseWithAnswers | null>(null);
+  const [selectedResponse, setSelectedResponse] =
+    useState<ResponseWithAnswers | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -41,7 +42,7 @@ export function FormResponses() {
       setLoading(true);
       const [formData, responsesData] = await Promise.all([
         formApi.getFormById(formId),
-        formApi.getFormResponses(formId)
+        formApi.getFormResponses(formId),
       ]);
 
       if (formData) {
@@ -49,7 +50,7 @@ export function FormResponses() {
       }
       setResponses(responsesData);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
@@ -59,40 +60,54 @@ export function FormResponses() {
     if (!form || responses.length === 0) return;
 
     // Criar cabeçalhos
-    const headers = ['Usuário', 'Data de Envio', ...form.fields.map(f => f.label)];
+    const headers = [
+      "Usuário",
+      "Data de Envio",
+      ...form.fields.map((f) => f.label),
+    ];
 
     // Criar linhas
     const rows = responses
-      .filter(r => r.status === 'SUBMITTED')
-      .map(response => {
+      .filter((r) => r.status === "SUBMITTED")
+      .map((response) => {
         const row = [
           response.userName,
-          response.submittedAt ? new Date(response.submittedAt).toLocaleString('pt-BR') : ''
+          response.submittedAt
+            ? new Date(response.submittedAt).toLocaleString("pt-BR")
+            : "",
         ];
 
-        form.fields.forEach(field => {
+        form.fields.forEach((field) => {
           // ✅ CORREÇÃO: Converter IDs para string para garantir comparação correta
-          const answer = response.answers.find(a => String(a.fieldId) === String(field.id));
-          let value = '';
+          const answer = response.answers.find(
+            (a) => String(a.fieldId) === String(field.id),
+          );
+          let value = "";
 
           if (answer) {
             // ✅ CORREÇÃO: Respeitar o tipo do campo
-            const fieldType = (field.type || (field as any).field_type || '').toUpperCase();
+            const fieldType = (
+              field.type ||
+              (field as any).field_type ||
+              ""
+            ).toUpperCase();
 
             switch (fieldType) {
-              case 'CHECKBOXES':
-              case 'CHECKBOX':
+              case "CHECKBOXES":
+              case "CHECKBOX":
                 // Múltiplas opções selecionadas
                 if (Array.isArray(answer.value)) {
-                  value = answer.value.join('; ');
+                  value = answer.value.join("; ");
                 } else {
                   value = String(answer.value);
                 }
                 break;
 
-              case 'DATE':
+              case "DATE":
                 try {
-                  value = new Date(answer.value as string).toLocaleDateString('pt-BR');
+                  value = new Date(answer.value as string).toLocaleDateString(
+                    "pt-BR",
+                  );
                 } catch {
                   value = String(answer.value);
                 }
@@ -101,7 +116,7 @@ export function FormResponses() {
               default:
                 // Texto simples
                 if (Array.isArray(answer.value)) {
-                  value = answer.value.join('; ');
+                  value = answer.value.join("; ");
                 } else {
                   value = String(answer.value);
                 }
@@ -113,45 +128,52 @@ export function FormResponses() {
           row.push(`"${String(value).replace(/"/g, '""')}"`);
         });
 
-        return row.join(',');
+        return row.join(",");
       });
 
     // Juntar tudo
-    const csvContent = [
-      headers.join(','),
-      ...rows
-    ].join('\n');
+    const csvContent = [headers.join(","), ...rows].join("\n");
 
     // Criar blob e baixar (com BOM para Excel)
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `respostas_${form.title}_${new Date().toISOString().split('T')[0]}.csv`);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `respostas_${form.title}_${new Date().toISOString().split("T")[0]}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const getFieldValue = (field: FormField, response: ResponseWithAnswers): string => {
+  const getFieldValue = (
+    field: FormField,
+    response: ResponseWithAnswers,
+  ): string => {
     // ✅ CORREÇÃO CRÍTICA: Converter IDs para string para garantir comparação correta
-    const answer = response.answers.find(a => String(a.fieldId) === String(field.id));
+    const answer = response.answers.find(
+      (a) => String(a.fieldId) === String(field.id),
+    );
 
     if (!answer) {
-      return '(não respondido)';
+      return "(não respondido)";
     }
 
     if (Array.isArray(answer.value)) {
-      return answer.value.join(', ');
+      return answer.value.join(", ");
     }
 
-    if (field.type === 'SCALE' || field.type === 'NUMBER') {
+    if (field.type === "SCALE" || field.type === "NUMBER") {
       return String(answer.value);
     }
 
-    if (field.type === 'DATE') {
+    if (field.type === "DATE") {
       try {
-        return new Date(answer.value as string).toLocaleDateString('pt-BR');
+        return new Date(answer.value as string).toLocaleDateString("pt-BR");
       } catch {
         return String(answer.value);
       }
@@ -180,7 +202,7 @@ export function FormResponses() {
     );
   }
 
-  const submittedResponses = responses.filter(r => r.status === 'SUBMITTED');
+  const submittedResponses = responses.filter((r) => r.status === "SUBMITTED");
 
   return (
     <Layout>
@@ -188,7 +210,11 @@ export function FormResponses() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/pessoas')} className="text-white hover:text-white/90 hover:bg-white/10">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/pessoas")}
+              className="text-white hover:text-white/90 hover:bg-white/10"
+            >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Voltar
             </Button>
@@ -198,7 +224,11 @@ export function FormResponses() {
             </div>
           </div>
           {submittedResponses.length > 0 && (
-            <Button onClick={handleExportCSV} variant="outline" className="text-white border-white hover:bg-white/10 hover:text-white">
+            <Button
+              onClick={handleExportCSV}
+              variant="outline"
+              className="text-white border-white hover:bg-white/10 hover:text-white"
+            >
               <Download className="mr-2 h-4 w-4" />
               Exportar CSV
             </Button>
@@ -210,7 +240,9 @@ export function FormResponses() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{responses.length}</div>
+                <div className="text-3xl font-bold text-blue-600">
+                  {responses.length}
+                </div>
                 <div className="text-sm text-gray-600">Total de respostas</div>
               </div>
             </CardContent>
@@ -218,7 +250,9 @@ export function FormResponses() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">{submittedResponses.length}</div>
+                <div className="text-3xl font-bold text-green-600">
+                  {submittedResponses.length}
+                </div>
                 <div className="text-sm text-gray-600">Enviadas</div>
               </div>
             </CardContent>
@@ -227,7 +261,7 @@ export function FormResponses() {
             <CardContent className="pt-6">
               <div className="text-center">
                 <div className="text-3xl font-bold text-yellow-600">
-                  {responses.filter(r => r.status === 'DRAFT').length}
+                  {responses.filter((r) => r.status === "DRAFT").length}
                 </div>
                 <div className="text-sm text-gray-600">Em rascunho</div>
               </div>
@@ -240,8 +274,12 @@ export function FormResponses() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Eye className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma resposta enviada</h3>
-              <p className="text-sm text-gray-600">Aguardando usuários responderem o formulário</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Nenhuma resposta enviada
+              </h3>
+              <p className="text-sm text-gray-600">
+                Aguardando usuários responderem o formulário
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -263,11 +301,15 @@ export function FormResponses() {
                   <TableBody>
                     {submittedResponses.map((response) => (
                       <TableRow key={response.id}>
-                        <TableCell className="font-medium">{response.userName}</TableCell>
+                        <TableCell className="font-medium">
+                          {response.userName}
+                        </TableCell>
                         <TableCell>
                           {response.submittedAt
-                            ? new Date(response.submittedAt).toLocaleString('pt-BR')
-                            : '-'}
+                            ? new Date(response.submittedAt).toLocaleString(
+                                "pt-BR",
+                              )
+                            : "-"}
                         </TableCell>
                         <TableCell>
                           <Badge className="bg-green-500 hover:bg-green-600 text-white border-0">
@@ -294,7 +336,10 @@ export function FormResponses() {
         )}
 
         {/* Modal de Detalhes da Resposta */}
-        <Dialog open={!!selectedResponse} onOpenChange={() => setSelectedResponse(null)}>
+        <Dialog
+          open={!!selectedResponse}
+          onOpenChange={() => setSelectedResponse(null)}
+        >
           <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center justify-between">
@@ -317,22 +362,30 @@ export function FormResponses() {
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <p className="text-sm text-gray-600">Usuário</p>
-                        <p className="font-semibold">{selectedResponse.userName}</p>
+                        <p className="font-semibold">
+                          {selectedResponse.userName}
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Data de Envio</p>
                         <p className="font-semibold">
                           {selectedResponse.submittedAt
-                            ? new Date(selectedResponse.submittedAt).toLocaleString('pt-BR')
-                            : '-'}
+                            ? new Date(
+                                selectedResponse.submittedAt,
+                              ).toLocaleString("pt-BR")
+                            : "-"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Data de Atualização</p>
+                        <p className="text-sm text-gray-600">
+                          Data de Atualização
+                        </p>
                         <p className="font-semibold">
                           {selectedResponse.updatedAt
-                            ? new Date(selectedResponse.updatedAt).toLocaleString('pt-BR')
-                            : '-'}
+                            ? new Date(
+                                selectedResponse.updatedAt,
+                              ).toLocaleString("pt-BR")
+                            : "-"}
                         </p>
                       </div>
                     </div>
@@ -340,19 +393,25 @@ export function FormResponses() {
                 </Card>
 
                 {/* Respostas por Seção */}
-                {form.fields.filter(f => !f.sectionId).length > 0 && (
+                {form.fields.filter((f) => !f.sectionId).length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Campos Gerais</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {form.fields
-                        .filter(f => !f.sectionId)
+                        .filter((f) => !f.sectionId)
                         .sort((a, b) => a.order - b.order)
                         .map((field) => (
-                          <div key={field.id} className="border-b pb-3 last:border-b-0">
+                          <div
+                            key={field.id}
+                            className="border-b pb-3 last:border-b-0"
+                          >
                             <p className="text-sm font-semibold text-gray-700 mb-1">
-                              {field.label} (ID: {field.id}) {field.required && <span className="text-red-500">*</span>}
+                              {field.label} (ID: {field.id}){" "}
+                              {field.required && (
+                                <span className="text-red-500">*</span>
+                              )}
                             </p>
                             <p className="text-gray-900">
                               {getFieldValue(field, selectedResponse)}
@@ -363,36 +422,48 @@ export function FormResponses() {
                   </Card>
                 )}
 
-                {form.sections.sort((a, b) => a.order - b.order).map((section) => {
-                  const sectionFields = form.fields
-                    .filter(f => f.sectionId === section.id)
-                    .sort((a, b) => a.order - b.order);
+                {form.sections
+                  .sort((a, b) => a.order - b.order)
+                  .map((section) => {
+                    const sectionFields = form.fields
+                      .filter((f) => f.sectionId === section.id)
+                      .sort((a, b) => a.order - b.order);
 
-                  if (sectionFields.length === 0) return null;
+                    if (sectionFields.length === 0) return null;
 
-                  return (
-                    <Card key={section.id}>
-                      <CardHeader className="bg-blue-50">
-                        <CardTitle className="text-lg">{section.title}</CardTitle>
-                        {section.description && (
-                          <p className="text-sm text-gray-600 mt-1">{section.description}</p>
-                        )}
-                      </CardHeader>
-                      <CardContent className="space-y-4 pt-6">
-                        {sectionFields.map((field) => (
-                          <div key={field.id} className="border-b pb-3 last:border-b-0">
-                            <p className="text-sm font-semibold text-gray-700 mb-1">
-                              {field.label} (ID: {field.id}) {field.required && <span className="text-red-500">*</span>}
+                    return (
+                      <Card key={section.id}>
+                        <CardHeader className="bg-blue-50">
+                          <CardTitle className="text-lg">
+                            {section.title}
+                          </CardTitle>
+                          {section.description && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              {section.description}
                             </p>
-                            <p className="text-gray-900">
-                              {getFieldValue(field, selectedResponse)}
-                            </p>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                          )}
+                        </CardHeader>
+                        <CardContent className="space-y-4 pt-6">
+                          {sectionFields.map((field) => (
+                            <div
+                              key={field.id}
+                              className="border-b pb-3 last:border-b-0"
+                            >
+                              <p className="text-sm font-semibold text-gray-700 mb-1">
+                                {field.label} (ID: {field.id}){" "}
+                                {field.required && (
+                                  <span className="text-red-500">*</span>
+                                )}
+                              </p>
+                              <p className="text-gray-900">
+                                {getFieldValue(field, selectedResponse)}
+                              </p>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
               </div>
             )}
           </DialogContent>

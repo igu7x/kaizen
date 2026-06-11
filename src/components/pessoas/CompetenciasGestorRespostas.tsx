@@ -1,44 +1,97 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { Eye, Pencil, Lock, Loader2, FileText, Filter, Trash2, Search, History, FileDown } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+  Eye,
+  Pencil,
+  Lock,
+  Loader2,
+  FileText,
+  Filter,
+  Trash2,
+  Search,
+  History,
+  FileDown,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import { useAuth } from '@/contexts/AuthContext';
-import { competenciasGestorApi, FormularioCompetencias, VersaoHistorico } from '@/services/competenciasGestorApi';
-import { areasApi, Area } from '@/services/areasApi';
-import { generateCompetenciasPDF } from '@/utils/generateCompetenciasPDF';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  competenciasGestorApi,
+  FormularioCompetencias,
+  VersaoHistorico,
+} from "@/services/competenciasGestorApi";
+import { areasApi, Area } from "@/services/areasApi";
+import { generateCompetenciasPDF } from "@/utils/generateCompetenciasPDF";
 
 // Validadores finais (Camada 3) — apenas estes 2 são finais
-const VALIDADORES_FINAIS = ['gmpdmaciel@tjgo.jus.br', 'dcamaral@tjgo.jus.br', 'ifccupertino@tjgo.jus.br', 'jdnascimento@tjgo.jus.br'];
-const isValidadorFinal = (email: string) => VALIDADORES_FINAIS.some(v => v.toLowerCase() === email.toLowerCase().trim());
+const VALIDADORES_FINAIS = [
+  "gmpdmaciel@tjgo.jus.br",
+  "dcamaral@tjgo.jus.br",
+  "ifccupertino@tjgo.jus.br",
+  "jdnascimento@tjgo.jus.br",
+];
+const isValidadorFinal = (email: string) =>
+  VALIDADORES_FINAIS.some(
+    (v) => v.toLowerCase() === email.toLowerCase().trim(),
+  );
 
 // Verifica se o usuário é gestor da diretoria do formulário (via cadastros_areas.gestor_user_id)
-function isGestorDaDiretoria(f: FormularioCompetencias, userId: number | undefined, areas: Area[]): boolean {
+function isGestorDaDiretoria(
+  f: FormularioCompetencias,
+  userId: number | undefined,
+  areas: Area[],
+): boolean {
   if (!userId) return false;
-  const area = areas.find(a => (a.sigla || '').toUpperCase() === (f.diretoria || '').toUpperCase());
+  const area = areas.find(
+    (a) => (a.sigla || "").toUpperCase() === (f.diretoria || "").toUpperCase(),
+  );
   return area?.gestor_user_id === Number(userId);
 }
 
-function canUserEdit(f: FormularioCompetencias, userEmail: string, userId: number | undefined, areas: Area[]): boolean {
+function canUserEdit(
+  f: FormularioCompetencias,
+  userEmail: string,
+  userId: number | undefined,
+  areas: Area[],
+): boolean {
   const email = userEmail.toLowerCase().trim();
-  const isGestor = f.tipo === 'gestor';
+  const isGestor = f.tipo === "gestor";
   const isDiretor = isGestorDaDiretoria(f, userId, areas);
-  if (f.status === 'validado_final') return false;
-  if (f.status === 'validado_diretoria') {
+  if (f.status === "validado_final") return false;
+  if (f.status === "validado_diretoria") {
     return isValidadorFinal(email);
   }
   if (isGestor) {
@@ -48,13 +101,17 @@ function canUserEdit(f: FormularioCompetencias, userEmail: string, userId: numbe
     return false;
   }
   // Equipe: 3 camadas
-  if (f.status === 'validado_autor') {
+  if (f.status === "validado_autor") {
     if (isDiretor) return true;
     if (isValidadorFinal(email)) return true;
     return false;
   }
   // status 'enviado': o autor pode editar + diretor + validador final
-  if (f.email_institucional && email === f.email_institucional.toLowerCase().trim()) return true;
+  if (
+    f.email_institucional &&
+    email === f.email_institucional.toLowerCase().trim()
+  )
+    return true;
   if (isDiretor) return true;
   if (isValidadorFinal(email)) return true;
   return false;
@@ -62,36 +119,68 @@ function canUserEdit(f: FormularioCompetencias, userEmail: string, userId: numbe
 
 interface CompetenciasGestorRespostasProps {
   diretoria: string;
-  tipo?: 'equipe' | 'gestor';
+  tipo?: "equipe" | "gestor";
   isDomainRoot?: boolean;
   onViewFormulario: (formulario: FormularioCompetencias) => void;
   onEditFormulario?: (formulario: FormularioCompetencias) => void;
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+  return new Date(dateStr).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 }
 
 // Equipe: 3 camadas (autor → diretoria → final)
 // Gestor: 2 camadas (diretoria → final) — não tem validado_autor
 const statusLabelsEquipe: Record<string, { label: string; color: string }> = {
-  'enviado': { label: 'Enviado', color: 'bg-blue-100 text-blue-700' },
-  'validado_autor': { label: '1/3 Validado', color: 'bg-amber-100 text-amber-700' },
-  'validado_diretoria': { label: '2/3 Validado', color: 'bg-orange-100 text-orange-700' },
-  'validado_final': { label: 'Validado', color: 'bg-emerald-100 text-emerald-700' },
-  'atualizacao_requisitada': { label: 'Atualização Requisitada', color: 'bg-purple-100 text-purple-700' },
+  enviado: { label: "Enviado", color: "bg-blue-100 text-blue-700" },
+  validado_autor: {
+    label: "1/3 Validado",
+    color: "bg-amber-100 text-amber-700",
+  },
+  validado_diretoria: {
+    label: "2/3 Validado",
+    color: "bg-orange-100 text-orange-700",
+  },
+  validado_final: {
+    label: "Validado",
+    color: "bg-emerald-100 text-emerald-700",
+  },
+  atualizacao_requisitada: {
+    label: "Atualização Requisitada",
+    color: "bg-purple-100 text-purple-700",
+  },
 };
 const statusLabelsGestor: Record<string, { label: string; color: string }> = {
-  'enviado': { label: 'Enviado', color: 'bg-blue-100 text-blue-700' },
-  'validado_autor': { label: '1/3 Validado', color: 'bg-amber-100 text-amber-700' },
-  'validado_diretoria': { label: '2/3 Validado', color: 'bg-orange-100 text-orange-700' },
-  'validado_final': { label: 'Validado', color: 'bg-emerald-100 text-emerald-700' },
-  'atualizacao_requisitada': { label: 'Atualização Requisitada', color: 'bg-purple-100 text-purple-700' },
+  enviado: { label: "Enviado", color: "bg-blue-100 text-blue-700" },
+  validado_autor: {
+    label: "1/3 Validado",
+    color: "bg-amber-100 text-amber-700",
+  },
+  validado_diretoria: {
+    label: "2/3 Validado",
+    color: "bg-orange-100 text-orange-700",
+  },
+  validado_final: {
+    label: "Validado",
+    color: "bg-emerald-100 text-emerald-700",
+  },
+  atualizacao_requisitada: {
+    label: "Atualização Requisitada",
+    color: "bg-purple-100 text-purple-700",
+  },
 };
 
-export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onViewFormulario, onEditFormulario }: CompetenciasGestorRespostasProps) {
+export function CompetenciasGestorRespostas({
+  diretoria,
+  tipo,
+  isDomainRoot,
+  onViewFormulario,
+  onEditFormulario,
+}: CompetenciasGestorRespostasProps) {
   const { user } = useAuth();
   const [formularios, setFormularios] = useState<FormularioCompetencias[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -99,15 +188,16 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
   const [loadingId, setLoadingId] = useState<number | null>(null);
 
   // Histórico de versões
-  const [versaoDialogFormulario, setVersaoDialogFormulario] = useState<FormularioCompetencias | null>(null);
+  const [versaoDialogFormulario, setVersaoDialogFormulario] =
+    useState<FormularioCompetencias | null>(null);
   const [versoes, setVersoes] = useState<VersaoHistorico[]>([]);
   const [loadingVersoes, setLoadingVersoes] = useState(false);
   const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
 
   // Filtros
-  const [filtroDiretoria, setFiltroDiretoria] = useState<string>('__all__');
-  const [filtroUnidade, setFiltroUnidade] = useState<string>('__all__');
-  const [filtroNome, setFiltroNome] = useState<string>('');
+  const [filtroDiretoria, setFiltroDiretoria] = useState<string>("__all__");
+  const [filtroUnidade, setFiltroUnidade] = useState<string>("__all__");
+  const [filtroNome, setFiltroNome] = useState<string>("");
 
   useEffect(() => {
     const load = async () => {
@@ -121,7 +211,7 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
         setFormularios(data);
         setAreas(areasData);
       } catch (err) {
-        console.error('Erro ao carregar respostas:', err);
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       } finally {
         setLoading(false);
       }
@@ -132,27 +222,37 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
   // Extrair opções únicas para os filtros
   const diretorias = useMemo(() => {
     const set = new Set<string>();
-    formularios.forEach(f => { if (f.diretoria) set.add(f.diretoria); });
+    formularios.forEach((f) => {
+      if (f.diretoria) set.add(f.diretoria);
+    });
     return Array.from(set).sort();
   }, [formularios]);
 
   const unidades = useMemo(() => {
     const set = new Set<string>();
-    const filtered = filtroDiretoria !== '__all__'
-      ? formularios.filter(f => f.diretoria === filtroDiretoria)
-      : formularios;
-    filtered.forEach(f => { if (f.unidade_nome) set.add(f.unidade_nome); });
+    const filtered =
+      filtroDiretoria !== "__all__"
+        ? formularios.filter((f) => f.diretoria === filtroDiretoria)
+        : formularios;
+    filtered.forEach((f) => {
+      if (f.unidade_nome) set.add(f.unidade_nome);
+    });
     return Array.from(set).sort();
   }, [formularios, filtroDiretoria]);
 
   // Aplicar filtros
   const formulariosFiltrados = useMemo(() => {
     const nomeLower = filtroNome.trim().toLowerCase();
-    return formularios.filter(f => {
-      if (filtroDiretoria !== '__all__' && f.diretoria !== filtroDiretoria) return false;
-      if (filtroUnidade !== '__all__' && (f.unidade_nome || '') !== filtroUnidade) return false;
+    return formularios.filter((f) => {
+      if (filtroDiretoria !== "__all__" && f.diretoria !== filtroDiretoria)
+        return false;
+      if (
+        filtroUnidade !== "__all__" &&
+        (f.unidade_nome || "") !== filtroUnidade
+      )
+        return false;
       if (nomeLower) {
-        const nome = (f.user_name || f.nome_completo || '').toLowerCase();
+        const nome = (f.user_name || f.nome_completo || "").toLowerCase();
         if (!nome.includes(nomeLower)) return false;
       }
       return true;
@@ -161,7 +261,7 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
 
   const handleDiretoriaChange = (value: string) => {
     setFiltroDiretoria(value);
-    setFiltroUnidade('__all__');
+    setFiltroUnidade("__all__");
   };
 
   const handleView = async (id: number) => {
@@ -170,7 +270,7 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
       const full = await competenciasGestorApi.getById(id);
       onViewFormulario(full);
     } catch (err) {
-      console.error('Erro ao carregar formulário:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingId(null);
     }
@@ -179,9 +279,9 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
   const handleDelete = async (id: number) => {
     try {
       await competenciasGestorApi.remove(id);
-      setFormularios(prev => prev.filter(f => f.id !== id));
+      setFormularios((prev) => prev.filter((f) => f.id !== id));
     } catch (err) {
-      console.error('Erro ao excluir formulário:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
@@ -192,7 +292,7 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
       const full = await competenciasGestorApi.getById(id);
       onEditFormulario(full);
     } catch (err) {
-      console.error('Erro ao carregar formulário para edição:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingId(null);
     }
@@ -206,7 +306,7 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
       const data = await competenciasGestorApi.getVersoes(f.id);
       setVersoes(data);
     } catch (err) {
-      console.error('Erro ao carregar versões:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingVersoes(false);
     }
@@ -215,10 +315,13 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
   const handlePdfVersao = async (formularioId: number, versao: number) => {
     setLoadingPdfVersao(versao);
     try {
-      const snapshot = await competenciasGestorApi.getVersaoDados(formularioId, versao);
+      const snapshot = await competenciasGestorApi.getVersaoDados(
+        formularioId,
+        versao,
+      );
       await generateCompetenciasPDF(snapshot);
     } catch (err) {
-      console.error('Erro ao gerar PDF da versão:', err);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingPdfVersao(null);
     }
@@ -239,7 +342,8 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
           <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">Nenhum formulário enviado</p>
           <p className="text-gray-400 text-sm mt-2">
-            Os formulários de competências enviados pelos gestores aparecerão aqui.
+            Os formulários de competências enviados pelos gestores aparecerão
+            aqui.
           </p>
         </CardContent>
       </Card>
@@ -261,21 +365,26 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
               <Input
                 placeholder="Buscar por nome..."
                 value={filtroNome}
-                onChange={e => setFiltroNome(e.target.value)}
+                onChange={(e) => setFiltroNome(e.target.value)}
                 className="w-[200px] h-9"
               />
             </div>
             {isDomainRoot && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Diretoria:</span>
-                <Select value={filtroDiretoria} onValueChange={handleDiretoriaChange}>
+                <Select
+                  value={filtroDiretoria}
+                  onValueChange={handleDiretoriaChange}
+                >
                   <SelectTrigger className="w-[180px] h-9">
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Todas</SelectItem>
-                    {diretorias.map(d => (
-                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    {diretorias.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -289,8 +398,10 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todas</SelectItem>
-                  {unidades.map(u => (
-                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  {unidades.map((u) => (
+                    <SelectItem key={u} value={u}>
+                      {u}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -302,9 +413,12 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
       {/* Contador */}
       <div className="flex items-center gap-2">
         <Badge variant="secondary" className="text-sm px-3 py-1">
-          {formulariosFiltrados.length} {formulariosFiltrados.length === 1 ? 'resposta' : 'respostas'}
+          {formulariosFiltrados.length}{" "}
+          {formulariosFiltrados.length === 1 ? "resposta" : "respostas"}
         </Badge>
-        {(filtroDiretoria !== '__all__' || filtroUnidade !== '__all__' || filtroNome.trim()) && (
+        {(filtroDiretoria !== "__all__" ||
+          filtroUnidade !== "__all__" ||
+          filtroNome.trim()) && (
           <span className="text-xs text-gray-400">
             (de {formularios.length} total)
           </span>
@@ -329,40 +443,65 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
           <TableBody>
             {formulariosFiltrados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-gray-400 py-8">
+                <TableCell
+                  colSpan={8}
+                  className="text-center text-gray-400 py-8"
+                >
                   Nenhum resultado para os filtros selecionados.
                 </TableCell>
               </TableRow>
             ) : (
               formulariosFiltrados.map((f) => {
-                const labels = f.tipo === 'gestor' ? statusLabelsGestor : statusLabelsEquipe;
+                const labels =
+                  f.tipo === "gestor" ? statusLabelsGestor : statusLabelsEquipe;
                 // Formulário recusado por validador → status especial (mesmo voltando para 'enviado')
-                const foiRecusado = f.status === 'enviado' && !!f.recusado_em;
+                const foiRecusado = f.status === "enviado" && !!f.recusado_em;
                 const st = foiRecusado
-                  ? { label: 'Recusado — preencher novamente', color: 'bg-red-100 text-red-700' }
-                  : labels[f.status] || { label: f.status, color: 'bg-gray-100 text-gray-700' };
-                const versaoNum = f.versao_formulario && f.versao_formulario > 0 ? f.versao_formulario : 0;
+                  ? {
+                      label: "Recusado — preencher novamente",
+                      color: "bg-red-100 text-red-700",
+                    }
+                  : labels[f.status] || {
+                      label: f.status,
+                      color: "bg-gray-100 text-gray-700",
+                    };
+                const versaoNum =
+                  f.versao_formulario && f.versao_formulario > 0
+                    ? f.versao_formulario
+                    : 0;
                 // When re-editing after a validated cycle, versaoNum shows the last completed version
                 // and the next validation will increment it. Show "v1 (editando)" while in progress.
-                const isReEditando = versaoNum > 0 && f.status !== 'validado_final';
-                const versaoLabel = versaoNum > 0
-                  ? isReEditando ? `v${versaoNum} →` : `v${versaoNum}`
-                  : '-';
+                const isReEditando =
+                  versaoNum > 0 && f.status !== "validado_final";
+                const versaoLabel =
+                  versaoNum > 0
+                    ? isReEditando
+                      ? `v${versaoNum} →`
+                      : `v${versaoNum}`
+                    : "-";
                 return (
                   <TableRow key={f.id}>
-                    <TableCell className="font-medium">{f.user_name || f.nome_completo}</TableCell>
-                    <TableCell>{f.diretoria || '-'}</TableCell>
-                    <TableCell>{f.unidade_nome || '-'}</TableCell>
+                    <TableCell className="font-medium">
+                      {f.user_name || f.nome_completo}
+                    </TableCell>
+                    <TableCell>{f.diretoria || "-"}</TableCell>
+                    <TableCell>{f.unidade_nome || "-"}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline">{f.total_competencias || '—'}</Badge>
+                      <Badge variant="outline">
+                        {f.total_competencias || "—"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge className={st.color}>{st.label}</Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       <span
-                        className={`text-sm font-mono ${versaoNum > 0 ? (isReEditando ? 'text-amber-600 font-semibold' : 'text-emerald-700 font-semibold') : 'text-gray-400'}`}
-                        title={isReEditando ? `Última versão validada: v${versaoNum}. Aguardando nova validação completa.` : undefined}
+                        className={`text-sm font-mono ${versaoNum > 0 ? (isReEditando ? "text-amber-600 font-semibold" : "text-emerald-700 font-semibold") : "text-gray-400"}`}
+                        title={
+                          isReEditando
+                            ? `Última versão validada: v${versaoNum}. Aguardando nova validação completa.`
+                            : undefined
+                        }
                       >
                         {versaoLabel}
                       </span>
@@ -370,7 +509,13 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
                     <TableCell>{formatDate(f.created_at)}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {onEditFormulario && canUserEdit(f, user?.email || '', user?.id ? Number(user.id) : undefined, areas) ? (
+                        {onEditFormulario &&
+                        canUserEdit(
+                          f,
+                          user?.email || "",
+                          user?.id ? Number(user.id) : undefined,
+                          areas,
+                        ) ? (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -380,8 +525,17 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                        ) : onEditFormulario && (f.status === 'validado_diretoria' || f.status === 'validado_final') ? (
-                          <Lock className="h-4 w-4 text-gray-300" title={f.status === 'validado_final' ? 'Validado' : 'Em validação final'} />
+                        ) : onEditFormulario &&
+                          (f.status === "validado_diretoria" ||
+                            f.status === "validado_final") ? (
+                          <Lock
+                            className="h-4 w-4 text-gray-300"
+                            title={
+                              f.status === "validado_final"
+                                ? "Validado"
+                                : "Em validação final"
+                            }
+                          />
                         ) : null}
                         <Button
                           variant="ghost"
@@ -409,20 +563,33 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
                         {isDomainRoot && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" title="Excluir formulário">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Excluir formulário"
+                              >
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir formulário</AlertDialogTitle>
+                                <AlertDialogTitle>
+                                  Excluir formulário
+                                </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Tem certeza que deseja excluir o formulário de <strong>{f.user_name || f.nome_completo}</strong>? Esta ação não pode ser desfeita.
+                                  Tem certeza que deseja excluir o formulário de{" "}
+                                  <strong>
+                                    {f.user_name || f.nome_completo}
+                                  </strong>
+                                  ? Esta ação não pode ser desfeita.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(f.id)} className="bg-red-600 hover:bg-red-700">
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(f.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
                                   Excluir
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -440,7 +607,12 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
       </Card>
 
       {/* Dialog: Histórico de versões */}
-      <Dialog open={!!versaoDialogFormulario} onOpenChange={open => { if (!open) setVersaoDialogFormulario(null); }}>
+      <Dialog
+        open={!!versaoDialogFormulario}
+        onOpenChange={(open) => {
+          if (!open) setVersaoDialogFormulario(null);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -450,8 +622,11 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
           </DialogHeader>
           {versaoDialogFormulario && (
             <p className="text-sm text-gray-500 -mt-2 mb-2">
-              {versaoDialogFormulario.user_name || versaoDialogFormulario.nome_completo}
-              {versaoDialogFormulario.unidade_nome ? ` — ${versaoDialogFormulario.unidade_nome}` : ''}
+              {versaoDialogFormulario.user_name ||
+                versaoDialogFormulario.nome_completo}
+              {versaoDialogFormulario.unidade_nome
+                ? ` — ${versaoDialogFormulario.unidade_nome}`
+                : ""}
             </p>
           )}
           {loadingVersoes ? (
@@ -459,22 +634,37 @@ export function CompetenciasGestorRespostas({ diretoria, tipo, isDomainRoot, onV
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
           ) : versoes.length === 0 ? (
-            <p className="text-center text-gray-400 py-6 text-sm">Nenhuma versão encontrada.</p>
+            <p className="text-center text-gray-400 py-6 text-sm">
+              Nenhuma versão encontrada.
+            </p>
           ) : (
             <div className="space-y-2">
-              {versoes.map(v => (
-                <div key={v.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+              {versoes.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
+                >
                   <div>
-                    <span className="font-semibold text-emerald-700 font-mono">v{v.versao}</span>
+                    <span className="font-semibold text-emerald-700 font-mono">
+                      v{v.versao}
+                    </span>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Validado em {new Date(v.validado_final_em).toLocaleDateString('pt-BR')}
-                      {v.validado_final_nome ? ` por ${v.validado_final_nome}` : ''}
+                      Validado em{" "}
+                      {new Date(v.validado_final_em).toLocaleDateString(
+                        "pt-BR",
+                      )}
+                      {v.validado_final_nome
+                        ? ` por ${v.validado_final_nome}`
+                        : ""}
                     </p>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => versaoDialogFormulario && handlePdfVersao(versaoDialogFormulario.id, v.versao)}
+                    onClick={() =>
+                      versaoDialogFormulario &&
+                      handlePdfVersao(versaoDialogFormulario.id, v.versao)
+                    }
                     disabled={loadingPdfVersao === v.versao}
                     title={`Gerar PDF da versão ${v.versao}`}
                     className="gap-1.5"

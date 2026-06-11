@@ -1,12 +1,12 @@
 // Tipos de usuário e autenticação
-export type UserRole = 'VIEWER' | 'MANAGER' | 'ADMIN';
+export type UserRole = "VIEWER" | "MANAGER" | "ADMIN";
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: "ACTIVE" | "INACTIVE";
   diretoria?: Directorate;
   dominio?: string;
   is_domain_root?: boolean;
@@ -41,12 +41,17 @@ export interface DirectorateInfo {
 }
 
 // Tipos de Gestão Estratégica
-export type OKRStatus = 'CONCLUIDO' | 'EM_ANDAMENTO' | 'NAO_INICIADO';
-export type OKRSituation = 'NO_PRAZO' | 'EM_ATRASO' | 'FINALIZADO';
-export type BoardStatus = 'A_FAZER' | 'FAZENDO' | 'FEITO';
-export type InitiativeLocation = 'BACKLOG' | 'EM_FILA' | 'SPRINT_ATUAL' | 'FORA_SPRINT' | 'CONCLUIDA';
-export type Priority = 'SIM' | 'NAO';
-export type ExecutionProgress = 'FAZENDO' | 'FEITO' | 'A_FAZER';
+export type OKRStatus = "CONCLUIDO" | "EM_ANDAMENTO" | "NAO_INICIADO";
+export type OKRSituation = "NO_PRAZO" | "EM_ATRASO" | "FINALIZADO";
+export type BoardStatus = "A_FAZER" | "FAZENDO" | "FEITO";
+export type InitiativeLocation =
+  | "BACKLOG"
+  | "EM_FILA"
+  | "SPRINT_ATUAL"
+  | "FORA_SPRINT"
+  | "CONCLUIDA";
+export type Priority = "SIM" | "NAO";
+export type ExecutionProgress = "FAZENDO" | "FEITO" | "A_FAZER";
 
 export interface Objective {
   id: string;
@@ -136,18 +141,18 @@ export interface ChartData {
 }
 
 // Tipos para o módulo de Pessoas (Formulários)
-export type FormStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-export type ResponseStatus = 'DRAFT' | 'SUBMITTED';
+export type FormStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type ResponseStatus = "DRAFT" | "SUBMITTED";
 
 export type FieldType =
-  | 'SHORT_TEXT'
-  | 'LONG_TEXT'
-  | 'MULTIPLE_CHOICE'
-  | 'CHECKBOXES'
-  | 'SCALE'
-  | 'DATE'
-  | 'NUMBER'
-  | 'DROPDOWN';
+  | "SHORT_TEXT"
+  | "LONG_TEXT"
+  | "MULTIPLE_CHOICE"
+  | "CHECKBOXES"
+  | "SCALE"
+  | "DATE"
+  | "NUMBER"
+  | "DROPDOWN";
 
 export interface FormFieldOption {
   id: string;
@@ -193,7 +198,7 @@ export interface Form {
   createdAt: string;
   updatedAt: string;
   directorate: Directorate;
-  allowedDirectorates?: (Directorate | 'ALL')[];
+  allowedDirectorates?: (Directorate | "ALL")[];
 }
 
 export interface FormResponse {
@@ -228,9 +233,9 @@ export interface ResponseWithAnswers extends FormResponse {
 // Tipos para o módulo de Contratações de TI (PCA)
 // ============================================================
 
-export type PcaStatus = 'Concluída' | 'Em andamento' | 'Não Iniciada';
+export type PcaStatus = "Concluída" | "Em andamento" | "Não Iniciada";
 
-export type PcaTipo = 'Contratação' | 'Renovação';
+export type PcaTipo = "Contratação" | "Renovação";
 
 export interface PcaItem {
   id: number;
@@ -302,17 +307,27 @@ export interface PcaFilters {
 
 // Constantes para meses ordenados
 export const MESES_ORDENADOS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ] as const;
 
 // ============================================================
 // Tipos para Detalhes do Item PCA
 // ============================================================
 
-export type ValidacaoDgTipo = 'Pendente' | 'Data';
-export type ChecklistStatus = 'Concluída' | 'Em andamento' | 'Não Iniciada';
-export type TarefaStatus = 'Não iniciada' | 'Em andamento' | 'Concluída';
+export type ValidacaoDgTipo = "Pendente" | "Data";
+export type ChecklistStatus = "Concluída" | "Em andamento" | "Não Iniciada";
+export type TarefaStatus = "Não iniciada" | "Em andamento" | "Concluída";
 
 export interface PcaItemDetails {
   id: number;
@@ -586,7 +601,11 @@ export interface SaveRenovacaoChangesRequest {
     fase_atual?: string | null;
   };
   checklist_updates?: Array<{ id: number; status: ChecklistStatus }>;
-  tarefas_updates?: Array<{ id: number; status: TarefaStatus; ponto_controle_id?: number | null }>;
+  tarefas_updates?: Array<{
+    id: number;
+    status: TarefaStatus;
+    ponto_controle_id?: number | null;
+  }>;
 }
 
 // ============================================================
@@ -618,9 +637,9 @@ export interface ComiteMembro {
   updated_at: string;
 }
 
-export type ReuniaoStatus = 'Previsto' | 'Realizada' | 'Cancelada';
+export type ReuniaoStatus = "Previsto" | "Realizada" | "Cancelada";
 
-export type TipoReuniao = 'Ordinária' | 'Extraordinária';
+export type TipoReuniao = "Ordinária" | "Extraordinária";
 
 export interface ComiteReuniao {
   id: number;
@@ -671,25 +690,25 @@ export interface ComiteReuniaoPauta {
   updated_at: string;
 }
 
-export type QuadroControleStatus = 'Andamento' | 'Concluída' | 'Cancelada';
+export type QuadroControleStatus = "Andamento" | "Concluída" | "Cancelada";
 
 export interface ComiteQuadroControle {
   id: number;
   comite_id: number;
-  item: string;  // Ação - demanda estabelecida em reunião
-  reuniao_id: number | null;  // ID da reunião que determinou a ação
-  reuniao_numero?: number;  // Número da reunião (para exibição)
-  reuniao_ano?: number;  // Ano da reunião (para exibição)
-  reuniao_data?: string;  // Data da reunião (para exibição)
-  item_pauta_id: number | null;  // Item da pauta relacionado
-  item_pauta_numero?: number;  // Número do item da pauta (para exibição)
-  item_pauta_descricao?: string;  // Descrição do item da pauta (para exibição)
+  item: string; // Ação - demanda estabelecida em reunião
+  reuniao_id: number | null; // ID da reunião que determinou a ação
+  reuniao_numero?: number; // Número da reunião (para exibição)
+  reuniao_ano?: number; // Ano da reunião (para exibição)
+  reuniao_data?: string; // Data da reunião (para exibição)
+  item_pauta_id: number | null; // Item da pauta relacionado
+  item_pauta_numero?: number; // Número do item da pauta (para exibição)
+  item_pauta_descricao?: string; // Descrição do item da pauta (para exibição)
   discussao_contexto: string | null;
   deliberacao: string | null;
   decisao_encaminhamento: string | null;
   acoes_atividades: string | null;
-  responsavel: string | null;  // Responsáveis pela ação
-  prazo: string | null;  // Data para entrega
+  responsavel: string | null; // Responsáveis pela ação
+  prazo: string | null; // Data para entrega
   observacoes: string | null;
   status: QuadroControleStatus;
   ordem: number;
@@ -786,8 +805,8 @@ export interface UpdateQuadroControleDto {
 // TIPOS PARA GESTÃO ESTRATÉGICA HIERÁRQUICA
 // ============================================================
 
-export type GestaoTarefaStatus = 'sprint_atual' | 'fora_sprint' | 'concluida';
-export type GestaoTarefaProgresso = 'a_fazer' | 'fazendo' | 'feito';
+export type GestaoTarefaStatus = "sprint_atual" | "fora_sprint" | "concluida";
+export type GestaoTarefaProgresso = "a_fazer" | "fazendo" | "feito";
 
 export interface PlanoPrograma {
   id: number;
@@ -885,5 +904,9 @@ export interface EstatisticasDiretoria {
   total_projetos: number;
   total_tarefas: number;
   tarefas_por_status: { backlog: number; concluido: number };
-  tarefas_por_progresso: { a_fazer: number; fazendo: number; concluido: number };
+  tarefas_por_progresso: {
+    a_fazer: number;
+    fazendo: number;
+    concluido: number;
+  };
 }

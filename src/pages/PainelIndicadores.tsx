@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Layout } from '@/components/layout/Layout';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Layout } from "@/components/layout/Layout";
+import { Button } from "@/components/ui/button";
 import {
   BarChart3,
   ExternalLink,
@@ -13,7 +13,7 @@ import {
   Target,
   BookOpen,
   LucideIcon,
-} from 'lucide-react';
+} from "lucide-react";
 
 // ============================================================
 // Painéis publicados no Power BI ("Publicar na web").
@@ -30,44 +30,44 @@ interface Dashboard {
 // Proporção do iframe do Power BI. Os relatórios da CSTI são desenhados em 16:9 —
 // dando ao iframe essa proporção, o Power BI encaixa o relatório na largura cheia
 // (sem barra horizontal) e o conteúdo que sobra desce em rolagem vertical.
-const IFRAME_ASPECT = '16 / 9';
+const IFRAME_ASPECT = "16 / 9";
 
 const DASHBOARDS: Dashboard[] = [
   {
-    id: 'suporte-tecnico',
-    nome: 'Acompanhamento do Contrato de Suporte Técnico',
+    id: "suporte-tecnico",
+    nome: "Acompanhamento do Contrato de Suporte Técnico",
     icon: Headphones,
-    url: 'https://app.powerbi.com/view?r=eyJrIjoiZDAzMmMxODItZjc3NS00YTIwLTllNGEtNThkMWE5ZDU5MmVjIiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9',
+    url: "https://app.powerbi.com/view?r=eyJrIjoiZDAzMmMxODItZjc3NS00YTIwLTllNGEtNThkMWE5ZDU5MmVjIiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9",
   },
   {
-    id: 'outsourcing-impressao',
-    nome: 'Acompanhamento do Contrato de Outsourcing de Impressão',
+    id: "outsourcing-impressao",
+    nome: "Acompanhamento do Contrato de Outsourcing de Impressão",
     icon: Printer,
-    url: 'https://app.powerbi.com/view?r=eyJrIjoiNTc2MmU0ZjAtMDFmZS00NWNmLWFiYjUtNTI0NDc0ZGY3ZjY0IiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9',
+    url: "https://app.powerbi.com/view?r=eyJrIjoiNTc2MmU0ZjAtMDFmZS00NWNmLWFiYjUtNTI0NDc0ZGY3ZjY0IiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9",
   },
   {
-    id: 'parque-computacional',
-    nome: 'Gerenciamento do Parque Computacional',
+    id: "parque-computacional",
+    nome: "Gerenciamento do Parque Computacional",
     icon: MonitorSmartphone,
-    url: 'https://app.powerbi.com/view?r=eyJrIjoiZGE2ZDRmMzctODQ1OS00MzFiLThhM2EtZmFiZDliYTEzYjM1IiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9',
+    url: "https://app.powerbi.com/view?r=eyJrIjoiZGE2ZDRmMzctODQ1OS00MzFiLThhM2EtZmFiZDliYTEzYjM1IiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9",
   },
   {
-    id: 'solicitacao-equipamentos',
-    nome: 'Controle de Solicitação de Equipamentos de TI',
+    id: "solicitacao-equipamentos",
+    nome: "Controle de Solicitação de Equipamentos de TI",
     icon: ClipboardCheck,
-    url: 'https://app.powerbi.com/view?r=eyJrIjoiMWI3NDI4NmQtZjZhYy00NjZjLTgzMDAtMTY4MTYwY2Q3MWYwIiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9',
+    url: "https://app.powerbi.com/view?r=eyJrIjoiMWI3NDI4NmQtZjZhYy00NjZjLTgzMDAtMTY4MTYwY2Q3MWYwIiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9",
   },
   {
-    id: 'acoes-contratacoes',
-    nome: 'Controle das Ações e Contratações da CSTI',
+    id: "acoes-contratacoes",
+    nome: "Controle das Ações e Contratações da CSTI",
     icon: Target,
-    url: 'https://app.powerbi.com/view?r=eyJrIjoiMmYwOTIyZWYtNzNhNy00ZmJmLWEyMjEtOWNlMDc4NmQzMzJmIiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9',
+    url: "https://app.powerbi.com/view?r=eyJrIjoiMmYwOTIyZWYtNzNhNy00ZmJmLWEyMjEtOWNlMDc4NmQzMzJmIiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9",
   },
   {
-    id: 'conhecimento-procedimentos',
-    nome: 'Gestão de Conhecimento e Procedimentos',
+    id: "conhecimento-procedimentos",
+    nome: "Gestão de Conhecimento e Procedimentos",
     icon: BookOpen,
-    url: 'https://app.powerbi.com/view?r=eyJrIjoiNzAzN2JiNWQtNjIzMS00MGFkLWI2MDMtNmJkYTM4NzgzY2Y2IiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9',
+    url: "https://app.powerbi.com/view?r=eyJrIjoiNzAzN2JiNWQtNjIzMS00MGFkLWI2MDMtNmJkYTM4NzgzY2Y2IiwidCI6IjdjNDQ3OGVlLTcxNWItNGFjMC1hNjAwLWY4MWI2ZGM2M2JjZCJ9",
   },
 ];
 
@@ -91,9 +91,12 @@ export default function PainelIndicadores() {
               <BarChart3 className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Suporte de T.I</h1>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Suporte de T.I
+              </h1>
               <p className="text-sm text-slate-600">
-                Acompanhe os indicadores estratégicos da instituição em tempo real.
+                Acompanhe os indicadores estratégicos da instituição em tempo
+                real.
               </p>
             </div>
           </div>
@@ -118,20 +121,22 @@ export default function PainelIndicadores() {
                 onClick={() => handleSelecionar(d)}
                 className={`flex items-center gap-3 text-left rounded-xl border p-3.5 transition-all ${
                   ativo
-                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-sm'
-                    : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm'
+                    ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-sm"
+                    : "border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm"
                 }`}
               >
                 <div
                   className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                    ativo ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                    ativo
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-600"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
                 <span
                   className={`text-sm font-medium leading-tight ${
-                    ativo ? 'text-blue-900' : 'text-slate-700'
+                    ativo ? "text-blue-900" : "text-slate-700"
                   }`}
                 >
                   {d.nome}
@@ -159,10 +164,10 @@ export default function PainelIndicadores() {
             allowFullScreen
             onLoad={() => setLoading(false)}
             style={{
-              width: '100%',
+              width: "100%",
               aspectRatio: IFRAME_ASPECT,
               border: 0,
-              display: 'block',
+              display: "block",
             }}
           />
         </div>
@@ -170,7 +175,8 @@ export default function PainelIndicadores() {
         {/* Rodapé com dica de tela cheia */}
         <p className="flex items-center gap-1.5 text-xs text-slate-400">
           <Maximize2 className="h-3.5 w-3.5" />
-          Use o botão de tela cheia no canto inferior direito do painel para uma visualização ampliada.
+          Use o botão de tela cheia no canto inferior direito do painel para uma
+          visualização ampliada.
         </p>
       </div>
     </Layout>

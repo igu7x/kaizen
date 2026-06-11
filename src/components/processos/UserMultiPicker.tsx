@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { X, User as UserIcon } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { pessoasApi, Pessoa } from '@/services/pessoasApi';
+import { useEffect, useMemo, useState } from "react";
+import { X, User as UserIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { pessoasApi, Pessoa } from "@/services/pessoasApi";
 
 interface UserMultiPickerProps {
   /** Valores selecionados (nomes das pessoas — string array). */
@@ -22,26 +22,31 @@ interface UserMultiPickerProps {
 export function UserMultiPicker({
   value,
   onChange,
-  placeholder = 'Digite para buscar...',
-  emptyMessage = 'Nenhum selecionado',
+  placeholder = "Digite para buscar...",
+  emptyMessage = "Nenhum selecionado",
 }: UserMultiPickerProps) {
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [showList, setShowList] = useState(false);
 
   // Carrega pessoas uma vez no mount
   useEffect(() => {
     let cancelled = false;
-    pessoasApi.getAll()
+    pessoasApi
+      .getAll()
       .then((data) => {
         if (cancelled) return;
         const sorted = [...data].sort((a, b) =>
-          (a.nome || '').localeCompare(b.nome || '', 'pt-BR')
+          (a.nome || "").localeCompare(b.nome || "", "pt-BR"),
         );
         setPessoas(sorted);
       })
-      .catch((err) => console.warn('[UserMultiPicker] erro ao carregar pessoas:', err));
-    return () => { cancelled = true; };
+      .catch((err) =>
+        console.warn("[UserMultiPicker] erro ao carregar pessoas:", err),
+      );
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const valueSet = useMemo(() => new Set(value), [value]);
@@ -53,17 +58,17 @@ export function UserMultiPicker({
       if (valueSet.has(p.nome)) return false;
       if (!q) return true;
       return (
-        (p.nome || '').toLowerCase().includes(q) ||
-        (p.email || '').toLowerCase().includes(q) ||
-        (p.unidade_nome || '').toLowerCase().includes(q) ||
-        (p.area_nome || '').toLowerCase().includes(q)
+        (p.nome || "").toLowerCase().includes(q) ||
+        (p.email || "").toLowerCase().includes(q) ||
+        (p.unidade_nome || "").toLowerCase().includes(q) ||
+        (p.area_nome || "").toLowerCase().includes(q)
       );
     });
   }, [pessoas, valueSet, search]);
 
   const handleSelect = (nome: string) => {
     onChange([...value, nome]);
-    setSearch('');
+    setSearch("");
     setShowList(false);
   };
 
@@ -91,7 +96,9 @@ export function UserMultiPicker({
           <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-500 italic">
-                {search.trim() ? 'Nenhum resultado' : 'Comece a digitar para buscar...'}
+                {search.trim()
+                  ? "Nenhum resultado"
+                  : "Comece a digitar para buscar..."}
               </div>
             ) : (
               filtered.map((p) => (

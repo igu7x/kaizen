@@ -1,24 +1,24 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Layout } from '@/components/layout/Layout';
-import { VoltarCadastros } from '@/components/ui/VoltarCadastros';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDirectorate } from '@/contexts/DirectorateContext';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Layout } from "@/components/layout/Layout";
+import { VoltarCadastros } from "@/components/ui/VoltarCadastros";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDirectorate } from "@/contexts/DirectorateContext";
+import { useToast } from "@/hooks/use-toast";
 import {
   planosProgramasApi,
   InstrumentoPlanejamento,
-  CreateInstrumentoDto
-} from '@/services/planosProgramasApi';
-import { cadastrosProjetosApi, Projeto } from '@/services/cadastrosProjetosApi';
-import { areasApi, Area } from '@/services/areasApi';
+  CreateInstrumentoDto,
+} from "@/services/planosProgramasApi";
+import { cadastrosProjetosApi, Projeto } from "@/services/cadastrosProjetosApi";
+import { areasApi, Area } from "@/services/areasApi";
 
 // UI Components
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -26,20 +26,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/components/ui/accordion';
+} from "@/components/ui/accordion";
 
 // Icons
 import {
@@ -55,32 +55,32 @@ import {
   Eye,
   Calendar,
   User,
-  FileCheck
-} from 'lucide-react';
+  FileCheck,
+} from "lucide-react";
 
 // Labels
 const tipoLabels: Record<string, string> = {
-  plano: 'Plano',
-  programa: 'Programa',
-  estrategia: 'Estratégia',
-  carteira: 'Carteira',
-  outro: 'Outro'
+  plano: "Plano",
+  programa: "Programa",
+  estrategia: "Estratégia",
+  carteira: "Carteira",
+  outro: "Outro",
 };
 
 const statusProjetoLabels: Record<string, string> = {
-  planejado: 'Planejado',
-  em_execucao: 'Em Execução',
-  suspenso: 'Suspenso',
-  concluido: 'Concluído',
-  cancelado: 'Cancelado'
+  planejado: "Planejado",
+  em_execucao: "Em Execução",
+  suspenso: "Suspenso",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
 };
 
 const statusProjetoColors: Record<string, string> = {
-  planejado: 'bg-blue-400 text-white',
-  em_execucao: 'bg-green-500 text-white',
-  suspenso: 'bg-yellow-500 text-gray-900',
-  concluido: 'bg-emerald-600 text-white',
-  cancelado: 'bg-red-500 text-white'
+  planejado: "bg-blue-400 text-white",
+  em_execucao: "bg-green-500 text-white",
+  suspenso: "bg-yellow-500 text-gray-900",
+  concluido: "bg-emerald-600 text-white",
+  cancelado: "bg-red-500 text-white",
 };
 
 export default function PlanosProgramas() {
@@ -91,44 +91,51 @@ export default function PlanosProgramas() {
   const dirFiltro = selectedDirectorate || undefined;
 
   // Estados principais
-  const [instrumentos, setInstrumentos] = useState<InstrumentoPlanejamento[]>([]);
+  const [instrumentos, setInstrumentos] = useState<InstrumentoPlanejamento[]>(
+    [],
+  );
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingDetalhes, setLoadingDetalhes] = useState(false);
 
   // Instrumento selecionado (para ver detalhes)
-  const [instrumentoSelecionado, setInstrumentoSelecionado] = useState<InstrumentoPlanejamento | null>(null);
+  const [instrumentoSelecionado, setInstrumentoSelecionado] =
+    useState<InstrumentoPlanejamento | null>(null);
 
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [editingInstrumento, setEditingInstrumento] = useState<InstrumentoPlanejamento | null>(null);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [editingInstrumento, setEditingInstrumento] =
+    useState<InstrumentoPlanejamento | null>(null);
   const [modalConfirmDeleteOpen, setModalConfirmDeleteOpen] = useState(false);
-  const [itemParaDeletar, setItemParaDeletar] = useState<{ id: number; nome: string } | null>(null);
+  const [itemParaDeletar, setItemParaDeletar] = useState<{
+    id: number;
+    nome: string;
+  } | null>(null);
   const [modalInfoCompletaOpen, setModalInfoCompletaOpen] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState<CreateInstrumentoDto>({
-    nome: '',
-    tipo: 'plano',
-    objetivo: '',
-    periodo_vigencia_inicio: '',
-    periodo_vigencia_fim: '',
-    ambito_institucional: '',
-    responsavel_institucional: '',
+    nome: "",
+    tipo: "plano",
+    objetivo: "",
+    periodo_vigencia_inicio: "",
+    periodo_vigencia_fim: "",
+    ambito_institucional: "",
+    responsavel_institucional: "",
     instrumento_superior_id: null,
-    documento_formalizacao: '',
-    versao: 'v1.0',
-    historico_alteracoes: '',
-    observacoes_gerais: '',
+    documento_formalizacao: "",
+    versao: "v1.0",
+    historico_alteracoes: "",
+    observacoes_gerais: "",
     projetos_ids: [],
-    areas_vinculadas_ids: []
+    areas_vinculadas_ids: [],
   });
 
   // Permissões
-  const canEdit = user?.role === 'MANAGER' || user?.role === 'ADMIN';
-  const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const canEdit = user?.role === "MANAGER" || user?.role === "ADMIN";
+  const canCreate = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   // ============================================================
   // CARREGAR DADOS
@@ -140,7 +147,7 @@ export default function PlanosProgramas() {
       const data = await planosProgramasApi.getInstrumentos(dirFiltro);
       setInstrumentos(data);
     } catch (error) {
-      console.error('Erro ao carregar instrumentos:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
@@ -151,7 +158,7 @@ export default function PlanosProgramas() {
       const data = await cadastrosProjetosApi.getProjetos(dirFiltro);
       setProjetos(data);
     } catch (error) {
-      console.error('Erro ao carregar projetos:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   }, [selectedDirectorate]);
 
@@ -161,21 +168,24 @@ export default function PlanosProgramas() {
       const allAreas = await areasApi.getAll();
       setAreas(allAreas);
     } catch (error) {
-      console.error('Erro ao carregar áreas:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   }, [selectedDirectorate]);
 
-  const loadInstrumentoCompleto = useCallback(async (id: number) => {
-    try {
-      setLoadingDetalhes(true);
-      const data = await planosProgramasApi.getInstrumentoById(id);
-      setInstrumentoSelecionado(data);
-    } catch (error) {
-      console.error('Erro ao carregar detalhes:', error);
-    } finally {
-      setLoadingDetalhes(false);
-    }
-  }, [toast]);
+  const loadInstrumentoCompleto = useCallback(
+    async (id: number) => {
+      try {
+        setLoadingDetalhes(true);
+        const data = await planosProgramasApi.getInstrumentoById(id);
+        setInstrumentoSelecionado(data);
+      } catch (error) {
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+      } finally {
+        setLoadingDetalhes(false);
+      }
+    },
+    [toast],
+  );
 
   useEffect(() => {
     loadInstrumentos();
@@ -187,7 +197,9 @@ export default function PlanosProgramas() {
   // HANDLERS
   // ============================================================
 
-  const handleSelecionarInstrumento = (instrumento: InstrumentoPlanejamento) => {
+  const handleSelecionarInstrumento = (
+    instrumento: InstrumentoPlanejamento,
+  ) => {
     loadInstrumentoCompleto(instrumento.id);
   };
 
@@ -196,46 +208,48 @@ export default function PlanosProgramas() {
   };
 
   const handleAbrirModalCriar = () => {
-    setModalMode('create');
+    setModalMode("create");
     setEditingInstrumento(null);
     setFormData({
-      nome: '',
-      tipo: 'plano',
-      objetivo: '',
-      periodo_vigencia_inicio: '',
-      periodo_vigencia_fim: '',
-      ambito_institucional: '',
-      responsavel_institucional: '',
+      nome: "",
+      tipo: "plano",
+      objetivo: "",
+      periodo_vigencia_inicio: "",
+      periodo_vigencia_fim: "",
+      ambito_institucional: "",
+      responsavel_institucional: "",
       instrumento_superior_id: null,
-      documento_formalizacao: '',
-      versao: 'v1.0',
-      historico_alteracoes: '',
-      observacoes_gerais: '',
+      documento_formalizacao: "",
+      versao: "v1.0",
+      historico_alteracoes: "",
+      observacoes_gerais: "",
       diretoria: selectedDirectorate,
       projetos_ids: [],
-      areas_vinculadas_ids: []
+      areas_vinculadas_ids: [],
     });
     setModalOpen(true);
   };
 
   const handleAbrirModalEditar = (instrumento: InstrumentoPlanejamento) => {
-    setModalMode('edit');
+    setModalMode("edit");
     setEditingInstrumento(instrumento);
     setFormData({
       nome: instrumento.nome,
       tipo: instrumento.tipo,
-      objetivo: instrumento.objetivo || '',
-      periodo_vigencia_inicio: instrumento.periodo_vigencia_inicio?.split('T')[0] || '',
-      periodo_vigencia_fim: instrumento.periodo_vigencia_fim?.split('T')[0] || '',
-      ambito_institucional: instrumento.ambito_institucional || '',
-      responsavel_institucional: instrumento.responsavel_institucional || '',
+      objetivo: instrumento.objetivo || "",
+      periodo_vigencia_inicio:
+        instrumento.periodo_vigencia_inicio?.split("T")[0] || "",
+      periodo_vigencia_fim:
+        instrumento.periodo_vigencia_fim?.split("T")[0] || "",
+      ambito_institucional: instrumento.ambito_institucional || "",
+      responsavel_institucional: instrumento.responsavel_institucional || "",
       instrumento_superior_id: instrumento.instrumento_superior_id,
-      documento_formalizacao: instrumento.documento_formalizacao || '',
-      versao: instrumento.versao || 'v1.0',
-      historico_alteracoes: instrumento.historico_alteracoes || '',
-      observacoes_gerais: instrumento.observacoes_gerais || '',
-      projetos_ids: instrumento.projetos?.map(p => p.projeto_id) || [],
-      areas_vinculadas_ids: instrumento.areas_vinculadas_ids || []
+      documento_formalizacao: instrumento.documento_formalizacao || "",
+      versao: instrumento.versao || "v1.0",
+      historico_alteracoes: instrumento.historico_alteracoes || "",
+      observacoes_gerais: instrumento.observacoes_gerais || "",
+      projetos_ids: instrumento.projetos?.map((p) => p.projeto_id) || [],
+      areas_vinculadas_ids: instrumento.areas_vinculadas_ids || [],
     });
     setModalOpen(true);
   };
@@ -243,30 +257,32 @@ export default function PlanosProgramas() {
   const handleSalvar = async () => {
     if (!formData.nome.trim() || formData.nome.trim().length < 3) {
       toast({
-        title: 'Erro',
-        description: 'O nome deve ter pelo menos 3 caracteres.',
-        variant: 'destructive'
+        title: "Erro",
+        description: "O nome deve ter pelo menos 3 caracteres.",
+        variant: "destructive",
       });
       return;
     }
 
     try {
-      if (modalMode === 'edit' && editingInstrumento) {
-        await planosProgramasApi.updateInstrumento(editingInstrumento.id, formData);
-        
+      if (modalMode === "edit" && editingInstrumento) {
+        await planosProgramasApi.updateInstrumento(
+          editingInstrumento.id,
+          formData,
+        );
+
         // Recarregar detalhes se estiver visualizando
         if (instrumentoSelecionado?.id === editingInstrumento.id) {
           await loadInstrumentoCompleto(editingInstrumento.id);
         }
       } else {
         await planosProgramasApi.createInstrumento(formData);
-        
       }
 
       setModalOpen(false);
       await loadInstrumentos();
     } catch (error) {
-      console.error('Erro ao salvar:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
@@ -275,11 +291,11 @@ export default function PlanosProgramas() {
 
     try {
       await planosProgramasApi.deleteInstrumento(itemParaDeletar.id);
-      
+
       setInstrumentoSelecionado(null);
       await loadInstrumentos();
     } catch (error) {
-      console.error('Erro ao excluir:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setItemParaDeletar(null);
       setModalConfirmDeleteOpen(false);
@@ -289,7 +305,10 @@ export default function PlanosProgramas() {
   const toggleProjetoVinculado = (projetoId: number) => {
     const current = formData.projetos_ids || [];
     if (current.includes(projetoId)) {
-      setFormData({ ...formData, projetos_ids: current.filter(id => id !== projetoId) });
+      setFormData({
+        ...formData,
+        projetos_ids: current.filter((id) => id !== projetoId),
+      });
     } else {
       setFormData({ ...formData, projetos_ids: [...current, projetoId] });
     }
@@ -298,7 +317,10 @@ export default function PlanosProgramas() {
   const toggleAreaVinculada = (areaId: number) => {
     const current = formData.areas_vinculadas_ids || [];
     if (current.includes(areaId)) {
-      setFormData({ ...formData, areas_vinculadas_ids: current.filter(id => id !== areaId) });
+      setFormData({
+        ...formData,
+        areas_vinculadas_ids: current.filter((id) => id !== areaId),
+      });
     } else {
       setFormData({ ...formData, areas_vinculadas_ids: [...current, areaId] });
     }
@@ -316,8 +338,14 @@ export default function PlanosProgramas() {
 
   // Estrutura de linhas: cada linha é um array de IDs de instrumentos
   const [linhas, setLinhas] = useState<number[][]>([]);
-  const [draggedItem, setDraggedItem] = useState<{ linhaIndex: number, itemIndex: number } | null>(null);
-  const [dragOverTarget, setDragOverTarget] = useState<{ linhaIndex: number, itemIndex: number } | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{
+    linhaIndex: number;
+    itemIndex: number;
+  } | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{
+    linhaIndex: number;
+    itemIndex: number;
+  } | null>(null);
 
   // Inicializar linhas quando instrumentos mudam - usa os dados salvos no banco
   useEffect(() => {
@@ -329,7 +357,7 @@ export default function PlanosProgramas() {
     // Agrupar instrumentos por linha usando os dados do banco
     const linhasMap = new Map<number, { id: number; posicao: number }[]>();
 
-    instrumentos.forEach(inst => {
+    instrumentos.forEach((inst) => {
       const linha = inst.ordem_linha ?? 0;
       const posicao = inst.ordem_posicao ?? 0;
 
@@ -343,15 +371,15 @@ export default function PlanosProgramas() {
     const linhasOrdenadas: number[][] = [];
     const linhasSorted = [...linhasMap.keys()].sort((a, b) => a - b);
 
-    linhasSorted.forEach(linhaNum => {
+    linhasSorted.forEach((linhaNum) => {
       const itens = linhasMap.get(linhaNum)!;
       itens.sort((a, b) => a.posicao - b.posicao);
-      linhasOrdenadas.push(itens.map(item => item.id));
+      linhasOrdenadas.push(itens.map((item) => item.id));
     });
 
     // Se não houver nenhuma linha, criar uma com todos os instrumentos
     if (linhasOrdenadas.length === 0) {
-      setLinhas([instrumentos.map(i => i.id)]);
+      setLinhas([instrumentos.map((i) => i.id)]);
     } else {
       setLinhas(linhasOrdenadas);
     }
@@ -367,28 +395,40 @@ export default function PlanosProgramas() {
           ordenacao.push({
             id: itemId,
             linha: linhaIndex,
-            posicao: posicaoIndex
+            posicao: posicaoIndex,
           });
         });
       });
 
       await planosProgramasApi.atualizarOrdenacao(ordenacao);
     } catch (error) {
-      console.error('Erro ao salvar ordenação:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
-  const getInstrumentoById = (id: number) => instrumentos.find(i => i.id === id);
+  const getInstrumentoById = (id: number) =>
+    instrumentos.find((i) => i.id === id);
 
-  const handleDragStart = (e: React.DragEvent, linhaIndex: number, itemIndex: number) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', JSON.stringify({ linhaIndex, itemIndex }));
+  const handleDragStart = (
+    e: React.DragEvent,
+    linhaIndex: number,
+    itemIndex: number,
+  ) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({ linhaIndex, itemIndex }),
+    );
     setTimeout(() => setDraggedItem({ linhaIndex, itemIndex }), 0);
   };
 
-  const handleDragOver = (e: React.DragEvent, linhaIndex: number, itemIndex: number) => {
+  const handleDragOver = (
+    e: React.DragEvent,
+    linhaIndex: number,
+    itemIndex: number,
+  ) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
     if (draggedItem !== null) {
       setDragOverTarget({ linhaIndex, itemIndex });
     }
@@ -396,7 +436,7 @@ export default function PlanosProgramas() {
 
   const handleDragOverLinha = (e: React.DragEvent, linhaIndex: number) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
     if (draggedItem !== null) {
       // Marcar para adicionar no final da linha
       setDragOverTarget({ linhaIndex, itemIndex: -1 });
@@ -407,13 +447,17 @@ export default function PlanosProgramas() {
     setDragOverTarget(null);
   };
 
-  const handleDrop = (e: React.DragEvent, targetLinhaIndex: number, targetItemIndex: number) => {
+  const handleDrop = (
+    e: React.DragEvent,
+    targetLinhaIndex: number,
+    targetItemIndex: number,
+  ) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!draggedItem) return;
 
-    const newLinhas = linhas.map(linha => [...linha]);
+    const newLinhas = linhas.map((linha) => [...linha]);
 
     // Remover do local original
     const itemId = newLinhas[draggedItem.linhaIndex][draggedItem.itemIndex];
@@ -421,7 +465,10 @@ export default function PlanosProgramas() {
 
     // Ajustar índice se movendo na mesma linha para frente
     let finalIndex = targetItemIndex;
-    if (targetLinhaIndex === draggedItem.linhaIndex && targetItemIndex > draggedItem.itemIndex) {
+    if (
+      targetLinhaIndex === draggedItem.linhaIndex &&
+      targetItemIndex > draggedItem.itemIndex
+    ) {
       finalIndex = targetItemIndex - 1;
     }
 
@@ -434,7 +481,7 @@ export default function PlanosProgramas() {
     newLinhas[targetLinhaIndex].splice(finalIndex, 0, itemId);
 
     // Remover linhas vazias (exceto se for a única)
-    const linhasFiltradas = newLinhas.filter(linha => linha.length > 0);
+    const linhasFiltradas = newLinhas.filter((linha) => linha.length > 0);
 
     // Garantir pelo menos uma linha
     const novasLinhas = linhasFiltradas.length > 0 ? linhasFiltradas : [[]];
@@ -444,8 +491,6 @@ export default function PlanosProgramas() {
 
     // Salvar no backend
     salvarOrdenacao(novasLinhas);
-
-    
   };
 
   const handleDropNovaLinha = (e: React.DragEvent) => {
@@ -454,7 +499,7 @@ export default function PlanosProgramas() {
 
     if (!draggedItem) return;
 
-    const newLinhas = linhas.map(linha => [...linha]);
+    const newLinhas = linhas.map((linha) => [...linha]);
 
     // Remover do local original
     const itemId = newLinhas[draggedItem.linhaIndex][draggedItem.itemIndex];
@@ -464,7 +509,7 @@ export default function PlanosProgramas() {
     newLinhas.push([itemId]);
 
     // Remover linhas vazias
-    const linhasFiltradas = newLinhas.filter(linha => linha.length > 0);
+    const linhasFiltradas = newLinhas.filter((linha) => linha.length > 0);
 
     setLinhas(linhasFiltradas);
 
@@ -474,8 +519,8 @@ export default function PlanosProgramas() {
     setDragOverTarget(null);
 
     toast({
-      title: 'Nova linha criada',
-      description: 'O item foi movido para uma nova linha.',
+      title: "Nova linha criada",
+      description: "O item foi movido para uma nova linha.",
     });
   };
 
@@ -496,8 +541,12 @@ export default function PlanosProgramas() {
           <FileText className="h-7 w-7 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Planos/Programas</h1>
-          <p className="text-slate-500 text-sm">Cadastro de Planos e Programas</p>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Planos/Programas
+          </h1>
+          <p className="text-slate-500 text-sm">
+            Cadastro de Planos e Programas
+          </p>
         </div>
       </div>
 
@@ -517,7 +566,9 @@ export default function PlanosProgramas() {
 
       {/* Lista de Instrumentos com Drag and Drop em Linhas */}
       {loading ? (
-        <div className="text-center py-12 text-slate-500">Carregando instrumentos...</div>
+        <div className="text-center py-12 text-slate-500">
+          Carregando instrumentos...
+        </div>
       ) : instrumentos.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
           Nenhum instrumento cadastrado.
@@ -529,10 +580,12 @@ export default function PlanosProgramas() {
           {linhas.map((linha, linhaIndex) => (
             <div
               key={`linha-${linhaIndex}`}
-              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-2 rounded-lg min-h-[90px] transition-all duration-200 ${dragOverTarget?.linhaIndex === linhaIndex && dragOverTarget?.itemIndex === -1
-                ? 'bg-[#7dd3c0]/10 border-2 border-dashed border-[#7dd3c0]'
-                : 'border-2 border-transparent'
-                }`}
+              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-2 rounded-lg min-h-[90px] transition-all duration-200 ${
+                dragOverTarget?.linhaIndex === linhaIndex &&
+                dragOverTarget?.itemIndex === -1
+                  ? "bg-[#7dd3c0]/10 border-2 border-dashed border-[#7dd3c0]"
+                  : "border-2 border-transparent"
+              }`}
               onDragOver={(e) => handleDragOverLinha(e, linhaIndex)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, linhaIndex, linha.length)}
@@ -541,14 +594,20 @@ export default function PlanosProgramas() {
                 const instrumento = getInstrumentoById(itemId);
                 if (!instrumento) return null;
 
-                const isDragging = draggedItem?.linhaIndex === linhaIndex && draggedItem?.itemIndex === itemIndex;
-                const isDragOver = dragOverTarget?.linhaIndex === linhaIndex && dragOverTarget?.itemIndex === itemIndex;
+                const isDragging =
+                  draggedItem?.linhaIndex === linhaIndex &&
+                  draggedItem?.itemIndex === itemIndex;
+                const isDragOver =
+                  dragOverTarget?.linhaIndex === linhaIndex &&
+                  dragOverTarget?.itemIndex === itemIndex;
 
                 return (
                   <div
                     key={instrumento.id}
                     draggable={true}
-                    onDragStart={(e) => handleDragStart(e, linhaIndex, itemIndex)}
+                    onDragStart={(e) =>
+                      handleDragStart(e, linhaIndex, itemIndex)
+                    }
                     onDragOver={(e) => {
                       e.stopPropagation();
                       handleDragOver(e, linhaIndex, itemIndex);
@@ -564,12 +623,13 @@ export default function PlanosProgramas() {
                         handleSelecionarInstrumento(instrumento);
                       }
                     }}
-                    className={`group bg-white hover:bg-slate-50 border rounded-xl p-5 text-left transition-all duration-300 hover:shadow-md cursor-grab active:cursor-grabbing select-none ${isDragging
-                      ? 'opacity-50 scale-95 border-[#2d7a5e]/50'
-                      : isDragOver
-                        ? 'border-[#2d7a5e] bg-emerald-50 scale-105'
-                        : 'border-slate-200 hover:border-[#2d7a5e]/40'
-                      }`}
+                    className={`group bg-white hover:bg-slate-50 border rounded-xl p-5 text-left transition-all duration-300 hover:shadow-md cursor-grab active:cursor-grabbing select-none ${
+                      isDragging
+                        ? "opacity-50 scale-95 border-[#2d7a5e]/50"
+                        : isDragOver
+                          ? "border-[#2d7a5e] bg-emerald-50 scale-105"
+                          : "border-slate-200 hover:border-[#2d7a5e]/40"
+                    }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#2d7a5e] to-[#1d5a4e] flex items-center justify-center flex-shrink-0">
@@ -595,17 +655,20 @@ export default function PlanosProgramas() {
             <div
               onDragOver={(e) => {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
+                e.dataTransfer.dropEffect = "move";
                 setDragOverTarget({ linhaIndex: linhas.length, itemIndex: 0 });
               }}
               onDragLeave={handleDragLeave}
               onDrop={handleDropNovaLinha}
-              className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 min-h-[90px] flex items-center justify-center ${dragOverTarget?.linhaIndex === linhas.length
-                ? 'border-[#2d7a5e] bg-emerald-50 text-[#2d7a5e]'
-                : 'border-slate-300 text-slate-500'
-                }`}
+              className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 min-h-[90px] flex items-center justify-center ${
+                dragOverTarget?.linhaIndex === linhas.length
+                  ? "border-[#2d7a5e] bg-emerald-50 text-[#2d7a5e]"
+                  : "border-slate-300 text-slate-500"
+              }`}
             >
-              <p className="text-sm font-medium">↓ Solte aqui para criar uma nova linha ↓</p>
+              <p className="text-sm font-medium">
+                ↓ Solte aqui para criar uma nova linha ↓
+              </p>
             </div>
           )}
         </div>
@@ -638,9 +701,12 @@ export default function PlanosProgramas() {
                 <FileText className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h2 className="text-slate-900 font-bold text-xl">{instrumentoSelecionado.nome}</h2>
+                <h2 className="text-slate-900 font-bold text-xl">
+                  {instrumentoSelecionado.nome}
+                </h2>
                 <p className="text-slate-500 text-sm">
-                  {tipoLabels[instrumentoSelecionado.tipo]} • {instrumentoSelecionado.versao}
+                  {tipoLabels[instrumentoSelecionado.tipo]} •{" "}
+                  {instrumentoSelecionado.versao}
                 </p>
               </div>
             </div>
@@ -659,7 +725,10 @@ export default function PlanosProgramas() {
               </Button>
               <Button
                 onClick={() => {
-                  setItemParaDeletar({ id: instrumentoSelecionado.id, nome: instrumentoSelecionado.nome });
+                  setItemParaDeletar({
+                    id: instrumentoSelecionado.id,
+                    nome: instrumentoSelecionado.nome,
+                  });
                   setModalConfirmDeleteOpen(true);
                 }}
                 variant="ghost"
@@ -678,35 +747,52 @@ export default function PlanosProgramas() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {instrumentoSelecionado.objetivo && (
               <div className="md:col-span-3">
-                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">Objetivo</p>
-                <p className="text-gray-900 text-base">{instrumentoSelecionado.objetivo}</p>
+                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
+                  Objetivo
+                </p>
+                <p className="text-gray-900 text-base">
+                  {instrumentoSelecionado.objetivo}
+                </p>
               </div>
             )}
             {instrumentoSelecionado.ambito_institucional && (
               <div>
-                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">Âmbito</p>
-                <p className="text-gray-900 text-base">{instrumentoSelecionado.ambito_institucional}</p>
+                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
+                  Âmbito
+                </p>
+                <p className="text-gray-900 text-base">
+                  {instrumentoSelecionado.ambito_institucional}
+                </p>
               </div>
             )}
             {instrumentoSelecionado.responsavel_institucional && (
               <div>
-                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">Responsável</p>
-                <p className="text-gray-900 text-base">{instrumentoSelecionado.responsavel_institucional}</p>
+                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
+                  Responsável
+                </p>
+                <p className="text-gray-900 text-base">
+                  {instrumentoSelecionado.responsavel_institucional}
+                </p>
               </div>
             )}
-            {(instrumentoSelecionado.periodo_vigencia_inicio || instrumentoSelecionado.periodo_vigencia_fim) && (
+            {(instrumentoSelecionado.periodo_vigencia_inicio ||
+              instrumentoSelecionado.periodo_vigencia_fim) && (
               <div>
-                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">Vigência</p>
+                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
+                  Vigência
+                </p>
                 <p className="text-gray-900 text-base">
                   {instrumentoSelecionado.periodo_vigencia_inicio
-                    ? new Date(instrumentoSelecionado.periodo_vigencia_inicio).toLocaleDateString('pt-BR')
-                    : '?'
-                  }
-                  {' → '}
+                    ? new Date(
+                        instrumentoSelecionado.periodo_vigencia_inicio,
+                      ).toLocaleDateString("pt-BR")
+                    : "?"}
+                  {" → "}
                   {instrumentoSelecionado.periodo_vigencia_fim
-                    ? new Date(instrumentoSelecionado.periodo_vigencia_fim).toLocaleDateString('pt-BR')
-                    : '?'
-                  }
+                    ? new Date(
+                        instrumentoSelecionado.periodo_vigencia_fim,
+                      ).toLocaleDateString("pt-BR")
+                    : "?"}
                 </p>
               </div>
             )}
@@ -739,10 +825,15 @@ export default function PlanosProgramas() {
           </div>
 
           {loadingDetalhes ? (
-            <div className="text-center py-8 text-gray-500">Carregando projetos...</div>
-          ) : !instrumentoSelecionado.projetos || instrumentoSelecionado.projetos.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              Carregando projetos...
+            </div>
+          ) : !instrumentoSelecionado.projetos ||
+            instrumentoSelecionado.projetos.length === 0 ? (
             <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <p className="text-gray-500">Nenhum projeto vinculado a este instrumento.</p>
+              <p className="text-gray-500">
+                Nenhum projeto vinculado a este instrumento.
+              </p>
               {canEdit && (
                 <Button
                   onClick={() => handleAbrirModalEditar(instrumentoSelecionado)}
@@ -758,12 +849,15 @@ export default function PlanosProgramas() {
           ) : (
             <div className="space-y-3">
               {instrumentoSelecionado.projetos.map((proj) => {
-                const areasExecucao = proj.projeto_diretorias?.split(', ').filter(Boolean) || [];
+                const areasExecucao =
+                  proj.projeto_diretorias?.split(", ").filter(Boolean) || [];
 
                 return (
                   <div
                     key={proj.id}
-                    onClick={() => window.location.href = `/cadastros/projetos?id=${proj.projeto_id}&from=plano`}
+                    onClick={() =>
+                      (window.location.href = `/cadastros/projetos?id=${proj.projeto_id}&from=plano`)
+                    }
                     className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center justify-between">
@@ -773,15 +867,26 @@ export default function PlanosProgramas() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-gray-900 font-medium group-hover:text-[#2d7a5e] transition-colors">{proj.projeto_nome}</h4>
+                            <h4 className="text-gray-900 font-medium group-hover:text-[#2d7a5e] transition-colors">
+                              {proj.projeto_nome}
+                            </h4>
                           </div>
                           <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <Badge className={`${statusProjetoColors[proj.projeto_status || 'planejado']} border-0 text-xs`}>
-                              {statusProjetoLabels[proj.projeto_status || 'planejado']}
+                            <Badge
+                              className={`${statusProjetoColors[proj.projeto_status || "planejado"]} border-0 text-xs`}
+                            >
+                              {
+                                statusProjetoLabels[
+                                  proj.projeto_status || "planejado"
+                                ]
+                              }
                             </Badge>
                             {areasExecucao.length > 0 && (
-                              <Badge variant="outline" className="bg-blue-50 text-xs border-blue-200 text-blue-700">
-                                {areasExecucao.join(', ')}
+                              <Badge
+                                variant="outline"
+                                className="bg-blue-50 text-xs border-blue-200 text-blue-700"
+                              >
+                                {areasExecucao.join(", ")}
                               </Badge>
                             )}
                           </div>
@@ -803,35 +908,36 @@ export default function PlanosProgramas() {
         </div>
 
         {/* Instrumentos Subordinados */}
-        {instrumentoSelecionado.instrumentos_subordinados && instrumentoSelecionado.instrumentos_subordinados.length > 0 && (
-          <div className="bg-white rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <ChevronRight className="h-5 w-5 text-purple-500" />
-              <h3 className="text-gray-800 font-semibold">
-                Instrumentos Subordinados
-                <Badge className="ml-2 bg-purple-100 text-purple-700 border-0">
-                  {instrumentoSelecionado.instrumentos_subordinados.length}
-                </Badge>
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {instrumentoSelecionado.instrumentos_subordinados.map((sub) => (
-                <button
-                  key={sub.id}
-                  onClick={() => handleSelecionarInstrumento(sub)}
-                  className="bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-300 rounded-lg p-4 text-left transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-purple-500" />
-                    <div>
-                      <p className="text-gray-800 font-medium">{sub.nome}</p>
+        {instrumentoSelecionado.instrumentos_subordinados &&
+          instrumentoSelecionado.instrumentos_subordinados.length > 0 && (
+            <div className="bg-white rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <ChevronRight className="h-5 w-5 text-purple-500" />
+                <h3 className="text-gray-800 font-semibold">
+                  Instrumentos Subordinados
+                  <Badge className="ml-2 bg-purple-100 text-purple-700 border-0">
+                    {instrumentoSelecionado.instrumentos_subordinados.length}
+                  </Badge>
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {instrumentoSelecionado.instrumentos_subordinados.map((sub) => (
+                  <button
+                    key={sub.id}
+                    onClick={() => handleSelecionarInstrumento(sub)}
+                    className="bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-300 rounded-lg p-4 text-left transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-purple-500" />
+                      <div>
+                        <p className="text-gray-800 font-medium">{sub.nome}</p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
     );
   };
@@ -845,16 +951,22 @@ export default function PlanosProgramas() {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {modalMode === 'create' ? 'Novo Instrumento de Planejamento' : 'Editar Instrumento'}
+            {modalMode === "create"
+              ? "Novo Instrumento de Planejamento"
+              : "Editar Instrumento"}
           </DialogTitle>
           <DialogDescription>
-            Preencha os campos abaixo para {modalMode === 'create' ? 'cadastrar' : 'atualizar'} o instrumento
+            Preencha os campos abaixo para{" "}
+            {modalMode === "create" ? "cadastrar" : "atualizar"} o instrumento
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          <Accordion type="multiple" defaultValue={['identificacao', 'vinculacao', 'formalizacao']} className="w-full">
-
+          <Accordion
+            type="multiple"
+            defaultValue={["identificacao", "vinculacao", "formalizacao"]}
+            className="w-full"
+          >
             {/* SEÇÃO: IDENTIFICAÇÃO */}
             <AccordionItem value="identificacao">
               <AccordionTrigger className="bg-blue-50 px-4 rounded-t">
@@ -870,14 +982,18 @@ export default function PlanosProgramas() {
                     <Input
                       placeholder="Ex: Plano de Gestão da Presidência 2025–2027"
                       value={formData.nome}
-                      onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, nome: e.target.value })
+                      }
                     />
                   </div>
                   <div>
                     <Label>Tipo de Instrumento</Label>
                     <Select
                       value={formData.tipo}
-                      onValueChange={(v) => setFormData({ ...formData, tipo: v })}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, tipo: v })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo" />
@@ -896,7 +1012,9 @@ export default function PlanosProgramas() {
                     <Input
                       placeholder="Ex: v1.0"
                       value={formData.versao}
-                      onChange={(e) => setFormData({ ...formData, versao: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, versao: e.target.value })
+                      }
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -904,7 +1022,9 @@ export default function PlanosProgramas() {
                     <Textarea
                       placeholder="2-3 linhas explicando sua finalidade"
                       value={formData.objetivo}
-                      onChange={(e) => setFormData({ ...formData, objetivo: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, objetivo: e.target.value })
+                      }
                       rows={3}
                     />
                   </div>
@@ -913,7 +1033,12 @@ export default function PlanosProgramas() {
                     <Input
                       type="date"
                       value={formData.periodo_vigencia_inicio}
-                      onChange={(e) => setFormData({ ...formData, periodo_vigencia_inicio: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          periodo_vigencia_inicio: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div>
@@ -921,7 +1046,12 @@ export default function PlanosProgramas() {
                     <Input
                       type="date"
                       value={formData.periodo_vigencia_fim}
-                      onChange={(e) => setFormData({ ...formData, periodo_vigencia_fim: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          periodo_vigencia_fim: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -943,7 +1073,12 @@ export default function PlanosProgramas() {
                     <Input
                       placeholder="Ex: SGJT, Diretoria, TJGO"
                       value={formData.ambito_institucional}
-                      onChange={(e) => setFormData({ ...formData, ambito_institucional: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ambito_institucional: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div>
@@ -951,31 +1086,45 @@ export default function PlanosProgramas() {
                     <Input
                       placeholder="Ex: Presidente, Secretário, Diretor"
                       value={formData.responsavel_institucional}
-                      onChange={(e) => setFormData({ ...formData, responsavel_institucional: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          responsavel_institucional: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div className="md:col-span-2">
                     <Label>Instrumento Superior (Hierarquia)</Label>
                     <Select
-                      value={formData.instrumento_superior_id?.toString() || 'none'}
-                      onValueChange={(v) => setFormData({
-                        ...formData,
-                        instrumento_superior_id: v === 'none' ? null : parseInt(v)
-                      })}
+                      value={
+                        formData.instrumento_superior_id?.toString() || "none"
+                      }
+                      onValueChange={(v) =>
+                        setFormData({
+                          ...formData,
+                          instrumento_superior_id:
+                            v === "none" ? null : parseInt(v),
+                        })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione (se houver)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Nenhum (instrumento raiz)</SelectItem>
+                        <SelectItem value="none">
+                          Nenhum (instrumento raiz)
+                        </SelectItem>
                         {instrumentos
-                          .filter(i => i.id !== editingInstrumento?.id)
-                          .map(inst => (
-                            <SelectItem key={inst.id} value={inst.id.toString()}>
+                          .filter((i) => i.id !== editingInstrumento?.id)
+                          .map((inst) => (
+                            <SelectItem
+                              key={inst.id}
+                              value={inst.id.toString()}
+                            >
                               [{tipoLabels[inst.tipo]}] {inst.nome}
                             </SelectItem>
-                          ))
-                        }
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -983,44 +1132,73 @@ export default function PlanosProgramas() {
                     <Label>Diretoria</Label>
                     <div className="flex flex-wrap gap-3 mt-2 p-3 border rounded-lg bg-green-50">
                       {areas.length === 0 ? (
-                        <p className="text-gray-500 w-full text-center py-4">Nenhuma diretoria cadastrada</p>
+                        <p className="text-gray-500 w-full text-center py-4">
+                          Nenhuma diretoria cadastrada
+                        </p>
                       ) : (
-                        areas.map(area => (
+                        areas.map((area) => (
                           <label
                             key={area.id}
-                            className={`flex items-center gap-2 text-sm cursor-pointer px-4 py-2 rounded-lg border transition-colors ${formData.areas_vinculadas_ids?.includes(area.id)
-                              ? 'bg-green-600 text-white border-green-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
-                              }`}
+                            className={`flex items-center gap-2 text-sm cursor-pointer px-4 py-2 rounded-lg border transition-colors ${
+                              formData.areas_vinculadas_ids?.includes(area.id)
+                                ? "bg-green-600 text-white border-green-600"
+                                : "bg-white text-gray-700 border-gray-300 hover:border-green-400"
+                            }`}
                             title={area.nome}
                           >
                             <Checkbox
-                              checked={formData.areas_vinculadas_ids?.includes(area.id) || false}
-                              onCheckedChange={() => toggleAreaVinculada(area.id)}
-                              className={formData.areas_vinculadas_ids?.includes(area.id) ? 'border-white' : ''}
+                              checked={
+                                formData.areas_vinculadas_ids?.includes(
+                                  area.id,
+                                ) || false
+                              }
+                              onCheckedChange={() =>
+                                toggleAreaVinculada(area.id)
+                              }
+                              className={
+                                formData.areas_vinculadas_ids?.includes(area.id)
+                                  ? "border-white"
+                                  : ""
+                              }
                             />
-                            <span className="font-medium">{extrairSigla(area.nome)}</span>
+                            <span className="font-medium">
+                              {extrairSigla(area.nome)}
+                            </span>
                           </label>
                         ))
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Selecione a(s) diretoria(s) deste plano/programa</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Selecione a(s) diretoria(s) deste plano/programa
+                    </p>
                   </div>
                   <div className="md:col-span-2">
                     <Label>Projetos Relacionados</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 p-3 border rounded-lg bg-gray-50 max-h-48 overflow-y-auto">
                       {projetos.length === 0 ? (
-                        <p className="text-gray-500 col-span-full text-center py-4">Nenhum projeto cadastrado</p>
+                        <p className="text-gray-500 col-span-full text-center py-4">
+                          Nenhum projeto cadastrado
+                        </p>
                       ) : (
-                        projetos.map(projeto => (
-                          <label key={projeto.id} className="flex items-center gap-2 text-sm cursor-pointer p-2 hover:bg-gray-100 rounded">
+                        projetos.map((projeto) => (
+                          <label
+                            key={projeto.id}
+                            className="flex items-center gap-2 text-sm cursor-pointer p-2 hover:bg-gray-100 rounded"
+                          >
                             <Checkbox
-                              checked={formData.projetos_ids?.includes(projeto.id) || false}
-                              onCheckedChange={() => toggleProjetoVinculado(projeto.id)}
+                              checked={
+                                formData.projetos_ids?.includes(projeto.id) ||
+                                false
+                              }
+                              onCheckedChange={() =>
+                                toggleProjetoVinculado(projeto.id)
+                              }
                             />
                             <span className="truncate" title={projeto.nome}>
-                              <span className="text-gray-500 font-mono text-xs">{projeto.codigo}</span>
-                              {' - '}
+                              <span className="text-gray-500 font-mono text-xs">
+                                {projeto.codigo}
+                              </span>
+                              {" - "}
                               {projeto.nome}
                             </span>
                           </label>
@@ -1046,7 +1224,12 @@ export default function PlanosProgramas() {
                   <Input
                     placeholder="Link para PDF, processo, norma, portaria"
                     value={formData.documento_formalizacao}
-                    onChange={(e) => setFormData({ ...formData, documento_formalizacao: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        documento_formalizacao: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div>
@@ -1054,7 +1237,12 @@ export default function PlanosProgramas() {
                   <Textarea
                     placeholder="Registre mudanças ao longo do tempo"
                     value={formData.historico_alteracoes}
-                    onChange={(e) => setFormData({ ...formData, historico_alteracoes: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        historico_alteracoes: e.target.value,
+                      })
+                    }
                     rows={3}
                   />
                 </div>
@@ -1063,7 +1251,12 @@ export default function PlanosProgramas() {
                   <Textarea
                     placeholder="Observações adicionais"
                     value={formData.observacoes_gerais}
-                    onChange={(e) => setFormData({ ...formData, observacoes_gerais: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        observacoes_gerais: e.target.value,
+                      })
+                    }
                     rows={3}
                   />
                 </div>
@@ -1077,7 +1270,7 @@ export default function PlanosProgramas() {
             Cancelar
           </Button>
           <Button onClick={handleSalvar}>
-            {modalMode === 'edit' ? 'Salvar Alterações' : 'Criar Instrumento'}
+            {modalMode === "edit" ? "Salvar Alterações" : "Criar Instrumento"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1089,17 +1282,23 @@ export default function PlanosProgramas() {
   // ============================================================
 
   const renderModalConfirmDelete = () => (
-    <Dialog open={modalConfirmDeleteOpen} onOpenChange={setModalConfirmDeleteOpen}>
+    <Dialog
+      open={modalConfirmDeleteOpen}
+      onOpenChange={setModalConfirmDeleteOpen}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Confirmar Exclusão</DialogTitle>
           <DialogDescription>
-            Tem certeza que deseja excluir o instrumento "{itemParaDeletar?.nome}"?
-            Esta ação não pode ser desfeita.
+            Tem certeza que deseja excluir o instrumento "
+            {itemParaDeletar?.nome}"? Esta ação não pode ser desfeita.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setModalConfirmDeleteOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setModalConfirmDeleteOpen(false)}
+          >
             Cancelar
           </Button>
           <Button variant="destructive" onClick={handleConfirmarExclusao}>
@@ -1118,7 +1317,10 @@ export default function PlanosProgramas() {
     if (!instrumentoSelecionado) return null;
 
     return (
-      <Dialog open={modalInfoCompletaOpen} onOpenChange={setModalInfoCompletaOpen}>
+      <Dialog
+        open={modalInfoCompletaOpen}
+        onOpenChange={setModalInfoCompletaOpen}
+      >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
@@ -1128,7 +1330,8 @@ export default function PlanosProgramas() {
               <div>
                 <span className="block">{instrumentoSelecionado.nome}</span>
                 <span className="text-sm font-normal text-gray-500">
-                  {tipoLabels[instrumentoSelecionado.tipo]} • {instrumentoSelecionado.versao}
+                  {tipoLabels[instrumentoSelecionado.tipo]} •{" "}
+                  {instrumentoSelecionado.versao}
                 </span>
               </div>
             </DialogTitle>
@@ -1139,23 +1342,37 @@ export default function PlanosProgramas() {
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-blue-50 px-4 py-3 flex items-center gap-2">
                 <FileText className="h-4 w-4 text-blue-600" />
-                <span className="font-semibold text-blue-900">Identificação do Instrumento</span>
+                <span className="font-semibold text-blue-900">
+                  Identificação do Instrumento
+                </span>
               </div>
               <div className="p-4 space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Nome</p>
-                    <p className="text-gray-900 font-medium">{instrumentoSelecionado.nome}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Nome
+                    </p>
+                    <p className="text-gray-900 font-medium">
+                      {instrumentoSelecionado.nome}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Tipo</p>
-                    <p className="text-gray-900">{tipoLabels[instrumentoSelecionado.tipo]}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Tipo
+                    </p>
+                    <p className="text-gray-900">
+                      {tipoLabels[instrumentoSelecionado.tipo]}
+                    </p>
                   </div>
                 </div>
                 {instrumentoSelecionado.objetivo && (
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Objetivo</p>
-                    <p className="text-gray-900">{instrumentoSelecionado.objetivo}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Objetivo
+                    </p>
+                    <p className="text-gray-900">
+                      {instrumentoSelecionado.objetivo}
+                    </p>
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1166,19 +1383,25 @@ export default function PlanosProgramas() {
                     </p>
                     <p className="text-gray-900">
                       {instrumentoSelecionado.periodo_vigencia_inicio
-                        ? new Date(instrumentoSelecionado.periodo_vigencia_inicio).toLocaleDateString('pt-BR')
-                        : 'Não definido'
-                      }
-                      {' → '}
+                        ? new Date(
+                            instrumentoSelecionado.periodo_vigencia_inicio,
+                          ).toLocaleDateString("pt-BR")
+                        : "Não definido"}
+                      {" → "}
                       {instrumentoSelecionado.periodo_vigencia_fim
-                        ? new Date(instrumentoSelecionado.periodo_vigencia_fim).toLocaleDateString('pt-BR')
-                        : 'Não definido'
-                      }
+                        ? new Date(
+                            instrumentoSelecionado.periodo_vigencia_fim,
+                          ).toLocaleDateString("pt-BR")
+                        : "Não definido"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Versão</p>
-                    <p className="text-gray-900">{instrumentoSelecionado.versao || 'v1.0'}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Versão
+                    </p>
+                    <p className="text-gray-900">
+                      {instrumentoSelecionado.versao || "v1.0"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1188,38 +1411,63 @@ export default function PlanosProgramas() {
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-green-50 px-4 py-3 flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-green-600" />
-                <span className="font-semibold text-green-900">Vinculação Institucional</span>
+                <span className="font-semibold text-green-900">
+                  Vinculação Institucional
+                </span>
               </div>
               <div className="p-4 space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Âmbito Institucional</p>
-                    <p className="text-gray-900">{instrumentoSelecionado.ambito_institucional || 'Não definido'}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Âmbito Institucional
+                    </p>
+                    <p className="text-gray-900">
+                      {instrumentoSelecionado.ambito_institucional ||
+                        "Não definido"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
                       <User className="h-3 w-3 inline mr-1" />
                       Responsável Institucional
                     </p>
-                    <p className="text-gray-900">{instrumentoSelecionado.responsavel_institucional || 'Não definido'}</p>
+                    <p className="text-gray-900">
+                      {instrumentoSelecionado.responsavel_institucional ||
+                        "Não definido"}
+                    </p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Instrumento Superior</p>
-                  <p className="text-gray-900">{instrumentoSelecionado.instrumento_superior_nome || 'Nenhum (instrumento raiz)'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Projetos Vinculados</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Instrumento Superior
+                  </p>
                   <p className="text-gray-900">
-                    {instrumentoSelecionado.projetos_nomes || 'Nenhum projeto vinculado'}
+                    {instrumentoSelecionado.instrumento_superior_nome ||
+                      "Nenhum (instrumento raiz)"}
                   </p>
                 </div>
-                {instrumentoSelecionado.total_instrumentos_subordinados && instrumentoSelecionado.total_instrumentos_subordinados > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Instrumentos Subordinados</p>
-                    <p className="text-gray-900">{instrumentoSelecionado.total_instrumentos_subordinados} instrumento(s)</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Projetos Vinculados
+                  </p>
+                  <p className="text-gray-900">
+                    {instrumentoSelecionado.projetos_nomes ||
+                      "Nenhum projeto vinculado"}
+                  </p>
+                </div>
+                {instrumentoSelecionado.total_instrumentos_subordinados &&
+                  instrumentoSelecionado.total_instrumentos_subordinados >
+                    0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                        Instrumentos Subordinados
+                      </p>
+                      <p className="text-gray-900">
+                        {instrumentoSelecionado.total_instrumentos_subordinados}{" "}
+                        instrumento(s)
+                      </p>
+                    </div>
+                  )}
               </div>
             </div>
 
@@ -1227,11 +1475,15 @@ export default function PlanosProgramas() {
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-amber-50 px-4 py-3 flex items-center gap-2">
                 <FileCheck className="h-4 w-4 text-amber-600" />
-                <span className="font-semibold text-amber-900">Formalização</span>
+                <span className="font-semibold text-amber-900">
+                  Formalização
+                </span>
               </div>
               <div className="p-4 space-y-3">
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Documento de Formalização</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Documento de Formalização
+                  </p>
                   {instrumentoSelecionado.documento_formalizacao ? (
                     <a
                       href={instrumentoSelecionado.documento_formalizacao}
@@ -1246,15 +1498,21 @@ export default function PlanosProgramas() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Histórico de Alterações</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Histórico de Alterações
+                  </p>
                   <p className="text-gray-900 whitespace-pre-wrap">
-                    {instrumentoSelecionado.historico_alteracoes || 'Nenhum histórico registrado'}
+                    {instrumentoSelecionado.historico_alteracoes ||
+                      "Nenhum histórico registrado"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Observações Gerais</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Observações Gerais
+                  </p>
                   <p className="text-gray-900 whitespace-pre-wrap">
-                    {instrumentoSelecionado.observacoes_gerais || 'Nenhuma observação'}
+                    {instrumentoSelecionado.observacoes_gerais ||
+                      "Nenhuma observação"}
                   </p>
                 </div>
               </div>
@@ -1269,19 +1527,31 @@ export default function PlanosProgramas() {
               <div className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Diretoria</p>
-                    <p className="text-gray-900">{instrumentoSelecionado.diretoria}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Criado em</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Diretoria
+                    </p>
                     <p className="text-gray-900">
-                      {new Date(instrumentoSelecionado.created_at).toLocaleString('pt-BR')}
+                      {instrumentoSelecionado.diretoria}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Atualizado em</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Criado em
+                    </p>
                     <p className="text-gray-900">
-                      {new Date(instrumentoSelecionado.updated_at).toLocaleString('pt-BR')}
+                      {new Date(
+                        instrumentoSelecionado.created_at,
+                      ).toLocaleString("pt-BR")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Atualizado em
+                    </p>
+                    <p className="text-gray-900">
+                      {new Date(
+                        instrumentoSelecionado.updated_at,
+                      ).toLocaleString("pt-BR")}
                     </p>
                   </div>
                 </div>
@@ -1320,7 +1590,9 @@ export default function PlanosProgramas() {
       <div className="space-y-4 lg:space-y-6 page-transition-enter">
         <VoltarCadastros />
         {/* Conteúdo */}
-        {instrumentoSelecionado ? renderTelaDetalhes() : renderTelaInstrumentos()}
+        {instrumentoSelecionado
+          ? renderTelaDetalhes()
+          : renderTelaInstrumentos()}
 
         {/* Modais */}
         {renderFormModal()}

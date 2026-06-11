@@ -1,33 +1,33 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDirectorate } from '@/contexts/DirectorateContext';
-import { 
-  PcaItem, 
-  PcaStats, 
-  PcaFilters, 
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDirectorate } from "@/contexts/DirectorateContext";
+import {
+  PcaItem,
+  PcaStats,
+  PcaFilters,
   PcaStatus,
   CreatePcaItemDto,
   UpdatePcaItemDto,
-  MESES_ORDENADOS 
-} from '@/types';
-import { pcaApi, formatCurrency, getStatusBadgeClass } from '@/services/pcaApi';
-import { areasApi } from '@/services/areasApi';
-import { pessoasApi, type Pessoa } from '@/services/pessoasApi';
-import type { Area, Unidade } from '@/services/areasApi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+  MESES_ORDENADOS,
+} from "@/types";
+import { pcaApi, formatCurrency, getStatusBadgeClass } from "@/services/pcaApi";
+import { areasApi } from "@/services/areasApi";
+import { pessoasApi, type Pessoa } from "@/services/pessoasApi";
+import type { Area, Unidade } from "@/services/areasApi";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +35,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,8 +45,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
   Plus,
@@ -60,17 +60,24 @@ import {
   Search as SearchIcon,
   ChevronRight,
   FolderKanban,
-  RefreshCw
-} from 'lucide-react';
-
+  RefreshCw,
+} from "lucide-react";
 
 // Converter nome do mês para formato MM/YYYY
 function formatMesAno(mesNome: string): string {
   const mesesMap: Record<string, string> = {
-    'Janeiro': '01/2026', 'Fevereiro': '02/2026', 'Março': '03/2026',
-    'Abril': '04/2026', 'Maio': '05/2026', 'Junho': '06/2026',
-    'Julho': '07/2026', 'Agosto': '08/2026', 'Setembro': '09/2026',
-    'Outubro': '10/2026', 'Novembro': '11/2026', 'Dezembro': '12/2026'
+    Janeiro: "01/2026",
+    Fevereiro: "02/2026",
+    Março: "03/2026",
+    Abril: "04/2026",
+    Maio: "05/2026",
+    Junho: "06/2026",
+    Julho: "07/2026",
+    Agosto: "08/2026",
+    Setembro: "09/2026",
+    Outubro: "10/2026",
+    Novembro: "11/2026",
+    Dezembro: "12/2026",
   };
   return mesesMap[mesNome] || mesNome;
 }
@@ -80,7 +87,7 @@ export function EsteiraContratacoes() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { selectedDirectorate } = useDirectorate();
-  
+
   // Estados principais
   const [items, setItems] = useState<PcaItem[]>([]);
   const [stats, setStats] = useState<PcaStats | null>(null);
@@ -90,12 +97,12 @@ export function EsteiraContratacoes() {
   const [anoSelecionado, setAnoSelecionado] = useState<number>(2026);
 
   // Estados de filtros ativos
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterArea, setFilterArea] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterResponsavel, setFilterResponsavel] = useState<string>('all');
-  const [filterTipo, setFilterTipo] = useState<string>('all');
-  const [filterMes, setFilterMes] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterArea, setFilterArea] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterResponsavel, setFilterResponsavel] = useState<string>("all");
+  const [filterTipo, setFilterTipo] = useState<string>("all");
+  const [filterMes, setFilterMes] = useState<string>("all");
 
   // Estados dos modais
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -105,38 +112,46 @@ export function EsteiraContratacoes() {
 
   // Estados do formulário
   const [formData, setFormData] = useState<CreatePcaItemDto>({
-    item_pca: '',
-    tipo: 'Contratação',
-    area_demandante: '',
-    responsavel: '',
-    objeto: '',
+    item_pca: "",
+    tipo: "Contratação",
+    area_demandante: "",
+    responsavel: "",
+    objeto: "",
     valor_estimado: 0,
     valor_formalizado: 0,
-    data_estimada_contratacao: '',
-    status: 'Não Iniciada',
-    ano: 2026
+    data_estimada_contratacao: "",
+    status: "Não Iniciada",
+    ano: 2026,
   });
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // Listas para comboboxes de área demandante e responsável
-  const [areasList, setAreasList] = useState<(Unidade & { area_nome?: string; area_sigla?: string })[]>([]);
+  const [areasList, setAreasList] = useState<
+    (Unidade & { area_nome?: string; area_sigla?: string })[]
+  >([]);
   const [pessoasList, setPessoasList] = useState<Pessoa[]>([]);
 
   // Estados dos comboboxes de busca
-  const [areaSearch, setAreaSearch] = useState('');
+  const [areaSearch, setAreaSearch] = useState("");
   const [areaDropdownOpen, setAreaDropdownOpen] = useState(false);
-  const [responsavelSearch, setResponsavelSearch] = useState('');
+  const [responsavelSearch, setResponsavelSearch] = useState("");
   const [responsavelDropdownOpen, setResponsavelDropdownOpen] = useState(false);
 
   // Verificar se usuário pode editar (MANAGER ou ADMIN)
-  const canEdit = user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const canEdit = user?.role === "MANAGER" || user?.role === "ADMIN";
 
   // Carregar dados ao montar ou mudar o ano
   useEffect(() => {
     loadData();
     // Carregar áreas e pessoas para os selects (apenas uma vez)
-    areasApi.getAllUnidades(selectedDirectorate || undefined).then(setAreasList).catch(() => {});
-    pessoasApi.getAll(selectedDirectorate || undefined).then(setPessoasList).catch(() => {});
+    areasApi
+      .getAllUnidades(selectedDirectorate || undefined)
+      .then(setAreasList)
+      .catch(() => {});
+    pessoasApi
+      .getAll(selectedDirectorate || undefined)
+      .then(setPessoasList)
+      .catch(() => {});
   }, [anoSelecionado, selectedDirectorate]);
 
   async function loadData() {
@@ -145,13 +160,13 @@ export function EsteiraContratacoes() {
       const [itemsData, statsData, filtersData] = await Promise.all([
         pcaApi.getPcaItems(anoSelecionado, selectedDirectorate || undefined),
         pcaApi.getPcaStats(anoSelecionado, selectedDirectorate || undefined),
-        pcaApi.getPcaFilters()
+        pcaApi.getPcaFilters(),
       ]);
       setItems(itemsData);
       setStats(statsData);
       setFilters(filtersData);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
@@ -159,7 +174,7 @@ export function EsteiraContratacoes() {
 
   // Filtrar itens
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
+    return items.filter((item) => {
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const matchesSearch =
@@ -169,23 +184,35 @@ export function EsteiraContratacoes() {
           item.responsavel.toLowerCase().includes(term);
         if (!matchesSearch) return false;
       }
-      if (filterArea !== 'all' && item.area_demandante !== filterArea) return false;
-      if (filterStatus !== 'all' && item.status !== filterStatus) return false;
-      if (filterResponsavel !== 'all' && item.responsavel !== filterResponsavel) return false;
-      if (filterTipo !== 'all' && (item.tipo || 'Contratação') !== filterTipo) return false;
-      if (filterMes !== 'all' && item.data_estimada_contratacao !== filterMes) return false;
+      if (filterArea !== "all" && item.area_demandante !== filterArea)
+        return false;
+      if (filterStatus !== "all" && item.status !== filterStatus) return false;
+      if (filterResponsavel !== "all" && item.responsavel !== filterResponsavel)
+        return false;
+      if (filterTipo !== "all" && (item.tipo || "Contratação") !== filterTipo)
+        return false;
+      if (filterMes !== "all" && item.data_estimada_contratacao !== filterMes)
+        return false;
       return true;
     });
-  }, [items, searchTerm, filterArea, filterStatus, filterResponsavel, filterTipo, filterMes]);
+  }, [
+    items,
+    searchTerm,
+    filterArea,
+    filterStatus,
+    filterResponsavel,
+    filterTipo,
+    filterMes,
+  ]);
 
   // Limpar filtros
   function clearFilters() {
-    setSearchTerm('');
-    setFilterArea('all');
-    setFilterStatus('all');
-    setFilterResponsavel('all');
-    setFilterTipo('all');
-    setFilterMes('all');
+    setSearchTerm("");
+    setFilterArea("all");
+    setFilterStatus("all");
+    setFilterResponsavel("all");
+    setFilterTipo("all");
+    setFilterMes("all");
   }
 
   // Validar formulário
@@ -193,29 +220,29 @@ export function EsteiraContratacoes() {
     const errors: string[] = [];
 
     if (!formData.item_pca.trim()) {
-      errors.push('Item do PCA é obrigatório');
+      errors.push("Item do PCA é obrigatório");
     } else if (formData.item_pca.length > 50) {
-      errors.push('Item do PCA deve ter no máximo 50 caracteres');
+      errors.push("Item do PCA deve ter no máximo 50 caracteres");
     }
 
     if (!formData.area_demandante.trim()) {
-      errors.push('Área demandante é obrigatória');
+      errors.push("Área demandante é obrigatória");
     }
 
     if (!formData.responsavel.trim()) {
-      errors.push('Responsável é obrigatório');
+      errors.push("Responsável é obrigatório");
     }
 
     if (!formData.objeto.trim()) {
-      errors.push('Objeto é obrigatório');
+      errors.push("Objeto é obrigatório");
     }
 
     if (!formData.valor_estimado || formData.valor_estimado <= 0) {
-      errors.push('Valor anual deve ser maior que zero');
+      errors.push("Valor anual deve ser maior que zero");
     }
 
     if (!formData.data_estimada_contratacao) {
-      errors.push('Data estimada de contratação é obrigatória');
+      errors.push("Data estimada de contratação é obrigatória");
     }
 
     setFormErrors(errors);
@@ -225,21 +252,21 @@ export function EsteiraContratacoes() {
   // Resetar formulário
   function resetForm() {
     setFormData({
-      item_pca: '',
-      tipo: 'Contratação',
-      area_demandante: '',
-      responsavel: '',
-      objeto: '',
+      item_pca: "",
+      tipo: "Contratação",
+      area_demandante: "",
+      responsavel: "",
+      objeto: "",
       valor_estimado: 0,
       valor_formalizado: 0,
-      data_estimada_contratacao: '',
-      status: 'Não Iniciada',
-      ano: anoSelecionado
+      data_estimada_contratacao: "",
+      status: "Não Iniciada",
+      ano: anoSelecionado,
     });
     setFormErrors([]);
-    setAreaSearch('');
+    setAreaSearch("");
     setAreaDropdownOpen(false);
-    setResponsavelSearch('');
+    setResponsavelSearch("");
     setResponsavelDropdownOpen(false);
   }
 
@@ -254,7 +281,7 @@ export function EsteiraContratacoes() {
     setSelectedItem(item);
     setFormData({
       item_pca: item.item_pca,
-      tipo: item.tipo || 'Contratação',
+      tipo: item.tipo || "Contratação",
       area_demandante: item.area_demandante,
       responsavel: item.responsavel,
       objeto: item.objeto,
@@ -262,7 +289,7 @@ export function EsteiraContratacoes() {
       valor_formalizado: item.valor_formalizado || 0,
       data_estimada_contratacao: item.data_estimada_contratacao,
       status: item.status,
-      ano: item.ano
+      ano: item.ano,
     });
     setFormErrors([]);
     setIsEditModalOpen(true);
@@ -281,26 +308,27 @@ export function EsteiraContratacoes() {
     try {
       setSaving(true);
       const created = await pcaApi.createPcaItem(formData);
-      
+
       // Optimistic Update - adiciona item à lista imediatamente
-      setItems(prev => [...prev, created]);
-      
+      setItems((prev) => [...prev, created]);
+
       // Atualiza stats
       if (stats) {
         const newStats = { ...stats, total: stats.total + 1 };
-        if (created.status === 'Concluída') newStats.concluidos++;
-        else if (created.status === 'Em andamento') newStats.emAndamento++;
+        if (created.status === "Concluída") newStats.concluidos++;
+        else if (created.status === "Em andamento") newStats.emAndamento++;
         else newStats.naoIniciados++;
         // Garantir que valores são números
-        newStats.valorTotal = (Number(newStats.valorTotal) || 0) + (Number(created.valor_estimado) || 0);
+        newStats.valorTotal =
+          (Number(newStats.valorTotal) || 0) +
+          (Number(created.valor_estimado) || 0);
         setStats(newStats);
       }
-      
-      
+
       setIsAddModalOpen(false);
       resetForm();
     } catch (error: any) {
-      console.error('Erro ao criar item:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -311,7 +339,7 @@ export function EsteiraContratacoes() {
     if (!selectedItem || !validateForm()) return;
 
     const oldItem = selectedItem;
-    
+
     try {
       setSaving(true);
       const updateData: UpdatePcaItemDto = {
@@ -323,39 +351,41 @@ export function EsteiraContratacoes() {
         valor_estimado: formData.valor_estimado,
         valor_formalizado: formData.valor_formalizado,
         data_estimada_contratacao: formData.data_estimada_contratacao,
-        status: formData.status
+        status: formData.status,
       };
-      
+
       const updated = await pcaApi.updatePcaItem(selectedItem.id, updateData);
-      
+
       // Optimistic Update - atualiza item na lista imediatamente
-      setItems(prev => prev.map(i => i.id === selectedItem.id ? updated : i));
-      
+      setItems((prev) =>
+        prev.map((i) => (i.id === selectedItem.id ? updated : i)),
+      );
+
       // Atualiza stats se valor ou status mudou
       if (stats) {
         const newStats = { ...stats };
         // Ajusta valor total (garantindo que valores são números)
         const oldValor = Number(oldItem.valor_estimado) || 0;
         const newValor = Number(updated.valor_estimado) || 0;
-        newStats.valorTotal = (Number(newStats.valorTotal) || 0) - oldValor + newValor;
+        newStats.valorTotal =
+          (Number(newStats.valorTotal) || 0) - oldValor + newValor;
         // Ajusta status se mudou
         if (oldItem.status !== updated.status) {
-          if (oldItem.status === 'Concluída') newStats.concluidos--;
-          else if (oldItem.status === 'Em andamento') newStats.emAndamento--;
+          if (oldItem.status === "Concluída") newStats.concluidos--;
+          else if (oldItem.status === "Em andamento") newStats.emAndamento--;
           else newStats.naoIniciados--;
-          if (updated.status === 'Concluída') newStats.concluidos++;
-          else if (updated.status === 'Em andamento') newStats.emAndamento++;
+          if (updated.status === "Concluída") newStats.concluidos++;
+          else if (updated.status === "Em andamento") newStats.emAndamento++;
           else newStats.naoIniciados++;
         }
         setStats(newStats);
       }
-      
-      
+
       setIsEditModalOpen(false);
       setSelectedItem(null);
       resetForm();
     } catch (error: any) {
-      console.error('Erro ao atualizar item:', error);
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -364,47 +394,46 @@ export function EsteiraContratacoes() {
   // Atualizar status inline (Optimistic Update)
   async function handleStatusChange(item: PcaItem, newStatus: PcaStatus) {
     const oldStatus = item.status;
-    
+
     // Optimistic Update - Atualiza UI imediatamente
-    setItems(prev => prev.map(i => 
-      i.id === item.id ? { ...i, status: newStatus } : i
-    ));
-    
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, status: newStatus } : i)),
+    );
+
     // Atualiza stats localmente
     if (stats) {
       const newStats = { ...stats };
       // Decrementar contador antigo
-      if (oldStatus === 'Concluída') newStats.concluidos--;
-      else if (oldStatus === 'Em andamento') newStats.emAndamento--;
+      if (oldStatus === "Concluída") newStats.concluidos--;
+      else if (oldStatus === "Em andamento") newStats.emAndamento--;
       else newStats.naoIniciados--;
       // Incrementar contador novo
-      if (newStatus === 'Concluída') newStats.concluidos++;
-      else if (newStatus === 'Em andamento') newStats.emAndamento++;
+      if (newStatus === "Concluída") newStats.concluidos++;
+      else if (newStatus === "Em andamento") newStats.emAndamento++;
       else newStats.naoIniciados++;
       setStats(newStats);
     }
-    
+
     try {
       await pcaApi.updatePcaItemStatus(item.id, newStatus);
       toast({
-        title: 'Status atualizado',
+        title: "Status atualizado",
         description: `Status alterado para "${newStatus}"`,
-        duration: 2000
+        duration: 2000,
       });
     } catch (error: any) {
-      console.error('Erro ao atualizar status:', error);
       // Reverter em caso de erro
-      setItems(prev => prev.map(i => 
-        i.id === item.id ? { ...i, status: oldStatus } : i
-      ));
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, status: oldStatus } : i)),
+      );
       // Reverter stats
       if (stats) {
         const revertStats = { ...stats };
-        if (newStatus === 'Concluída') revertStats.concluidos--;
-        else if (newStatus === 'Em andamento') revertStats.emAndamento--;
+        if (newStatus === "Concluída") revertStats.concluidos--;
+        else if (newStatus === "Em andamento") revertStats.emAndamento--;
         else revertStats.naoIniciados--;
-        if (oldStatus === 'Concluída') revertStats.concluidos++;
-        else if (oldStatus === 'Em andamento') revertStats.emAndamento++;
+        if (oldStatus === "Concluída") revertStats.concluidos++;
+        else if (oldStatus === "Em andamento") revertStats.emAndamento++;
         else revertStats.naoIniciados++;
         setStats(revertStats);
       }
@@ -416,37 +445,40 @@ export function EsteiraContratacoes() {
     if (!selectedItem) return;
 
     const deletedItem = selectedItem;
-    
+
     // Optimistic Update - remove item da lista imediatamente
-    setItems(prev => prev.filter(i => i.id !== selectedItem.id));
-    
+    setItems((prev) => prev.filter((i) => i.id !== selectedItem.id));
+
     // Atualiza stats (garantindo que valores são números)
     if (stats) {
       const newStats = { ...stats, total: stats.total - 1 };
-      if (deletedItem.status === 'Concluída') newStats.concluidos--;
-      else if (deletedItem.status === 'Em andamento') newStats.emAndamento--;
+      if (deletedItem.status === "Concluída") newStats.concluidos--;
+      else if (deletedItem.status === "Em andamento") newStats.emAndamento--;
       else newStats.naoIniciados--;
-      newStats.valorTotal = (Number(newStats.valorTotal) || 0) - (Number(deletedItem.valor_estimado) || 0);
+      newStats.valorTotal =
+        (Number(newStats.valorTotal) || 0) -
+        (Number(deletedItem.valor_estimado) || 0);
       setStats(newStats);
     }
-    
+
     setIsDeleteDialogOpen(false);
     setSelectedItem(null);
 
     try {
       setSaving(true);
       await pcaApi.deletePcaItem(deletedItem.id);
-      
     } catch (error: any) {
-      console.error('Erro ao excluir item:', error);
       // Reverter em caso de erro
-      setItems(prev => [...prev, deletedItem]);
+      setItems((prev) => [...prev, deletedItem]);
       if (stats) {
         const revertStats = { ...stats, total: stats.total + 1 };
-        if (deletedItem.status === 'Concluída') revertStats.concluidos++;
-        else if (deletedItem.status === 'Em andamento') revertStats.emAndamento++;
+        if (deletedItem.status === "Concluída") revertStats.concluidos++;
+        else if (deletedItem.status === "Em andamento")
+          revertStats.emAndamento++;
         else revertStats.naoIniciados++;
-        revertStats.valorTotal = (Number(revertStats.valorTotal) || 0) + (Number(deletedItem.valor_estimado) || 0);
+        revertStats.valorTotal =
+          (Number(revertStats.valorTotal) || 0) +
+          (Number(deletedItem.valor_estimado) || 0);
         setStats(revertStats);
       }
     } finally {
@@ -456,11 +488,7 @@ export function EsteiraContratacoes() {
 
   // Renderizar status badge
   function renderStatusBadge(status: PcaStatus) {
-    return (
-      <Badge className={getStatusBadgeClass(status)}>
-        {status}
-      </Badge>
-    );
+    return <Badge className={getStatusBadgeClass(status)}>{status}</Badge>;
   }
 
   if (loading) {
@@ -487,14 +515,19 @@ export function EsteiraContratacoes() {
               onClick={() => setAnoSelecionado(2026)}
               className={`px-3 py-1 rounded-md text-sm font-medium border transition-colors ${
                 anoSelecionado === 2026
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600"
               }`}
             >
               2026
             </button>
-            <Select value={anoSelecionado !== 2026 ? String(anoSelecionado) : ''} onValueChange={(v) => setAnoSelecionado(parseInt(v))}>
-              <SelectTrigger className={`w-[130px] h-8 text-sm border ${anoSelecionado !== 2026 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+            <Select
+              value={anoSelecionado !== 2026 ? String(anoSelecionado) : ""}
+              onValueChange={(v) => setAnoSelecionado(parseInt(v))}
+            >
+              <SelectTrigger
+                className={`w-[130px] h-8 text-sm border ${anoSelecionado !== 2026 ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300"}`}
+              >
                 <SelectValue placeholder="Outros anos" />
               </SelectTrigger>
               <SelectContent>
@@ -505,7 +538,10 @@ export function EsteiraContratacoes() {
           </div>
         </div>
         {canEdit && (
-          <Button onClick={openAddModal} className="bg-green-600 hover:bg-green-700">
+          <Button
+            onClick={openAddModal}
+            className="bg-green-600 hover:bg-green-700"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Novo Item PCA
           </Button>
@@ -523,7 +559,9 @@ export function EsteiraContratacoes() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Total de Itens</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.total}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -537,7 +575,9 @@ export function EsteiraContratacoes() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Valor Total</p>
-                  <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.valorTotal)}</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {formatCurrency(stats.valorTotal)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -551,7 +591,9 @@ export function EsteiraContratacoes() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Concluídos</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.concluidos}</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {stats.concluidos}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -565,7 +607,9 @@ export function EsteiraContratacoes() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Em Andamento</p>
-                  <p className="text-2xl font-bold text-amber-600">{stats.emAndamento}</p>
+                  <p className="text-2xl font-bold text-amber-600">
+                    {stats.emAndamento}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -579,7 +623,9 @@ export function EsteiraContratacoes() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Não Iniciados</p>
-                  <p className="text-2xl font-bold text-gray-600">{stats.naoIniciados}</p>
+                  <p className="text-2xl font-bold text-gray-600">
+                    {stats.naoIniciados}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -604,14 +650,19 @@ export function EsteiraContratacoes() {
                   className="pl-10 pr-4 h-10 w-60 bg-white border-gray-300 text-sm rounded-xl focus:border-slate-500 focus:ring-slate-500"
                 />
               </div>
-              <Select value={filterResponsavel} onValueChange={setFilterResponsavel}>
+              <Select
+                value={filterResponsavel}
+                onValueChange={setFilterResponsavel}
+              >
                 <SelectTrigger className="h-10 w-48 bg-white border-gray-300 text-sm rounded-xl">
                   <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Responsáveis</SelectItem>
-                  {filters?.responsaveis.map(resp => (
-                    <SelectItem key={resp} value={resp}>{resp}</SelectItem>
+                  {filters?.responsaveis.map((resp) => (
+                    <SelectItem key={resp} value={resp}>
+                      {resp}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -633,8 +684,10 @@ export function EsteiraContratacoes() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {filters?.areasDemandantes.map(area => (
-                    <SelectItem key={area} value={area}>{area}</SelectItem>
+                  {filters?.areasDemandantes.map((area) => (
+                    <SelectItem key={area} value={area}>
+                      {area}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -645,8 +698,10 @@ export function EsteiraContratacoes() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {filters?.meses.map(mes => (
-                    <SelectItem key={mes} value={mes}>{formatMesAno(mes)}</SelectItem>
+                  {filters?.meses.map((mes) => (
+                    <SelectItem key={mes} value={mes}>
+                      {formatMesAno(mes)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -656,8 +711,10 @@ export function EsteiraContratacoes() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {filters?.statusOptions.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  {filters?.statusOptions.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -675,14 +732,13 @@ export function EsteiraContratacoes() {
             </div>
             <p className="text-gray-700 font-semibold text-lg">
               {items.length === 0
-                ? 'Nenhum item no PCA'
-                : 'Nenhum item com os filtros selecionados'
-              }
+                ? "Nenhum item no PCA"
+                : "Nenhum item com os filtros selecionados"}
             </p>
             <p className="text-gray-400 text-sm mt-2">
               {items.length === 0
-                ? 'Não há itens cadastrados ainda.'
-                : 'Tente alterar os filtros para ver mais resultados.'}
+                ? "Não há itens cadastrados ainda."
+                : "Tente alterar os filtros para ver mais resultados."}
             </p>
             {items.length > 0 && (
               <Button variant="outline" className="mt-4" onClick={clearFilters}>
@@ -696,26 +752,32 @@ export function EsteiraContratacoes() {
               <div
                 key={item.id}
                 onClick={() => navigate(`/contratacoes-ti/item/${item.id}`)}
-                className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${index !== filteredItems.length - 1 ? 'border-b border-gray-100' : ''}`}
+                className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${index !== filteredItems.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 {/* Info do Item (Item + Objeto na mesma coluna) */}
                 <div className="flex items-center gap-4 min-w-0 flex-1">
                   <div className="flex flex-col items-center gap-3 flex-shrink-0">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${
-                      item.tipo === 'Renovação'
-                        ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/30'
-                        : 'bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/30'
-                    }`}>
-                      {item.tipo === 'Renovação' ? (
+                    <div
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${
+                        item.tipo === "Renovação"
+                          ? "bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/30"
+                          : "bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/30"
+                      }`}
+                    >
+                      {item.tipo === "Renovação" ? (
                         <RefreshCw className="h-5 w-5 text-white" />
                       ) : (
                         <FileText className="h-6 w-6 text-white" />
                       )}
                     </div>
-                    <span className={`text-xs font-medium leading-none ${
-                      item.tipo === 'Renovação' ? 'text-emerald-600' : 'text-blue-600'
-                    }`}>
-                      {item.tipo === 'Renovação' ? 'Renovação' : 'Nova'}
+                    <span
+                      className={`text-xs font-medium leading-none ${
+                        item.tipo === "Renovação"
+                          ? "text-emerald-600"
+                          : "text-blue-600"
+                      }`}
+                    >
+                      {item.tipo === "Renovação" ? "Renovação" : "Nova"}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
@@ -739,7 +801,9 @@ export function EsteiraContratacoes() {
                 <div className="hidden lg:flex items-center">
                   {/* Área Demandante */}
                   <div className="w-32 text-center">
-                    <span className="text-sm text-gray-700 font-medium">{item.area_demandante}</span>
+                    <span className="text-sm text-gray-700 font-medium">
+                      {item.area_demandante}
+                    </span>
                   </div>
 
                   {/* Valor Estimado */}
@@ -762,7 +826,10 @@ export function EsteiraContratacoes() {
                   </div>
 
                   {/* Ações */}
-                  <div className="w-24 flex justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="w-24 flex justify-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {canEdit && (
                       <>
                         <Button
@@ -808,13 +875,16 @@ export function EsteiraContratacoes() {
           <DialogHeader>
             <DialogTitle>Novo Item PCA</DialogTitle>
             <DialogDescription>
-              Preencha os campos abaixo para adicionar um novo item ao Plano de Contratações.
+              Preencha os campos abaixo para adicionar um novo item ao Plano de
+              Contratações.
             </DialogDescription>
           </DialogHeader>
-          
+
           {formErrors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-red-800">Corrija os erros abaixo:</p>
+              <p className="text-sm font-medium text-red-800">
+                Corrija os erros abaixo:
+              </p>
               <ul className="list-disc list-inside text-sm text-red-700 mt-1">
                 {formErrors.map((error, index) => (
                   <li key={index}>{error}</li>
@@ -822,7 +892,7 @@ export function EsteiraContratacoes() {
               </ul>
             </div>
           )}
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -831,12 +901,19 @@ export function EsteiraContratacoes() {
                   id="item_pca"
                   placeholder="Ex: PCA 275"
                   value={formData.item_pca}
-                  onChange={(e) => setFormData({ ...formData, item_pca: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, item_pca: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tipo">Tipo *</Label>
-                <Select value={formData.tipo || 'Contratação'} onValueChange={(v) => setFormData({ ...formData, tipo: v as any })}>
+                <Select
+                  value={formData.tipo || "Contratação"}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, tipo: v as any })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -852,23 +929,69 @@ export function EsteiraContratacoes() {
                   <Input
                     id="area_demandante"
                     placeholder="Digite para buscar..."
-                    value={areaDropdownOpen ? areaSearch : formData.area_demandante}
-                    onChange={e => { setAreaSearch(e.target.value); setAreaDropdownOpen(true); }}
-                    onFocus={() => { setAreaSearch(formData.area_demandante); setAreaDropdownOpen(true); }}
-                    onBlur={() => setTimeout(() => setAreaDropdownOpen(false), 150)}
+                    value={
+                      areaDropdownOpen ? areaSearch : formData.area_demandante
+                    }
+                    onChange={(e) => {
+                      setAreaSearch(e.target.value);
+                      setAreaDropdownOpen(true);
+                    }}
+                    onFocus={() => {
+                      setAreaSearch(formData.area_demandante);
+                      setAreaDropdownOpen(true);
+                    }}
+                    onBlur={() =>
+                      setTimeout(() => setAreaDropdownOpen(false), 150)
+                    }
                     autoComplete="off"
                   />
                   {areaDropdownOpen && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                      {areasList.filter(a => a.nome.toLowerCase().includes(areaSearch.toLowerCase()) || (a.area_sigla || '').toLowerCase().includes(areaSearch.toLowerCase())).length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500">Nenhuma unidade encontrada</div>
-                      ) : areasList.filter(a => a.nome.toLowerCase().includes(areaSearch.toLowerCase()) || (a.area_sigla || '').toLowerCase().includes(areaSearch.toLowerCase())).map(a => (
-                        <div key={a.id} className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                          onMouseDown={() => { setFormData(f => ({ ...f, area_demandante: a.nome })); setAreaDropdownOpen(false); setAreaSearch(''); }}>
-                          <span>{a.nome}</span>
-                          {a.area_sigla && <span className="text-gray-400 ml-1">({a.area_sigla})</span>}
+                      {areasList.filter(
+                        (a) =>
+                          a.nome
+                            .toLowerCase()
+                            .includes(areaSearch.toLowerCase()) ||
+                          (a.area_sigla || "")
+                            .toLowerCase()
+                            .includes(areaSearch.toLowerCase()),
+                      ).length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          Nenhuma unidade encontrada
                         </div>
-                      ))}
+                      ) : (
+                        areasList
+                          .filter(
+                            (a) =>
+                              a.nome
+                                .toLowerCase()
+                                .includes(areaSearch.toLowerCase()) ||
+                              (a.area_sigla || "")
+                                .toLowerCase()
+                                .includes(areaSearch.toLowerCase()),
+                          )
+                          .map((a) => (
+                            <div
+                              key={a.id}
+                              className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                              onMouseDown={() => {
+                                setFormData((f) => ({
+                                  ...f,
+                                  area_demandante: a.nome,
+                                }));
+                                setAreaDropdownOpen(false);
+                                setAreaSearch("");
+                              }}
+                            >
+                              <span>{a.nome}</span>
+                              {a.area_sigla && (
+                                <span className="text-gray-400 ml-1">
+                                  ({a.area_sigla})
+                                </span>
+                              )}
+                            </div>
+                          ))
+                      )}
                     </div>
                   )}
                 </div>
@@ -881,22 +1004,58 @@ export function EsteiraContratacoes() {
                 <Input
                   id="responsavel"
                   placeholder="Digite para buscar..."
-                  value={responsavelDropdownOpen ? responsavelSearch : formData.responsavel}
-                  onChange={e => { setResponsavelSearch(e.target.value); setResponsavelDropdownOpen(true); }}
-                  onFocus={() => { setResponsavelSearch(formData.responsavel); setResponsavelDropdownOpen(true); }}
-                  onBlur={() => setTimeout(() => setResponsavelDropdownOpen(false), 150)}
+                  value={
+                    responsavelDropdownOpen
+                      ? responsavelSearch
+                      : formData.responsavel
+                  }
+                  onChange={(e) => {
+                    setResponsavelSearch(e.target.value);
+                    setResponsavelDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    setResponsavelSearch(formData.responsavel);
+                    setResponsavelDropdownOpen(true);
+                  }}
+                  onBlur={() =>
+                    setTimeout(() => setResponsavelDropdownOpen(false), 150)
+                  }
                   autoComplete="off"
                 />
                 {responsavelDropdownOpen && (
                   <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {pessoasList.filter(p => (p.nome_exibicao || p.nome).toLowerCase().includes(responsavelSearch.toLowerCase())).length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">Nenhum responsável encontrado</div>
-                    ) : pessoasList.filter(p => (p.nome_exibicao || p.nome).toLowerCase().includes(responsavelSearch.toLowerCase())).map(p => (
-                      <div key={p.id} className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                        onMouseDown={() => { setFormData(f => ({ ...f, responsavel: p.nome_exibicao || p.nome })); setResponsavelDropdownOpen(false); setResponsavelSearch(''); }}>
-                        {p.nome_exibicao || p.nome}
+                    {pessoasList.filter((p) =>
+                      (p.nome_exibicao || p.nome)
+                        .toLowerCase()
+                        .includes(responsavelSearch.toLowerCase()),
+                    ).length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">
+                        Nenhum responsável encontrado
                       </div>
-                    ))}
+                    ) : (
+                      pessoasList
+                        .filter((p) =>
+                          (p.nome_exibicao || p.nome)
+                            .toLowerCase()
+                            .includes(responsavelSearch.toLowerCase()),
+                        )
+                        .map((p) => (
+                          <div
+                            key={p.id}
+                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                            onMouseDown={() => {
+                              setFormData((f) => ({
+                                ...f,
+                                responsavel: p.nome_exibicao || p.nome,
+                              }));
+                              setResponsavelDropdownOpen(false);
+                              setResponsavelSearch("");
+                            }}
+                          >
+                            {p.nome_exibicao || p.nome}
+                          </div>
+                        ))
+                    )}
                   </div>
                 )}
               </div>
@@ -909,7 +1068,9 @@ export function EsteiraContratacoes() {
                 placeholder="Descrição detalhada da contratação"
                 rows={4}
                 value={formData.objeto}
-                onChange={(e) => setFormData({ ...formData, objeto: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, objeto: e.target.value })
+                }
               />
             </div>
 
@@ -922,34 +1083,53 @@ export function EsteiraContratacoes() {
                   step="0.01"
                   min="0"
                   placeholder="0,00"
-                  value={formData.valor_estimado || ''}
-                  onChange={(e) => setFormData({ ...formData, valor_estimado: parseFloat(e.target.value) || 0 })}
+                  value={formData.valor_estimado || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      valor_estimado: parseFloat(e.target.value) || 0,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="valor_formalizado">Valor Formalizado (R$)</Label>
+                <Label htmlFor="valor_formalizado">
+                  Valor Formalizado (R$)
+                </Label>
                 <Input
                   id="valor_formalizado"
                   type="number"
                   step="0.01"
                   min="0"
                   placeholder="0,00"
-                  value={formData.valor_formalizado || ''}
-                  onChange={(e) => setFormData({ ...formData, valor_formalizado: parseFloat(e.target.value) || 0 })}
+                  value={formData.valor_formalizado || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      valor_formalizado: parseFloat(e.target.value) || 0,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="data_estimada">Data Estimada *</Label>
-                <Select 
-                  value={formData.data_estimada_contratacao} 
-                  onValueChange={(value) => setFormData({ ...formData, data_estimada_contratacao: value })}
+                <Select
+                  value={formData.data_estimada_contratacao}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      data_estimada_contratacao: value,
+                    })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o mês" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MESES_ORDENADOS.map(mes => (
-                      <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                    {MESES_ORDENADOS.map((mes) => (
+                      <SelectItem key={mes} value={mes}>
+                        {mes}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -958,9 +1138,11 @@ export function EsteiraContratacoes() {
 
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select 
-                value={formData.status} 
-                onValueChange={(value: PcaStatus) => setFormData({ ...formData, status: value })}
+              <Select
+                value={formData.status}
+                onValueChange={(value: PcaStatus) =>
+                  setFormData({ ...formData, status: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -975,7 +1157,11 @@ export function EsteiraContratacoes() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddModalOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddModalOpen(false)}
+              disabled={saving}
+            >
               Cancelar
             </Button>
             <Button onClick={handleCreate} disabled={saving}>
@@ -995,10 +1181,12 @@ export function EsteiraContratacoes() {
               Altere os campos desejados e clique em Salvar.
             </DialogDescription>
           </DialogHeader>
-          
+
           {formErrors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-red-800">Corrija os erros abaixo:</p>
+              <p className="text-sm font-medium text-red-800">
+                Corrija os erros abaixo:
+              </p>
               <ul className="list-disc list-inside text-sm text-red-700 mt-1">
                 {formErrors.map((error, index) => (
                   <li key={index}>{error}</li>
@@ -1006,7 +1194,7 @@ export function EsteiraContratacoes() {
               </ul>
             </div>
           )}
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -1015,12 +1203,19 @@ export function EsteiraContratacoes() {
                   id="edit_item_pca"
                   placeholder="Ex: PCA 275"
                   value={formData.item_pca}
-                  onChange={(e) => setFormData({ ...formData, item_pca: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, item_pca: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_tipo">Tipo *</Label>
-                <Select value={formData.tipo || 'Contratação'} onValueChange={(v) => setFormData({ ...formData, tipo: v as any })}>
+                <Select
+                  value={formData.tipo || "Contratação"}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, tipo: v as any })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -1036,23 +1231,69 @@ export function EsteiraContratacoes() {
                   <Input
                     id="edit_area_demandante"
                     placeholder="Digite para buscar..."
-                    value={areaDropdownOpen ? areaSearch : formData.area_demandante}
-                    onChange={e => { setAreaSearch(e.target.value); setAreaDropdownOpen(true); }}
-                    onFocus={() => { setAreaSearch(formData.area_demandante); setAreaDropdownOpen(true); }}
-                    onBlur={() => setTimeout(() => setAreaDropdownOpen(false), 150)}
+                    value={
+                      areaDropdownOpen ? areaSearch : formData.area_demandante
+                    }
+                    onChange={(e) => {
+                      setAreaSearch(e.target.value);
+                      setAreaDropdownOpen(true);
+                    }}
+                    onFocus={() => {
+                      setAreaSearch(formData.area_demandante);
+                      setAreaDropdownOpen(true);
+                    }}
+                    onBlur={() =>
+                      setTimeout(() => setAreaDropdownOpen(false), 150)
+                    }
                     autoComplete="off"
                   />
                   {areaDropdownOpen && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                      {areasList.filter(a => a.nome.toLowerCase().includes(areaSearch.toLowerCase()) || (a.area_sigla || '').toLowerCase().includes(areaSearch.toLowerCase())).length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500">Nenhuma unidade encontrada</div>
-                      ) : areasList.filter(a => a.nome.toLowerCase().includes(areaSearch.toLowerCase()) || (a.area_sigla || '').toLowerCase().includes(areaSearch.toLowerCase())).map(a => (
-                        <div key={a.id} className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                          onMouseDown={() => { setFormData(f => ({ ...f, area_demandante: a.nome })); setAreaDropdownOpen(false); setAreaSearch(''); }}>
-                          <span>{a.nome}</span>
-                          {a.area_sigla && <span className="text-gray-400 ml-1">({a.area_sigla})</span>}
+                      {areasList.filter(
+                        (a) =>
+                          a.nome
+                            .toLowerCase()
+                            .includes(areaSearch.toLowerCase()) ||
+                          (a.area_sigla || "")
+                            .toLowerCase()
+                            .includes(areaSearch.toLowerCase()),
+                      ).length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          Nenhuma unidade encontrada
                         </div>
-                      ))}
+                      ) : (
+                        areasList
+                          .filter(
+                            (a) =>
+                              a.nome
+                                .toLowerCase()
+                                .includes(areaSearch.toLowerCase()) ||
+                              (a.area_sigla || "")
+                                .toLowerCase()
+                                .includes(areaSearch.toLowerCase()),
+                          )
+                          .map((a) => (
+                            <div
+                              key={a.id}
+                              className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                              onMouseDown={() => {
+                                setFormData((f) => ({
+                                  ...f,
+                                  area_demandante: a.nome,
+                                }));
+                                setAreaDropdownOpen(false);
+                                setAreaSearch("");
+                              }}
+                            >
+                              <span>{a.nome}</span>
+                              {a.area_sigla && (
+                                <span className="text-gray-400 ml-1">
+                                  ({a.area_sigla})
+                                </span>
+                              )}
+                            </div>
+                          ))
+                      )}
                     </div>
                   )}
                 </div>
@@ -1065,22 +1306,58 @@ export function EsteiraContratacoes() {
                 <Input
                   id="edit_responsavel"
                   placeholder="Digite para buscar..."
-                  value={responsavelDropdownOpen ? responsavelSearch : formData.responsavel}
-                  onChange={e => { setResponsavelSearch(e.target.value); setResponsavelDropdownOpen(true); }}
-                  onFocus={() => { setResponsavelSearch(formData.responsavel); setResponsavelDropdownOpen(true); }}
-                  onBlur={() => setTimeout(() => setResponsavelDropdownOpen(false), 150)}
+                  value={
+                    responsavelDropdownOpen
+                      ? responsavelSearch
+                      : formData.responsavel
+                  }
+                  onChange={(e) => {
+                    setResponsavelSearch(e.target.value);
+                    setResponsavelDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    setResponsavelSearch(formData.responsavel);
+                    setResponsavelDropdownOpen(true);
+                  }}
+                  onBlur={() =>
+                    setTimeout(() => setResponsavelDropdownOpen(false), 150)
+                  }
                   autoComplete="off"
                 />
                 {responsavelDropdownOpen && (
                   <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {pessoasList.filter(p => (p.nome_exibicao || p.nome).toLowerCase().includes(responsavelSearch.toLowerCase())).length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">Nenhum responsável encontrado</div>
-                    ) : pessoasList.filter(p => (p.nome_exibicao || p.nome).toLowerCase().includes(responsavelSearch.toLowerCase())).map(p => (
-                      <div key={p.id} className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                        onMouseDown={() => { setFormData(f => ({ ...f, responsavel: p.nome_exibicao || p.nome })); setResponsavelDropdownOpen(false); setResponsavelSearch(''); }}>
-                        {p.nome_exibicao || p.nome}
+                    {pessoasList.filter((p) =>
+                      (p.nome_exibicao || p.nome)
+                        .toLowerCase()
+                        .includes(responsavelSearch.toLowerCase()),
+                    ).length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">
+                        Nenhum responsável encontrado
                       </div>
-                    ))}
+                    ) : (
+                      pessoasList
+                        .filter((p) =>
+                          (p.nome_exibicao || p.nome)
+                            .toLowerCase()
+                            .includes(responsavelSearch.toLowerCase()),
+                        )
+                        .map((p) => (
+                          <div
+                            key={p.id}
+                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                            onMouseDown={() => {
+                              setFormData((f) => ({
+                                ...f,
+                                responsavel: p.nome_exibicao || p.nome,
+                              }));
+                              setResponsavelDropdownOpen(false);
+                              setResponsavelSearch("");
+                            }}
+                          >
+                            {p.nome_exibicao || p.nome}
+                          </div>
+                        ))
+                    )}
                   </div>
                 )}
               </div>
@@ -1093,47 +1370,70 @@ export function EsteiraContratacoes() {
                 placeholder="Descrição detalhada da contratação"
                 rows={4}
                 value={formData.objeto}
-                onChange={(e) => setFormData({ ...formData, objeto: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, objeto: e.target.value })
+                }
               />
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit_valor_estimado">Valor Estimado (R$) *</Label>
+                <Label htmlFor="edit_valor_estimado">
+                  Valor Estimado (R$) *
+                </Label>
                 <Input
                   id="edit_valor_estimado"
                   type="number"
                   step="0.01"
                   min="0"
                   placeholder="0,00"
-                  value={formData.valor_estimado || ''}
-                  onChange={(e) => setFormData({ ...formData, valor_estimado: parseFloat(e.target.value) || 0 })}
+                  value={formData.valor_estimado || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      valor_estimado: parseFloat(e.target.value) || 0,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_valor_formalizado">Valor Formalizado (R$)</Label>
+                <Label htmlFor="edit_valor_formalizado">
+                  Valor Formalizado (R$)
+                </Label>
                 <Input
                   id="edit_valor_formalizado"
                   type="number"
                   step="0.01"
                   min="0"
                   placeholder="0,00"
-                  value={formData.valor_formalizado || ''}
-                  onChange={(e) => setFormData({ ...formData, valor_formalizado: parseFloat(e.target.value) || 0 })}
+                  value={formData.valor_formalizado || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      valor_formalizado: parseFloat(e.target.value) || 0,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_data_estimada">Data Estimada *</Label>
-                <Select 
-                  value={formData.data_estimada_contratacao} 
-                  onValueChange={(value) => setFormData({ ...formData, data_estimada_contratacao: value })}
+                <Select
+                  value={formData.data_estimada_contratacao}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      data_estimada_contratacao: value,
+                    })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o mês" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MESES_ORDENADOS.map(mes => (
-                      <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                    {MESES_ORDENADOS.map((mes) => (
+                      <SelectItem key={mes} value={mes}>
+                        {mes}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1142,9 +1442,11 @@ export function EsteiraContratacoes() {
 
             <div className="space-y-2">
               <Label htmlFor="edit_status">Status</Label>
-              <Select 
-                value={formData.status} 
-                onValueChange={(value: PcaStatus) => setFormData({ ...formData, status: value })}
+              <Select
+                value={formData.status}
+                onValueChange={(value: PcaStatus) =>
+                  setFormData({ ...formData, status: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -1159,7 +1461,11 @@ export function EsteiraContratacoes() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditModalOpen(false)}
+              disabled={saving}
+            >
               Cancelar
             </Button>
             <Button onClick={handleUpdate} disabled={saving}>
@@ -1171,7 +1477,10 @@ export function EsteiraContratacoes() {
       </Dialog>
 
       {/* Dialog de Confirmação de Exclusão */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -1179,14 +1488,16 @@ export function EsteiraContratacoes() {
               Confirmar Exclusão
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o item <strong>{selectedItem?.item_pca}</strong>?
-              <br /><br />
+              Tem certeza que deseja excluir o item{" "}
+              <strong>{selectedItem?.item_pca}</strong>?
+              <br />
+              <br />
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleDelete}
               disabled={saving}
               className="bg-red-600 hover:bg-red-700"
@@ -1200,4 +1511,3 @@ export function EsteiraContratacoes() {
     </div>
   );
 }
-

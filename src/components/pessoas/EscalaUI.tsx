@@ -1,5 +1,10 @@
-import { parseEscalaItem } from '@/constants/competencias';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { parseEscalaItem } from "@/constants/competencias";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface EscalaItem {
   value: string;
@@ -13,11 +18,14 @@ interface EscalaItem {
 export function EscalaLegenda({ items }: { items: readonly EscalaItem[] }) {
   return (
     <ul className="list-disc ml-6 space-y-1">
-      {items.map(item => {
+      {items.map((item) => {
         const { num, titulo, descricao } = parseEscalaItem(item.label);
         return (
           <li key={item.value}>
-            <strong className="font-semibold text-gray-900">{num} – {titulo}:</strong> {descricao}
+            <strong className="font-semibold text-gray-900">
+              {num} – {titulo}:
+            </strong>{" "}
+            {descricao}
           </li>
         );
       })}
@@ -25,15 +33,15 @@ export function EscalaLegenda({ items }: { items: readonly EscalaItem[] }) {
   );
 }
 
-type AccentColor = 'teal' | 'violet' | 'blue' | 'rose' | 'amber' | 'sky';
+type AccentColor = "teal" | "violet" | "blue" | "rose" | "amber" | "sky";
 
 const ACCENT_CLASSES: Record<AccentColor, string> = {
-  teal: 'text-teal-600 focus:ring-teal-500',
-  violet: 'text-violet-600 focus:ring-violet-500',
-  blue: 'text-blue-600 focus:ring-blue-500',
-  rose: 'text-rose-600 focus:ring-rose-500',
-  amber: 'text-amber-600 focus:ring-amber-500',
-  sky: 'text-sky-600 focus:ring-sky-500',
+  teal: "text-teal-600 focus:ring-teal-500",
+  violet: "text-violet-600 focus:ring-violet-500",
+  blue: "text-blue-600 focus:ring-blue-500",
+  rose: "text-rose-600 focus:ring-rose-500",
+  amber: "text-amber-600 focus:ring-amber-500",
+  sky: "text-sky-600 focus:ring-sky-500",
 };
 
 /**
@@ -47,7 +55,7 @@ export function EscalaRadioGroup({
   value,
   onChange,
   disabled = false,
-  accentColor = 'teal',
+  accentColor = "teal",
 }: {
   items: readonly EscalaItem[];
   name: string;
@@ -60,13 +68,13 @@ export function EscalaRadioGroup({
   return (
     <TooltipProvider delayDuration={150} skipDelayDuration={50}>
       <div className="mt-2 space-y-2">
-        {items.map(opt => {
+        {items.map((opt) => {
           const { num, titulo, descricao } = parseEscalaItem(opt.label);
           return (
             <Tooltip key={opt.value}>
               <TooltipTrigger asChild>
                 <label
-                  className={`flex items-start gap-3 group w-fit ${disabled ? 'pointer-events-none' : 'cursor-pointer'}`}
+                  className={`flex items-start gap-3 group w-fit ${disabled ? "pointer-events-none" : "cursor-pointer"}`}
                 >
                   <input
                     type="radio"

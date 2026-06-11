@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Layout } from '@/components/layout/Layout';
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
-import { VoltarCadastros } from '@/components/ui/VoltarCadastros';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useEffect, useMemo, useState } from "react";
+import { Layout } from "@/components/layout/Layout";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { VoltarCadastros } from "@/components/ui/VoltarCadastros";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +12,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -21,12 +25,24 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
-import { ShieldCheck, Plus, Trash2, Loader2, UserX, Search, ChevronsUpDown, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { permissoesTapApi, type PermissaoTap } from '@/services/permissoesTapApi';
-import { getUsers } from '@/services/api';
-import type { User as UserType } from '@/types';
+} from "@/components/ui/command";
+import {
+  ShieldCheck,
+  Plus,
+  Trash2,
+  Loader2,
+  UserX,
+  Search,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  permissoesTapApi,
+  type PermissaoTap,
+} from "@/services/permissoesTapApi";
+import { getUsers } from "@/services/api";
+import type { User as UserType } from "@/types";
 
 export default function PermissoesTap() {
   const { toast } = useToast();
@@ -34,11 +50,11 @@ export default function PermissoesTap() {
   const [permissoes, setPermissoes] = useState<PermissaoTap[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState('');
+  const [busca, setBusca] = useState("");
 
   // Modal conceder
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
 
@@ -53,17 +69,14 @@ export default function PermissoesTap() {
       getUsers(),
     ]);
 
-    if (permsRes.status === 'fulfilled') {
+    if (permsRes.status === "fulfilled") {
       setPermissoes(permsRes.value);
     } else {
-      console.error('[PermissoesTap] erro ao listar permissões:', permsRes.reason);
     }
 
-    if (usersRes.status === 'fulfilled') {
-      console.log('[PermissoesTap] usuários carregados:', usersRes.value.length);
+    if (usersRes.status === "fulfilled") {
       setUsers(usersRes.value);
     } else {
-      console.error('[PermissoesTap] erro ao listar usuários:', usersRes.reason);
     }
 
     setLoading(false);
@@ -89,25 +102,26 @@ export default function PermissoesTap() {
     return permissoes.filter(
       (p) =>
         p.user_nome.toLowerCase().includes(q) ||
-        (p.user_email ?? '').toLowerCase().includes(q) ||
-        (p.user_diretoria ?? '').toLowerCase().includes(q),
+        (p.user_email ?? "").toLowerCase().includes(q) ||
+        (p.user_diretoria ?? "").toLowerCase().includes(q),
     );
   }, [permissoes, busca]);
 
   const handleConceder = async () => {
     const userId = Number(selectedUserId);
     if (!userId || Number.isNaN(userId)) {
-      toast({ title: 'Selecione um usuário', variant: 'destructive' });
+      toast({ title: "Selecione um usuário", variant: "destructive" });
       return;
     }
     setSaving(true);
     try {
       await permissoesTapApi.conceder(userId);
-      
+
       setModalOpen(false);
-      setSelectedUserId('');
+      setSelectedUserId("");
       await carregar();
     } catch (err: any) {
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -120,12 +134,13 @@ export default function PermissoesTap() {
       setRevogando(null);
       await carregar();
     } catch (err: any) {
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
   const formatDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleDateString('pt-BR');
+      return new Date(iso).toLocaleDateString("pt-BR");
     } catch {
       return iso;
     }
@@ -138,8 +153,8 @@ export default function PermissoesTap() {
           <div className="mb-4 pl-2 flex items-center justify-between">
             <Breadcrumbs
               items={[
-                { label: 'Cadastros', href: '/cadastros' },
-                { label: 'Permissões do TAP' },
+                { label: "Cadastros", href: "/cadastros" },
+                { label: "Permissões do TAP" },
               ]}
             />
             <VoltarCadastros />
@@ -155,9 +170,10 @@ export default function PermissoesTap() {
               Permissões do TAP
             </h1>
             <p className="text-slate-500 mt-1 text-sm max-w-2xl">
-              Conceda a usuários a permissão para editar os campos do TAP (Termo de Abertura
-              do Projeto) em projetos da sua própria diretoria. A permissão é restrita aos
-              campos do TAP e ao escopo da diretoria do usuário.
+              Conceda a usuários a permissão para editar os campos do TAP (Termo
+              de Abertura do Projeto) em projetos da sua própria diretoria. A
+              permissão é restrita aos campos do TAP e ao escopo da diretoria do
+              usuário.
             </p>
           </div>
 
@@ -191,29 +207,52 @@ export default function PermissoesTap() {
                 <p className="text-sm">
                   {permissoes.length === 0
                     ? 'Nenhum usuário possui permissão TAP. Clique em "Conceder permissão" para começar.'
-                    : 'Nenhum resultado para essa busca.'}
+                    : "Nenhum resultado para essa busca."}
                 </p>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
-                    <th className="text-left font-semibold px-4 py-3">Usuário</th>
-                    <th className="text-left font-semibold px-4 py-3">E-mail</th>
-                    <th className="text-left font-semibold px-4 py-3">Diretoria</th>
-                    <th className="text-left font-semibold px-4 py-3">Concedida em</th>
-                    <th className="text-left font-semibold px-4 py-3">Concedida por</th>
+                    <th className="text-left font-semibold px-4 py-3">
+                      Usuário
+                    </th>
+                    <th className="text-left font-semibold px-4 py-3">
+                      E-mail
+                    </th>
+                    <th className="text-left font-semibold px-4 py-3">
+                      Diretoria
+                    </th>
+                    <th className="text-left font-semibold px-4 py-3">
+                      Concedida em
+                    </th>
+                    <th className="text-left font-semibold px-4 py-3">
+                      Concedida por
+                    </th>
                     <th className="w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {permissoesFiltradas.map((p) => (
-                    <tr key={p.user_id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{p.user_nome}</td>
-                      <td className="px-4 py-3 text-slate-600">{p.user_email ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{p.user_diretoria ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{formatDate(p.granted_at)}</td>
-                      <td className="px-4 py-3 text-slate-600">{p.granted_by_nome ?? '—'}</td>
+                    <tr
+                      key={p.user_id}
+                      className="border-t border-slate-100 hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {p.user_nome}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {p.user_email ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {p.user_diretoria ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {formatDate(p.granted_at)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {p.granted_by_nome ?? "—"}
+                      </td>
                       <td className="px-4 py-3">
                         <Button
                           variant="ghost"
@@ -239,8 +278,8 @@ export default function PermissoesTap() {
           <DialogHeader>
             <DialogTitle>Conceder permissão do TAP</DialogTitle>
             <DialogDescription>
-              Escolha o usuário que poderá editar os campos do TAP em projetos da sua
-              própria diretoria.
+              Escolha o usuário que poderá editar os campos do TAP em projetos
+              da sua própria diretoria.
             </DialogDescription>
           </DialogHeader>
 
@@ -257,18 +296,23 @@ export default function PermissoesTap() {
                   <span className="truncate">
                     {selectedUserId
                       ? (() => {
-                          const u = usuariosElegiveis.find((x) => String(x.id) === selectedUserId);
-                          if (!u) return 'Selecione um usuário...';
-                          return `${u.name}${u.diretoria ? ` — ${u.diretoria}` : ''}`;
+                          const u = usuariosElegiveis.find(
+                            (x) => String(x.id) === selectedUserId,
+                          );
+                          if (!u) return "Selecione um usuário...";
+                          return `${u.name}${u.diretoria ? ` — ${u.diretoria}` : ""}`;
                         })()
                       : usuariosElegiveis.length === 0
-                        ? 'Todos os usuários ativos já possuem permissão'
-                        : 'Selecione um usuário...'}
+                        ? "Todos os usuários ativos já possuem permissão"
+                        : "Selecione um usuário..."}
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[80]" align="start">
+              <PopoverContent
+                className="w-[--radix-popover-trigger-width] p-0 z-[80]"
+                align="start"
+              >
                 <Command>
                   <CommandInput placeholder="Buscar por nome, e-mail ou diretoria..." />
                   <CommandList>
@@ -277,7 +321,7 @@ export default function PermissoesTap() {
                       {usuariosElegiveis.map((u) => (
                         <CommandItem
                           key={u.id}
-                          value={`${u.name} ${u.email ?? ''} ${u.diretoria ?? ''}`}
+                          value={`${u.name} ${u.email ?? ""} ${u.diretoria ?? ""}`}
                           onSelect={() => {
                             setSelectedUserId(String(u.id));
                             setComboOpen(false);
@@ -285,13 +329,15 @@ export default function PermissoesTap() {
                         >
                           <Check
                             className={cn(
-                              'mr-2 h-4 w-4',
-                              selectedUserId === String(u.id) ? 'opacity-100' : 'opacity-0',
+                              "mr-2 h-4 w-4",
+                              selectedUserId === String(u.id)
+                                ? "opacity-100"
+                                : "opacity-0",
                             )}
                           />
                           <span className="truncate">
                             {u.name}
-                            {u.diretoria ? ` — ${u.diretoria}` : ''}
+                            {u.diretoria ? ` — ${u.diretoria}` : ""}
                           </span>
                         </CommandItem>
                       ))}
@@ -303,11 +349,20 @@ export default function PermissoesTap() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setModalOpen(false)}
+              disabled={saving}
+            >
               Cancelar
             </Button>
-            <Button onClick={handleConceder} disabled={saving || !selectedUserId}>
-              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+            <Button
+              onClick={handleConceder}
+              disabled={saving || !selectedUserId}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : null}
               Conceder
             </Button>
           </DialogFooter>
@@ -315,14 +370,17 @@ export default function PermissoesTap() {
       </Dialog>
 
       {/* Modal: confirmar revogação */}
-      <Dialog open={!!revogando} onOpenChange={(open) => !open && setRevogando(null)}>
+      <Dialog
+        open={!!revogando}
+        onOpenChange={(open) => !open && setRevogando(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Revogar permissão do TAP</DialogTitle>
             <DialogDescription>
               {revogando ? (
                 <>
-                  Deseja remover a permissão de editar o TAP de{' '}
+                  Deseja remover a permissão de editar o TAP de{" "}
                   <strong>{revogando.user_nome}</strong>?
                 </>
               ) : null}
