@@ -67,7 +67,7 @@ public class ProcessosNegocioService {
                         "  fluxograma_data, fluxograma_filename, fluxograma_mime, " +
                         "  documentos_anexados, " +
                         "  periodicidade_revisao, " +
-                        "  numero_proad, observacoes_gerais, " +
+                        "  numero_proad, observacoes_gerais, indicadores, " +
                         "  status, created_by, updated_by " +
                         ") VALUES ( " +
                         "  ?, ?, ?, ?, ?, ?, " +
@@ -78,7 +78,7 @@ public class ProcessosNegocioService {
                         "  ?, ?, ?, " +
                         "  ?::jsonb, " +
                         "  ?, " +
-                        "  ?, ?, " +
+                        "  ?, ?, ?, " +
                         "  'em_elaboracao', ?, ? " +
                         ") RETURNING *",
                 str(data.get("macroprocesso")), str(data.get("diretoria")), orNull(data.get("periodo")),
@@ -90,7 +90,7 @@ public class ProcessosNegocioService {
                 orNull(data.get("fluxograma_data")), orNull(data.get("fluxograma_filename")), orNull(data.get("fluxograma_mime")),
                 toJsonArray(data.get("documentos_anexados")),
                 orNull(data.get("periodicidade_revisao")),
-                orNull(data.get("numero_proad")), orNull(data.get("observacoes_gerais")),
+                orNull(data.get("numero_proad")), orNull(data.get("observacoes_gerais")), orNull(data.get("indicadores")),
                 userId, userId);
     }
 
@@ -114,6 +114,7 @@ public class ProcessosNegocioService {
         pushScalar(data, fields, values, "nome_processo");
         pushScalar(data, fields, values, "descricao");
         pushScalar(data, fields, values, "detalhamento");
+        pushScalar(data, fields, values, "indicadores");
         pushJson(data, fields, values, "proprietarios");
         pushJson(data, fields, values, "atores");
         pushJson(data, fields, values, "areas_responsaveis");
@@ -144,18 +145,23 @@ public class ProcessosNegocioService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    public Map<String, Object> enviarParaValidacao(long id, long userId) {
+    /**
+     * Enviar para validação. O fluxo de aprovação tem 2 camadas (Setorial → Estratégica):
+     * a camada do responsável é carimbada automaticamente no envio (quem envia é o
+     * responsável), e o processo já segue para "validado_autor" (= aguardando a diretoria).
+     */
+    public Map<String, Object> enviarParaValidacao(long id, long userId, String userName) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "UPDATE processos_negocio " +
-                        "SET status = 'enviado', updated_at = CURRENT_TIMESTAMP, updated_by = ?, " +
+                        "SET status = 'validado_autor', updated_at = CURRENT_TIMESTAMP, updated_by = ?, " +
                         "    recusado_em = NULL, recusado_por_user_id = NULL, recusado_por_nome = NULL, " +
                         "    recusado_camada = NULL, recusa_motivo = NULL, " +
-                        "    validado_autor_user_id = NULL, validado_autor_nome = NULL, validado_autor_em = NULL, " +
+                        "    validado_autor_user_id = ?, validado_autor_nome = ?, validado_autor_em = CURRENT_TIMESTAMP, " +
                         "    validado_diretoria_user_id = NULL, validado_diretoria_nome = NULL, validado_diretoria_em = NULL, " +
                         "    validado_final_user_id = NULL, validado_final_nome = NULL, validado_final_em = NULL " +
                         "WHERE id = ? AND is_deleted = FALSE AND status IN ('em_elaboracao', 'recusado', 'validado_final') " +
                         "RETURNING *",
-                userId, id);
+                userId, userId, userName, id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 

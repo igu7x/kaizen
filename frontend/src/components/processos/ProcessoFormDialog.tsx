@@ -22,16 +22,20 @@ import {
   Calendar,
   Workflow,
   Paperclip,
+  BarChart3,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   processosNegocioApi,
   ProcessoNegocio,
   CreateProcessoNegocioDto,
+  REVISAO_POLITICA_TEXTO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { ListInput } from "./ListInput";
 import { UserMultiPicker } from "./UserMultiPicker";
+import { ResponsavelInput } from "./ResponsavelInput";
 import { UnidadeMultiPicker } from "./UnidadeMultiPicker";
 import { FluxogramaUpload } from "./FluxogramaUpload";
 import { DocumentosAnexadosInput } from "./DocumentosAnexadosInput";
@@ -56,6 +60,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   nome_processo: "",
   descricao: "",
   detalhamento: "",
+  indicadores: "",
   proprietarios: [],
   atores: [],
   areas_responsaveis: [],
@@ -123,6 +128,11 @@ export function ProcessoFormDialog({
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [areas, setAreas] = useState<Area[]>([]);
+  // Id do processo sendo editado. Em "Salvar Alterações" num processo novo,
+  // passamos a editar o mesmo registro (evita recriar a cada clique).
+  const [currentId, setCurrentId] = useState<number | null>(
+    processo?.id ?? null,
+  );
 
   // Carregar áreas do domínio do usuário ao abrir (pra select de Diretoria)
   useEffect(() => {
@@ -144,6 +154,7 @@ export function ProcessoFormDialog({
   // Carregar valores ao abrir (modo edição) ou resetar (criação)
   useEffect(() => {
     if (!open) return;
+    setCurrentId(processo?.id ?? null);
     if (processo) {
       setForm({
         macroprocesso: processo.macroprocesso || "",
@@ -154,6 +165,7 @@ export function ProcessoFormDialog({
         nome_processo: processo.nome_processo || "",
         descricao: processo.descricao || "",
         detalhamento: processo.detalhamento || "",
+        indicadores: processo.indicadores || "",
         proprietarios: processo.proprietarios || [],
         atores: processo.atores || [],
         areas_responsaveis: processo.areas_responsaveis || [],
@@ -197,17 +209,21 @@ export function ProcessoFormDialog({
     setSaving(true);
     try {
       let saved: ProcessoNegocio;
-      if (isEdit && processo) {
-        saved = await processosNegocioApi.update(processo.id, form);
+      if (currentId != null) {
+        saved = await processosNegocioApi.update(currentId, form);
       } else {
         saved = await processosNegocioApi.create(form);
+        setCurrentId(saved.id);
       }
       if (enviarApos) {
         saved = await processosNegocioApi.enviar(saved.id);
+        onSaved(saved);
+        onOpenChange(false);
       } else {
+        // "Salvar Alterações": mantém o formulário aberto e editável.
+        toast.success("Alterações salvas.");
+        onSaved(saved);
       }
-      onSaved(saved);
-      onOpenChange(false);
     } catch (err: any) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
@@ -280,14 +296,14 @@ export function ProcessoFormDialog({
                   htmlFor="diretoria"
                   className="text-xs font-semibold text-slate-700"
                 >
-                  Diretoria <span className="text-red-500">*</span>
+                  Área Responsável <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={form.diretoria || undefined}
                   onValueChange={(v) => update("diretoria", v)}
                 >
                   <SelectTrigger id="diretoria" className="mt-1 bg-white">
-                    <SelectValue placeholder="Selecione a diretoria" />
+                    <SelectValue placeholder="Selecione a área responsável" />
                   </SelectTrigger>
                   <SelectContent>
                     {areas.length === 0 ? (
@@ -381,14 +397,14 @@ export function ProcessoFormDialog({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs font-semibold text-slate-700">
-                  Proprietário
+                  Responsável
                 </Label>
                 <div className="mt-1.5">
-                  <UserMultiPicker
+                  <ResponsavelInput
                     value={form.proprietarios || []}
                     onChange={(next) => update("proprietarios", next)}
-                    placeholder="Selecionar proprietário"
-                    emptyMessage="Nenhum proprietário"
+                    areas={areas}
+                    emptyMessage="Nenhum responsável"
                   />
                 </div>
               </div>
@@ -407,7 +423,7 @@ export function ProcessoFormDialog({
               </div>
               <div>
                 <Label className="text-xs font-semibold text-slate-700">
-                  Áreas Responsáveis
+                  Áreas Envolvidas
                 </Label>
                 <div className="mt-1.5">
                   <UnidadeMultiPicker
@@ -459,12 +475,12 @@ export function ProcessoFormDialog({
           {/* Detalhamento */}
           <Section
             icon={<FileText className="h-4 w-4" />}
-            title="Detalhamento do Processo"
+            title="Estrutura do Processo"
           >
             <Textarea
               value={form.detalhamento || ""}
               onChange={(e) => update("detalhamento", e.target.value)}
-              placeholder="Descreva as etapas, regras, fluxos e diretrizes do processo..."
+              placeholder="Descreva a estrutura do processo de forma macro, apresentando suas etapas e seu fluxo de execução do início ao fim."
               rows={10}
               className="bg-white resize-y"
             />
@@ -509,6 +525,22 @@ export function ProcessoFormDialog({
             </div>
           </Section>
 
+          {/* Indicadores */}
+          <Section icon={<BarChart3 className="h-4 w-4" />} title="Indicadores">
+            <Textarea
+              value={form.indicadores || ""}
+              onChange={(e) => update("indicadores", e.target.value)}
+              placeholder="Informe os indicadores utilizados para acompanhar o desempenho e os resultados do processo."
+              rows={4}
+              className="bg-white resize-y"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              <span className="font-semibold">Exemplos:</span> volume de
+              demandas, tempo de execução, produtividade, qualidade ou
+              resultados alcançados.
+            </p>
+          </Section>
+
           {/* Modelagem / Fluxograma */}
           <Section
             icon={<Workflow className="h-4 w-4" />}
@@ -540,30 +572,33 @@ export function ProcessoFormDialog({
             />
           </Section>
 
-          {/* Periodicidade da Revisão — calculada automaticamente (Período + 1 ano) */}
-          <Section
-            icon={<Calendar className="h-4 w-4" />}
-            title="Periodicidade da Revisão"
-          >
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-              {form.periodo ? (
-                <p className="text-sm text-slate-700">
-                  Próxima revisão prevista:{" "}
-                  <span className="font-semibold text-slate-900">
-                    {addOneYearToDate(form.periodo)}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm italic text-slate-400">
-                  Defina o "Período" do processo na seção de Identificação para
-                  que a próxima revisão seja calculada.
-                </p>
-              )}
+          {/* Revisão — política (Periodicidade) + próxima revisão calculada (Período + 1 ano) */}
+          <Section icon={<Calendar className="h-4 w-4" />} title="Revisão">
+            <div className="overflow-hidden rounded-md border border-slate-200">
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-600 md:border-b-0 md:border-r">
+                  Periodicidade
+                </div>
+                <div className="border-t border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-600 md:border-t-0">
+                  Próxima Revisão
+                </div>
+                <div className="px-4 py-3 text-sm text-slate-700 md:border-r md:border-slate-200">
+                  {REVISAO_POLITICA_TEXTO}
+                </div>
+                <div className="flex items-center gap-2 px-4 py-3 text-sm">
+                  <Calendar className="h-4 w-4 flex-shrink-0 text-blue-500" />
+                  {form.periodo ? (
+                    <span className="font-semibold text-slate-900">
+                      {addOneYearToDate(form.periodo)}
+                    </span>
+                  ) : (
+                    <span className="italic text-slate-400">
+                      Defina o "Período" na Identificação
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              A próxima revisão é calculada automaticamente: 1 ano após o
-              período cadastrado no processo.
-            </p>
           </Section>
 
           {/* Formalização */}
@@ -616,6 +651,19 @@ export function ProcessoFormDialog({
           </Button>
           <Button
             type="button"
+            variant="outline"
+            onClick={() => handleSave(false)}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Salvar Alterações
+          </Button>
+          <Button
+            type="button"
             onClick={() => handleSave(true)}
             disabled={saving}
             className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -625,7 +673,7 @@ export function ProcessoFormDialog({
             ) : (
               <Send className="h-4 w-4 mr-2" />
             )}
-            Salvar e Enviar
+            Enviar para Validação
           </Button>
         </div>
       </DialogContent>

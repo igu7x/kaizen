@@ -111,7 +111,8 @@ public class ProcessosNegocioController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
         }
-        Map<String, Object> updated = service.enviarParaValidacao(id, userId);
+        Map<String, Object> user = lookupUser(userId);
+        Map<String, Object> updated = service.enviarParaValidacao(id, userId, userName(user, "Responsável"));
         if (updated == null) {
             return ResponseEntity.status(400).body(Map.of("error", "Processo não pode ser enviado (verifique status atual)"));
         }

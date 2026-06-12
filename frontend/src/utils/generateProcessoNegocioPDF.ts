@@ -1,5 +1,9 @@
 import jsPDF from "jspdf";
 import type { ProcessoNegocio } from "../services/processosNegocioApi";
+import {
+  normalizeResponsavel,
+  REVISAO_POLITICA_TEXTO,
+} from "../services/processosNegocioApi";
 import { TIPO_DOCUMENTO_LABEL } from "../services/processosNegocioApi";
 import { P_CENT_BASE64 } from "./pCentBase64";
 
@@ -122,32 +126,6 @@ function addOneYearToDate(periodo: string | null | undefined): string {
   d.setFullYear(d.getFullYear() + 1);
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
-
-// Formata o campo "Período" pra exibir só mês/ano (ex: "2025-05-15" → "maio/2025").
-// Mantém compatibilidade: valores antigos em texto livre são exibidos como estão.
-function formatPeriodoMesAno(periodo: string | null | undefined): string {
-  if (!periodo || !periodo.trim()) return "—";
-  const m = periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) {
-    const meses = [
-      "janeiro",
-      "fevereiro",
-      "março",
-      "abril",
-      "maio",
-      "junho",
-      "julho",
-      "agosto",
-      "setembro",
-      "outubro",
-      "novembro",
-      "dezembro",
-    ];
-    const idx = parseInt(m[2], 10) - 1;
-    if (idx >= 0 && idx < 12) return `${meses[idx]}/${m[1]}`;
-  }
-  return periodo;
 }
 
 function drawTextCell(
@@ -459,7 +437,7 @@ function drawCabecalhoInstitucional(
   doc.setFontSize(9.5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  const tituloHeader = `PROCESSO DE NEGÓCIO DA DIRETORIA DE ${(processo.diretoria || "—").toUpperCase()}`;
+  const tituloHeader = `PROCESSO DE NEGÓCIO DA ÁREA ${(processo.diretoria || "—").toUpperCase()}`;
   doc.text(
     tituloHeader,
     MARGIN_LEFT + leftColW + rightColW / 2,
@@ -498,13 +476,21 @@ function drawCabecalhoInstitucional(
   // Linha 3: Diretoria | Período
   const yDir = yMacro + rowH;
   const halfRightW = rightColW / 2;
-  drawTextCell(doc, "Diretoria", MARGIN_LEFT + leftColW, yDir, labelW, rowH, {
-    bold: true,
-    fontSize: 9,
-    bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
-    align: "center",
-  });
+  drawTextCell(
+    doc,
+    "Área Responsável",
+    MARGIN_LEFT + leftColW,
+    yDir,
+    labelW,
+    rowH,
+    {
+      bold: true,
+      fontSize: 7.5,
+      bg: ACCENT_BG_LIGHT,
+      color: BLUE_TITLE,
+      align: "center",
+    },
+  );
   drawTextCell(
     doc,
     processo.diretoria || "—",
@@ -531,7 +517,7 @@ function drawCabecalhoInstitucional(
   );
   drawTextCell(
     doc,
-    formatPeriodoMesAno(processo.periodo),
+    formatDate(processo.periodo) || "—",
     MARGIN_LEFT + leftColW + halfRightW + labelW,
     yDir,
     halfRightW - labelW,
@@ -629,21 +615,21 @@ function drawHistoricoValidacao(
 
   const linhas = [
     {
-      label: "Validação do Autor",
+      label: "Validação do Responsável",
       valor:
         processo.validado_autor_em && processo.validado_autor_nome
           ? `${processo.validado_autor_nome} — ${formatDateTime(processo.validado_autor_em)}`
           : "Pendente",
     },
     {
-      label: "Validação da Diretoria",
+      label: "Validação Setorial",
       valor:
         processo.validado_diretoria_em && processo.validado_diretoria_nome
           ? `${processo.validado_diretoria_nome} — ${formatDateTime(processo.validado_diretoria_em)}`
           : "Pendente",
     },
     {
-      label: "Validação Final",
+      label: "Validação Estratégica",
       valor:
         processo.validado_final_em && processo.validado_final_nome
           ? `${processo.validado_final_nome} — ${formatDateTime(processo.validado_final_em)}`
@@ -685,21 +671,17 @@ function drawRodapeInstitucional(
   doc.setFontSize(7.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...MUTED_GRAY);
-  doc.text("ELABORADO POR:", MARGIN_LEFT, FOOTER_Y);
+  doc.text("MODELO:", MARGIN_LEFT, FOOTER_Y);
   doc.text("VERSÃO:", PAGE_WIDTH / 2, FOOTER_Y, { align: "center" });
-  doc.text("DATA DA ATUALIZAÇÃO:", PAGE_WIDTH - MARGIN_RIGHT, FOOTER_Y, {
+  doc.text("DATA DA PROPOSTA:", PAGE_WIDTH - MARGIN_RIGHT, FOOTER_Y, {
     align: "right",
   });
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  doc.text(
-    diretoriaNome || processo.diretoria || "—",
-    MARGIN_LEFT,
-    FOOTER_Y + 4,
-    { maxWidth: 60 },
-  );
+  // ID do documento (modelo) — ainda sem definição; placeholder por ora.
+  doc.text("—", MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 60 });
   doc.text(processo.versao || "1.0", PAGE_WIDTH / 2, FOOTER_Y + 4, {
     align: "center",
   });
@@ -747,7 +729,7 @@ export function generateProcessoNegocioPDF(
   y = drawNumberedSectionHeader(doc, 2, "Governança e Responsáveis", y);
   const govHeaderH = 8;
   const govColW = CONTENT_WIDTH / 3;
-  drawTextCell(doc, "PROPRIETÁRIO:", MARGIN_LEFT, y, govColW, govHeaderH, {
+  drawTextCell(doc, "RESPONSÁVEL:", MARGIN_LEFT, y, govColW, govHeaderH, {
     bold: true,
     fontSize: 8.5,
     align: "center",
@@ -763,7 +745,7 @@ export function generateProcessoNegocioPDF(
   });
   drawTextCell(
     doc,
-    "ÁREAS RESPONSÁVEIS",
+    "ÁREAS ENVOLVIDAS",
     MARGIN_LEFT + govColW * 2,
     y,
     govColW,
@@ -778,8 +760,12 @@ export function generateProcessoNegocioPDF(
   );
   y += govHeaderH;
 
+  // Responsável: no PDF mostra apenas o cargo (camada 2), não a área.
+  const responsavelCargos = (processo.proprietarios || [])
+    .map((r) => normalizeResponsavel(r).cargo)
+    .filter((c) => c.length > 0);
   const govRowH = Math.max(
-    calcBulletListHeight(doc, processo.proprietarios || [], govColW),
+    calcBulletListHeight(doc, responsavelCargos, govColW),
     calcBulletListHeight(doc, processo.atores || [], govColW),
     calcBulletListHeight(doc, processo.areas_responsaveis || [], govColW),
   );
@@ -789,14 +775,7 @@ export function generateProcessoNegocioPDF(
   doc.rect(MARGIN_LEFT, y, govColW, govRowH, "S");
   doc.rect(MARGIN_LEFT + govColW, y, govColW, govRowH, "S");
   doc.rect(MARGIN_LEFT + govColW * 2, y, govColW, govRowH, "S");
-  renderBulletList(
-    doc,
-    processo.proprietarios || [],
-    MARGIN_LEFT,
-    y,
-    govColW,
-    govRowH,
-  );
+  renderBulletList(doc, responsavelCargos, MARGIN_LEFT, y, govColW, govRowH);
   renderBulletList(
     doc,
     processo.atores || [],
@@ -860,9 +839,9 @@ export function generateProcessoNegocioPDF(
   );
   y += infRowH + 6;
 
-  // 4. Detalhamento
+  // 4. Estrutura do Processo
   y = checkPageBreak(doc, y, 22);
-  y = drawNumberedSectionHeader(doc, 4, "Detalhamento do Processo", y);
+  y = drawNumberedSectionHeader(doc, 4, "Estrutura do Processo", y);
   y = drawMultilineContent(doc, processo.detalhamento || "", y, 25);
   y += 6;
 
@@ -925,9 +904,15 @@ export function generateProcessoNegocioPDF(
   );
   y += recRowH + 6;
 
-  // 6. Modelagem / Fluxograma
+  // 6. Indicadores
+  y = checkPageBreak(doc, y, 20);
+  y = drawNumberedSectionHeader(doc, 6, "Indicadores", y);
+  y = drawMultilineContent(doc, processo.indicadores || "", y, 18);
+  y += 6;
+
+  // 7. Modelagem / Fluxograma
   y = checkPageBreak(doc, y, 30);
-  y = drawNumberedSectionHeader(doc, 6, "Modelagem / Fluxograma", y);
+  y = drawNumberedSectionHeader(doc, 7, "Modelagem / Fluxograma", y);
   if (
     processo.fluxograma_data &&
     processo.fluxograma_mime?.startsWith("image/")
@@ -980,9 +965,9 @@ export function generateProcessoNegocioPDF(
   }
   y += 4;
 
-  // 7. Documentos Anexados
+  // 8. Documentos Anexados
   y = checkPageBreak(doc, y, 25);
-  y = drawNumberedSectionHeader(doc, 7, "Documentos Anexados", y);
+  y = drawNumberedSectionHeader(doc, 8, "Documentos Anexados", y);
   if ((processo.documentos_anexados || []).length === 0) {
     y = drawMultilineContent(doc, "Nenhum documento anexado.", y, 14);
   } else {
@@ -1030,37 +1015,42 @@ export function generateProcessoNegocioPDF(
   }
   y += 6;
 
-  // 8. Periodicidade da Revisão
-  y = checkPageBreak(doc, y, 18);
-  y = drawNumberedSectionHeader(doc, 8, "Periodicidade da Revisão", y);
+  // 9. Revisão
+  y = checkPageBreak(doc, y, 24);
+  y = drawNumberedSectionHeader(doc, 9, "Revisão", y);
   const proximaRevisao = processo.periodo
-    ? `Próxima revisão prevista: ${addOneYearToDate(processo.periodo)} (1 ano após o período cadastrado)`
-    : "Período do processo não informado — próxima revisão não pôde ser calculada.";
-  y = drawMultilineContent(doc, proximaRevisao, y, 14);
+    ? `Próxima revisão: ${addOneYearToDate(processo.periodo)}`
+    : "Período não informado — próxima revisão não pôde ser calculada.";
+  y = drawMultilineContent(
+    doc,
+    `Periodicidade: ${REVISAO_POLITICA_TEXTO}\n${proximaRevisao}`,
+    y,
+    24,
+  );
   y += 6;
 
-  // 9. Histórico de Validação
+  // 10. Histórico de Validação
   y = checkPageBreak(doc, y, 35);
-  y = drawNumberedSectionHeader(doc, 9, "Histórico de Validação", y);
+  y = drawNumberedSectionHeader(doc, 10, "Histórico de Validação", y);
   const histRowH = 9;
   const histLabelW = 60;
   const histLinhas = [
     {
-      label: "Validação do Autor",
+      label: "Validação do Responsável",
       valor:
         processo.validado_autor_em && processo.validado_autor_nome
           ? `${processo.validado_autor_nome} — ${formatDateTime(processo.validado_autor_em)}`
           : "Pendente",
     },
     {
-      label: "Validação da Diretoria",
+      label: "Validação Setorial",
       valor:
         processo.validado_diretoria_em && processo.validado_diretoria_nome
           ? `${processo.validado_diretoria_nome} — ${formatDateTime(processo.validado_diretoria_em)}`
           : "Pendente",
     },
     {
-      label: "Validação Final",
+      label: "Validação Estratégica",
       valor:
         processo.validado_final_em && processo.validado_final_nome
           ? `${processo.validado_final_nome} — ${formatDateTime(processo.validado_final_em)}`
