@@ -2,7 +2,7 @@
  * Utilitário para detectar o ambiente da aplicação
  */
 
-export type Environment = 'development' | 'staging' | 'production';
+export type Environment = "development" | "staging" | "production";
 
 /**
  * Detecta o ambiente atual baseado no hostname ou variáveis de ambiente
@@ -10,47 +10,49 @@ export type Environment = 'development' | 'staging' | 'production';
 export const getEnvironment = (): Environment => {
   // Verifica variável de ambiente primeiro
   const viteEnv = import.meta.env.VITE_APP_ENV?.toLowerCase();
-  if (viteEnv === 'staging') return 'staging';
-  if (viteEnv === 'production') return 'production';
-  if (viteEnv === 'development') return 'development';
+  if (viteEnv === "staging") return "staging";
+  if (viteEnv === "production") return "production";
+  if (viteEnv === "development") return "development";
 
   // Detecta pelo hostname
   const hostname = window.location.hostname;
 
   // Staging
-  if (hostname.includes('stag') && hostname.includes('tjgo.jus.br')) {
-    return 'staging';
+  if (hostname.includes("stag") && hostname.includes("tjgo.jus.br")) {
+    return "staging";
   }
 
   // Production
-  if (hostname.includes('kaizen.tjgo.jus.br') ||
-      (hostname.includes('tjgo.jus.br') && !hostname.includes('stag'))) {
-    return 'production';
+  if (
+    hostname.includes("kaizen.tjgo.jus.br") ||
+    (hostname.includes("tjgo.jus.br") && !hostname.includes("stag"))
+  ) {
+    return "production";
   }
 
   // Development (localhost ou qualquer outro)
-  return 'development';
+  return "development";
 };
 
 /**
  * Verifica se está em ambiente de desenvolvimento
  */
 export const isDevelopment = (): boolean => {
-  return getEnvironment() === 'development';
+  return getEnvironment() === "development";
 };
 
 /**
  * Verifica se está em ambiente de staging
  */
 export const isStaging = (): boolean => {
-  return getEnvironment() === 'staging';
+  return getEnvironment() === "staging";
 };
 
 /**
  * Verifica se está em ambiente de produção
  */
 export const isProduction = (): boolean => {
-  return getEnvironment() === 'production';
+  return getEnvironment() === "production";
 };
 
 /**
@@ -59,7 +61,7 @@ export const isProduction = (): boolean => {
  */
 export const isLocalLoginEnabled = (): boolean => {
   const env = getEnvironment();
-  return env === 'development' || env === 'staging';
+  return env === "development" || env === "staging";
 };
 
 /**

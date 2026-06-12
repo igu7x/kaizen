@@ -1,6 +1,6 @@
 /**
  * INSTRUÇÕES PARA INTEGRAR VALIDAÇÃO NO AuthContext
- * 
+ *
  * Este arquivo contém as alterações necessárias para integrar
  * a validação de usuário no AuthContext.tsx
  */

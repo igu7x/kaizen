@@ -1,24 +1,24 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDirectorate } from '@/contexts/DirectorateContext';
-import { KanbanBoard } from './KanbanBoard';
-import { gestaoEstrategicaApi } from '@/services/gestaoEstrategicaApi';
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDirectorate } from "@/contexts/DirectorateContext";
+import { KanbanBoard } from "./KanbanBoard";
+import { gestaoEstrategicaApi } from "@/services/gestaoEstrategicaApi";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import type {
   PlanoPrograma,
   KrProjeto,
   GestaoTarefa,
   GestaoTarefaProgresso,
-} from '@/types';
-import { DropResult } from 'react-beautiful-dnd';
+} from "@/types";
+import { DropResult } from "react-beautiful-dnd";
 
 interface TarefaComProjeto extends GestaoTarefa {
   plano_nome?: string;
@@ -45,10 +45,10 @@ export function SprintAtualNovo() {
   const [loading, setLoading] = useState(true);
 
   // Filtros
-  const [planoSelecionado, setPlanoSelecionado] = useState<string>('');
-  const [projetoSelecionado, setProjetoSelecionado] = useState<string>('');
+  const [planoSelecionado, setPlanoSelecionado] = useState<string>("");
+  const [projetoSelecionado, setProjetoSelecionado] = useState<string>("");
 
-  const canEdit = user?.role === 'ADMIN';
+  const canEdit = user?.role === "ADMIN";
 
   // Carregar dados
   const carregarDados = useCallback(async () => {
@@ -56,7 +56,8 @@ export function SprintAtualNovo() {
       setLoading(true);
 
       // Carregar planos da diretoria
-      const planosData = await gestaoEstrategicaApi.getPlanos(selectedDirectorate);
+      const planosData =
+        await gestaoEstrategicaApi.getPlanos(selectedDirectorate);
       setPlanos(planosData);
 
       // Carregar todos os projetos
@@ -65,27 +66,26 @@ export function SprintAtualNovo() {
 
       // Carregar todas as tarefas e filtrar as que estão na Sprint Atual
       const todasTarefas = await gestaoEstrategicaApi.getTarefas();
-      const tarefasNaSprint = todasTarefas.filter(t => t.status === 'sprint_atual');
+      const tarefasNaSprint = todasTarefas.filter(
+        (t) => t.status === "sprint_atual",
+      );
 
       // Adicionar informação do projeto/plano
-      const tarefasComInfo: TarefaComProjeto[] = tarefasNaSprint.map(tarefa => {
-        const projeto = projetosData.find(p => p.id === tarefa.projeto_id);
-        const plano = planosData.find(pl => pl.id === projeto?.plano_id);
-        return {
-          ...tarefa,
-          projeto_nome: projeto?.nome,
-          plano_nome: plano?.nome,
-        };
-      });
+      const tarefasComInfo: TarefaComProjeto[] = tarefasNaSprint.map(
+        (tarefa) => {
+          const projeto = projetosData.find((p) => p.id === tarefa.projeto_id);
+          const plano = planosData.find((pl) => pl.id === projeto?.plano_id);
+          return {
+            ...tarefa,
+            projeto_nome: projeto?.nome,
+            plano_nome: plano?.nome,
+          };
+        },
+      );
 
       setTarefasSprint(tarefasComInfo);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar as tarefas da sprint.',
-        variant: 'destructive',
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
@@ -104,20 +104,22 @@ export function SprintAtualNovo() {
       }
 
       try {
-        const projeto = projetos.find(p => p.id === parseInt(projetoSelecionado));
-        console.log('🔍 Projeto selecionado:', { projetoSelecionado, projeto });
+        const projeto = projetos.find(
+          (p) => p.id === parseInt(projetoSelecionado),
+        );
 
         if (projeto?.instrumento_id) {
-          const { cadastrosProjetosApi } = await import('@/services/cadastrosProjetosApi');
-          const projetoDetalhes = await cadastrosProjetosApi.getProjetoById(projeto.instrumento_id);
-          console.log('📦 Entregas carregadas:', projetoDetalhes.entregas);
+          const { cadastrosProjetosApi } =
+            await import("@/services/cadastrosProjetosApi");
+          const projetoDetalhes = await cadastrosProjetosApi.getProjetoById(
+            projeto.instrumento_id,
+          );
+
           setEntregas(projetoDetalhes.entregas || []);
         } else {
-          console.log('⚠️ Projeto sem instrumento_id');
           setEntregas([]);
         }
       } catch (error) {
-        console.error('❌ Erro ao carregar entregas:', error);
         setEntregas([]);
       }
     };
@@ -128,7 +130,7 @@ export function SprintAtualNovo() {
   // Filtrar projetos pelo plano selecionado
   const projetosFiltrados = useMemo(() => {
     if (!planoSelecionado) return [];
-    return projetos.filter(p => p.plano_id === parseInt(planoSelecionado));
+    return projetos.filter((p) => p.plano_id === parseInt(planoSelecionado));
   }, [projetos, planoSelecionado]);
 
   // Filtrar tarefas
@@ -136,21 +138,28 @@ export function SprintAtualNovo() {
     // Se não selecionou projeto, não mostra tarefas
     if (!projetoSelecionado) return [];
 
-    return tarefasSprint.filter(t => t.projeto_id === parseInt(projetoSelecionado));
+    return tarefasSprint.filter(
+      (t) => t.projeto_id === parseInt(projetoSelecionado),
+    );
   }, [tarefasSprint, projetoSelecionado]);
 
   // Calcular estatísticas do projeto selecionado
   const estatisticasProjeto = useMemo((): EstatisticasProjeto => {
     const tarefas = tarefasFiltradas;
     const totalTarefas = tarefas.length;
-    const aFazer = tarefas.filter(t => t.progresso === 'a_fazer').length;
-    const fazendo = tarefas.filter(t => t.progresso === 'fazendo').length;
-    const feito = tarefas.filter(t => t.progresso === 'feito').length;
+    const aFazer = tarefas.filter((t) => t.progresso === "a_fazer").length;
+    const fazendo = tarefas.filter((t) => t.progresso === "fazendo").length;
+    const feito = tarefas.filter((t) => t.progresso === "feito").length;
 
     // Calcular progresso baseado em ENTREGAS ao invés de tarefas
     const totalEntregas = entregas.length;
-    const entregasConcluidas = entregas.filter(e => e.status === 'concluida').length;
-    const progresso = totalEntregas > 0 ? Math.round((entregasConcluidas / totalEntregas) * 100) : 0;
+    const entregasConcluidas = entregas.filter(
+      (e) => e.status === "concluida",
+    ).length;
+    const progresso =
+      totalEntregas > 0
+        ? Math.round((entregasConcluidas / totalEntregas) * 100)
+        : 0;
 
     return { totalTarefas, aFazer, fazendo, feito, progresso };
   }, [tarefasFiltradas, entregas]);
@@ -159,34 +168,37 @@ export function SprintAtualNovo() {
   const mapTarefaToKanbanItem = (tarefa: TarefaComProjeto) => ({
     id: String(tarefa.id),
     title: tarefa.nome,
-    description: tarefa.projeto_nome || '',
+    description: tarefa.projeto_nome || "",
     badge: tarefa.plano_nome,
   });
 
   // Colunas do Kanban
-  const kanbanColumns = useMemo(() => [
-    {
-      id: 'a_fazer' as GestaoTarefaProgresso,
-      title: 'A Fazer',
-      items: tarefasFiltradas
-        .filter(t => t.progresso === 'a_fazer')
-        .map(mapTarefaToKanbanItem),
-    },
-    {
-      id: 'fazendo' as GestaoTarefaProgresso,
-      title: 'Fazendo',
-      items: tarefasFiltradas
-        .filter(t => t.progresso === 'fazendo')
-        .map(mapTarefaToKanbanItem),
-    },
-    {
-      id: 'feito' as GestaoTarefaProgresso,
-      title: 'Feito',
-      items: tarefasFiltradas
-        .filter(t => t.progresso === 'feito')
-        .map(mapTarefaToKanbanItem),
-    },
-  ], [tarefasFiltradas]);
+  const kanbanColumns = useMemo(
+    () => [
+      {
+        id: "a_fazer" as GestaoTarefaProgresso,
+        title: "A Fazer",
+        items: tarefasFiltradas
+          .filter((t) => t.progresso === "a_fazer")
+          .map(mapTarefaToKanbanItem),
+      },
+      {
+        id: "fazendo" as GestaoTarefaProgresso,
+        title: "Fazendo",
+        items: tarefasFiltradas
+          .filter((t) => t.progresso === "fazendo")
+          .map(mapTarefaToKanbanItem),
+      },
+      {
+        id: "feito" as GestaoTarefaProgresso,
+        title: "Feito",
+        items: tarefasFiltradas
+          .filter((t) => t.progresso === "feito")
+          .map(mapTarefaToKanbanItem),
+      },
+    ],
+    [tarefasFiltradas],
+  );
 
   // Handler para drag and drop
   const handleDragEnd = async (result: DropResult) => {
@@ -198,26 +210,17 @@ export function SprintAtualNovo() {
     const tarefaId = parseInt(draggableId);
 
     try {
-      await gestaoEstrategicaApi.updateTarefa(tarefaId, { progresso: novoProgresso });
+      await gestaoEstrategicaApi.updateTarefa(tarefaId, {
+        progresso: novoProgresso,
+      });
 
       // Atualizar localmente para feedback imediato
-      setTarefasSprint(prev =>
-        prev.map(t =>
-          t.id === tarefaId ? { ...t, progresso: novoProgresso } : t
-        )
+      setTarefasSprint((prev) =>
+        prev.map((t) =>
+          t.id === tarefaId ? { ...t, progresso: novoProgresso } : t,
+        ),
       );
-
-      toast({
-        title: 'Sucesso',
-        description: 'Progresso atualizado!',
-      });
     } catch (error) {
-      console.error('Erro ao atualizar progresso:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o progresso.',
-        variant: 'destructive',
-      });
       // Recarregar para reverter
       await carregarDados();
     }
@@ -225,7 +228,7 @@ export function SprintAtualNovo() {
 
   // Resetar projeto quando plano muda
   useEffect(() => {
-    setProjetoSelecionado('');
+    setProjetoSelecionado("");
   }, [planoSelecionado]);
 
   // Painel de progresso do projeto (acima do Kanban)
@@ -233,7 +236,8 @@ export function SprintAtualNovo() {
     if (!projetoSelecionado || tarefasFiltradas.length === 0) return null;
 
     const stats = estatisticasProjeto;
-    const projetoNome = projetos.find(p => p.id === parseInt(projetoSelecionado))?.nome || '';
+    const projetoNome =
+      projetos.find((p) => p.id === parseInt(projetoSelecionado))?.nome || "";
 
     return (
       <div className="bg-[#3A5A6F] rounded-lg shadow-lg p-4 mb-4">
@@ -247,7 +251,9 @@ export function SprintAtualNovo() {
           {/* Total de Tarefas */}
           <div className="flex items-center gap-2">
             <span className="text-white/60 text-sm">Total de tarefas:</span>
-            <span className="text-lg font-bold text-blue-400">{stats.totalTarefas}</span>
+            <span className="text-lg font-bold text-blue-400">
+              {stats.totalTarefas}
+            </span>
           </div>
 
           {/* Barra de Progresso */}
@@ -259,7 +265,9 @@ export function SprintAtualNovo() {
                 style={{ width: `${stats.progresso}%` }}
               />
             </div>
-            <span className="text-lg font-bold text-white min-w-[50px] text-right">{stats.progresso}%</span>
+            <span className="text-lg font-bold text-white min-w-[50px] text-right">
+              {stats.progresso}%
+            </span>
           </div>
         </div>
       </div>
@@ -277,7 +285,7 @@ export function SprintAtualNovo() {
               <SelectValue placeholder="Selecione um plano" />
             </SelectTrigger>
             <SelectContent>
-              {planos.map(plano => (
+              {planos.map((plano) => (
                 <SelectItem key={plano.id} value={String(plano.id)}>
                   {plano.nome}
                 </SelectItem>
@@ -288,12 +296,15 @@ export function SprintAtualNovo() {
 
         <div className="space-y-2">
           <Label className="text-white text-sm">KR/Projeto</Label>
-          <Select value={projetoSelecionado} onValueChange={setProjetoSelecionado}>
+          <Select
+            value={projetoSelecionado}
+            onValueChange={setProjetoSelecionado}
+          >
             <SelectTrigger className="w-[200px] bg-white/10 border-white/20 text-white">
               <SelectValue placeholder="Selecione um projeto" />
             </SelectTrigger>
             <SelectContent>
-              {projetosFiltrados.map(projeto => (
+              {projetosFiltrados.map((projeto) => (
                 <SelectItem key={projeto.id} value={String(projeto.id)}>
                   {projeto.nome}
                 </SelectItem>
@@ -324,7 +335,8 @@ export function SprintAtualNovo() {
         <div className="text-center py-12">
           <p className="text-white/60 mb-2">Nenhuma tarefa na Sprint Atual</p>
           <p className="text-white/40 text-sm">
-            Para adicionar tarefas à Sprint, vá em "Escritório de Projetos" e altere o status para "Sprint Atual"
+            Para adicionar tarefas à Sprint, vá em "Escritório de Projetos" e
+            altere o status para "Sprint Atual"
           </p>
         </div>
       ) : (
@@ -343,4 +355,3 @@ export function SprintAtualNovo() {
     </div>
   );
 }
-

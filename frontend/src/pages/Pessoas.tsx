@@ -1,10 +1,10 @@
-import { useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { Layout } from '@/components/layout/Layout';
-import { PainelColaboradores } from '@/components/pessoas/PainelColaboradores';
-import { AdminFormsView } from '@/components/pessoas/AdminFormsView';
-import { GestaoCompetencias } from '@/components/pessoas/GestaoCompetencias';
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Layout } from "@/components/layout/Layout";
+import { PainelColaboradores } from "@/components/pessoas/PainelColaboradores";
+import { AdminFormsView } from "@/components/pessoas/AdminFormsView";
+import { GestaoCompetencias } from "@/components/pessoas/GestaoCompetencias";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 
 export default function Pessoas() {
   const location = useLocation();
@@ -20,8 +20,8 @@ export default function Pessoas() {
   }, [location.pathname]);
 
   // Determinar qual view mostrar baseado na rota
-  const isFormularios = location.pathname.includes('/formularios');
-  const isCompetencias = location.pathname.includes('/competencias');
+  const isFormularios = location.pathname.includes("/formularios");
+  const isCompetencias = location.pathname.includes("/competencias");
 
   const renderContent = () => {
     if (isCompetencias) return <GestaoCompetencias />;
@@ -30,12 +30,15 @@ export default function Pessoas() {
   };
 
   // "Pessoas" reseta a view atual (módulo painel não existe em produção)
-  const handleRefresh = () => setRefreshKey(k => k + 1);
+  const handleRefresh = () => setRefreshKey((k) => k + 1);
   const breadcrumbItems = isCompetencias
-    ? [{ label: 'Pessoas', onClick: handleRefresh }, { label: 'Gestão por Competências' }]
+    ? [
+        { label: "Pessoas", onClick: handleRefresh },
+        { label: "Gestão por Competências" },
+      ]
     : isFormularios
-    ? [{ label: 'Pessoas', onClick: handleRefresh }, { label: 'Formulários' }]
-    : [{ label: 'Pessoas', onClick: handleRefresh }, { label: 'Painel' }];
+      ? [{ label: "Pessoas", onClick: handleRefresh }, { label: "Formulários" }]
+      : [{ label: "Pessoas", onClick: handleRefresh }, { label: "Painel" }];
 
   return (
     <Layout>
@@ -44,7 +47,7 @@ export default function Pessoas() {
       </div>
       <div
         key={`${location.pathname}-${refreshKey}`}
-        className={isAnimating ? 'page-transition-enter' : ''}
+        className={isAnimating ? "page-transition-enter" : ""}
       >
         {renderContent()}
       </div>

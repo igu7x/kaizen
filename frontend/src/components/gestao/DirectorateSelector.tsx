@@ -1,20 +1,21 @@
-import { useEffect, useState } from 'react';
-import { useDirectorate } from '@/contexts/DirectorateContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { Directorate } from '@/types';
-import { areasApi, Area } from '@/services/areasApi';
-import { isDomainRoot, isSuperAdmin } from '@/utils/domain';
+import { useEffect, useState } from "react";
+import { useDirectorate } from "@/contexts/DirectorateContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { Directorate } from "@/types";
+import { areasApi, Area } from "@/services/areasApi";
+import { isDomainRoot, isSuperAdmin } from "@/utils/domain";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Building2, Loader2 } from 'lucide-react';
+} from "@/components/ui/select";
+import { Building2, Loader2 } from "lucide-react";
 
 export function DirectorateSelector() {
-  const { selectedDirectorate, setSelectedDirectorate, devEnvironment } = useDirectorate();
+  const { selectedDirectorate, setSelectedDirectorate, devEnvironment } =
+    useDirectorate();
   const { user } = useAuth();
   const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,7 @@ export function DirectorateSelector() {
           setAreas(data);
         }
       } catch (err) {
-        console.error('Erro ao carregar áreas:', err);
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       } finally {
         setLoading(false);
       }
@@ -45,11 +46,9 @@ export function DirectorateSelector() {
 
   // Pegar diretoria do usuário de múltiplas fontes possíveis
   // diretoria_visibilidade sobrescreve para fins de visibilidade
-  const userDiretoria = (
-    (user as any)?.diretoria_visibilidade ||
+  const userDiretoria = ((user as any)?.diretoria_visibilidade ||
     (user as any)?.diretoria ||
-    (user as any)?.directorate_code
-  ) as Directorate | undefined;
+    (user as any)?.directorate_code) as Directorate | undefined;
 
   // Domain root (SGJT, CGJ) pode ver o seletor de diretoria
   // Em dev mode, sempre mostra o seletor
@@ -72,7 +71,7 @@ export function DirectorateSelector() {
   // Extrair sigla da área: usa area.sigla, ou extrai do formato "SIGLA: Nome Completo"
   const getSigla = (area: Area): string => {
     if (area.sigla) return area.sigla;
-    if (area.nome.includes(':')) return area.nome.split(':')[0].trim();
+    if (area.nome.includes(":")) return area.nome.split(":")[0].trim();
     return area.nome;
   };
 
@@ -89,7 +88,9 @@ export function DirectorateSelector() {
       ) : (
         <Select
           value={selectedDirectorate}
-          onValueChange={(value) => setSelectedDirectorate(value as Directorate)}
+          onValueChange={(value) =>
+            setSelectedDirectorate(value as Directorate)
+          }
         >
           <SelectTrigger className="h-8 text-xs bg-white border border-gray-300 text-gray-700 w-[140px]">
             <SelectValue />

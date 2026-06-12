@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Plus, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface ListInputProps {
   /** Itens atuais da lista */
@@ -22,20 +22,20 @@ interface ListInputProps {
 export function ListInput({
   value,
   onChange,
-  placeholder = 'Digite e pressione Enter para adicionar',
-  emptyMessage = 'Nenhum item adicionado',
+  placeholder = "Digite e pressione Enter para adicionar",
+  emptyMessage = "Nenhum item adicionado",
 }: ListInputProps) {
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState("");
 
   const add = () => {
     const v = draft.trim();
     if (!v) return;
     if (value.includes(v)) {
-      setDraft('');
+      setDraft("");
       return;
     }
     onChange([...value, v]);
-    setDraft('');
+    setDraft("");
   };
 
   const remove = (idx: number) => {
@@ -50,7 +50,7 @@ export function ListInput({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            if (e.key === "Enter") {
               e.preventDefault();
               add();
             }

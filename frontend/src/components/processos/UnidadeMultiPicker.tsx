@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { X, Building2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { areasApi, Unidade } from '@/services/areasApi';
+import { useEffect, useMemo, useState } from "react";
+import { X, Building2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { areasApi, Unidade } from "@/services/areasApi";
 
 interface UnidadeMultiPickerProps {
   /** Valores selecionados (nomes das unidades — string array). */
@@ -25,26 +25,31 @@ type UnidadeComArea = Unidade & { area_nome?: string; area_sigla?: string };
 export function UnidadeMultiPicker({
   value,
   onChange,
-  placeholder = 'Digite para buscar...',
-  emptyMessage = 'Nenhum selecionado',
+  placeholder = "Digite para buscar...",
+  emptyMessage = "Nenhum selecionado",
 }: UnidadeMultiPickerProps) {
   const [unidades, setUnidades] = useState<UnidadeComArea[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [showList, setShowList] = useState(false);
 
   // Carrega unidades uma vez no mount
   useEffect(() => {
     let cancelled = false;
-    areasApi.getAllUnidades()
+    areasApi
+      .getAllUnidades()
       .then((data) => {
         if (cancelled) return;
         const sorted = [...data].sort((a, b) =>
-          (a.nome || '').localeCompare(b.nome || '', 'pt-BR')
+          (a.nome || "").localeCompare(b.nome || "", "pt-BR"),
         );
         setUnidades(sorted);
       })
-      .catch((err) => console.warn('[UnidadeMultiPicker] erro ao carregar unidades:', err));
-    return () => { cancelled = true; };
+      .catch((err) =>
+        console.warn("[UnidadeMultiPicker] erro ao carregar unidades:", err),
+      );
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const valueSet = useMemo(() => new Set(value), [value]);
@@ -55,17 +60,17 @@ export function UnidadeMultiPicker({
       if (valueSet.has(u.nome)) return false;
       if (!q) return true;
       return (
-        (u.nome || '').toLowerCase().includes(q) ||
-        (u.area_nome || '').toLowerCase().includes(q) ||
-        (u.area_sigla || '').toLowerCase().includes(q) ||
-        (u.responsavel || '').toLowerCase().includes(q)
+        (u.nome || "").toLowerCase().includes(q) ||
+        (u.area_nome || "").toLowerCase().includes(q) ||
+        (u.area_sigla || "").toLowerCase().includes(q) ||
+        (u.responsavel || "").toLowerCase().includes(q)
       );
     });
   }, [unidades, valueSet, search]);
 
   const handleSelect = (nome: string) => {
     onChange([...value, nome]);
-    setSearch('');
+    setSearch("");
     setShowList(false);
   };
 
@@ -93,7 +98,9 @@ export function UnidadeMultiPicker({
           <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-500 italic">
-                {search.trim() ? 'Nenhum resultado' : 'Comece a digitar para buscar...'}
+                {search.trim()
+                  ? "Nenhum resultado"
+                  : "Comece a digitar para buscar..."}
               </div>
             ) : (
               filtered.map((u) => (
@@ -105,7 +112,8 @@ export function UnidadeMultiPicker({
                   <div className="text-slate-800">{u.nome}</div>
                   {(u.area_sigla || u.area_nome) && (
                     <div className="text-[10px] text-slate-400 truncate">
-                      {u.area_sigla ? `${u.area_sigla} — ` : ''}{u.area_nome}
+                      {u.area_sigla ? `${u.area_sigla} — ` : ""}
+                      {u.area_nome}
                     </div>
                   )}
                 </div>

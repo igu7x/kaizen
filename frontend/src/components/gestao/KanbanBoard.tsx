@@ -1,10 +1,15 @@
-import { useState, useCallback } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
-import { BoardStatus } from '@/types';
+import { useState, useCallback } from "react";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "react-beautiful-dnd";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { BoardStatus } from "@/types";
 
 interface KanbanItem {
   id: string;
@@ -14,7 +19,7 @@ interface KanbanItem {
 }
 
 // Tipo genérico para suportar tanto BoardStatus quanto GestaoTarefaProgresso
-type ColumnId = BoardStatus | 'a_fazer' | 'fazendo' | 'feito';
+type ColumnId = BoardStatus | "a_fazer" | "fazendo" | "feito";
 
 interface KanbanBoardProps {
   title?: string;
@@ -32,21 +37,21 @@ interface KanbanBoardProps {
 
 // Cores para cada coluna (suporta uppercase e lowercase)
 const columnColors: Record<string, string> = {
-  A_FAZER: 'bg-gray-200',
-  FAZENDO: 'bg-yellow-100',
-  FEITO: 'bg-green-100',
-  a_fazer: 'bg-gray-200',
-  fazendo: 'bg-yellow-100',
-  feito: 'bg-green-100'
+  A_FAZER: "bg-gray-200",
+  FAZENDO: "bg-yellow-100",
+  FEITO: "bg-green-100",
+  a_fazer: "bg-gray-200",
+  fazendo: "bg-yellow-100",
+  feito: "bg-green-100",
 };
 
 const columnHeaderColors: Record<string, string> = {
-  A_FAZER: 'bg-gray-400 text-gray-900',
-  FAZENDO: 'bg-yellow-400 text-gray-900',
-  FEITO: 'bg-green-500 text-white',
-  a_fazer: 'bg-gray-400 text-gray-900',
-  fazendo: 'bg-yellow-400 text-gray-900',
-  feito: 'bg-green-500 text-white'
+  A_FAZER: "bg-gray-400 text-gray-900",
+  FAZENDO: "bg-yellow-400 text-gray-900",
+  FEITO: "bg-green-500 text-white",
+  a_fazer: "bg-gray-400 text-gray-900",
+  fazendo: "bg-yellow-400 text-gray-900",
+  feito: "bg-green-500 text-white",
 };
 
 interface KanbanCardProps {
@@ -57,23 +62,35 @@ interface KanbanCardProps {
   onDelete?: (itemId: string) => void;
 }
 
-function KanbanCard({ item, index, canEdit, onEdit, onDelete }: KanbanCardProps) {
+function KanbanCard({
+  item,
+  index,
+  canEdit,
+  onEdit,
+  onDelete,
+}: KanbanCardProps) {
   const [showDescription, setShowDescription] = useState(false);
 
   // Handlers que param propagação para não interferir no drag
-  const handleEdit = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onEdit?.(item.id);
-  }, [item.id, onEdit]);
+  const handleEdit = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onEdit?.(item.id);
+    },
+    [item.id, onEdit],
+  );
 
-  const handleDelete = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete?.(item.id);
-  }, [item.id, onDelete]);
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDelete?.(item.id);
+    },
+    [item.id, onDelete],
+  );
 
   const handleToggleDescription = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowDescription(prev => !prev);
+    setShowDescription((prev) => !prev);
   }, []);
 
   return (
@@ -86,35 +103,47 @@ function KanbanCard({ item, index, canEdit, onEdit, onDelete }: KanbanCardProps)
           style={provided.draggableProps.style}
           className={`
             bg-white rounded-lg border transition-shadow
-            ${snapshot.isDragging 
-              ? 'shadow-2xl border-blue-500 opacity-80' 
-              : 'shadow border-gray-200 hover:shadow-md'
+            ${
+              snapshot.isDragging
+                ? "shadow-2xl border-blue-500 opacity-80"
+                : "shadow border-gray-200 hover:shadow-md"
             }
-            ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''}
+            ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}
           `}
         >
           <div className="p-3">
             <div className="flex items-center gap-2">
               {/* Badge */}
               {item.badge && (
-                <Badge variant="outline" className="shrink-0 text-xs font-semibold border-[#2d6a7f] text-[#2d6a7f]">
+                <Badge
+                  variant="outline"
+                  className="shrink-0 text-xs font-semibold border-[#2d6a7f] text-[#2d6a7f]"
+                >
                   {item.badge}
                 </Badge>
               )}
 
               {/* Title */}
-              <span className="flex-1 text-sm font-medium text-gray-700 truncate" title={item.title}>
+              <span
+                className="flex-1 text-sm font-medium text-gray-700 truncate"
+                title={item.title}
+              >
                 {item.title}
               </span>
 
               {/* Actions */}
-              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="flex items-center gap-1 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={handleToggleDescription}
                   className="h-7 w-7 p-0 text-gray-500 hover:text-blue-600 cursor-pointer"
-                  title={showDescription ? "Ocultar descrição" : "Ver descrição"}
+                  title={
+                    showDescription ? "Ocultar descrição" : "Ver descrição"
+                  }
                   type="button"
                 >
                   <Search className="h-3.5 w-3.5" />
@@ -158,7 +187,15 @@ function KanbanCard({ item, index, canEdit, onEdit, onDelete }: KanbanCardProps)
   );
 }
 
-export function KanbanBoard({ title, columns, onDragEnd, onAdd, onEdit, onDelete, canEdit = false }: KanbanBoardProps) {
+export function KanbanBoard({
+  title,
+  columns,
+  onDragEnd,
+  onAdd,
+  onEdit,
+  onDelete,
+  canEdit = false,
+}: KanbanBoardProps) {
   return (
     <Card>
       {title && (
@@ -172,10 +209,15 @@ export function KanbanBoard({ title, columns, onDragEnd, onAdd, onEdit, onDelete
             {columns.map((column) => (
               <div key={column.id} className="flex flex-col">
                 {/* Header da Coluna */}
-                <div className={`flex items-center justify-between p-3 rounded-t-lg font-semibold ${columnHeaderColors[column.id]}`}>
+                <div
+                  className={`flex items-center justify-between p-3 rounded-t-lg font-semibold ${columnHeaderColors[column.id]}`}
+                >
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm lg:text-base">{column.title}</h3>
-                    <Badge variant="secondary" className="bg-white/50 text-gray-900 font-bold">
+                    <Badge
+                      variant="secondary"
+                      className="bg-white/50 text-gray-900 font-bold"
+                    >
                       {column.items.length}
                     </Badge>
                   </div>
@@ -201,9 +243,10 @@ export function KanbanBoard({ title, columns, onDragEnd, onAdd, onEdit, onDelete
                       {...provided.droppableProps}
                       className={`
                         flex-1 min-h-[400px] p-3 rounded-b-lg space-y-2 transition-colors
-                        ${snapshot.isDraggingOver 
-                          ? 'bg-blue-100 ring-2 ring-blue-400 ring-inset' 
-                          : columnColors[column.id]
+                        ${
+                          snapshot.isDraggingOver
+                            ? "bg-blue-100 ring-2 ring-blue-400 ring-inset"
+                            : columnColors[column.id]
                         }
                       `}
                     >
@@ -218,13 +261,14 @@ export function KanbanBoard({ title, columns, onDragEnd, onAdd, onEdit, onDelete
                         />
                       ))}
                       {provided.placeholder}
-                      
+
                       {/* Mensagem quando a coluna está vazia */}
-                      {column.items.length === 0 && !snapshot.isDraggingOver && (
-                        <div className="flex items-center justify-center h-32 text-gray-400 text-sm italic">
-                          Nenhum item
-                        </div>
-                      )}
+                      {column.items.length === 0 &&
+                        !snapshot.isDraggingOver && (
+                          <div className="flex items-center justify-center h-32 text-gray-400 text-sm italic">
+                            Nenhum item
+                          </div>
+                        )}
                     </div>
                   )}
                 </Droppable>

@@ -1,10 +1,10 @@
-import { useParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
-import { RenovacaoDetails } from '@/components/contratacoes/RenovacaoDetails';
+import { useParams } from "react-router-dom";
+import { Layout } from "@/components/layout/Layout";
+import { RenovacaoDetails } from "@/components/contratacoes/RenovacaoDetails";
 
 export default function RenovacaoDetailsPage() {
   const { id } = useParams<{ id: string }>();
-  const renovacaoId = parseInt(id || '0');
+  const renovacaoId = parseInt(id || "0");
 
   if (!renovacaoId) {
     return (
@@ -22,34 +22,3 @@ export default function RenovacaoDetailsPage() {
     </Layout>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

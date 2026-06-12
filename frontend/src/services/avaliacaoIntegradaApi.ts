@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface PessoaElegivel {
   pessoa_id: number;
@@ -53,7 +53,7 @@ export interface RespostaIntegradaItem {
   nota_gestor: number | null;
   nota_integrada: number;
   comentario?: string;
-  tipo?: 'tecnica' | 'comportamental' | 'estrategica' | 'gerencial';
+  tipo?: "tecnica" | "comportamental" | "estrategica" | "gerencial";
 }
 
 export interface AvaliacaoIntegradaFormulario {
@@ -67,7 +67,7 @@ export interface AvaliacaoIntegradaFormulario {
   diretoria: string;
   unidade_id: number | null;
   unidade_nome?: string;
-  tipo_inventario?: 'equipe' | 'gestor';
+  tipo_inventario?: "equipe" | "gestor";
   status: string;
   respostas?: RespostaIntegradaItem[];
   total_respostas?: number;
@@ -101,17 +101,20 @@ export interface CreateAvaliacaoIntegradaDto {
   avaliador_nome: string;
   diretoria: string;
   unidade_id?: number;
-  tipo_inventario?: 'equipe' | 'gestor';
+  tipo_inventario?: "equipe" | "gestor";
   respostas: RespostaIntegradaItem[];
 }
 
-const BASE_URL = '/api/avaliacao-integrada';
+const BASE_URL = "/api/avaliacao-integrada";
 
 export const avaliacaoIntegradaApi = {
-  getAll(diretoria?: string, tipoInventario?: string): Promise<AvaliacaoIntegradaFormulario[]> {
+  getAll(
+    diretoria?: string,
+    tipoInventario?: string,
+  ): Promise<AvaliacaoIntegradaFormulario[]> {
     const params = new URLSearchParams();
-    if (diretoria) params.set('diretoria', diretoria);
-    if (tipoInventario) params.set('tipo_inventario', tipoInventario);
+    if (diretoria) params.set("diretoria", diretoria);
+    if (tipoInventario) params.set("tipo_inventario", tipoInventario);
     const qs = params.toString();
     const url = qs ? `${BASE_URL}?${qs}` : BASE_URL;
     return apiClient.request<AvaliacaoIntegradaFormulario[]>(url);
@@ -125,41 +128,83 @@ export const avaliacaoIntegradaApi = {
    * Metadados mínimos da última avaliação integrada da pessoa. Retorna null se
    * não existir (404 do backend é convertido em null pra simplificar callers).
    */
-  async getByPessoaMeta(pessoaId: number): Promise<{ id: number; tipo_inventario: 'equipe' | 'gestor'; status: string } | null> {
+  async getByPessoaMeta(
+    pessoaId: number,
+  ): Promise<{
+    id: number;
+    tipo_inventario: "equipe" | "gestor";
+    status: string;
+  } | null> {
     try {
-      return await apiClient.request<{ id: number; tipo_inventario: 'equipe' | 'gestor'; status: string }>(`${BASE_URL}/by-pessoa/${pessoaId}`);
+      return await apiClient.request<{
+        id: number;
+        tipo_inventario: "equipe" | "gestor";
+        status: string;
+      }>(`${BASE_URL}/by-pessoa/${pessoaId}`);
     } catch (err: any) {
       if (err?.status === 404 || /404/.test(String(err?.message))) return null;
       throw err;
     }
   },
 
-  getElegiveis(unidadeId: number, tipoInventario: string = 'equipe'): Promise<PessoaElegivel[]> {
-    return apiClient.request<PessoaElegivel[]>(`${BASE_URL}/elegiveis/${unidadeId}?tipo_inventario=${encodeURIComponent(tipoInventario)}`);
+  getElegiveis(
+    unidadeId: number,
+    tipoInventario: string = "equipe",
+  ): Promise<PessoaElegivel[]> {
+    return apiClient.request<PessoaElegivel[]>(
+      `${BASE_URL}/elegiveis/${unidadeId}?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
+    );
   },
 
   getPendentesColaborador(): Promise<AvaliacaoIntegradaFormulario[]> {
-    return apiClient.request<AvaliacaoIntegradaFormulario[]>(`${BASE_URL}/pendentes-colaborador`);
+    return apiClient.request<AvaliacaoIntegradaFormulario[]>(
+      `${BASE_URL}/pendentes-colaborador`,
+    );
   },
 
-  temElegiveis(): Promise<{ equipe: boolean; gestor: boolean; equipeElegiveis: boolean; gestorElegiveis: boolean; avgestorEquipe: boolean; avgestorGestor: boolean }> {
-    return apiClient.request<{ equipe: boolean; gestor: boolean; equipeElegiveis: boolean; gestorElegiveis: boolean; avgestorEquipe: boolean; avgestorGestor: boolean }>(`${BASE_URL}/tem-elegiveis`);
+  temElegiveis(): Promise<{
+    equipe: boolean;
+    gestor: boolean;
+    equipeElegiveis: boolean;
+    gestorElegiveis: boolean;
+    avgestorEquipe: boolean;
+    avgestorGestor: boolean;
+  }> {
+    return apiClient.request<{
+      equipe: boolean;
+      gestor: boolean;
+      equipeElegiveis: boolean;
+      gestorElegiveis: boolean;
+      avgestorEquipe: boolean;
+      avgestorGestor: boolean;
+    }>(`${BASE_URL}/tem-elegiveis`);
   },
 
-  getParData(autoavaliacaoId: number, avaliacaoGestorId: number): Promise<ParData> {
-    return apiClient.request<ParData>(`${BASE_URL}/par/${autoavaliacaoId}/${avaliacaoGestorId}`);
+  getParData(
+    autoavaliacaoId: number,
+    avaliacaoGestorId: number,
+  ): Promise<ParData> {
+    return apiClient.request<ParData>(
+      `${BASE_URL}/par/${autoavaliacaoId}/${avaliacaoGestorId}`,
+    );
   },
 
-  create(data: CreateAvaliacaoIntegradaDto): Promise<AvaliacaoIntegradaFormulario> {
+  create(
+    data: CreateAvaliacaoIntegradaDto,
+  ): Promise<AvaliacaoIntegradaFormulario> {
     return apiClient.post<AvaliacaoIntegradaFormulario>(BASE_URL, data);
   },
 
   validarGestor(id: number): Promise<AvaliacaoIntegradaFormulario> {
-    return apiClient.patch<AvaliacaoIntegradaFormulario>(`${BASE_URL}/${id}/validar-gestor`);
+    return apiClient.patch<AvaliacaoIntegradaFormulario>(
+      `${BASE_URL}/${id}/validar-gestor`,
+    );
   },
 
   validarColaborador(id: number): Promise<AvaliacaoIntegradaFormulario> {
-    return apiClient.patch<AvaliacaoIntegradaFormulario>(`${BASE_URL}/${id}/validar-colaborador`);
+    return apiClient.patch<AvaliacaoIntegradaFormulario>(
+      `${BASE_URL}/${id}/validar-colaborador`,
+    );
   },
 
   remove(id: number): Promise<void> {
@@ -168,11 +213,18 @@ export const avaliacaoIntegradaApi = {
 
   /** Listar versões históricas de um formulário */
   getVersoes(id: number): Promise<VersaoHistoricoIntegrada[]> {
-    return apiClient.request<VersaoHistoricoIntegrada[]>(`${BASE_URL}/${id}/versoes`);
+    return apiClient.request<VersaoHistoricoIntegrada[]>(
+      `${BASE_URL}/${id}/versoes`,
+    );
   },
 
   /** Buscar snapshot completo de uma versão específica (para gerar PDF) */
-  getVersaoDados(id: number, versao: number): Promise<AvaliacaoIntegradaFormulario> {
-    return apiClient.request<AvaliacaoIntegradaFormulario>(`${BASE_URL}/${id}/versoes/${versao}`);
+  getVersaoDados(
+    id: number,
+    versao: number,
+  ): Promise<AvaliacaoIntegradaFormulario> {
+    return apiClient.request<AvaliacaoIntegradaFormulario>(
+      `${BASE_URL}/${id}/versoes/${versao}`,
+    );
   },
 };

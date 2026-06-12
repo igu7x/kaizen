@@ -1,6 +1,6 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from './button';
+import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "./button";
 
 /**
  * Botão "← Cadastros" que aparece quando a página foi acessada via hub de Cadastros.
@@ -17,7 +17,7 @@ export function VoltarCadastros() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => navigate('/cadastros')}
+        onClick={() => navigate("/cadastros")}
         className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 -ml-2"
       >
         <ArrowLeft className="h-4 w-4 mr-1" />

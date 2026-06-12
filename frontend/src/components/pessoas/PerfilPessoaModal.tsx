@@ -1,9 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Loader2,
   Mail,
@@ -15,9 +12,9 @@ import {
   User as UserIcon,
   ClipboardCheck,
   ChevronRight,
-} from 'lucide-react';
-import { pessoasApi, PerfilCompleto } from '@/services/pessoasApi';
-import { avaliacaoIntegradaApi } from '@/services/avaliacaoIntegradaApi';
+} from "lucide-react";
+import { pessoasApi, PerfilCompleto } from "@/services/pessoasApi";
+import { avaliacaoIntegradaApi } from "@/services/avaliacaoIntegradaApi";
 
 interface PerfilPessoaModalProps {
   pessoaId: number | null;
@@ -47,10 +44,10 @@ function InfoRow({
         </div>
         <div
           className={`mt-0.5 text-sm leading-tight ${
-            empty ? 'italic text-slate-400' : 'text-slate-800'
+            empty ? "italic text-slate-400" : "text-slate-800"
           }`}
         >
-          {empty ? 'Não indicado' : value}
+          {empty ? "Não indicado" : value}
         </div>
       </div>
     </div>
@@ -88,7 +85,10 @@ export default function PerfilPessoaModal({
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   // Metadados da última avaliação integrada do colaborador, ou null se não houver.
   // O botão "Avaliação do Colaborador" só aparece quando isto está preenchido.
-  const [integradaMeta, setIntegradaMeta] = useState<{ id: number; tipo_inventario: 'equipe' | 'gestor' } | null>(null);
+  const [integradaMeta, setIntegradaMeta] = useState<{
+    id: number;
+    tipo_inventario: "equipe" | "gestor";
+  } | null>(null);
 
   useEffect(() => {
     if (!open || pessoaId == null) {
@@ -107,23 +107,26 @@ export default function PerfilPessoaModal({
     Promise.allSettled([
       pessoasApi.getPerfilCompleto(pessoaId),
       avaliacaoIntegradaApi.getByPessoaMeta(pessoaId),
-    ]).then(([perfilRes, integradaRes]) => {
-      if (cancelled) return;
-      if (perfilRes.status === 'fulfilled') {
-        setPerfil(perfilRes.value);
-      } else {
-        console.error('Erro ao carregar perfil:', perfilRes.reason);
-        setError((perfilRes.reason as any)?.message || 'Erro ao carregar perfil');
-      }
-      if (integradaRes.status === 'fulfilled' && integradaRes.value) {
-        setIntegradaMeta({
-          id: integradaRes.value.id,
-          tipo_inventario: integradaRes.value.tipo_inventario,
-        });
-      }
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+    ])
+      .then(([perfilRes, integradaRes]) => {
+        if (cancelled) return;
+        if (perfilRes.status === "fulfilled") {
+          setPerfil(perfilRes.value);
+        } else {
+          setError(
+            (perfilRes.reason as any)?.message || "Erro ao carregar perfil",
+          );
+        }
+        if (integradaRes.status === "fulfilled" && integradaRes.value) {
+          setIntegradaMeta({
+            id: integradaRes.value.id,
+            tipo_inventario: integradaRes.value.tipo_inventario,
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
       cancelled = true;
@@ -133,22 +136,22 @@ export default function PerfilPessoaModal({
   const handleAbrirAvaliacao = () => {
     if (!integradaMeta) return;
     onOpenChange(false);
-    navigate(`/pessoas/competencias?integradaId=${integradaMeta.id}&tipo=${integradaMeta.tipo_inventario}`);
+    navigate(
+      `/pessoas/competencias?integradaId=${integradaMeta.id}&tipo=${integradaMeta.tipo_inventario}`,
+    );
   };
 
   const nomeExibido =
     perfil?.nome_exibicao?.trim() ||
     perfil?.nome?.trim() ||
     perfil?.user_name?.trim() ||
-    'Sem nome';
+    "Sem nome";
   const emailExibido =
     perfil?.email?.trim() || perfil?.user_email?.trim() || null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-2xl gap-0 overflow-hidden border-0 bg-white p-0 sm:rounded-2xl [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100"
-      >
+      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-0 bg-white p-0 sm:rounded-2xl [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100">
         {loading && (
           <div className="flex h-72 flex-col items-center justify-center gap-3 bg-white">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -159,7 +162,9 @@ export default function PerfilPessoaModal({
         {!loading && error && (
           <div className="flex h-72 flex-col items-center justify-center gap-3 bg-white p-6 text-center">
             <AlertCircle className="h-10 w-10 text-red-400" />
-            <p className="text-sm font-medium text-slate-700">Não foi possível carregar o perfil</p>
+            <p className="text-sm font-medium text-slate-700">
+              Não foi possível carregar o perfil
+            </p>
             <p className="text-xs text-slate-500">{error}</p>
           </div>
         )}

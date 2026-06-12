@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 // ============================================================
 // INTERFACES
@@ -35,7 +35,7 @@ export interface UpdateAmbienteDto {
 // API FUNCTIONS
 // ============================================================
 
-const BASE_URL = '/api/ambientes';
+const BASE_URL = "/api/ambientes";
 
 /**
  * Buscar todos os ambientes
@@ -56,7 +56,7 @@ export async function getById(id: number): Promise<Ambiente> {
  */
 export async function create(dto: CreateAmbienteDto): Promise<Ambiente> {
   return apiClient.request<Ambiente>(BASE_URL, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(dto),
   });
 }
@@ -64,9 +64,12 @@ export async function create(dto: CreateAmbienteDto): Promise<Ambiente> {
 /**
  * Atualizar ambiente
  */
-export async function update(id: number, dto: UpdateAmbienteDto): Promise<Ambiente> {
+export async function update(
+  id: number,
+  dto: UpdateAmbienteDto,
+): Promise<Ambiente> {
   return apiClient.request<Ambiente>(`${BASE_URL}/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(dto),
   });
 }
@@ -76,7 +79,7 @@ export async function update(id: number, dto: UpdateAmbienteDto): Promise<Ambien
  */
 export async function remove(id: number): Promise<void> {
   await apiClient.request(`${BASE_URL}/${id}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 }
 
@@ -102,9 +105,12 @@ export async function getAdmins(codigo: string): Promise<AmbienteAdmin[]> {
 /**
  * Adicionar admin a um ambiente
  */
-export async function addAdmin(codigo: string, data: { email: string; name: string; password?: string }): Promise<AmbienteAdmin> {
+export async function addAdmin(
+  codigo: string,
+  data: { email: string; name: string; password?: string },
+): Promise<AmbienteAdmin> {
   return apiClient.request<AmbienteAdmin>(`${BASE_URL}/${codigo}/admins`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(data),
   });
 }
@@ -112,9 +118,12 @@ export async function addAdmin(codigo: string, data: { email: string; name: stri
 /**
  * Remover admin de um ambiente
  */
-export async function removeAdmin(codigo: string, userId: number): Promise<void> {
+export async function removeAdmin(
+  codigo: string,
+  userId: number,
+): Promise<void> {
   await apiClient.request(`${BASE_URL}/${codigo}/admins/${userId}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 }
 

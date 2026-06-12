@@ -1,17 +1,22 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
-import { useToast } from '@/hooks/use-toast';
-import { useDirectorate } from '@/contexts/DirectorateContext';
-import { ambientesApi, Ambiente, AmbienteAdmin, CreateAmbienteDto } from '@/services/ambientesApi';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Layout } from "@/components/layout/Layout";
+import { useToast } from "@/hooks/use-toast";
+import { useDirectorate } from "@/contexts/DirectorateContext";
+import {
+  ambientesApi,
+  Ambiente,
+  AmbienteAdmin,
+  CreateAmbienteDto,
+} from "@/services/ambientesApi";
 
 // UI Components
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +24,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 // Icons
 import {
@@ -35,7 +40,7 @@ import {
   Shield,
   X,
   UserPlus,
-} from 'lucide-react';
+} from "lucide-react";
 
 export default function Desenvolvimento() {
   const { toast } = useToast();
@@ -51,20 +56,20 @@ export default function Desenvolvimento() {
   const [modalOpen, setModalOpen] = useState(false);
 
   // Form state
-  const [formNome, setFormNome] = useState('');
-  const [formCodigo, setFormCodigo] = useState('');
-  const [formDescricao, setFormDescricao] = useState('');
-  const [formSiglaRaiz, setFormSiglaRaiz] = useState('');
-  const [formNomeRaiz, setFormNomeRaiz] = useState('');
+  const [formNome, setFormNome] = useState("");
+  const [formCodigo, setFormCodigo] = useState("");
+  const [formDescricao, setFormDescricao] = useState("");
+  const [formSiglaRaiz, setFormSiglaRaiz] = useState("");
+  const [formNomeRaiz, setFormNomeRaiz] = useState("");
 
   // Admin modal state
   const [adminModalOpen, setAdminModalOpen] = useState(false);
-  const [adminModalCodigo, setAdminModalCodigo] = useState('');
+  const [adminModalCodigo, setAdminModalCodigo] = useState("");
   const [admins, setAdmins] = useState<AmbienteAdmin[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [savingAdmin, setSavingAdmin] = useState(false);
-  const [newAdminEmail, setNewAdminEmail] = useState('');
-  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminName, setNewAdminName] = useState("");
 
   // Carregar ambientes
   const carregarAmbientes = async () => {
@@ -73,12 +78,7 @@ export default function Desenvolvimento() {
       const data = await ambientesApi.getAll();
       setAmbientes(data);
     } catch (error) {
-      console.error('Erro ao carregar ambientes:', error);
-      toast({
-        title: 'Erro',
-        description: 'Falha ao carregar ambientes.',
-        variant: 'destructive',
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
     }
@@ -90,11 +90,11 @@ export default function Desenvolvimento() {
 
   // Reset form
   const resetForm = () => {
-    setFormNome('');
-    setFormCodigo('');
-    setFormDescricao('');
-    setFormSiglaRaiz('');
-    setFormNomeRaiz('');
+    setFormNome("");
+    setFormCodigo("");
+    setFormDescricao("");
+    setFormSiglaRaiz("");
+    setFormNomeRaiz("");
   };
 
   // Abrir modal
@@ -105,11 +105,16 @@ export default function Desenvolvimento() {
 
   // Criar ambiente
   const handleCriar = async () => {
-    if (!formNome.trim() || !formCodigo.trim() || !formSiglaRaiz.trim() || !formNomeRaiz.trim()) {
+    if (
+      !formNome.trim() ||
+      !formCodigo.trim() ||
+      !formSiglaRaiz.trim() ||
+      !formNomeRaiz.trim()
+    ) {
       toast({
-        title: 'Campos obrigatorios',
-        description: 'Preencha todos os campos obrigatorios.',
-        variant: 'destructive',
+        title: "Campos obrigatorios",
+        description: "Preencha todos os campos obrigatorios.",
+        variant: "destructive",
       });
       return;
     }
@@ -125,19 +130,14 @@ export default function Desenvolvimento() {
       };
       await ambientesApi.create(dto);
       toast({
-        title: 'Ambiente criado',
+        title: "Ambiente criado",
         description: `O ambiente "${dto.nome}" foi criado com sucesso.`,
       });
       setModalOpen(false);
       resetForm();
       await carregarAmbientes();
     } catch (error: any) {
-      console.error('Erro ao criar ambiente:', error);
-      toast({
-        title: 'Erro ao criar',
-        description: error?.message || 'Falha ao criar ambiente.',
-        variant: 'destructive',
-      });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
     }
@@ -146,7 +146,7 @@ export default function Desenvolvimento() {
   // Formatar data
   const formatDate = (dateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleDateString('pt-BR');
+      return new Date(dateStr).toLocaleDateString("pt-BR");
     } catch {
       return dateStr;
     }
@@ -156,15 +156,14 @@ export default function Desenvolvimento() {
   const handleOpenAdmins = async (codigo: string) => {
     setAdminModalCodigo(codigo);
     setAdminModalOpen(true);
-    setNewAdminEmail('');
-    setNewAdminName('');
+    setNewAdminEmail("");
+    setNewAdminName("");
     try {
       setLoadingAdmins(true);
       const data = await ambientesApi.getAdmins(codigo);
       setAdmins(data);
     } catch (error) {
-      console.error('Erro ao carregar admins:', error);
-      toast({ title: 'Erro', description: 'Falha ao carregar admins.', variant: 'destructive' });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingAdmins(false);
     }
@@ -173,21 +172,26 @@ export default function Desenvolvimento() {
   // Adicionar admin
   const handleAddAdmin = async () => {
     if (!newAdminEmail.trim() || !newAdminName.trim()) {
-      toast({ title: 'Campos obrigatorios', description: 'Preencha email e nome.', variant: 'destructive' });
+      toast({
+        title: "Campos obrigatorios",
+        description: "Preencha email e nome.",
+        variant: "destructive",
+      });
       return;
     }
     try {
       setSavingAdmin(true);
-      await ambientesApi.addAdmin(adminModalCodigo, { email: newAdminEmail.trim(), name: newAdminName.trim() });
-      toast({ title: 'Admin adicionado', description: `${newAdminEmail.trim()} foi adicionado como admin.` });
-      setNewAdminEmail('');
-      setNewAdminName('');
+      await ambientesApi.addAdmin(adminModalCodigo, {
+        email: newAdminEmail.trim(),
+        name: newAdminName.trim(),
+      });
+      setNewAdminEmail("");
+      setNewAdminName("");
       // Recarregar lista
       const data = await ambientesApi.getAdmins(adminModalCodigo);
       setAdmins(data);
     } catch (error: any) {
-      console.error('Erro ao adicionar admin:', error);
-      toast({ title: 'Erro', description: error?.message || 'Falha ao adicionar admin.', variant: 'destructive' });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSavingAdmin(false);
     }
@@ -197,12 +201,11 @@ export default function Desenvolvimento() {
   const handleRemoveAdmin = async (userId: number) => {
     try {
       await ambientesApi.removeAdmin(adminModalCodigo, userId);
-      toast({ title: 'Admin removido' });
+
       const data = await ambientesApi.getAdmins(adminModalCodigo);
       setAdmins(data);
     } catch (error: any) {
-      console.error('Erro ao remover admin:', error);
-      toast({ title: 'Erro', description: error?.message || 'Falha ao remover admin.', variant: 'destructive' });
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
 
@@ -210,7 +213,6 @@ export default function Desenvolvimento() {
     <Layout>
       <div className="page-transition-enter min-h-full">
         <div className="max-w-6xl mx-auto px-6 py-10">
-
           {/* Banner ambiente ativo */}
           {devEnvironment && (
             <div className="flex items-center justify-between bg-amber-500/15 border border-amber-500/30 rounded-lg px-4 py-3 mb-6">
@@ -223,7 +225,10 @@ export default function Desenvolvimento() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => { setDevEnvironment(null); navigate('/gestao-estrategica/execucao'); }}
+                onClick={() => {
+                  setDevEnvironment(null);
+                  navigate("/gestao-estrategica/execucao");
+                }}
                 className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 h-7 text-xs"
               >
                 <LogOut className="h-3 w-3 mr-1" />
@@ -239,8 +244,12 @@ export default function Desenvolvimento() {
                 <Code className="h-5 w-5 text-violet-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">Desenvolvimento</h1>
-                <p className="text-sm text-white/50">Gerenciamento de Ambientes</p>
+                <h1 className="text-2xl font-bold text-white">
+                  Desenvolvimento
+                </h1>
+                <p className="text-sm text-white/50">
+                  Gerenciamento de Ambientes
+                </p>
               </div>
             </div>
             <Button
@@ -263,8 +272,12 @@ export default function Desenvolvimento() {
           {!loading && ambientes.length === 0 && (
             <div className="text-center py-20">
               <Code className="h-12 w-12 text-white/20 mx-auto mb-4" />
-              <p className="text-white/50 text-sm">Nenhum ambiente cadastrado.</p>
-              <p className="text-white/30 text-xs mt-1">Clique em "Novo Ambiente" para criar o primeiro.</p>
+              <p className="text-white/50 text-sm">
+                Nenhum ambiente cadastrado.
+              </p>
+              <p className="text-white/30 text-xs mt-1">
+                Clique em "Novo Ambiente" para criar o primeiro.
+              </p>
             </div>
           )}
 
@@ -285,17 +298,19 @@ export default function Desenvolvimento() {
                             {ambiente.nome}
                           </h3>
                           <Badge
-                            variant={ambiente.ativo ? 'default' : 'secondary'}
+                            variant={ambiente.ativo ? "default" : "secondary"}
                             className={
                               ambiente.ativo
-                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs'
-                                : 'bg-red-500/20 text-red-400 border-red-500/30 text-xs'
+                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs"
+                                : "bg-red-500/20 text-red-400 border-red-500/30 text-xs"
                             }
                           >
-                            {ambiente.ativo ? 'Ativo' : 'Inativo'}
+                            {ambiente.ativo ? "Ativo" : "Inativo"}
                           </Badge>
                         </div>
-                        <p className="text-xs text-white/40 font-mono">{ambiente.codigo}</p>
+                        <p className="text-xs text-white/40 font-mono">
+                          {ambiente.codigo}
+                        </p>
                       </div>
                     </div>
 
@@ -312,7 +327,7 @@ export default function Desenvolvimento() {
                       <div className="flex items-center gap-1.5">
                         <FolderTree className="h-3.5 w-3.5 text-white/30" />
                         <span className="text-xs text-white/50">
-                          {ambiente.diretoria_raiz || '-'}
+                          {ambiente.diretoria_raiz || "-"}
                         </span>
                       </div>
 
@@ -363,9 +378,13 @@ export default function Desenvolvimento() {
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            setDevEnvironment(ambiente.diretoria_raiz || ambiente.codigo);
-                            toast({ title: `Ambiente "${ambiente.nome}" ativado` });
-                            navigate('/gestao-estrategica/execucao');
+                            setDevEnvironment(
+                              ambiente.diretoria_raiz || ambiente.codigo,
+                            );
+                            toast({
+                              title: `Ambiente "${ambiente.nome}" ativado`,
+                            });
+                            navigate("/gestao-estrategica/execucao");
                           }}
                           className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/20 h-7 text-xs"
                         >
@@ -388,14 +407,17 @@ export default function Desenvolvimento() {
           <DialogHeader>
             <DialogTitle>Novo Ambiente</DialogTitle>
             <DialogDescription className="text-white/50">
-              Crie um novo ambiente (dominio) no sistema. Uma diretoria raiz sera criada automaticamente.
+              Crie um novo ambiente (dominio) no sistema. Uma diretoria raiz
+              sera criada automaticamente.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             {/* Nome do Ambiente */}
             <div className="space-y-1.5">
-              <Label className="text-white/70 text-sm">Nome do Ambiente *</Label>
+              <Label className="text-white/70 text-sm">
+                Nome do Ambiente *
+              </Label>
               <Input
                 value={formNome}
                 onChange={(e) => setFormNome(e.target.value)}
@@ -409,12 +431,15 @@ export default function Desenvolvimento() {
               <Label className="text-white/70 text-sm">Codigo *</Label>
               <Input
                 value={formCodigo}
-                onChange={(e) => setFormCodigo(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                onChange={(e) =>
+                  setFormCodigo(e.target.value.toUpperCase().replace(/\s/g, ""))
+                }
                 placeholder="Ex: CGJ"
                 className="bg-white/5 border-white/10 text-white placeholder:text-white/30 font-mono"
               />
               <p className="text-[11px] text-white/30">
-                Identificador unico do dominio. Apenas letras maiusculas, sem espacos.
+                Identificador unico do dominio. Apenas letras maiusculas, sem
+                espacos.
               </p>
             </div>
 
@@ -432,10 +457,16 @@ export default function Desenvolvimento() {
 
             {/* Sigla da Diretoria Raiz */}
             <div className="space-y-1.5">
-              <Label className="text-white/70 text-sm">Sigla da Diretoria Raiz *</Label>
+              <Label className="text-white/70 text-sm">
+                Sigla da Diretoria Raiz *
+              </Label>
               <Input
                 value={formSiglaRaiz}
-                onChange={(e) => setFormSiglaRaiz(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                onChange={(e) =>
+                  setFormSiglaRaiz(
+                    e.target.value.toUpperCase().replace(/\s/g, ""),
+                  )
+                }
                 placeholder="Ex: CGJ"
                 className="bg-white/5 border-white/10 text-white placeholder:text-white/30 font-mono"
               />
@@ -443,7 +474,9 @@ export default function Desenvolvimento() {
 
             {/* Nome da Diretoria Raiz */}
             <div className="space-y-1.5">
-              <Label className="text-white/70 text-sm">Nome da Diretoria Raiz *</Label>
+              <Label className="text-white/70 text-sm">
+                Nome da Diretoria Raiz *
+              </Label>
               <Input
                 value={formNomeRaiz}
                 onChange={(e) => setFormNomeRaiz(e.target.value)}
@@ -489,13 +522,17 @@ export default function Desenvolvimento() {
           <div className="space-y-4 py-2">
             {/* Lista de admins */}
             <div className="space-y-1.5">
-              <Label className="text-white/70 text-sm">Superadmins atuais</Label>
+              <Label className="text-white/70 text-sm">
+                Superadmins atuais
+              </Label>
               {loadingAdmins ? (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-5 w-5 animate-spin text-white/50" />
                 </div>
               ) : admins.length === 0 ? (
-                <p className="text-xs text-white/30 py-2">Nenhum admin cadastrado.</p>
+                <p className="text-xs text-white/30 py-2">
+                  Nenhum admin cadastrado.
+                </p>
               ) : (
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {admins.map((admin) => (
@@ -504,8 +541,12 @@ export default function Desenvolvimento() {
                       className="flex items-center justify-between bg-white/5 rounded px-3 py-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-white truncate">{admin.name}</p>
-                        <p className="text-xs text-white/40 truncate">{admin.email}</p>
+                        <p className="text-sm text-white truncate">
+                          {admin.name}
+                        </p>
+                        <p className="text-xs text-white/40 truncate">
+                          {admin.email}
+                        </p>
                       </div>
                       <button
                         onClick={() => handleRemoveAdmin(admin.id)}
@@ -544,7 +585,9 @@ export default function Desenvolvimento() {
                 size="sm"
                 className="bg-cyan-600 hover:bg-cyan-700 text-white w-full"
               >
-                {savingAdmin && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {savingAdmin && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 <UserPlus className="h-3.5 w-3.5 mr-1.5" />
                 Adicionar Superadmin
               </Button>

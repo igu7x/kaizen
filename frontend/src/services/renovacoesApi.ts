@@ -1,6 +1,6 @@
-import { apiClient } from './apiClient';
-import Storage from '@/utils/storage';
-import { User } from '../types';
+import { apiClient } from "./apiClient";
+import Storage from "@/utils/storage";
+import { User } from "../types";
 import {
   PcaRenovacao,
   CreateRenovacaoDto,
@@ -16,17 +16,17 @@ import {
   RenovacaoTarefa,
   ChecklistStatus,
   SaveRenovacaoChangesRequest,
-} from '../types';
+} from "../types";
 
 /**
  * Helper para obter headers com informações do usuário
  */
 function getUserHeaders(): Record<string, string> {
-  const user = Storage.load<User | null>('user', null);
+  const user = Storage.load<User | null>("user", null);
   if (user) {
     return {
-      'x-user-id': String(user.id),
-      'x-user-role': user.role
+      "x-user-id": String(user.id),
+      "x-user-role": user.role,
     };
   }
   return {};
@@ -39,64 +39,78 @@ function getUserHeaders(): Record<string, string> {
 export const renovacoesApi = {
   // Listar todas as renovações
   getAll: async (): Promise<PcaRenovacao[]> => {
-    return await apiClient.get<PcaRenovacao[]>('/api/pca-renovacoes', {
-      headers: getUserHeaders()
+    return await apiClient.get<PcaRenovacao[]>("/api/pca-renovacoes", {
+      headers: getUserHeaders(),
     });
   },
 
   // Buscar renovação por ID
   getById: async (id: number): Promise<PcaRenovacao> => {
     return await apiClient.get<PcaRenovacao>(`/api/pca-renovacoes/${id}`, {
-      headers: getUserHeaders()
+      headers: getUserHeaders(),
     });
   },
 
   // Obter estatísticas
   getStats: async (): Promise<RenovacaoStats> => {
-    return await apiClient.get<RenovacaoStats>('/api/pca-renovacoes/stats', {
-      headers: getUserHeaders()
+    return await apiClient.get<RenovacaoStats>("/api/pca-renovacoes/stats", {
+      headers: getUserHeaders(),
     });
   },
 
   // Obter resumo completo
   getResumo: async (): Promise<RenovacaoResumo> => {
-    return await apiClient.get<RenovacaoResumo>('/api/pca-renovacoes/resumo', {
-      headers: getUserHeaders()
+    return await apiClient.get<RenovacaoResumo>("/api/pca-renovacoes/resumo", {
+      headers: getUserHeaders(),
     });
   },
 
   // Obter filtros disponíveis
   getFilters: async (): Promise<RenovacaoFilters> => {
-    return await apiClient.get<RenovacaoFilters>('/api/pca-renovacoes/filters', {
-      headers: getUserHeaders()
-    });
+    return await apiClient.get<RenovacaoFilters>(
+      "/api/pca-renovacoes/filters",
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   // Criar nova renovação
   create: async (data: CreateRenovacaoDto): Promise<PcaRenovacao> => {
-    return await apiClient.post<PcaRenovacao>('/api/pca-renovacoes', data, {
-      headers: getUserHeaders()
+    return await apiClient.post<PcaRenovacao>("/api/pca-renovacoes", data, {
+      headers: getUserHeaders(),
     });
   },
 
   // Atualizar renovação
-  update: async (id: number, data: UpdateRenovacaoDto): Promise<PcaRenovacao> => {
-    return await apiClient.put<PcaRenovacao>(`/api/pca-renovacoes/${id}`, data, {
-      headers: getUserHeaders()
-    });
+  update: async (
+    id: number,
+    data: UpdateRenovacaoDto,
+  ): Promise<PcaRenovacao> => {
+    return await apiClient.put<PcaRenovacao>(
+      `/api/pca-renovacoes/${id}`,
+      data,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   // Atualizar status
   updateStatus: async (id: number, status: string): Promise<PcaRenovacao> => {
-    return await apiClient.patch<PcaRenovacao>(`/api/pca-renovacoes/${id}/status`, { status }, {
-      headers: getUserHeaders()
-    });
+    return await apiClient.patch<PcaRenovacao>(
+      `/api/pca-renovacoes/${id}/status`,
+      { status },
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   // Excluir renovação
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/api/pca-renovacoes/${id}`, {
-      headers: getUserHeaders()
+      headers: getUserHeaders(),
     });
   },
 };
@@ -108,9 +122,12 @@ export const renovacoesApi = {
 export const renovacoesDetailsApi = {
   // Buscar todos os dados de uma renovação
   getAllData: async (renovacaoId: number): Promise<RenovacaoAllDetails> => {
-    return await apiClient.get<RenovacaoAllDetails>(`/api/pca-renovacoes-details/${renovacaoId}/all`, {
-      headers: getUserHeaders()
-    });
+    return await apiClient.get<RenovacaoAllDetails>(
+      `/api/pca-renovacoes-details/${renovacaoId}/all`,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   // --------------------------------------------------------
@@ -118,18 +135,25 @@ export const renovacoesDetailsApi = {
   // --------------------------------------------------------
 
   getDetails: async (renovacaoId: number): Promise<RenovacaoDetails | null> => {
-    return await apiClient.get<RenovacaoDetails | null>(`/api/pca-renovacoes-details/${renovacaoId}/details`, {
-      headers: getUserHeaders()
-    });
+    return await apiClient.get<RenovacaoDetails | null>(
+      `/api/pca-renovacoes-details/${renovacaoId}/details`,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   updateDetails: async (
     renovacaoId: number,
-    data: Partial<RenovacaoDetails>
+    data: Partial<RenovacaoDetails>,
   ): Promise<RenovacaoDetails> => {
-    return await apiClient.put<RenovacaoDetails>(`/api/pca-renovacoes-details/${renovacaoId}/details`, data, {
-      headers: getUserHeaders()
-    });
+    return await apiClient.put<RenovacaoDetails>(
+      `/api/pca-renovacoes-details/${renovacaoId}/details`,
+      data,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   // --------------------------------------------------------
@@ -137,22 +161,25 @@ export const renovacoesDetailsApi = {
   // --------------------------------------------------------
 
   getChecklist: async (
-    renovacaoId: number
+    renovacaoId: number,
   ): Promise<{ checklist: RenovacaoChecklistItem[]; progress: number }> => {
-    return await apiClient.get<{ checklist: RenovacaoChecklistItem[]; progress: number }>(`/api/pca-renovacoes-details/${renovacaoId}/checklist`, {
-      headers: getUserHeaders()
+    return await apiClient.get<{
+      checklist: RenovacaoChecklistItem[];
+      progress: number;
+    }>(`/api/pca-renovacoes-details/${renovacaoId}/checklist`, {
+      headers: getUserHeaders(),
     });
   },
 
   updateChecklistStatus: async (
     renovacaoId: number,
     checklistId: number,
-    status: ChecklistStatus
+    status: ChecklistStatus,
   ): Promise<RenovacaoChecklistItem> => {
     return await apiClient.patch<RenovacaoChecklistItem>(
       `/api/pca-renovacoes-details/${renovacaoId}/checklist/${checklistId}/status`,
       { status },
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
@@ -160,52 +187,61 @@ export const renovacoesDetailsApi = {
   // PONTOS DE CONTROLE
   // --------------------------------------------------------
 
-  getPontosControle: async (renovacaoId: number): Promise<RenovacaoPontoControle[]> => {
-    return await apiClient.get<RenovacaoPontoControle[]>(`/api/pca-renovacoes-details/${renovacaoId}/pontos-controle`, {
-      headers: getUserHeaders()
-    });
+  getPontosControle: async (
+    renovacaoId: number,
+  ): Promise<RenovacaoPontoControle[]> => {
+    return await apiClient.get<RenovacaoPontoControle[]>(
+      `/api/pca-renovacoes-details/${renovacaoId}/pontos-controle`,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   getPontosControleComTarefas: async (
-    renovacaoId: number
+    renovacaoId: number,
   ): Promise<RenovacaoPontoControleComTarefas[]> => {
     return await apiClient.get<RenovacaoPontoControleComTarefas[]>(
       `/api/pca-renovacoes-details/${renovacaoId}/pontos-controle-com-tarefas`,
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
   createPontoControle: async (
     renovacaoId: number,
-    data: { ponto_controle: string; data: string; proxima_reuniao: string }
+    data: { ponto_controle: string; data: string; proxima_reuniao: string },
   ): Promise<RenovacaoPontoControle> => {
     return await apiClient.post<RenovacaoPontoControle>(
       `/api/pca-renovacoes-details/${renovacaoId}/pontos-controle`,
       data,
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
   updatePontoControle: async (
     renovacaoId: number,
     pcId: number,
-    data: Partial<{ ponto_controle: string; data: string; proxima_reuniao: string }>
+    data: Partial<{
+      ponto_controle: string;
+      data: string;
+      proxima_reuniao: string;
+    }>,
   ): Promise<RenovacaoPontoControle> => {
     return await apiClient.put<RenovacaoPontoControle>(
       `/api/pca-renovacoes-details/${renovacaoId}/pontos-controle/${pcId}`,
       data,
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
   deletePontoControle: async (
     renovacaoId: number,
     pcId: number,
-    deleteTarefas: boolean = false
+    deleteTarefas: boolean = false,
   ): Promise<void> => {
     await apiClient.delete(
       `/api/pca-renovacoes-details/${renovacaoId}/pontos-controle/${pcId}?deleteTarefas=${deleteTarefas}`,
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
@@ -214,15 +250,21 @@ export const renovacoesDetailsApi = {
   // --------------------------------------------------------
 
   getTarefas: async (renovacaoId: number): Promise<RenovacaoTarefa[]> => {
-    return await apiClient.get<RenovacaoTarefa[]>(`/api/pca-renovacoes-details/${renovacaoId}/tarefas`, {
-      headers: getUserHeaders()
-    });
+    return await apiClient.get<RenovacaoTarefa[]>(
+      `/api/pca-renovacoes-details/${renovacaoId}/tarefas`,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   getTarefasOrfas: async (renovacaoId: number): Promise<RenovacaoTarefa[]> => {
-    return await apiClient.get<RenovacaoTarefa[]>(`/api/pca-renovacoes-details/${renovacaoId}/tarefas-orfas`, {
-      headers: getUserHeaders()
-    });
+    return await apiClient.get<RenovacaoTarefa[]>(
+      `/api/pca-renovacoes-details/${renovacaoId}/tarefas-orfas`,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   createTarefa: async (
@@ -233,12 +275,12 @@ export const renovacoesDetailsApi = {
       prazo: string;
       status?: string;
       ponto_controle_id?: number | null;
-    }
+    },
   ): Promise<RenovacaoTarefa> => {
     return await apiClient.post<RenovacaoTarefa>(
       `/api/pca-renovacoes-details/${renovacaoId}/tarefas`,
       data,
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
@@ -251,30 +293,36 @@ export const renovacoesDetailsApi = {
       prazo: string;
       status: string;
       ponto_controle_id: number | null;
-    }>
+    }>,
   ): Promise<RenovacaoTarefa> => {
     return await apiClient.put<RenovacaoTarefa>(
       `/api/pca-renovacoes-details/${renovacaoId}/tarefas/${tarefaId}`,
       data,
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
-  deleteTarefa: async (renovacaoId: number, tarefaId: number): Promise<void> => {
-    await apiClient.delete(`/api/pca-renovacoes-details/${renovacaoId}/tarefas/${tarefaId}`, {
-      headers: getUserHeaders()
-    });
+  deleteTarefa: async (
+    renovacaoId: number,
+    tarefaId: number,
+  ): Promise<void> => {
+    await apiClient.delete(
+      `/api/pca-renovacoes-details/${renovacaoId}/tarefas/${tarefaId}`,
+      {
+        headers: getUserHeaders(),
+      },
+    );
   },
 
   associarTarefaAPontoControle: async (
     renovacaoId: number,
     tarefaId: number,
-    pontoControleId: number | null
+    pontoControleId: number | null,
   ): Promise<RenovacaoTarefa> => {
     return await apiClient.patch<RenovacaoTarefa>(
       `/api/pca-renovacoes-details/${renovacaoId}/tarefas/${tarefaId}/associar-pc`,
       { ponto_controle_id: pontoControleId },
-      { headers: getUserHeaders() }
+      { headers: getUserHeaders() },
     );
   },
 
@@ -284,15 +332,18 @@ export const renovacoesDetailsApi = {
 
   saveAllChanges: async (
     renovacaoId: number,
-    changes: SaveRenovacaoChangesRequest
-  ): Promise<{ success: boolean; saved_count: { details: boolean; checklist: number; tarefas: number } }> => {
-    return await apiClient.patch<{ success: boolean; saved_count: { details: boolean; checklist: number; tarefas: number } }>(
-      `/api/pca-renovacoes-details/${renovacaoId}/save-all-changes`,
-      changes,
-      { headers: getUserHeaders() }
-    );
+    changes: SaveRenovacaoChangesRequest,
+  ): Promise<{
+    success: boolean;
+    saved_count: { details: boolean; checklist: number; tarefas: number };
+  }> => {
+    return await apiClient.patch<{
+      success: boolean;
+      saved_count: { details: boolean; checklist: number; tarefas: number };
+    }>(`/api/pca-renovacoes-details/${renovacaoId}/save-all-changes`, changes, {
+      headers: getUserHeaders(),
+    });
   },
 };
 
 export default renovacoesApi;
-
