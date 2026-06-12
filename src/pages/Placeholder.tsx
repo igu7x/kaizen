@@ -1,5 +1,5 @@
-import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Layout } from "@/components/layout/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PlaceholderProps {
   title: string;

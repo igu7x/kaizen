@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useDirectorate } from '@/contexts/DirectorateContext';
-import { areasApi, Area, Unidade } from '@/services/areasApi';
-import { pessoasApi, Pessoa, CreatePessoaDto } from '@/services/pessoasApi';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDirectorate } from "@/contexts/DirectorateContext";
+import { areasApi, Area, Unidade } from "@/services/areasApi";
+import { pessoasApi, Pessoa, CreatePessoaDto } from "@/services/pessoasApi";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Plus,
   Check,
@@ -28,19 +28,19 @@ import {
   GraduationCap,
   BookOpen,
   Search,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import OrganogramaUnidades from './OrganogramaUnidades';
-import PerfilPessoaModal from './PerfilPessoaModal';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import OrganogramaUnidades from "./OrganogramaUnidades";
+import PerfilPessoaModal from "./PerfilPessoaModal";
 
 // Situações funcionais disponíveis
 const SITUACOES_FUNCIONAIS = [
-  'ESTATUTÁRIO',
-  'CEDIDO',
-  'NOMEADO EM COMISSÃO - INSS',
-  'TERCEIRIZADO',
-  'RESIDENTE',
-  'ESTAGIÁRIO'
+  "ESTATUTÁRIO",
+  "CEDIDO",
+  "NOMEADO EM COMISSÃO - INSS",
+  "TERCEIRIZADO",
+  "RESIDENTE",
+  "ESTAGIÁRIO",
 ];
 
 interface FormData {
@@ -56,15 +56,15 @@ interface FormData {
 }
 
 const initialFormData: FormData = {
-  nome: '',
-  nome_exibicao: '',
+  nome: "",
+  nome_exibicao: "",
   unidade_id: null,
-  situacao: 'ESTATUTÁRIO',
-  cc_fc: '',
-  cc_fc_classe: '',
-  cargo_efetivo: '',
-  cargo_efetivo_classe: '',
-  linha_organograma: 4
+  situacao: "ESTATUTÁRIO",
+  cc_fc: "",
+  cc_fc_classe: "",
+  cargo_efetivo: "",
+  cargo_efetivo_classe: "",
+  linha_organograma: 4,
 };
 
 export function PainelColaboradores() {
@@ -73,29 +73,33 @@ export function PainelColaboradores() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
-  const [selectedUnidadeId, setSelectedUnidadeId] = useState<number | null>(null);
+  const [selectedUnidadeId, setSelectedUnidadeId] = useState<number | null>(
+    null,
+  );
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [filteredPessoas, setFilteredPessoas] = useState<Pessoa[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPessoas, setLoadingPessoas] = useState(false);
   const [loadingUnidades, setLoadingUnidades] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editandoId, setEditandoId] = useState<number | 'novo' | null>(null);
+  const [editandoId, setEditandoId] = useState<number | "novo" | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   // Quando true, o organograma mostra só as unidades em que o usuário logado
   // é responsável (gestor da unidade) + descendentes hierárquicos.
   const [showOnlySubordinated, setShowOnlySubordinated] = useState(false);
   // Modal de visualização de perfil (gestor visualizando dados de cada
   // colaborador subordinado). Só aparece em modo "subordinadas a mim".
-  const [perfilModalPessoaId, setPerfilModalPessoaId] = useState<number | null>(null);
+  const [perfilModalPessoaId, setPerfilModalPessoaId] = useState<number | null>(
+    null,
+  );
 
   const formRowRef = useRef<HTMLTableRowElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = user?.role === 'ADMIN';
-  const isManager = user?.role === 'MANAGER';
+  const isAdmin = user?.role === "ADMIN";
+  const isManager = user?.role === "MANAGER";
   const canEdit = isAdmin || isManager;
 
   // Carregar áreas ao montar ou quando devEnvironment muda
@@ -124,11 +128,12 @@ export function PainelColaboradores() {
     }
 
     const query = searchQuery.toLowerCase().trim();
-    const filtered = pessoas.filter(p => 
-      p.nome.toLowerCase().includes(query) ||
-      p.situacao?.toLowerCase().includes(query) ||
-      p.cc_fc?.toLowerCase().includes(query) ||
-      p.cargo_efetivo?.toLowerCase().includes(query)
+    const filtered = pessoas.filter(
+      (p) =>
+        p.nome.toLowerCase().includes(query) ||
+        p.situacao?.toLowerCase().includes(query) ||
+        p.cc_fc?.toLowerCase().includes(query) ||
+        p.cargo_efetivo?.toLowerCase().includes(query),
     );
     setFilteredPessoas(filtered);
   }, [pessoas, searchQuery]);
@@ -138,15 +143,16 @@ export function PainelColaboradores() {
       setLoading(true);
       setError(null);
       // Carregar áreas do domínio (ou do devEnvironment)
-      const allAreas = devEnvironment ? await areasApi.getByDominio(devEnvironment) : await areasApi.getAll();
+      const allAreas = devEnvironment
+        ? await areasApi.getByDominio(devEnvironment)
+        : await areasApi.getAll();
       setAreas(allAreas);
       // Selecionar primeira área automaticamente
       if (allAreas.length > 0 && !selectedAreaId) {
         setSelectedAreaId(allAreas[0].id);
       }
     } catch (err) {
-      console.error('Erro ao carregar áreas:', err);
-      setError('Erro ao carregar áreas. Tente novamente.');
+      setError("Erro ao carregar áreas. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -158,12 +164,13 @@ export function PainelColaboradores() {
       setError(null);
       const data = await pessoasApi.getByAreaId(areaId);
       // Ordenar colaboradores alfabeticamente por nome
-      const sortedData = [...data].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+      const sortedData = [...data].sort((a, b) =>
+        (a.nome || "").localeCompare(b.nome || "", "pt-BR"),
+      );
       setPessoas(sortedData);
       setFilteredPessoas(sortedData);
     } catch (err) {
-      console.error('Erro ao carregar pessoas:', err);
-      setError('Erro ao carregar pessoas. Tente novamente.');
+      setError("Erro ao carregar pessoas. Tente novamente.");
     } finally {
       setLoadingPessoas(false);
     }
@@ -175,12 +182,13 @@ export function PainelColaboradores() {
       setError(null);
       const data = await pessoasApi.getByUnidadeId(unidadeId);
       // Ordenar colaboradores alfabeticamente por nome
-      const sortedData = [...data].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+      const sortedData = [...data].sort((a, b) =>
+        (a.nome || "").localeCompare(b.nome || "", "pt-BR"),
+      );
       setPessoas(sortedData);
       setFilteredPessoas(sortedData);
     } catch (err) {
-      console.error('Erro ao carregar pessoas da unidade:', err);
-      setError('Erro ao carregar pessoas. Tente novamente.');
+      setError("Erro ao carregar pessoas. Tente novamente.");
     } finally {
       setLoadingPessoas(false);
     }
@@ -192,29 +200,30 @@ export function PainelColaboradores() {
       const data = await areasApi.getUnidades(areaId);
       setUnidades(data);
     } catch (err) {
-      console.error('Erro ao carregar unidades:', err);
       setUnidades([]);
     } finally {
       setLoadingUnidades(false);
     }
   };
 
-  const selectedArea = areas.find(a => a.id === selectedAreaId);
-  const selectedUnidade = unidades.find(u => u.id === selectedUnidadeId);
+  const selectedArea = areas.find((a) => a.id === selectedAreaId);
+  const selectedUnidade = unidades.find((u) => u.id === selectedUnidadeId);
 
   // Identifica a unidade raiz (a que representa a macroárea) — clicar nela mostra a "visão geral".
   // Tenta casar primeiro por nome completo, depois pela sigla da macroárea
   // (algumas áreas cadastraram a unidade-raiz só com a sigla — ex.: "GEJUT").
   const rootUnidadeId = useMemo(() => {
     if (!selectedArea || unidades.length === 0) return null;
-    const norm = (s?: string) => (s || '').toLowerCase().trim();
+    const norm = (s?: string) => (s || "").toLowerCase().trim();
     const nomeAlvo = norm(selectedArea.nome);
     const siglaAlvo = norm(selectedArea.sigla);
     const raizPreferida =
-      unidades.find(u => norm(u.nome) === nomeAlvo) ||
-      (siglaAlvo ? unidades.find(u => norm(u.nome) === siglaAlvo) : undefined);
+      unidades.find((u) => norm(u.nome) === nomeAlvo) ||
+      (siglaAlvo
+        ? unidades.find((u) => norm(u.nome) === siglaAlvo)
+        : undefined);
     if (raizPreferida) return raizPreferida.id;
-    const semSuperior = unidades.filter(u => !u.unidade_superior_id);
+    const semSuperior = unidades.filter((u) => !u.unidade_superior_id);
     return semSuperior[0]?.id ?? null;
   }, [unidades, selectedArea]);
 
@@ -224,8 +233,8 @@ export function PainelColaboradores() {
     const uid = Number(user.id);
     return new Set(
       unidades
-        .filter(u => Number(u.responsavel_user_id || 0) === uid)
-        .map(u => u.id)
+        .filter((u) => Number(u.responsavel_user_id || 0) === uid)
+        .map((u) => u.id),
     );
   }, [unidades, user?.id]);
 
@@ -249,8 +258,10 @@ export function PainelColaboradores() {
       }
     }
     return unidades
-      .filter(u => incluidos.has(u.id))
-      .map(u => minhasUnidadesIds.has(u.id) ? { ...u, unidade_superior_id: null } : u);
+      .filter((u) => incluidos.has(u.id))
+      .map((u) =>
+        minhasUnidadesIds.has(u.id) ? { ...u, unidade_superior_id: null } : u,
+      );
   }, [unidades, showOnlySubordinated, minhasUnidadesIds]);
 
   // Carrega pessoas baseado no recorte atual:
@@ -266,7 +277,10 @@ export function PainelColaboradores() {
       if (selectedUnidadeId) {
         loadPessoasByUnidade(selectedUnidadeId);
         const timer = setTimeout(() => {
-          tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          tableRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         }, 120);
         return () => clearTimeout(timer);
       }
@@ -276,7 +290,8 @@ export function PainelColaboradores() {
       return;
     }
 
-    const isRootSelected = selectedUnidadeId !== null && selectedUnidadeId === rootUnidadeId;
+    const isRootSelected =
+      selectedUnidadeId !== null && selectedUnidadeId === rootUnidadeId;
     const showMacroView = !selectedUnidadeId || isRootSelected;
 
     if (showMacroView) {
@@ -287,7 +302,10 @@ export function PainelColaboradores() {
 
     if (selectedUnidadeId) {
       const timer = setTimeout(() => {
-        tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        tableRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }, 120);
       return () => clearTimeout(timer);
     }
@@ -296,12 +314,14 @@ export function PainelColaboradores() {
   // Calcular estatísticas
   const estatisticas = {
     total: pessoas.length,
-    estatutarios: pessoas.filter(p => p.situacao === 'ESTATUTÁRIO').length,
-    cedidos: pessoas.filter(p => p.situacao === 'CEDIDO').length,
-    comissionados: pessoas.filter(p => p.situacao === 'NOMEADO EM COMISSÃO - INSS').length,
-    terceirizados: pessoas.filter(p => p.situacao === 'TERCEIRIZADO').length,
-    residentes: pessoas.filter(p => p.situacao === 'RESIDENTE').length,
-    estagiarios: pessoas.filter(p => p.situacao === 'ESTAGIÁRIO').length,
+    estatutarios: pessoas.filter((p) => p.situacao === "ESTATUTÁRIO").length,
+    cedidos: pessoas.filter((p) => p.situacao === "CEDIDO").length,
+    comissionados: pessoas.filter(
+      (p) => p.situacao === "NOMEADO EM COMISSÃO - INSS",
+    ).length,
+    terceirizados: pessoas.filter((p) => p.situacao === "TERCEIRIZADO").length,
+    residentes: pessoas.filter((p) => p.situacao === "RESIDENTE").length,
+    estagiarios: pessoas.filter((p) => p.situacao === "ESTAGIÁRIO").length,
   };
 
   const calcPercentual = (valor: number) => {
@@ -310,10 +330,13 @@ export function PainelColaboradores() {
   };
 
   const handleAdicionar = () => {
-    setEditandoId('novo');
+    setEditandoId("novo");
     setFormData({ ...initialFormData, unidade_id: null, linha_organograma: 4 });
     setTimeout(() => {
-      formRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      formRowRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }, 100);
   };
 
@@ -321,14 +344,14 @@ export function PainelColaboradores() {
     setEditandoId(pessoa.id);
     setFormData({
       nome: pessoa.nome,
-      nome_exibicao: pessoa.nome_exibicao || '',
+      nome_exibicao: pessoa.nome_exibicao || "",
       unidade_id: pessoa.unidade_id || null,
-      situacao: pessoa.situacao || 'ESTATUTÁRIO',
-      cc_fc: pessoa.cc_fc || '',
-      cc_fc_classe: pessoa.cc_fc_classe || '',
-      cargo_efetivo: pessoa.cargo_efetivo || '',
-      cargo_efetivo_classe: pessoa.cargo_efetivo_classe || '',
-      linha_organograma: pessoa.linha_organograma || 4
+      situacao: pessoa.situacao || "ESTATUTÁRIO",
+      cc_fc: pessoa.cc_fc || "",
+      cc_fc_classe: pessoa.cc_fc_classe || "",
+      cargo_efetivo: pessoa.cargo_efetivo || "",
+      cargo_efetivo_classe: pessoa.cargo_efetivo_classe || "",
+      linha_organograma: pessoa.linha_organograma || 4,
     });
   };
 
@@ -343,43 +366,44 @@ export function PainelColaboradores() {
 
     try {
       // Encontrar a unidade sendo movida
-      const unidadeMovida = unidades.find(u => u.id === unidadeId);
+      const unidadeMovida = unidades.find((u) => u.id === unidadeId);
       if (!unidadeMovida) return;
 
       // Encontrar todas as unidades no mesmo nível (mesmo unidade_superior_id)
       const unidadesNoNivel = unidades
-        .filter(u => u.unidade_superior_id === unidadeMovida.unidade_superior_id)
+        .filter(
+          (u) => u.unidade_superior_id === unidadeMovida.unidade_superior_id,
+        )
         .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
       // Encontrar a unidade alvo (a que tem a ordem = newOrdem)
-      const unidadeAlvo = unidadesNoNivel.find(u => u.ordem === newOrdem);
+      const unidadeAlvo = unidadesNoNivel.find((u) => u.ordem === newOrdem);
       if (!unidadeAlvo || unidadeAlvo.id === unidadeId) return;
 
       // Trocar as posições
       const ordemOriginal = unidadeMovida.ordem || 0;
       const ordenacao = [
         { id: unidadeMovida.id, ordem: newOrdem },
-        { id: unidadeAlvo.id, ordem: ordemOriginal }
+        { id: unidadeAlvo.id, ordem: ordemOriginal },
       ];
 
       await areasApi.reorderUnidades(selectedAreaId, ordenacao);
       // Recarregar unidades
       await loadUnidades(selectedAreaId);
     } catch (err: any) {
-      console.error('Erro ao reordenar unidades:', err);
-      setError(err.message || 'Erro ao reordenar unidades');
+      setError(err.message || "Erro ao reordenar unidades");
       throw err;
     }
   };
 
   const handleSalvar = async () => {
     if (!formData.nome.trim()) {
-      setError('Nome é obrigatório');
+      setError("Nome é obrigatório");
       return;
     }
 
     if (!selectedAreaId || !selectedUnidadeId) {
-      setError('Selecione uma área e unidade');
+      setError("Selecione uma área e unidade");
       return;
     }
 
@@ -397,12 +421,12 @@ export function PainelColaboradores() {
         cc_fc_classe: formData.cc_fc_classe.trim() || undefined,
         cargo_efetivo: formData.cargo_efetivo.trim() || undefined,
         cargo_efetivo_classe: formData.cargo_efetivo_classe.trim() || undefined,
-        linha_organograma: formData.linha_organograma
+        linha_organograma: formData.linha_organograma,
       };
 
-      if (editandoId === 'novo') {
+      if (editandoId === "novo") {
         await pessoasApi.create(data);
-      } else if (typeof editandoId === 'number') {
+      } else if (typeof editandoId === "number") {
         await pessoasApi.update(editandoId, {
           nome: data.nome,
           nome_exibicao: data.nome_exibicao,
@@ -412,7 +436,7 @@ export function PainelColaboradores() {
           cc_fc_classe: data.cc_fc_classe,
           cargo_efetivo: data.cargo_efetivo,
           cargo_efetivo_classe: data.cargo_efetivo_classe,
-          linha_organograma: data.linha_organograma
+          linha_organograma: data.linha_organograma,
         });
       }
 
@@ -420,8 +444,7 @@ export function PainelColaboradores() {
       setEditandoId(null);
       setFormData(initialFormData);
     } catch (err: any) {
-      console.error('Erro ao salvar:', err);
-      setError(err.message || 'Erro ao salvar pessoa');
+      setError(err.message || "Erro ao salvar pessoa");
     } finally {
       setSaving(false);
     }
@@ -434,7 +457,7 @@ export function PainelColaboradores() {
   };
 
   const handleExcluir = async (id: number) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta pessoa?')) {
+    if (!window.confirm("Tem certeza que deseja excluir esta pessoa?")) {
       return;
     }
 
@@ -445,27 +468,26 @@ export function PainelColaboradores() {
         await loadPessoasByUnidade(selectedUnidadeId);
       }
     } catch (err: any) {
-      console.error('Erro ao excluir:', err);
-      setError(err.message || 'Erro ao excluir pessoa');
+      setError(err.message || "Erro ao excluir pessoa");
     }
   };
 
   const getSituacaoBadgeStyle = (situacao?: string) => {
     switch (situacao) {
-      case 'ESTATUTÁRIO':
-        return 'bg-green-100 text-green-800 border border-green-300';
-      case 'CEDIDO':
-        return 'bg-orange-100 text-orange-800 border border-orange-300';
-      case 'NOMEADO EM COMISSÃO - INSS':
-        return 'bg-purple-100 text-purple-800 border border-purple-300';
-      case 'TERCEIRIZADO':
-        return 'bg-blue-100 text-blue-800 border border-blue-300';
-      case 'RESIDENTE':
-        return 'bg-cyan-100 text-cyan-800 border border-cyan-300';
-      case 'ESTAGIÁRIO':
-        return 'bg-rose-100 text-rose-800 border border-rose-300';
+      case "ESTATUTÁRIO":
+        return "bg-green-100 text-green-800 border border-green-300";
+      case "CEDIDO":
+        return "bg-orange-100 text-orange-800 border border-orange-300";
+      case "NOMEADO EM COMISSÃO - INSS":
+        return "bg-purple-100 text-purple-800 border border-purple-300";
+      case "TERCEIRIZADO":
+        return "bg-blue-100 text-blue-800 border border-blue-300";
+      case "RESIDENTE":
+        return "bg-cyan-100 text-cyan-800 border border-cyan-300";
+      case "ESTAGIÁRIO":
+        return "bg-rose-100 text-rose-800 border border-rose-300";
       default:
-        return 'bg-gray-100 text-gray-800 border border-gray-300';
+        return "bg-gray-100 text-gray-800 border border-gray-300";
     }
   };
 
@@ -484,7 +506,10 @@ export function PainelColaboradores() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg flex items-center justify-between flex-shrink-0">
           <span className="text-sm">{error}</span>
-          <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900 transition-colors">
+          <button
+            onClick={() => setError(null)}
+            className="text-red-700 hover:text-red-900 transition-colors"
+          >
             <XIcon className="h-4 w-4" />
           </button>
         </div>
@@ -495,15 +520,19 @@ export function PainelColaboradores() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-600">Áreas:</span>
           <Select
-            value={selectedAreaId?.toString() || ''}
+            value={selectedAreaId?.toString() || ""}
             onValueChange={(value) => setSelectedAreaId(parseInt(value))}
           >
             <SelectTrigger className="w-64 h-8 text-xs bg-white border-gray-300">
               <SelectValue placeholder="Selecione uma área" />
             </SelectTrigger>
             <SelectContent>
-              {areas.map(area => (
-                <SelectItem key={area.id} value={area.id.toString()} className="text-xs">
+              {areas.map((area) => (
+                <SelectItem
+                  key={area.id}
+                  value={area.id.toString()}
+                  className="text-xs"
+                >
                   {area.nome}
                 </SelectItem>
               ))}
@@ -524,18 +553,21 @@ export function PainelColaboradores() {
                 // forçar o usuário a clicar de novo (tabela parte vazia no modo
                 // "subordinadas a mim" e na visão geral também).
                 setSelectedUnidadeId(null);
-                setShowOnlySubordinated(prev => !prev);
+                setShowOnlySubordinated((prev) => !prev);
               }}
-              variant={showOnlySubordinated ? 'default' : 'outline'}
-              className={`h-8 px-3 text-xs ${showOnlySubordinated
-                ? 'bg-violet-600 hover:bg-violet-700 text-white'
-                : 'border-violet-300 text-violet-700 hover:bg-violet-50'}`}
+              variant={showOnlySubordinated ? "default" : "outline"}
+              className={`h-8 px-3 text-xs ${
+                showOnlySubordinated
+                  ? "bg-violet-600 hover:bg-violet-700 text-white"
+                  : "border-violet-300 text-violet-700 hover:bg-violet-50"
+              }`}
             >
               <Building2 className="mr-1.5 h-3.5 w-3.5" />
-              {showOnlySubordinated ? 'Ver todas as unidades' : 'Unidades subordinadas a mim'}
+              {showOnlySubordinated
+                ? "Ver todas as unidades"
+                : "Unidades subordinadas a mim"}
             </Button>
           )}
-
         </div>
       </div>
 
@@ -544,22 +576,30 @@ export function PainelColaboradores() {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
           <Building2 className="h-12 w-12 mx-auto text-yellow-500 mb-2" />
           <p className="text-yellow-700 font-medium">Nenhuma área cadastrada</p>
-          <p className="text-yellow-600 text-sm">Cadastre áreas em Cadastros → Áreas primeiro</p>
+          <p className="text-yellow-600 text-sm">
+            Cadastre áreas em Cadastros → Áreas primeiro
+          </p>
         </div>
       )}
 
       {/* ===== ORGANOGRAMA DE UNIDADES ===== */}
       {selectedArea && (
-        <div className={`flex gap-3 flex-1 min-w-0 overflow-hidden ${selectedUnidadeId ? '' : ''}`}>
+        <div
+          className={`flex gap-3 flex-1 min-w-0 overflow-hidden ${selectedUnidadeId ? "" : ""}`}
+        >
           {/* Organograma */}
           <div className="flex-1 min-w-0 overflow-hidden">
             <OrganogramaUnidades
               unidades={unidadesParaOrganograma}
-              areaNome={showOnlySubordinated ? 'Minhas Unidades' : selectedArea.nome}
+              areaNome={
+                showOnlySubordinated ? "Minhas Unidades" : selectedArea.nome
+              }
               areaSigla={showOnlySubordinated ? undefined : selectedArea.sigla}
               loading={loadingUnidades}
               onUnidadeClick={(unidade) => setSelectedUnidadeId(unidade.id)}
-              onUnidadeReorder={showOnlySubordinated ? undefined : handleUnidadeReorder}
+              onUnidadeReorder={
+                showOnlySubordinated ? undefined : handleUnidadeReorder
+              }
               selectedUnidadeId={selectedUnidadeId}
               canEdit={canEdit && !showOnlySubordinated}
               forceVerticalLayout={showOnlySubordinated}
@@ -571,36 +611,82 @@ export function PainelColaboradores() {
             <div className="w-[230px] space-y-2 flex-shrink-0">
               {/* Total em destaque */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg px-4 py-3 shadow-md">
-                <div className="text-xs font-semibold uppercase tracking-wider text-white/60">Total</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-white/60">
+                  Total
+                </div>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-4xl font-bold text-white leading-none">{estatisticas.total}</span>
+                  <span className="text-4xl font-bold text-white leading-none">
+                    {estatisticas.total}
+                  </span>
                   <span className="text-xs text-white/70">
-                    {estatisticas.total === 1 ? 'colaborador' : 'colaboradores'}
+                    {estatisticas.total === 1 ? "colaborador" : "colaboradores"}
                   </span>
                 </div>
               </div>
 
               {/* Categorias por situação funcional — badge com ícone temático por categoria */}
               {[
-                { label: 'Estatutários', value: estatisticas.estatutarios, Icon: ShieldCheck, bg: 'bg-emerald-50', fg: 'text-emerald-600' },
-                { label: 'Cedidos', value: estatisticas.cedidos, Icon: ArrowRightLeft, bg: 'bg-amber-50', fg: 'text-amber-600' },
-                { label: 'Comissionados', value: estatisticas.comissionados, Icon: Star, bg: 'bg-violet-50', fg: 'text-violet-600' },
-                { label: 'Terceirizados', value: estatisticas.terceirizados, Icon: Briefcase, bg: 'bg-sky-50', fg: 'text-sky-600' },
-                { label: 'Residentes', value: estatisticas.residentes, Icon: GraduationCap, bg: 'bg-teal-50', fg: 'text-teal-600' },
-                { label: 'Estagiários', value: estatisticas.estagiarios, Icon: BookOpen, bg: 'bg-pink-50', fg: 'text-pink-600' },
-              ].map(stat => {
+                {
+                  label: "Estatutários",
+                  value: estatisticas.estatutarios,
+                  Icon: ShieldCheck,
+                  bg: "bg-emerald-50",
+                  fg: "text-emerald-600",
+                },
+                {
+                  label: "Cedidos",
+                  value: estatisticas.cedidos,
+                  Icon: ArrowRightLeft,
+                  bg: "bg-amber-50",
+                  fg: "text-amber-600",
+                },
+                {
+                  label: "Comissionados",
+                  value: estatisticas.comissionados,
+                  Icon: Star,
+                  bg: "bg-violet-50",
+                  fg: "text-violet-600",
+                },
+                {
+                  label: "Terceirizados",
+                  value: estatisticas.terceirizados,
+                  Icon: Briefcase,
+                  bg: "bg-sky-50",
+                  fg: "text-sky-600",
+                },
+                {
+                  label: "Residentes",
+                  value: estatisticas.residentes,
+                  Icon: GraduationCap,
+                  bg: "bg-teal-50",
+                  fg: "text-teal-600",
+                },
+                {
+                  label: "Estagiários",
+                  value: estatisticas.estagiarios,
+                  Icon: BookOpen,
+                  bg: "bg-pink-50",
+                  fg: "text-pink-600",
+                },
+              ].map((stat) => {
                 const Icon = stat.Icon;
                 return (
                   <div
                     key={stat.label}
                     className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 flex items-center gap-3 shadow-sm hover:shadow hover:border-gray-300 transition"
                   >
-                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${stat.bg} ${stat.fg}`}>
+                    <div
+                      className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${stat.bg} ${stat.fg}`}
+                    >
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-500 leading-tight truncate">{stat.label}</div>
-                      <div className="text-lg font-bold text-gray-900 leading-tight">{stat.value}</div>
+                      <div className="text-xs text-gray-500 leading-tight truncate">
+                        {stat.label}
+                      </div>
+                      <div className="text-lg font-bold text-gray-900 leading-tight">
+                        {stat.value}
+                      </div>
                     </div>
                     <div className="text-xs font-semibold text-gray-400 tabular-nums">
                       {calcPercentual(stat.value)}%
@@ -615,7 +701,10 @@ export function PainelColaboradores() {
 
       {/* ===== TABELA DE PESSOAS ===== Macroárea inteira por padrão; só da unidade quando uma é clicada */}
       {selectedArea && (
-        <div ref={tableRef} className="rounded-2xl overflow-hidden shadow-2xl max-h-[400px] flex flex-col">
+        <div
+          ref={tableRef}
+          className="rounded-2xl overflow-hidden shadow-2xl max-h-[400px] flex flex-col"
+        >
           <div className="overflow-auto flex-1">
             <table className="w-full">
               <thead className="sticky top-0 z-10">
@@ -634,7 +723,7 @@ export function PainelColaboradores() {
                         />
                         {searchQuery && (
                           <button
-                            onClick={() => setSearchQuery('')}
+                            onClick={() => setSearchQuery("")}
                             className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-white/60 hover:text-white transition-colors"
                             title="Limpar busca"
                           >
@@ -674,7 +763,9 @@ export function PainelColaboradores() {
                       <Input
                         type="text"
                         value={formData.nome}
-                        onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({ ...formData, nome: e.target.value })
+                        }
                         placeholder="Nome completo"
                         className="h-9 bg-white border-blue-300 focus:border-blue-500"
                       />
@@ -682,14 +773,18 @@ export function PainelColaboradores() {
                     <td className="px-5 py-3">
                       <Select
                         value={formData.situacao}
-                        onValueChange={(value) => setFormData({...formData, situacao: value})}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, situacao: value })
+                        }
                       >
                         <SelectTrigger className="h-9 bg-white border-blue-300">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {SITUACOES_FUNCIONAIS.map(sit => (
-                            <SelectItem key={sit} value={sit}>{sit}</SelectItem>
+                          {SITUACOES_FUNCIONAIS.map((sit) => (
+                            <SelectItem key={sit} value={sit}>
+                              {sit}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -698,7 +793,9 @@ export function PainelColaboradores() {
                       <Input
                         type="text"
                         value={formData.cc_fc}
-                        onChange={(e) => setFormData({...formData, cc_fc: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({ ...formData, cc_fc: e.target.value })
+                        }
                         placeholder="Opcional"
                         className="h-9 bg-white border-blue-300"
                       />
@@ -707,7 +804,12 @@ export function PainelColaboradores() {
                       <Input
                         type="text"
                         value={formData.cc_fc_classe}
-                        onChange={(e) => setFormData({...formData, cc_fc_classe: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            cc_fc_classe: e.target.value,
+                          })
+                        }
                         placeholder="Opcional"
                         className="h-9 bg-white border-blue-300"
                       />
@@ -716,7 +818,12 @@ export function PainelColaboradores() {
                       <Input
                         type="text"
                         value={formData.cargo_efetivo}
-                        onChange={(e) => setFormData({...formData, cargo_efetivo: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            cargo_efetivo: e.target.value,
+                          })
+                        }
                         placeholder="Opcional"
                         className="h-9 bg-white border-blue-300"
                       />
@@ -726,7 +833,12 @@ export function PainelColaboradores() {
                         <Input
                           type="text"
                           value={formData.cargo_efetivo_classe}
-                          onChange={(e) => setFormData({...formData, cargo_efetivo_classe: e.target.value})}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              cargo_efetivo_classe: e.target.value,
+                            })
+                          }
                           placeholder="Opcional"
                           className="h-9 bg-white border-blue-300 flex-1"
                         />
@@ -735,7 +847,11 @@ export function PainelColaboradores() {
                           disabled={saving}
                           className="p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition-colors disabled:opacity-50"
                         >
-                          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          {saving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}
                         </button>
                         <button
                           onClick={handleCancelar}
@@ -751,7 +867,10 @@ export function PainelColaboradores() {
 
                 {/* Linhas de Dados */}
                 {filteredPessoas.map((pessoa, index) => (
-                  <tr key={pessoa.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50/50 transition-colors`}>
+                  <tr
+                    key={pessoa.id}
+                    className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"} hover:bg-blue-50/50 transition-colors`}
+                  >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         {pessoa.foto_perfil ? (
@@ -766,32 +885,46 @@ export function PainelColaboradores() {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">{pessoa.nome}</p>
+                          <p className="font-semibold text-gray-900 truncate">
+                            {pessoa.nome}
+                          </p>
                           {pessoa.nome_exibicao && (
-                            <p className="text-gray-400 text-xs truncate">({pessoa.nome_exibicao})</p>
+                            <p className="text-gray-400 text-xs truncate">
+                              ({pessoa.nome_exibicao})
+                            </p>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span className={cn(
-                        "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
-                        getSituacaoBadgeStyle(pessoa.situacao)
-                      )}>
-                        {pessoa.situacao || '—'}
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                          getSituacaoBadgeStyle(pessoa.situacao),
+                        )}
+                      >
+                        {pessoa.situacao || "—"}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span className="text-gray-600">{pessoa.cc_fc || '—'}</span>
+                      <span className="text-gray-600">
+                        {pessoa.cc_fc || "—"}
+                      </span>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span className="text-gray-600">{pessoa.cc_fc_classe || '—'}</span>
+                      <span className="text-gray-600">
+                        {pessoa.cc_fc_classe || "—"}
+                      </span>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span className="text-gray-600">{pessoa.cargo_efetivo || '—'}</span>
+                      <span className="text-gray-600">
+                        {pessoa.cargo_efetivo || "—"}
+                      </span>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span className="text-gray-600">{pessoa.cargo_efetivo_classe || '—'}</span>
+                      <span className="text-gray-600">
+                        {pessoa.cargo_efetivo_classe || "—"}
+                      </span>
                     </td>
                     {showOnlySubordinated && (
                       <td className="px-5 py-4 text-center">
@@ -817,15 +950,19 @@ export function PainelColaboradores() {
                     >
                       <div className="flex flex-col items-center justify-center text-gray-500">
                         <Users className="h-12 w-12 text-gray-300 mb-3" />
-                        <p className="text-lg font-medium">Nenhuma pessoa encontrada</p>
+                        <p className="text-lg font-medium">
+                          Nenhuma pessoa encontrada
+                        </p>
                         {searchQuery ? (
                           <p className="text-sm text-gray-400 mt-1">
                             Tente ajustar os termos da pesquisa
                           </p>
-                        ) : canEdit && (
-                          <p className="text-sm text-gray-400 mt-1">
-                            Clique em "Adicionar" para começar
-                          </p>
+                        ) : (
+                          canEdit && (
+                            <p className="text-sm text-gray-400 mt-1">
+                              Clique em "Adicionar" para começar
+                            </p>
+                          )
                         )}
                       </div>
                     </td>
@@ -838,9 +975,9 @@ export function PainelColaboradores() {
           {/* Rodapé da Tabela */}
           {filteredPessoas.length > 0 && (
             <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 text-sm text-gray-600">
-              <span className="font-semibold">{filteredPessoas.length}</span> de{' '}
+              <span className="font-semibold">{filteredPessoas.length}</span> de{" "}
               <span className="font-semibold">{pessoas.length}</span> pessoas
-              {searchQuery && ' (filtrado)'}
+              {searchQuery && " (filtrado)"}
             </div>
           )}
         </div>

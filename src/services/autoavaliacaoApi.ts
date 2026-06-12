@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface RespostaItem {
   competencia_unidade_id?: number;
@@ -6,7 +6,7 @@ export interface RespostaItem {
   competencia_descricao?: string;
   nota: number;
   comentario?: string;
-  tipo?: 'tecnica' | 'comportamental' | 'estrategica' | 'gerencial';
+  tipo?: "tecnica" | "comportamental" | "estrategica" | "gerencial";
 }
 
 export interface AutoavaliacaoFormulario {
@@ -19,7 +19,7 @@ export interface AutoavaliacaoFormulario {
   diretoria: string;
   unidade_id: number | null;
   unidade_nome?: string;
-  tipo_inventario?: 'equipe' | 'gestor';
+  tipo_inventario?: "equipe" | "gestor";
   status: string;
   respostas?: RespostaItem[];
   total_respostas?: number;
@@ -50,24 +50,31 @@ export interface CreateAutoavaliacaoDto {
   diretoria: string;
   unidade_id?: number;
   pessoa_id?: number;
-  tipo_inventario?: 'equipe' | 'gestor';
+  tipo_inventario?: "equipe" | "gestor";
   respostas: RespostaItem[];
 }
 
-const BASE_URL = '/api/autoavaliacao';
+const BASE_URL = "/api/autoavaliacao";
 
 export const autoavaliacaoApi = {
-  getAll(diretoria?: string, tipoInventario?: string): Promise<AutoavaliacaoFormulario[]> {
+  getAll(
+    diretoria?: string,
+    tipoInventario?: string,
+  ): Promise<AutoavaliacaoFormulario[]> {
     const params = new URLSearchParams();
-    if (diretoria) params.set('diretoria', diretoria);
-    if (tipoInventario) params.set('tipo_inventario', tipoInventario);
+    if (diretoria) params.set("diretoria", diretoria);
+    if (tipoInventario) params.set("tipo_inventario", tipoInventario);
     const qs = params.toString();
     const url = qs ? `${BASE_URL}?${qs}` : BASE_URL;
     return apiClient.request<AutoavaliacaoFormulario[]>(url);
   },
 
-  getMeu(tipoInventario: string = 'equipe'): Promise<AutoavaliacaoFormulario | null> {
-    return apiClient.request<AutoavaliacaoFormulario | null>(`${BASE_URL}/meu?tipo_inventario=${encodeURIComponent(tipoInventario)}`);
+  getMeu(
+    tipoInventario: string = "equipe",
+  ): Promise<AutoavaliacaoFormulario | null> {
+    return apiClient.request<AutoavaliacaoFormulario | null>(
+      `${BASE_URL}/meu?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
+    );
   },
 
   getById(id: number): Promise<AutoavaliacaoFormulario> {
@@ -78,12 +85,27 @@ export const autoavaliacaoApi = {
     return apiClient.post<AutoavaliacaoFormulario>(BASE_URL, data);
   },
 
-  getByUnidade(unidadeId: number, tipoInventario: string = 'equipe'): Promise<{ id: number; nome_completo: string; cargo_funcao: string; email_institucional: string; unidade_id: number }[]> {
-    return apiClient.request(`${BASE_URL}/por-unidade/${unidadeId}?tipo_inventario=${encodeURIComponent(tipoInventario)}`);
+  getByUnidade(
+    unidadeId: number,
+    tipoInventario: string = "equipe",
+  ): Promise<
+    {
+      id: number;
+      nome_completo: string;
+      cargo_funcao: string;
+      email_institucional: string;
+      unidade_id: number;
+    }[]
+  > {
+    return apiClient.request(
+      `${BASE_URL}/por-unidade/${unidadeId}?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
+    );
   },
 
   validar(id: number): Promise<AutoavaliacaoFormulario> {
-    return apiClient.patch<AutoavaliacaoFormulario>(`${BASE_URL}/${id}/validar`);
+    return apiClient.patch<AutoavaliacaoFormulario>(
+      `${BASE_URL}/${id}/validar`,
+    );
   },
 
   remove(id: number): Promise<void> {
@@ -92,11 +114,15 @@ export const autoavaliacaoApi = {
 
   /** Listar versões históricas de um formulário */
   getVersoes(id: number): Promise<VersaoHistoricoAutoavaliacao[]> {
-    return apiClient.request<VersaoHistoricoAutoavaliacao[]>(`${BASE_URL}/${id}/versoes`);
+    return apiClient.request<VersaoHistoricoAutoavaliacao[]>(
+      `${BASE_URL}/${id}/versoes`,
+    );
   },
 
   /** Buscar snapshot completo de uma versão específica (para gerar PDF) */
   getVersaoDados(id: number, versao: number): Promise<AutoavaliacaoFormulario> {
-    return apiClient.request<AutoavaliacaoFormulario>(`${BASE_URL}/${id}/versoes/${versao}`);
+    return apiClient.request<AutoavaliacaoFormulario>(
+      `${BASE_URL}/${id}/versoes/${versao}`,
+    );
   },
 };

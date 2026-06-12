@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 // ============================================================
 // INTERFACES
@@ -63,13 +63,15 @@ export interface UpdatePessoaDto {
 // API FUNCTIONS
 // ============================================================
 
-const BASE_URL = '/api/pessoas';
+const BASE_URL = "/api/pessoas";
 
 /**
  * Buscar todas as pessoas (opcionalmente filtradas por domínio)
  */
 export async function getAll(dominio?: string): Promise<Pessoa[]> {
-  const url = dominio ? `${BASE_URL}?dominio=${encodeURIComponent(dominio)}` : BASE_URL;
+  const url = dominio
+    ? `${BASE_URL}?dominio=${encodeURIComponent(dominio)}`
+    : BASE_URL;
   return apiClient.request<Pessoa[]>(url);
 }
 
@@ -126,7 +128,7 @@ export async function getPerfilCompleto(id: number): Promise<PerfilCompleto> {
  */
 export async function create(dto: CreatePessoaDto): Promise<Pessoa> {
   return apiClient.request<Pessoa>(BASE_URL, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(dto),
   });
 }
@@ -134,9 +136,12 @@ export async function create(dto: CreatePessoaDto): Promise<Pessoa> {
 /**
  * Atualizar pessoa
  */
-export async function update(id: number, dto: UpdatePessoaDto): Promise<Pessoa> {
+export async function update(
+  id: number,
+  dto: UpdatePessoaDto,
+): Promise<Pessoa> {
   return apiClient.request<Pessoa>(`${BASE_URL}/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(dto),
   });
 }
@@ -146,7 +151,7 @@ export async function update(id: number, dto: UpdatePessoaDto): Promise<Pessoa> 
  */
 export async function remove(id: number): Promise<void> {
   await apiClient.request(`${BASE_URL}/${id}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 }
 

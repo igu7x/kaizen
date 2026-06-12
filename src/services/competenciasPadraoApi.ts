@@ -1,8 +1,8 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface CompetenciaPadrao {
   id: number;
-  tipo: 'comportamental' | 'estrategica' | 'gerencial';
+  tipo: "comportamental" | "estrategica" | "gerencial";
   nome: string;
   descricao: string;
   ordem: number;
@@ -38,7 +38,7 @@ export interface PublishResult {
   formulariosAfetados: number;
 }
 
-const BASE_URL = '/api/competencias-padrao';
+const BASE_URL = "/api/competencias-padrao";
 
 export const competenciasPadraoApi = {
   /** Buscar competências ativas agrupadas por tipo */
@@ -63,24 +63,39 @@ export const competenciasPadraoApi = {
 
   /** Verificar se há mudanças pendentes — admin */
   hasPendingChanges(): Promise<{ hasPendingChanges: boolean }> {
-    return apiClient.request<{ hasPendingChanges: boolean }>(`${BASE_URL}/pending-changes`);
+    return apiClient.request<{ hasPendingChanges: boolean }>(
+      `${BASE_URL}/pending-changes`,
+    );
   },
 
   /** Diff desde uma versão */
   getDiff(fromVersion: number): Promise<{
     versaoAtual: number;
-    mudancas: { tipo: string; adicionadas: any[]; removidas: any[]; alteradas: any[] }[];
+    mudancas: {
+      tipo: string;
+      adicionadas: any[];
+      removidas: any[];
+      alteradas: any[];
+    }[];
   }> {
     return apiClient.request(`${BASE_URL}/diff/${fromVersion}`);
   },
 
   /** Criar competência — admin */
-  create(data: { tipo: string; nome: string; descricao: string; ordem?: number }): Promise<CompetenciaPadrao> {
+  create(data: {
+    tipo: string;
+    nome: string;
+    descricao: string;
+    ordem?: number;
+  }): Promise<CompetenciaPadrao> {
     return apiClient.post<CompetenciaPadrao>(BASE_URL, data);
   },
 
   /** Atualizar competência — admin */
-  update(id: number, data: { nome?: string; descricao?: string; ordem?: number }): Promise<CompetenciaPadrao> {
+  update(
+    id: number,
+    data: { nome?: string; descricao?: string; ordem?: number },
+  ): Promise<CompetenciaPadrao> {
     return apiClient.put<CompetenciaPadrao>(`${BASE_URL}/${id}`, data);
   },
 

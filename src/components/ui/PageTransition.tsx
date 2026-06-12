@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface PageTransitionProps {
   children: React.ReactNode;
@@ -30,7 +30,7 @@ export function PageTransition({ children }: PageTransitionProps) {
       key={key}
       className={cn(
         "page-transition-wrapper",
-        isAnimating && "animate-page-enter"
+        isAnimating && "animate-page-enter",
       )}
     >
       {children}

@@ -1,18 +1,18 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 // ============================================================
 // INTERFACES
 // ============================================================
 
 export type ProcessoStatus =
-  | 'em_elaboracao'
-  | 'enviado'
-  | 'validado_autor'
-  | 'validado_diretoria'
-  | 'validado_final'
-  | 'recusado';
+  | "em_elaboracao"
+  | "enviado"
+  | "validado_autor"
+  | "validado_diretoria"
+  | "validado_final"
+  | "recusado";
 
-export type TipoDocumentoAnexado = 'MPS' | 'POP' | 'AUX' | 'PRI';
+export type TipoDocumentoAnexado = "MPS" | "POP" | "AUX" | "PRI";
 
 export interface DocumentoAnexado {
   tipo: TipoDocumentoAnexado;
@@ -30,17 +30,17 @@ export interface VersaoHistorico {
 }
 
 export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoAnexado, string> = {
-  MPS: 'MPS — Manual de Procedimentos Setoriais',
-  POP: 'POP — Procedimento Operacional Padrão',
-  AUX: 'Docs Auxiliares',
-  PRI: 'Documento Primário',
+  MPS: "MPS — Manual de Procedimentos Setoriais",
+  POP: "POP — Procedimento Operacional Padrão",
+  AUX: "Docs Auxiliares",
+  PRI: "Documento Primário",
 };
 
 export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
-  MPS: 'bg-blue-100 text-blue-700 border-blue-200',
-  POP: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  AUX: 'bg-slate-100 text-slate-700 border-slate-200',
-  PRI: 'bg-violet-100 text-violet-700 border-violet-200',
+  MPS: "bg-blue-100 text-blue-700 border-blue-200",
+  POP: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  AUX: "bg-slate-100 text-slate-700 border-slate-200",
+  PRI: "bg-violet-100 text-violet-700 border-violet-200",
 };
 
 export interface ProcessoNegocio {
@@ -81,7 +81,7 @@ export interface ProcessoNegocio {
   recusado_em: string | null;
   recusado_por_user_id: number | null;
   recusado_por_nome: string | null;
-  recusado_camada: 'autor' | 'diretoria' | 'final' | null;
+  recusado_camada: "autor" | "diretoria" | "final" | null;
   recusa_motivo: string | null;
   created_by: number | null;
   updated_by: number | null;
@@ -116,7 +116,7 @@ export interface CreateProcessoNegocioDto {
 
 export type UpdateProcessoNegocioDto = Partial<CreateProcessoNegocioDto>;
 
-const BASE = '/api/processos-negocio';
+const BASE = "/api/processos-negocio";
 
 // ============================================================
 // API
@@ -124,7 +124,9 @@ const BASE = '/api/processos-negocio';
 
 export const processosNegocioApi = {
   getAll(diretoria?: string): Promise<ProcessoNegocio[]> {
-    const url = diretoria ? `${BASE}?diretoria=${encodeURIComponent(diretoria)}` : BASE;
+    const url = diretoria
+      ? `${BASE}?diretoria=${encodeURIComponent(diretoria)}`
+      : BASE;
     return apiClient.request<ProcessoNegocio[]>(url);
   },
 
@@ -156,8 +158,15 @@ export const processosNegocioApi = {
     return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/validar-final`);
   },
 
-  recusar(id: number, camada: 'autor' | 'diretoria' | 'final', motivo: string): Promise<ProcessoNegocio> {
-    return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/recusar`, { camada, motivo });
+  recusar(
+    id: number,
+    camada: "autor" | "diretoria" | "final",
+    motivo: string,
+  ): Promise<ProcessoNegocio> {
+    return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/recusar`, {
+      camada,
+      motivo,
+    });
   },
 
   remove(id: number): Promise<void> {
@@ -171,7 +180,9 @@ export const processosNegocioApi = {
 
   /** Retorna o snapshot completo de uma versão específica */
   getVersaoSnapshot(id: number, historicoId: number): Promise<ProcessoNegocio> {
-    return apiClient.request<ProcessoNegocio>(`${BASE}/${id}/versoes/${historicoId}`);
+    return apiClient.request<ProcessoNegocio>(
+      `${BASE}/${id}/versoes/${historicoId}`,
+    );
   },
 };
 
@@ -180,19 +191,19 @@ export const processosNegocioApi = {
 // ============================================================
 
 export const STATUS_LABEL: Record<ProcessoStatus, string> = {
-  em_elaboracao: 'Em elaboração',
-  enviado: 'Aguardando validação do autor',
-  validado_autor: 'Aguardando validação da diretoria',
-  validado_diretoria: 'Aguardando validação final',
-  validado_final: 'Homologado',
-  recusado: 'Recusado',
+  em_elaboracao: "Em elaboração",
+  enviado: "Aguardando validação do autor",
+  validado_autor: "Aguardando validação da diretoria",
+  validado_diretoria: "Aguardando validação final",
+  validado_final: "Homologado",
+  recusado: "Recusado",
 };
 
 export const STATUS_COLOR: Record<ProcessoStatus, string> = {
-  em_elaboracao: 'bg-slate-100 text-slate-700 border-slate-200',
-  enviado: 'bg-amber-50 text-amber-700 border-amber-200',
-  validado_autor: 'bg-blue-50 text-blue-700 border-blue-200',
-  validado_diretoria: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  validado_final: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  recusado: 'bg-red-50 text-red-700 border-red-200',
+  em_elaboracao: "bg-slate-100 text-slate-700 border-slate-200",
+  enviado: "bg-amber-50 text-amber-700 border-amber-200",
+  validado_autor: "bg-blue-50 text-blue-700 border-blue-200",
+  validado_diretoria: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  validado_final: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  recusado: "bg-red-50 text-red-700 border-red-200",
 };

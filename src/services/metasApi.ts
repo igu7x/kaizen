@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface Meta {
   id: number;
@@ -32,11 +32,13 @@ export interface UpdateMetaDto {
   prazo?: string;
 }
 
-const BASE_URL = '/api/metas';
+const BASE_URL = "/api/metas";
 
 export const metasApi = {
   getAll(diretoria?: string): Promise<Meta[]> {
-    const params = diretoria ? `?diretoria=${encodeURIComponent(diretoria)}` : '';
+    const params = diretoria
+      ? `?diretoria=${encodeURIComponent(diretoria)}`
+      : "";
     return apiClient.get<Meta[]>(`${BASE_URL}${params}`);
   },
   create(dto: CreateMetaDto): Promise<Meta> {
