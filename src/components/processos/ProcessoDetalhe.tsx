@@ -25,6 +25,7 @@ import {
   File as FileIcon,
   FileDown,
   History,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,6 +37,8 @@ import {
   STATUS_COLOR,
   TIPO_DOCUMENTO_LABEL,
   TIPO_DOCUMENTO_BADGE,
+  normalizeResponsavel,
+  REVISAO_POLITICA_TEXTO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -70,31 +73,14 @@ function addOneYearToDate(periodo: string | null | undefined): string {
 }
 
 /**
- * Formata o campo "Período" pra exibir só mês/ano (ex: "2025-05-15" → "maio/2025").
+ * Formata uma data ISO (YYYY-MM-DD) para a data completa dd/mm/aaaa.
  * Mantém compatibilidade com valores antigos em texto livre.
  */
-function formatPeriodoMesAno(periodo: string | null | undefined): string {
-  if (!periodo || !periodo.trim()) return "—";
-  const m = periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) {
-    const meses = [
-      "janeiro",
-      "fevereiro",
-      "março",
-      "abril",
-      "maio",
-      "junho",
-      "julho",
-      "agosto",
-      "setembro",
-      "outubro",
-      "novembro",
-      "dezembro",
-    ];
-    const idx = parseInt(m[2], 10) - 1;
-    if (idx >= 0 && idx < 12) return `${meses[idx]}/${m[1]}`;
-  }
-  return periodo;
+function formatDataCompleta(data: string | null | undefined): string {
+  if (!data || !data.trim()) return "—";
+  const m = data.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return data;
+  return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
 /** Cabeçalho institucional (mimetiza a tabela superior do PDF) */
@@ -121,7 +107,7 @@ function CabecalhoInstitucional({ processo }: { processo: ProcessoNegocio }) {
         <div className="divide-y divide-slate-300">
           <div className="px-4 py-3 text-center bg-white">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Processo de Negócio da Diretoria de {processo.diretoria || "—"}
+              Processo de Negócio da Área {processo.diretoria || "—"}
             </p>
           </div>
           <CabecalhoRow
@@ -129,10 +115,10 @@ function CabecalhoInstitucional({ processo }: { processo: ProcessoNegocio }) {
             value={processo.macroprocesso || "—"}
           />
           <CabecalhoRow
-            label="Diretoria"
+            label="Área Responsável"
             value={processo.diretoria || "—"}
             label2="Período"
-            value2={formatPeriodoMesAno(processo.periodo)}
+            value2={formatDataCompleta(processo.periodo)}
           />
           <CabecalhoRow
             label="Revisão:"
@@ -306,12 +292,12 @@ function HistoricoValidacao({ processo }: { processo: ProcessoNegocio }) {
       : "Pendente";
   const rows: Array<{ label: string; value: string; isPending: boolean }> = [
     {
-      label: "Validação do Autor",
+      label: "Validação do Responsável",
       value: fmt(processo.validado_autor_em, processo.validado_autor_nome),
       isPending: !processo.validado_autor_em,
     },
     {
-      label: "Validação da Diretoria",
+      label: "Validação Setorial",
       value: fmt(
         processo.validado_diretoria_em,
         processo.validado_diretoria_nome,
@@ -319,7 +305,7 @@ function HistoricoValidacao({ processo }: { processo: ProcessoNegocio }) {
       isPending: !processo.validado_diretoria_em,
     },
     {
-      label: "Validação Final",
+      label: "Validação Estratégica",
       value: fmt(processo.validado_final_em, processo.validado_final_nome),
       isPending: !processo.validado_final_em,
     },
@@ -638,12 +624,15 @@ export function ProcessoDetalhe({
               <TableColunas
                 cols={[
                   {
-                    title: "Proprietário:",
-                    items: processo.proprietarios || [],
+                    title: "Responsável:",
+                    items: (processo.proprietarios || []).map((r) => {
+                      const n = normalizeResponsavel(r);
+                      return n.area ? `${n.cargo} — ${n.area}` : n.cargo;
+                    }),
                   },
                   { title: "Atores:", items: processo.atores || [] },
                   {
-                    title: "Áreas Responsáveis",
+                    title: "Áreas Envolvidas",
                     items: processo.areas_responsaveis || [],
                   },
                 ]}
@@ -664,7 +653,7 @@ export function ProcessoDetalhe({
 
             <SectionBlock
               icon={<Cog className="h-4 w-4" />}
-              title="Detalhamento do Processo"
+              title="Estrutura do Processo"
             >
               <MultiParagraph text={processo.detalhamento} />
             </SectionBlock>
@@ -685,6 +674,13 @@ export function ProcessoDetalhe({
                   },
                 ]}
               />
+            </SectionBlock>
+
+            <SectionBlock
+              icon={<BarChart3 className="h-4 w-4" />}
+              title="Indicadores"
+            >
+              <MultiParagraph text={processo.indicadores} />
             </SectionBlock>
 
             <SectionBlock
@@ -790,23 +786,31 @@ export function ProcessoDetalhe({
 
             <SectionBlock
               icon={<Calendar className="h-4 w-4" />}
-              title="Periodicidade da Revisão"
+              title="Revisão"
             >
-              {processo.periodo ? (
-                <p className="text-sm text-slate-700">
-                  Próxima revisão prevista:{" "}
-                  <span className="font-semibold text-slate-900">
-                    {addOneYearToDate(processo.periodo)}
-                  </span>
-                  <span className="text-xs text-slate-500 ml-2">
-                    (1 ano após o período cadastrado)
-                  </span>
-                </p>
-              ) : (
-                <p className="text-xs italic text-slate-400">
-                  Período não informado.
-                </p>
-              )}
+              <div className="overflow-hidden rounded-md border border-slate-300">
+                <div className="grid grid-cols-1 md:grid-cols-2">
+                  <div className="border-b border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700 md:border-b-0 md:border-r">
+                    Periodicidade
+                  </div>
+                  <div className="border-t border-slate-300 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-slate-700 md:border-t-0">
+                    Próxima Revisão
+                  </div>
+                  <div className="px-3 py-3 text-sm text-slate-700 md:border-r md:border-slate-300">
+                    {REVISAO_POLITICA_TEXTO}
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-3 text-sm">
+                    <Calendar className="h-4 w-4 flex-shrink-0 text-blue-500" />
+                    {processo.periodo ? (
+                      <span className="font-semibold text-slate-900">
+                        {addOneYearToDate(processo.periodo)}
+                      </span>
+                    ) : (
+                      <span className="italic text-slate-400">—</span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </SectionBlock>
 
             <SectionBlock
@@ -847,10 +851,10 @@ export function ProcessoDetalhe({
             <div className="grid grid-cols-3 gap-4 px-4 pt-4 mt-2 text-center text-xs text-slate-600">
               <div>
                 <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Elaborado por:
+                  Modelo:
                 </div>
                 <div className="mt-1 font-bold text-slate-700 leading-tight">
-                  {diretoriaNome || "—"}
+                  {/* ID do documento (modelo) — ainda sem definição */}—
                 </div>
               </div>
               <div>
@@ -863,7 +867,7 @@ export function ProcessoDetalhe({
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Data da atualização:
+                  Data da proposta:
                 </div>
                 <div className="mt-1 font-bold text-slate-700">
                   {new Date(processo.updated_at).toLocaleDateString("pt-BR")}
@@ -1021,11 +1025,10 @@ export function ProcessoDetalhe({
                     key={c}
                     type="button"
                     onClick={() => setRecusaCamada(c)}
-                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                      recusaCamada === c
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${recusaCamada === c
                         ? "bg-slate-900 text-white border-slate-900"
                         : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     {c === "autor"
                       ? "Autor"

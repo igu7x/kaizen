@@ -17,7 +17,6 @@ import {
   Layers,
   ListChecks,
   GitBranch,
-  RefreshCw,
   ChevronRight,
   Search,
 } from "lucide-react";
@@ -324,13 +323,12 @@ function StatCard({
     <button
       type="button"
       onClick={onClick}
-      className={`text-left bg-white rounded-2xl border ${borderColor} p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${
-        active ? `ring-2 ${activeRing} shadow-md` : ""
-      }`}
+      className={`text-left bg-white rounded-2xl border ${borderColor} p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${active ? `ring-2 ${activeRing} shadow-md` : ""
+        }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-slate-500 leading-tight">
+          <p className="text-lg font-semibold text-black leading-tight">
             {title}
           </p>
           {subtitle && (
@@ -525,7 +523,6 @@ export default function EscritorioProcessos() {
   const { user } = useAuth();
   const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshAt, setRefreshAt] = useState<Date>(new Date());
 
   // Filtros
   const [filtroMacro, setFiltroMacro] = useState<string>("all");
@@ -545,10 +542,6 @@ export default function EscritorioProcessos() {
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [selecionado, setSelecionado] = useState<ProcessoNegocio | null>(null);
 
-  // Paginação simples da tabela
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 5;
-
   const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSuperadmin = (user as any)?.is_superadmin === true;
   // Apenas superadmin e usuários da SGJT podem ver/trocar o filtro de Diretoria.
@@ -560,7 +553,6 @@ export default function EscritorioProcessos() {
     try {
       const procs = await processosNegocioApi.getAll();
       setProcessos(procs);
-      setRefreshAt(new Date());
     } catch (err) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
@@ -741,23 +733,6 @@ export default function EscritorioProcessos() {
     );
   }, [filtered, buscaProcesso]);
 
-  const totalPages = Math.max(1, Math.ceil(tabelaProcessos.length / PAGE_SIZE));
-  const paginated = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return tabelaProcessos.slice(start, start + PAGE_SIZE);
-  }, [tabelaProcessos, page]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [
-    filtroMacro,
-    filtroArea,
-    filtroDiretoria,
-    filtroStatus,
-    filtroArtefato,
-    buscaProcesso,
-  ]);
-
   // ============================================================
   // HANDLERS
   // ============================================================
@@ -923,26 +898,6 @@ export default function EscritorioProcessos() {
               </SelectContent>
             </Select>
           </div>
-          <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
-            <span>Última atualização:</span>
-            <span className="font-medium text-slate-700">
-              {refreshAt.toLocaleDateString("pt-BR")}{" "}
-              {refreshAt.toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-            <button
-              onClick={carregar}
-              className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
-              title="Atualizar"
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-              />
-            </button>
-          </div>
         </div>
 
         {/* STAT CARDS — cada um funciona como filtro. Clicar de novo no card ativo desativa. */}
@@ -1049,7 +1004,7 @@ export default function EscritorioProcessos() {
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               Carregando processos…
             </div>
-          ) : paginated.length === 0 ? (
+          ) : tabelaProcessos.length === 0 ? (
             <div className="py-16 text-center">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
                 <Workflow className="h-7 w-7 text-slate-400" />
@@ -1063,9 +1018,9 @@ export default function EscritorioProcessos() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-auto max-h-[60vh]">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+                  <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                     <tr>
                       <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Processo
@@ -1089,13 +1044,15 @@ export default function EscritorioProcessos() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {paginated.map((p) => {
+                    {tabelaProcessos.map((p) => {
                       const nextRev = nextRevisionDate(p);
                       const overdue =
                         nextRev != null && nextRev.getTime() < Date.now();
                       const docs = p.documentos_anexados || [];
                       const hasMps = docs.some((d) => d.tipo === "MPS");
                       const hasPop = docs.some((d) => d.tipo === "POP");
+                      const hasPri = docs.some((d) => d.tipo === "PRI");
+                      const hasAux = docs.some((d) => d.tipo === "AUX");
                       const hasFlux = !!p.fluxograma_data;
                       const areaLabel =
                         (p.areas_responsaveis || [])[0] || p.diretoria || "—";
@@ -1126,16 +1083,30 @@ export default function EscritorioProcessos() {
                                   POP
                                 </span>
                               )}
+                              {hasPri && (
+                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-violet-50 text-violet-700 border-violet-200">
+                                  PRI
+                                </span>
+                              )}
+                              {hasAux && (
+                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-slate-50 text-slate-700 border-slate-200">
+                                  AUX
+                                </span>
+                              )}
                               {hasFlux && (
                                 <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-pink-50 text-pink-700 border-pink-200">
                                   Fluxograma
                                 </span>
                               )}
-                              {!hasMps && !hasPop && !hasFlux && (
-                                <span className="text-xs italic text-slate-400">
-                                  —
-                                </span>
-                              )}
+                              {!hasMps &&
+                                !hasPop &&
+                                !hasPri &&
+                                !hasAux &&
+                                !hasFlux && (
+                                  <span className="text-xs italic text-slate-400">
+                                    —
+                                  </span>
+                                )}
                             </div>
                           </td>
                           <td className="px-5 py-3 text-slate-700 tabular-nums">
@@ -1156,44 +1127,12 @@ export default function EscritorioProcessos() {
                 </table>
               </div>
 
-              {/* Paginação */}
-              <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50">
+              {/* Total de processos */}
+              <div className="px-5 py-3 border-t border-slate-200 bg-slate-50">
                 <span className="text-xs text-slate-600">
-                  Mostrando {(page - 1) * PAGE_SIZE + 1} a{" "}
-                  {Math.min(page * PAGE_SIZE, tabelaProcessos.length)} de{" "}
-                  {tabelaProcessos.length} processos
+                  {tabelaProcessos.length} processo
+                  {tabelaProcessos.length === 1 ? "" : "s"}
                 </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-2 py-1 rounded text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    ‹
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (n) => (
-                      <button
-                        key={n}
-                        onClick={() => setPage(n)}
-                        className={`min-w-[28px] px-2 py-1 rounded text-sm font-medium ${
-                          n === page
-                            ? "bg-blue-600 text-white"
-                            : "text-slate-700 hover:bg-white"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ),
-                  )}
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="px-2 py-1 rounded text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    ›
-                  </button>
-                </div>
               </div>
             </>
           )}
