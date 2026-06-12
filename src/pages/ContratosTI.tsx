@@ -271,21 +271,29 @@ export function ContratosTI() {
                 <SelectContent>
                   <SelectItem value="Armazenamento">Armazenamento</SelectItem>
                   <SelectItem value="Autenticação">Autenticação</SelectItem>
+                  <SelectItem value="Backup">Backup</SelectItem>
                   <SelectItem value="Banco de Dados">Banco de Dados</SelectItem>
-                  <SelectItem value="Cloud">Cloud</SelectItem>
+                  <SelectItem value="Colaboração">Colaboração</SelectItem>
+                  <SelectItem value="Compliance">Compliance</SelectItem>
                   <SelectItem value="Desenvolvimento">Desenvolvimento</SelectItem>
                   <SelectItem value="Email">Email</SelectItem>
                   <SelectItem value="Fábrica de Software">Fábrica de Software</SelectItem>
                   <SelectItem value="Gestão">Gestão</SelectItem>
+                  <SelectItem value="Help Desk">Help Desk</SelectItem>
+                  <SelectItem value="Impressão">Impressão</SelectItem>
                   <SelectItem value="Links de Dados">Links de Dados</SelectItem>
+                  <SelectItem value="Material">Material</SelectItem>
                   <SelectItem value="Nuvem">Nuvem</SelectItem>
+                  <SelectItem value="Parque Computacior">Parque Computacional</SelectItem>
+                  <SelectItem value="Processamento">Processamento</SelectItem>
                   <SelectItem value="Redes">Redes</SelectItem>
+                  <SelectItem value="Residência">Residência</SelectItem>
+                  <SelectItem value="Software Prateleira">Software Prateleira</SelectItem>
                   <SelectItem value="Segurança">Segurança</SelectItem>
                   <SelectItem value="Telefonia fixa">Telefonia fixa</SelectItem>
                   <SelectItem value="Telefonia móvel">Telefonia móvel</SelectItem>
                   <SelectItem value="Videoconferência">Videoconferência</SelectItem>
                   <SelectItem value="Voip">Voip</SelectItem>
-                  <SelectItem value="Outros">Outros</SelectItem>
                 </SelectContent>
               </Select>
             </div>
