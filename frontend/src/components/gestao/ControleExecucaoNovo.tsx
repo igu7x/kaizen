@@ -1104,6 +1104,11 @@ export function ControleExecucaoNovo() {
         value: projetosPorDiretoria.filter((p) => p.status === "concluido")
           .length,
       },
+      {
+        name: "Descontinuado",
+        value: projetosPorDiretoria.filter((p) => p.status === "cancelado")
+          .length,
+      },
     ],
     [projetosPorDiretoria],
   );
@@ -2373,7 +2378,7 @@ export function ControleExecucaoNovo() {
                   key={`dash-status-${projetosPorDiretoria.length}`}
                   title="Status"
                   data={dashboardStatusData}
-                  colors={["#3b82f6", "#eab308", "#22c55e"]}
+                  colors={["#3b82f6", "#eab308", "#22c55e", "#6b7280"]}
                   cardClassName="!h-[280px]"
                   innerRadius={40}
                   outerRadius={65}
