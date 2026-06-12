@@ -75,7 +75,7 @@ public class FormsController {
         if (!formService.deleteForm(id, currentUserId())) {
             return ResponseEntity.status(404).body(err("Formulário não encontrado"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ---------- STRUCTURE ----------

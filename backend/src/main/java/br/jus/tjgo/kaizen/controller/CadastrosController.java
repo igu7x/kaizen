@@ -4,6 +4,7 @@ import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.CadastrosProjetosService;
 import br.jus.tjgo.kaizen.service.TepService;
+import br.jus.tjgo.kaizen.util.Flash;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -580,7 +581,9 @@ public class CadastrosController {
             return ResponseEntity.status(400).body(err("Camada inválida (deve ser 1, 2 ou 3)"));
         }
         try {
-            return ResponseEntity.ok(service.validarTAP(id, camada, userId));
+            Object result = service.validarTAP(id, camada, userId);
+            String msg = camada == 3 ? "TAP Vigente! Validação concluída." : "TAP validado - Camada " + camada;
+            return Flash.success(result, msg);
         } catch (Exception e) {
             return ResponseEntity.status(400).body(err(msgOr(e, "Erro ao validar TAP")));
         }
@@ -599,7 +602,8 @@ public class CadastrosController {
             return ResponseEntity.status(400).body(err("Apenas camadas 2 (Diretor) e 3 (Patrocinador) podem recusar"));
         }
         try {
-            return ResponseEntity.ok(service.recusarTAP(id, camada, userId, comentario));
+            Object result = service.recusarTAP(id, camada, userId, comentario);
+            return Flash.success(result, "TAP recusado. O gestor foi notificado para ajustar e revalidar.");
         } catch (Exception e) {
             return ResponseEntity.status(400).body(err(msgOr(e, "Erro ao recusar TAP")));
         }
@@ -684,7 +688,8 @@ public class CadastrosController {
                 return ResponseEntity.status(400).body(err("Informe o motivo do cancelamento."));
             }
             Map<String, Object> tep = tepService.upsert(id, tipo, motivo, consGerente, consPatroc, userId, userName);
-            return ResponseEntity.status(HttpStatus.CREATED).body(tep);
+            String msg = "Projeto " + ("concluido".equals(tipo) ? "concluído" : "cancelado") + " com sucesso.";
+            return Flash.success(tep, msg);
         } catch (Exception e) {
             return fail("Erro ao salvar TEP", e);
         }
@@ -713,7 +718,9 @@ public class CadastrosController {
             return ResponseEntity.status(400).body(err("Camada inválida (deve ser 1, 2 ou 3)"));
         }
         try {
-            return ResponseEntity.ok(tepService.validarCamada(id, camada, userId));
+            Object result = tepService.validarCamada(id, camada, userId);
+            String msg = camada == 3 ? "TEP Vigente! Validação concluída." : "TEP validado — Camada " + camada;
+            return Flash.success(result, msg);
         } catch (Exception e) {
             return ResponseEntity.status(400).body(err(msgOr(e, "Erro ao validar TEP")));
         }
@@ -732,7 +739,8 @@ public class CadastrosController {
             return ResponseEntity.status(400).body(err("Apenas camadas 2 (Diretor) e 3 (Patrocinador) podem recusar"));
         }
         try {
-            return ResponseEntity.ok(tepService.recusarCamada(id, camada, userId, comentario));
+            Object result = tepService.recusarCamada(id, camada, userId, comentario);
+            return Flash.success(result, "TEP recusado. O gestor foi notificado para ajustar e revalidar.");
         } catch (Exception e) {
             return ResponseEntity.status(400).body(err(msgOr(e, "Erro ao recusar TEP")));
         }

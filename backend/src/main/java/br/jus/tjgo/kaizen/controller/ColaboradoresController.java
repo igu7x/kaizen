@@ -239,7 +239,7 @@ public class ColaboradoresController {
             if (!deleted) {
                 return ResponseEntity.status(404).body(Map.of("error", "Gestor não encontrado"));
             }
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
         } catch (ApiException e) {
             return mapOrgError(e);
         }
@@ -289,7 +289,7 @@ public class ColaboradoresController {
         if (!deleted) {
             return ResponseEntity.status(404).body(Map.of("error", "Colaborador não encontrado"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ---------- helpers ----------

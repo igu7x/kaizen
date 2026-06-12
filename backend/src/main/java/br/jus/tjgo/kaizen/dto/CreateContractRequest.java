@@ -5,7 +5,7 @@ import java.util.List;
 public record CreateContractRequest(
         Long contractPlanId,
         Long baseContractId,
-        Long supplierId,
+        String supplier,
         String contractModel,
         String process,
         String startDate,
@@ -16,7 +16,6 @@ public record CreateContractRequest(
         String description,
         String noticeNumber,
         String directory,
-        String type,
         Long cadastroAreaId,
         Long cadastroUnidadeId,
         Long totalValueCents,

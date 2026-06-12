@@ -7,15 +7,19 @@ public record ContractDto(
         String endDate,
         String process,
         String contractModel,
-        Long supplierId,
+        String supplier,
         br.jus.tjgo.kaizen.domain.Contract.ContractTypeEnum contractType,
         Integer additiveTermType,
         String objectName,
         String noticeNumber,
         String directory,
-        String type,
         String unidade,
         Long totalValueCents,
         Long monthlyValueCents,
-        String status
+        String status,
+        String effectiveDate,
+        String limitDate,
+        Integer effectiveAdditiveTerm,
+        String description,
+        Long yearValue
 ) {}

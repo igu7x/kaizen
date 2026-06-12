@@ -5,6 +5,7 @@ import br.jus.tjgo.kaizen.service.AreasService;
 import br.jus.tjgo.kaizen.service.DomainService;
 import br.jus.tjgo.kaizen.service.UnidadesService;
 import br.jus.tjgo.kaizen.service.UserService;
+import br.jus.tjgo.kaizen.util.Flash;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -101,7 +102,7 @@ public class AreasController {
             return ResponseEntity.status(400).body(Map.of("error", "Ordenação inválida"));
         }
         areasService.updateOrdenacao((List<Map<String, Object>>) ord, getCurrentUserId());
-        return ResponseEntity.ok(Map.of("success", true, "message", "Ordenação atualizada"));
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/inicializar")
@@ -147,7 +148,7 @@ public class AreasController {
         if (!deleted) {
             return ResponseEntity.status(404).body(Map.of("error", "Unidade não encontrada"));
         }
-        return ResponseEntity.ok(Map.of("message", "Unidade excluída com sucesso"));
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     // ---------- ÁREA por ID + sub-recursos ----------
@@ -183,7 +184,7 @@ public class AreasController {
             return ResponseEntity.status(400).body(Map.of("error", "Ordenação inválida"));
         }
         unidadesService.reorder(areaId, (List<Map<String, Object>>) ord, getCurrentUserId());
-        return ResponseEntity.ok(Map.of("success", true, "message", "Ordenação de unidades atualizada"));
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @PostMapping("/{areaId:\\d+}/unidades")
@@ -230,6 +231,6 @@ public class AreasController {
         if (!deleted) {
             return ResponseEntity.status(404).body(Map.of("error", "Área não encontrada"));
         }
-        return ResponseEntity.ok(Map.of("message", "Área excluída com sucesso"));
+        return ResponseEntity.ok(Map.of("success", true));
     }
 }

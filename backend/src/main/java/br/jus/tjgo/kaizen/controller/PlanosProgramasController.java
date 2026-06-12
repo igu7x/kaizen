@@ -53,7 +53,7 @@ public class PlanosProgramasController {
     @DeleteMapping("/instrumentos/{id:\\d+}")
     public ResponseEntity<?> deleteInstrumento(@PathVariable long id) {
         service.deleteInstrumento(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     @PutMapping("/instrumentos-ordenacao")

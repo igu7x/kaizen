@@ -72,7 +72,7 @@ public class MetasController {
         if (!metasService.deleteMeta(id, currentUserId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Meta não encontrada"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     private static String str(Object v) {

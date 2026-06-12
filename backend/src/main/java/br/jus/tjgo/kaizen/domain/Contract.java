@@ -28,8 +28,8 @@ public class Contract {
     @JoinColumn(name = "base_contract_id")
     private Contract baseContract;
 
-    @Column(name = "supplier_id")
-    private Long supplierId;
+    @Column(name = "supplier")
+    private String supplier;
 
     @Column(name = "contract_model", length = 255)
     private String contractModel;
@@ -94,7 +94,7 @@ public class Contract {
     @Column(name = "additive_term_type")
     private Integer additiveTermType;
 
-    @Column(name = "object_name", length = 80)
+    @Column(name = "object_name", columnDefinition = "TEXT")
     private String objectName;
 
     @Column(name = "description", columnDefinition = "TEXT")
@@ -124,8 +124,6 @@ public class Contract {
     @Column(name = "directory", length = 50)
     private String directory;
 
-    @Column(name = "type", length = 50)
-    private String type;
 
     @Column(name = "cadastro_area_id")
     private Long cadastroAreaId;

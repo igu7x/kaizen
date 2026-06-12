@@ -139,6 +139,6 @@ public class PermissoesTapController {
         if (!ok) {
             return ResponseEntity.status(404).body(Map.of("error", "Permissão não encontrada"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 }

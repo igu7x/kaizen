@@ -26,23 +26,32 @@ public class ContractsController {
                 contract.getEndDate() != null ? contract.getEndDate().toString() : null,
                 contract.getProcess(),
                 contract.getContractModel(),
-                contract.getSupplierId(),
+                contract.getSupplier(),
                 contract.getContractType(),
                 contract.getAdditiveTermType(),
                 contract.getObjectName(),
                 contract.getNoticeNumber(),
                 contract.getDirectory(),
-                contract.getType(),
                 contract.getUnidade(),
                 contract.getTotalValueCents(),
                 contract.getMonthlyValueCents(),
-                "Ativo" // simplificação
+                "Ativo", // simplificação
+                contract.getEffectiveDate() != null ? contract.getEffectiveDate().toString() : null,
+                contract.getLimitDate() != null ? contract.getLimitDate().toString() : null,
+                contract.getEffectiveAdditiveTerm(),
+                contract.getDescription(),
+                contract.getYearValue()
         );
     }
 
     @GetMapping
-    public List<ContractDto> list() {
-        return contractService.findAll().stream().map(this::toDto).toList();
+    public List<ContractDto> list(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String contractType,
+            @RequestParam(required = false) String searchQuery) {
+        return contractService.findAll(startDate, endDate, contractType, searchQuery)
+                .stream().map(this::toDto).toList();
     }
 
     @GetMapping("/{id}")

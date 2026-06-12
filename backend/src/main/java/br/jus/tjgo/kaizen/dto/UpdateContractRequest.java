@@ -3,7 +3,7 @@ package br.jus.tjgo.kaizen.dto;
 import java.util.List;
 
 public record UpdateContractRequest(
-        Long supplierId,
+        String supplier,
         String contractModel,
         String process,
         String startDate,
@@ -14,7 +14,6 @@ public record UpdateContractRequest(
         String description,
         String noticeNumber,
         String directory,
-        String type,
         Long cadastroAreaId,
         Long cadastroUnidadeId,
         Long totalValueCents,

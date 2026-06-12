@@ -78,7 +78,7 @@ public class OkrController {
         if (!okrService.deleteObjective(id, currentUserId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Objetivo não encontrado"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ============================================================
@@ -135,7 +135,7 @@ public class OkrController {
         if (!okrService.deleteKeyResult(id, currentUserId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Key Result não encontrado"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ============================================================
@@ -184,7 +184,7 @@ public class OkrController {
         if (!okrService.deleteInitiative(id, currentUserId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Iniciativa não encontrada"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ============================================================
@@ -221,7 +221,7 @@ public class OkrController {
         if (!okrService.deleteProgram(id, currentUserId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Programa não encontrado"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ============================================================
@@ -278,7 +278,7 @@ public class OkrController {
         if (!okrService.deleteProgramInitiative(id, currentUserId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Iniciativa não encontrada"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ============================================================
@@ -334,7 +334,7 @@ public class OkrController {
         if (!okrService.deleteExecutionControl(id, currentUserId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Registro não encontrado"));
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
     }
 
     // ============================================================
