@@ -43,6 +43,29 @@ export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
   PRI: "bg-violet-100 text-violet-700 border-violet-200",
 };
 
+/**
+ * Responsável por um processo: área + cargo (camada 1 = área, camada 2 = cargo).
+ * No PDF aparece apenas o cargo. Persistido no JSONB legado `proprietarios`.
+ */
+export interface ResponsavelEntry {
+  area: string;
+  cargo: string;
+}
+
+/** Normaliza uma entrada de responsável, tolerando dado legado (string = cargo). */
+export function normalizeResponsavel(raw: unknown): ResponsavelEntry {
+  if (typeof raw === "string") return { area: "", cargo: raw };
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    return { area: String(r.area ?? ""), cargo: String(r.cargo ?? "") };
+  }
+  return { area: "", cargo: "" };
+}
+
+/** Política de revisão exibida na coluna "Periodicidade" da seção Revisão. */
+export const REVISAO_POLITICA_TEXTO =
+  "A revisão do processo deverá ocorrer de forma ordinária, anualmente, ou de forma extraordinária, sempre que houver necessidade de atualização.";
+
 export interface ProcessoNegocio {
   id: number;
   macroprocesso: string;
@@ -53,7 +76,10 @@ export interface ProcessoNegocio {
   nome_processo: string;
   descricao: string | null;
   detalhamento: string | null;
-  proprietarios: string[];
+  /** Indicadores de desempenho/resultado do processo (texto livre). */
+  indicadores: string | null;
+  /** Responsáveis (área + cargo). Coluna JSONB historicamente chamada `proprietarios`. */
+  proprietarios: ResponsavelEntry[];
   atores: string[];
   areas_responsaveis: string[];
   entradas: string[];
@@ -98,7 +124,8 @@ export interface CreateProcessoNegocioDto {
   nome_processo: string;
   descricao?: string | null;
   detalhamento?: string | null;
-  proprietarios?: string[];
+  indicadores?: string | null;
+  proprietarios?: ResponsavelEntry[];
   atores?: string[];
   areas_responsaveis?: string[];
   entradas?: string[];
