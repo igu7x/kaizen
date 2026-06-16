@@ -25,10 +25,40 @@ public class Pca {
     @Column(name = "year", length = 4, nullable = false)
     private String year;
 
-    @Column(name = "description", length = 100)
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "object_name", length = 50)
+    @Column(name = "justification", columnDefinition = "TEXT")
+    private String justification;
+
+    @Column(name = "process", length = 255)
+    private String process;
+
+    @Column(name = "financial_resource_type", length = 50)
+    private FinancialResourceTypeEnum financialResourceType;
+
+    @Column(name = "contract_type", length = 50)
+    private PcaContractTypeEnum contractType;
+
+    public enum FinancialResourceTypeEnum {
+        INVESTIMENTO("Investimento"),
+        CUSTEIO("Custeio");
+
+        private final String value;
+        FinancialResourceTypeEnum(String value) { this.value = value; }
+        public String getValue() { return value; }
+    }
+
+    public enum PcaContractTypeEnum {
+        RENOVACAO("Renovação"),
+        NOVA_CONTRATACAO("Nova Contratação");
+
+        private final String value;
+        PcaContractTypeEnum(String value) { this.value = value; }
+        public String getValue() { return value; }
+    }
+
+    @Column(name = "object_name", columnDefinition = "TEXT")
     private String objectName;
 
     @Column(name = "directory_acronym", length = 20)
@@ -40,8 +70,18 @@ public class Pca {
     @Column(name = "priority_level")
     private Integer priorityLevel;
 
-    @Column(name = "step")
-    private Integer step;
+    @Column(name = "step", length = 100)
+    private PcaStepEnum step;
+
+    public enum PcaStepEnum {
+        PLANEJAMENTO_DA_CONTRATACAO("Planejamento da Contratação"),
+        SELECAO_DE_FORNECEDOR("Seleção de Fornecedor"),
+        GESTAO_DO_CONTRATO("Gestão do Contrato");
+
+        private final String value;
+        PcaStepEnum(String value) { this.value = value; }
+        public String getValue() { return value; }
+    }
 
     @Column(name = "status")
     private Integer status;
