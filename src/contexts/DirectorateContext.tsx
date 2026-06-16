@@ -8,7 +8,6 @@ import {
 import { useLocalStorage } from "@/utils/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { isDomainRoot } from "@/utils/domain";
-import { isDevEmail } from "@/utils/devEmails";
 import { areasApi, Area } from "@/services/areasApi";
 
 // Diretoria agora é uma string dinâmica (carregada de cadastros_areas)
@@ -74,7 +73,7 @@ export function DirectorateProvider({ children }: { children: ReactNode }) {
     );
 
   // Verificar se é o dev
-  const isDev = isDevEmail(user?.email);
+  const isDev = !!user?.is_developer;
 
   // Força a diretoria correta quando o usuário muda ou faz login
   useEffect(() => {

@@ -107,7 +107,7 @@ export async function getAdmins(codigo: string): Promise<AmbienteAdmin[]> {
  */
 export async function addAdmin(
   codigo: string,
-  data: { email: string; name: string; password?: string },
+  data: { email: string; name?: string; password?: string },
 ): Promise<AmbienteAdmin> {
   return apiClient.request<AmbienteAdmin>(`${BASE_URL}/${codigo}/admins`, {
     method: "POST",
@@ -127,6 +127,32 @@ export async function removeAdmin(
   });
 }
 
+/**
+ * Listar desenvolvedores
+ */
+export async function getDevelopers(): Promise<AmbienteAdmin[]> {
+  return apiClient.request<AmbienteAdmin[]>(`${BASE_URL}/developers`);
+}
+
+/**
+ * Adicionar desenvolvedor
+ */
+export async function addDeveloper(data: { email: string; name?: string }): Promise<AmbienteAdmin> {
+  return apiClient.request<AmbienteAdmin>(`${BASE_URL}/developers`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Remover desenvolvedor
+ */
+export async function removeDeveloper(userId: number): Promise<void> {
+  await apiClient.request(`${BASE_URL}/developers/${userId}`, {
+    method: "DELETE",
+  });
+}
+
 // Export como objeto
 export const ambientesApi = {
   getAll,
@@ -137,4 +163,7 @@ export const ambientesApi = {
   getAdmins,
   addAdmin,
   removeAdmin,
+  getDevelopers,
+  addDeveloper,
+  removeDeveloper,
 };
