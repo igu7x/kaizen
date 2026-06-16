@@ -20,6 +20,7 @@ export interface User {
   // Cargo efetivo e código (cc_fc_classe — "Código" da tabela do painel) — só vem de GET /me/perfil
   cargo_efetivo?: string | null;
   codigo?: string | null;
+  is_developer?: boolean;
 }
 
 export interface AuthContextType {

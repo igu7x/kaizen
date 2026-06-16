@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   processosNegocioApi,
   ProcessoNegocio,
+  getFluxograma,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
@@ -173,7 +174,7 @@ function maturidadeOf(p: ProcessoNegocio): 1 | 2 | 3 | 4 {
   const hasMps = docs.some((d) => d.tipo === "MPS");
   const hasPop = docs.some((d) => d.tipo === "POP");
   const hasAux = docs.some((d) => d.tipo === "AUX");
-  const hasFlux = !!p.fluxograma_data;
+  const hasFlux = !!getFluxograma(p).data;
   if (hasMps && hasPop && hasFlux) return 4;
   const total = [hasMps, hasPop, hasAux, hasFlux].filter(Boolean).length;
   if (total >= 2) return 3;
@@ -628,7 +629,7 @@ export default function EscritorioProcessos() {
         return false;
       if (filtroArtefato === "pop" && !docs.some((d) => d.tipo === "POP"))
         return false;
-      if (filtroArtefato === "flux" && !p.fluxograma_data) return false;
+      if (filtroArtefato === "flux" && !getFluxograma(p).data) return false;
       return true;
     });
   }, [filteredBase, filtroArtefato]);
@@ -650,7 +651,7 @@ export default function EscritorioProcessos() {
       const docs = p.documentos_anexados || [];
       if (docs.some((d) => d.tipo === "MPS")) mps++;
       if (docs.some((d) => d.tipo === "POP")) pop++;
-      if (p.fluxograma_data) flux++;
+      if (getFluxograma(p).data) flux++;
     });
     return { total, mps, pop, flux };
   }, [filtered]);
@@ -1053,7 +1054,7 @@ export default function EscritorioProcessos() {
                       const hasPop = docs.some((d) => d.tipo === "POP");
                       const hasPri = docs.some((d) => d.tipo === "PRI");
                       const hasAux = docs.some((d) => d.tipo === "AUX");
-                      const hasFlux = !!p.fluxograma_data;
+                      const hasFlux = !!getFluxograma(p).data;
                       const areaLabel =
                         (p.areas_responsaveis || [])[0] || p.diretoria || "—";
                       return (

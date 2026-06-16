@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
+import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
 import {
   Loader2,
   CheckCircle2,
@@ -157,6 +158,11 @@ export default function Home() {
             animation: home-fade-in 0.8s ease-out forwards;
           }
         `}</style>
+
+        {/* Seletor de diretoria — fixo no canto superior direito (não empurra o banner) */}
+        <div className="absolute -right-2 top-6 z-20 lg:-right-4 lg:top-10 xl:-right-6 2xl:-right-8">
+          <DirectorateSelector />
+        </div>
 
         <div className="relative p-6 lg:p-10 max-w-7xl mx-auto space-y-10">
           {/* HERO */}

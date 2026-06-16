@@ -3,6 +3,7 @@ import type { ProcessoNegocio } from "../services/processosNegocioApi";
 import {
   normalizeResponsavel,
   REVISAO_POLITICA_TEXTO,
+  getFluxograma,
 } from "../services/processosNegocioApi";
 import { TIPO_DOCUMENTO_LABEL } from "../services/processosNegocioApi";
 import { P_CENT_BASE64 } from "./pCentBase64";
@@ -405,10 +406,10 @@ function drawCabecalhoInstitucional(
   y: number,
 ): number {
   // Layout:
-  //   linha 1: [logo+textos institucionais (esq)] | [TÍTULO PROCESSO DE NEGÓCIO DA DIRETORIA DE X]
-  //   linha 2: [Macroprocesso:] [valor]
-  //   linha 3: [Diretoria | valor] [Período | valor]
-  //   linha 4: [Revisão: | valor] [Código/Versão | valor]
+  //   linha 1: [logo+textos institucionais (esq)] | [TÍTULO PROCESSO DE NEGÓCIO]
+  //   linha 2: [Revisão: | valor] [Código/Versão | valor]
+  //   linha 3: [Macroprocesso:] [valor]
+  //   linha 4: [Data: | valor]
   //   linha 5: [NOME DO PROCESSO] [valor]
   const leftColW = 60;
   const rightColW = CONTENT_WIDTH - leftColW;
@@ -437,96 +438,18 @@ function drawCabecalhoInstitucional(
   doc.setFontSize(9.5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  const tituloHeader = `PROCESSO DE NEGÓCIO DA ÁREA ${(processo.diretoria || "—").toUpperCase()}`;
   doc.text(
-    tituloHeader,
+    "PROCESSO DE NEGÓCIO",
     MARGIN_LEFT + leftColW + rightColW / 2,
     y + rowH / 2 + 1.4,
     { align: "center" },
   );
 
-  // Linha 2: Macroprocesso (full right col)
-  const yMacro = y + rowH;
   const labelW = 35;
-  drawTextCell(
-    doc,
-    "Macroprocesso:",
-    MARGIN_LEFT + leftColW,
-    yMacro,
-    labelW,
-    rowH,
-    {
-      bold: true,
-      fontSize: 9,
-      bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
-      align: "center",
-    },
-  );
-  drawTextCell(
-    doc,
-    processo.macroprocesso || "—",
-    MARGIN_LEFT + leftColW + labelW,
-    yMacro,
-    rightColW - labelW,
-    rowH,
-    { fontSize: 9 },
-  );
-
-  // Linha 3: Diretoria | Período
-  const yDir = yMacro + rowH;
   const halfRightW = rightColW / 2;
-  drawTextCell(
-    doc,
-    "Área Responsável",
-    MARGIN_LEFT + leftColW,
-    yDir,
-    labelW,
-    rowH,
-    {
-      bold: true,
-      fontSize: 7.5,
-      bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
-      align: "center",
-    },
-  );
-  drawTextCell(
-    doc,
-    processo.diretoria || "—",
-    MARGIN_LEFT + leftColW + labelW,
-    yDir,
-    halfRightW - labelW,
-    rowH,
-    { fontSize: 9 },
-  );
-  drawTextCell(
-    doc,
-    "Período",
-    MARGIN_LEFT + leftColW + halfRightW,
-    yDir,
-    labelW,
-    rowH,
-    {
-      bold: true,
-      fontSize: 9,
-      bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
-      align: "center",
-    },
-  );
-  drawTextCell(
-    doc,
-    formatDate(processo.periodo) || "—",
-    MARGIN_LEFT + leftColW + halfRightW + labelW,
-    yDir,
-    halfRightW - labelW,
-    rowH,
-    { fontSize: 9 },
-  );
 
-  // Linha 4: Revisão | Código/Versão
-  const yRev = yDir + rowH;
+  // Linha 2: Revisão | Código/Versão
+  const yRev = y + rowH;
   drawTextCell(doc, "Revisão:", MARGIN_LEFT + leftColW, yRev, labelW, rowH, {
     bold: true,
     fontSize: 9,
@@ -568,8 +491,54 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
+  // Linha 3: Macroprocesso (full right col)
+  const yMacro = yRev + rowH;
+  drawTextCell(
+    doc,
+    "Macroprocesso:",
+    MARGIN_LEFT + leftColW,
+    yMacro,
+    labelW,
+    rowH,
+    {
+      bold: true,
+      fontSize: 9,
+      bg: ACCENT_BG_LIGHT,
+      color: BLUE_TITLE,
+      align: "center",
+    },
+  );
+  drawTextCell(
+    doc,
+    processo.macroprocesso || "—",
+    MARGIN_LEFT + leftColW + labelW,
+    yMacro,
+    rightColW - labelW,
+    rowH,
+    { fontSize: 9 },
+  );
+
+  // Linha 4: Data (full right col)
+  const yData = yMacro + rowH;
+  drawTextCell(doc, "Data:", MARGIN_LEFT + leftColW, yData, labelW, rowH, {
+    bold: true,
+    fontSize: 9,
+    bg: ACCENT_BG_LIGHT,
+    color: BLUE_TITLE,
+    align: "center",
+  });
+  drawTextCell(
+    doc,
+    formatDate(processo.periodo) || "—",
+    MARGIN_LEFT + leftColW + labelW,
+    yData,
+    rightColW - labelW,
+    rowH,
+    { fontSize: 9 },
+  );
+
   // Linha 5: NOME DO PROCESSO (full width, label esquerda + valor à direita em itálico azul)
-  const yNome = yRev + rowH;
+  const yNome = yData + rowH;
   const nomeRowH = 11;
   drawTextCell(
     doc,
@@ -728,15 +697,8 @@ export function generateProcessoNegocioPDF(
   y = checkPageBreak(doc, y, 35);
   y = drawNumberedSectionHeader(doc, 2, "Governança e Responsáveis", y);
   const govHeaderH = 8;
-  const govColW = CONTENT_WIDTH / 3;
+  const govColW = CONTENT_WIDTH / 2;
   drawTextCell(doc, "RESPONSÁVEL:", MARGIN_LEFT, y, govColW, govHeaderH, {
-    bold: true,
-    fontSize: 8.5,
-    align: "center",
-    bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
-  });
-  drawTextCell(doc, "ATORES:", MARGIN_LEFT + govColW, y, govColW, govHeaderH, {
     bold: true,
     fontSize: 8.5,
     align: "center",
@@ -746,7 +708,7 @@ export function generateProcessoNegocioPDF(
   drawTextCell(
     doc,
     "ÁREAS ENVOLVIDAS",
-    MARGIN_LEFT + govColW * 2,
+    MARGIN_LEFT + govColW,
     y,
     govColW,
     govHeaderH,
@@ -760,13 +722,13 @@ export function generateProcessoNegocioPDF(
   );
   y += govHeaderH;
 
-  // Responsável: no PDF mostra apenas o cargo (camada 2), não a área.
-  const responsavelCargos = (processo.proprietarios || [])
-    .map((r) => normalizeResponsavel(r).cargo)
-    .filter((c) => c.length > 0);
+  // Responsável: no documento mostra "cargo (área)".
+  const responsavelLabels = (processo.proprietarios || [])
+    .map((r) => normalizeResponsavel(r))
+    .filter((r) => r.cargo.length > 0)
+    .map((r) => (r.area ? `${r.cargo} (${r.area})` : r.cargo));
   const govRowH = Math.max(
-    calcBulletListHeight(doc, responsavelCargos, govColW),
-    calcBulletListHeight(doc, processo.atores || [], govColW),
+    calcBulletListHeight(doc, responsavelLabels, govColW),
     calcBulletListHeight(doc, processo.areas_responsaveis || [], govColW),
   );
   y = checkPageBreak(doc, y, govRowH);
@@ -774,20 +736,11 @@ export function generateProcessoNegocioPDF(
   doc.setLineWidth(0.3);
   doc.rect(MARGIN_LEFT, y, govColW, govRowH, "S");
   doc.rect(MARGIN_LEFT + govColW, y, govColW, govRowH, "S");
-  doc.rect(MARGIN_LEFT + govColW * 2, y, govColW, govRowH, "S");
-  renderBulletList(doc, responsavelCargos, MARGIN_LEFT, y, govColW, govRowH);
-  renderBulletList(
-    doc,
-    processo.atores || [],
-    MARGIN_LEFT + govColW,
-    y,
-    govColW,
-    govRowH,
-  );
+  renderBulletList(doc, responsavelLabels, MARGIN_LEFT, y, govColW, govRowH);
   renderBulletList(
     doc,
     processo.areas_responsaveis || [],
-    MARGIN_LEFT + govColW * 2,
+    MARGIN_LEFT + govColW,
     y,
     govColW,
     govRowH,
@@ -913,15 +866,13 @@ export function generateProcessoNegocioPDF(
   // 7. Modelagem / Fluxograma
   y = checkPageBreak(doc, y, 30);
   y = drawNumberedSectionHeader(doc, 7, "Modelagem / Fluxograma", y);
-  if (
-    processo.fluxograma_data &&
-    processo.fluxograma_mime?.startsWith("image/")
-  ) {
+  const flux = getFluxograma(processo);
+  if (flux.data && flux.mime?.startsWith("image/")) {
     // Embedar imagem mantendo proporção
     try {
-      const fmt = processo.fluxograma_mime.includes("png")
+      const fmt = flux.mime.includes("png")
         ? "PNG"
-        : processo.fluxograma_mime.includes("webp")
+        : flux.mime.includes("webp")
           ? "WEBP"
           : "JPEG";
       // Estimar altura via tag <img> dinâmica não é trivial em jsPDF; assumimos largura full
@@ -930,7 +881,7 @@ export function generateProcessoNegocioPDF(
       const imgH = imgW * 0.5; // proporção segura pra diagrama
       y = checkPageBreak(doc, y, imgH + 4);
       doc.addImage(
-        processo.fluxograma_data,
+        flux.data,
         fmt as any,
         MARGIN_LEFT,
         y + 2,
@@ -945,18 +896,15 @@ export function generateProcessoNegocioPDF(
     } catch (e) {
       y = drawMultilineContent(
         doc,
-        `Fluxograma anexado: ${processo.fluxograma_filename || ""} (não foi possível incorporar a imagem no PDF)`,
+        `Fluxograma anexado: ${flux.filename || ""} (não foi possível incorporar a imagem no PDF)`,
         y,
         16,
       );
     }
-  } else if (
-    processo.fluxograma_data &&
-    processo.fluxograma_mime === "application/pdf"
-  ) {
+  } else if (flux.data && flux.mime === "application/pdf") {
     y = drawMultilineContent(
       doc,
-      `Fluxograma em PDF anexado: ${processo.fluxograma_filename || ""}`,
+      `Fluxograma em PDF anexado: ${flux.filename || ""}`,
       y,
       16,
     );
@@ -1015,19 +963,66 @@ export function generateProcessoNegocioPDF(
   }
   y += 6;
 
-  // 9. Revisão
-  y = checkPageBreak(doc, y, 24);
+  // 9. Revisão (2 colunas: Periodicidade | Próxima Revisão)
+  y = checkPageBreak(doc, y, 30);
   y = drawNumberedSectionHeader(doc, 9, "Revisão", y);
-  const proximaRevisao = processo.periodo
-    ? `Próxima revisão: ${addOneYearToDate(processo.periodo)}`
-    : "Período não informado — próxima revisão não pôde ser calculada.";
-  y = drawMultilineContent(
+  const revHeaderH = 8;
+  const revColW = CONTENT_WIDTH / 2;
+  drawTextCell(doc, "PERIODICIDADE", MARGIN_LEFT, y, revColW, revHeaderH, {
+    bold: true,
+    fontSize: 8.5,
+    align: "center",
+    bg: ACCENT_BG_LIGHT,
+    color: BLUE_TITLE,
+  });
+  drawTextCell(
     doc,
-    `Periodicidade: ${REVISAO_POLITICA_TEXTO}\n${proximaRevisao}`,
+    "PRÓXIMA REVISÃO",
+    MARGIN_LEFT + revColW,
     y,
-    24,
+    revColW,
+    revHeaderH,
+    {
+      bold: true,
+      fontSize: 8.5,
+      align: "center",
+      bg: ACCENT_BG_LIGHT,
+      color: BLUE_TITLE,
+    },
   );
-  y += 6;
+  y += revHeaderH;
+
+  const proximaRevisao = processo.periodo
+    ? addOneYearToDate(processo.periodo)
+    : "—";
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const periodicidadeLines = doc.splitTextToSize(
+    REVISAO_POLITICA_TEXTO,
+    revColW - 8,
+  );
+  const revLineH = lineHeightFor(9);
+  const revRowH = Math.max(periodicidadeLines.length * revLineH + 4, 16);
+  y = checkPageBreak(doc, y, revRowH);
+  doc.setDrawColor(...BORDER_GRAY);
+  doc.setLineWidth(0.3);
+  doc.rect(MARGIN_LEFT, y, revColW, revRowH, "S");
+  doc.rect(MARGIN_LEFT + revColW, y, revColW, revRowH, "S");
+  // Esquerda: periodicidade (texto multilinha)
+  doc.setTextColor(...TEXT_GRAY);
+  let revTextY = y + 5;
+  for (const line of periodicidadeLines) {
+    doc.text(line, MARGIN_LEFT + 4, revTextY);
+    revTextY += revLineH;
+  }
+  // Direita: próxima revisão (centralizada)
+  doc.text(
+    proximaRevisao,
+    MARGIN_LEFT + revColW + revColW / 2,
+    y + revRowH / 2 + 1.4,
+    { align: "center" },
+  );
+  y += revRowH + 6;
 
   // 10. Histórico de Validação
   y = checkPageBreak(doc, y, 35);

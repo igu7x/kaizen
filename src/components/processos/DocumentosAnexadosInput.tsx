@@ -141,6 +141,9 @@ export function DocumentosAnexadosInput({
               <SelectItem value="POP">{TIPO_DOCUMENTO_LABEL.POP}</SelectItem>
               <SelectItem value="PRI">{TIPO_DOCUMENTO_LABEL.PRI}</SelectItem>
               <SelectItem value="AUX">{TIPO_DOCUMENTO_LABEL.AUX}</SelectItem>
+              <SelectItem value="FLUXOGRAMA">
+                {TIPO_DOCUMENTO_LABEL.FLUXOGRAMA}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

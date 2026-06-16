@@ -39,6 +39,7 @@ import {
   TIPO_DOCUMENTO_BADGE,
   normalizeResponsavel,
   REVISAO_POLITICA_TEXTO,
+  getFluxograma,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -107,24 +108,22 @@ function CabecalhoInstitucional({ processo }: { processo: ProcessoNegocio }) {
         <div className="divide-y divide-slate-300">
           <div className="px-4 py-3 text-center bg-white">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Processo de Negócio da Área {processo.diretoria || "—"}
+              Processo de Negócio
             </p>
           </div>
-          <CabecalhoRow
-            label="Macroprocesso:"
-            value={processo.macroprocesso || "—"}
-          />
-          <CabecalhoRow
-            label="Área Responsável"
-            value={processo.diretoria || "—"}
-            label2="Período"
-            value2={formatDataCompleta(processo.periodo)}
-          />
           <CabecalhoRow
             label="Revisão:"
             value={processo.revisao || "—"}
             label2="Código/Versão"
             value2={processo.codigo_versao || "—"}
+          />
+          <CabecalhoRow
+            label="Macroprocesso:"
+            value={processo.macroprocesso || "—"}
+          />
+          <CabecalhoRow
+            label="Data:"
+            value={formatDataCompleta(processo.periodo)}
           />
         </div>
       </div>
@@ -627,10 +626,9 @@ export function ProcessoDetalhe({
                     title: "Responsável:",
                     items: (processo.proprietarios || []).map((r) => {
                       const n = normalizeResponsavel(r);
-                      return n.area ? `${n.cargo} — ${n.area}` : n.cargo;
+                      return n.area ? `${n.cargo} (${n.area})` : n.cargo;
                     }),
                   },
-                  { title: "Atores:", items: processo.atores || [] },
                   {
                     title: "Áreas Envolvidas",
                     items: processo.areas_responsaveis || [],
@@ -687,31 +685,40 @@ export function ProcessoDetalhe({
               icon={<Workflow className="h-4 w-4" />}
               title="Modelagem / Fluxograma"
             >
-              {processo.fluxograma_data ? (
-                processo.fluxograma_mime?.startsWith("image/") ? (
-                  <img
-                    src={processo.fluxograma_data}
-                    alt={processo.fluxograma_filename || "Fluxograma"}
-                    className="w-full max-h-[700px] object-contain rounded bg-white border border-slate-200"
-                  />
-                ) : processo.fluxograma_mime === "application/pdf" ? (
-                  <iframe
-                    src={processo.fluxograma_data}
-                    title={processo.fluxograma_filename || "Fluxograma"}
-                    className="w-full h-[700px] rounded bg-white border border-slate-200"
-                  />
-                ) : (
+              {(() => {
+                const flux = getFluxograma(processo);
+                if (!flux.data) {
+                  return (
+                    <p className="text-xs italic text-slate-400">
+                      Nenhum fluxograma anexado.
+                    </p>
+                  );
+                }
+                if (flux.mime?.startsWith("image/")) {
+                  return (
+                    <img
+                      src={flux.data}
+                      alt={flux.filename || "Fluxograma"}
+                      className="w-full max-h-[700px] object-contain rounded bg-white border border-slate-200"
+                    />
+                  );
+                }
+                if (flux.mime === "application/pdf") {
+                  return (
+                    <iframe
+                      src={flux.data}
+                      title={flux.filename || "Fluxograma"}
+                      className="w-full h-[700px] rounded bg-white border border-slate-200"
+                    />
+                  );
+                }
+                return (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <FileImage className="h-4 w-4" />
-                    Pré-visualização indisponível (
-                    {processo.fluxograma_filename})
+                    Pré-visualização indisponível ({flux.filename})
                   </div>
-                )
-              ) : (
-                <p className="text-xs italic text-slate-400">
-                  Nenhum fluxograma anexado.
-                </p>
-              )}
+                );
+              })()}
             </SectionBlock>
 
             <SectionBlock
