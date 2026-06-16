@@ -1,15 +1,8 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, Briefcase } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Area } from "@/services/areasApi";
+import { areasApi, Unidade } from "@/services/areasApi";
 import {
   ResponsavelEntry,
   normalizeResponsavel,
@@ -19,24 +12,57 @@ interface ResponsavelInputProps {
   /** Lista de responsáveis (área + cargo). */
   value: ResponsavelEntry[];
   onChange: (next: ResponsavelEntry[]) => void;
-  /** Áreas disponíveis para a camada 1 (seleção da área). */
-  areas: Area[];
   emptyMessage?: string;
 }
 
+type UnidadeComArea = Unidade & { area_nome?: string; area_sigla?: string };
+
 /**
- * Input de Responsável em duas camadas: camada 1 seleciona a área, camada 2
- * digita o nome do cargo. Permite múltiplas entradas. No PDF aparece somente o
- * cargo (ver generateProcessoNegocioPDF); aqui mostramos "cargo — área".
+ * Input de Responsável em duas camadas: camada 1 busca a área digitando no
+ * cadastro geral de unidades (não só nas áreas macro), camada 2 digita o cargo.
+ * Permite múltiplas entradas. No documento aparece como "cargo (área)".
  */
 export function ResponsavelInput({
   value,
   onChange,
-  areas,
   emptyMessage = "Nenhum responsável",
 }: ResponsavelInputProps) {
+  const [unidades, setUnidades] = useState<UnidadeComArea[]>([]);
   const [area, setArea] = useState("");
+  const [showList, setShowList] = useState(false);
   const [cargo, setCargo] = useState("");
+
+  // Carrega o cadastro geral de unidades uma vez no mount.
+  useEffect(() => {
+    let cancelled = false;
+    areasApi
+      .getAllUnidades()
+      .then((data) => {
+        if (cancelled) return;
+        const sorted = [...data].sort((a, b) =>
+          (a.nome || "").localeCompare(b.nome || "", "pt-BR"),
+        );
+        setUnidades(sorted);
+      })
+      .catch((err) =>
+        console.warn("[ResponsavelInput] erro ao carregar unidades:", err),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = area.toLowerCase().trim();
+    return unidades.filter((u) => {
+      if (!q) return true;
+      return (
+        (u.nome || "").toLowerCase().includes(q) ||
+        (u.area_nome || "").toLowerCase().includes(q) ||
+        (u.area_sigla || "").toLowerCase().includes(q)
+      );
+    });
+  }, [unidades, area]);
 
   const add = () => {
     const a = area.trim();
@@ -45,6 +71,7 @@ export function ResponsavelInput({
     onChange([...value, { area: a, cargo: c }]);
     setArea("");
     setCargo("");
+    setShowList(false);
   };
 
   const remove = (idx: number) => {
@@ -54,18 +81,53 @@ export function ResponsavelInput({
   return (
     <div className="space-y-2">
       <div className="space-y-2">
-        <Select value={area} onValueChange={setArea}>
-          <SelectTrigger className="w-full bg-white">
-            <SelectValue placeholder="Selecionar a área" />
-          </SelectTrigger>
-          <SelectContent>
-            {areas.map((a) => (
-              <SelectItem key={a.id} value={a.nome}>
-                {a.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Camada 1: área — busca por digitação no cadastro geral de unidades */}
+        <div className="relative">
+          <Input
+            type="text"
+            value={area}
+            onChange={(e) => {
+              setArea(e.target.value);
+              setShowList(true);
+            }}
+            onFocus={() => setShowList(true)}
+            onBlur={() => setTimeout(() => setShowList(false), 200)}
+            placeholder="Digite a área..."
+            className="bg-white"
+          />
+          {showList && (
+            <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+              {filtered.length === 0 ? (
+                <div className="px-3 py-2 text-sm italic text-slate-500">
+                  {area.trim()
+                    ? "Nenhum resultado"
+                    : "Comece a digitar para buscar..."}
+                </div>
+              ) : (
+                filtered.map((u) => (
+                  <div
+                    key={u.id}
+                    className="cursor-pointer px-3 py-2 text-sm hover:bg-slate-50"
+                    onMouseDown={() => {
+                      setArea(u.nome);
+                      setShowList(false);
+                    }}
+                  >
+                    <div className="text-slate-800">{u.nome}</div>
+                    {(u.area_sigla || u.area_nome) && (
+                      <div className="truncate text-[10px] text-slate-400">
+                        {u.area_sigla ? `${u.area_sigla} — ` : ""}
+                        {u.area_nome}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Camada 2: cargo */}
         <div className="flex gap-2">
           <Input
             type="text"
@@ -107,7 +169,7 @@ export function ResponsavelInput({
                 <span className="flex-1 break-words">
                   <span className="font-medium">{item.cargo}</span>
                   {item.area && (
-                    <span className="text-slate-400"> — {item.area}</span>
+                    <span className="text-slate-400"> ({item.area})</span>
                   )}
                 </span>
                 <button

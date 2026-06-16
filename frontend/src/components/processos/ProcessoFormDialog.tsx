@@ -34,7 +34,6 @@ import {
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { ListInput } from "./ListInput";
-import { UserMultiPicker } from "./UserMultiPicker";
 import { ResponsavelInput } from "./ResponsavelInput";
 import { UnidadeMultiPicker } from "./UnidadeMultiPicker";
 import { FluxogramaUpload } from "./FluxogramaUpload";
@@ -394,7 +393,7 @@ export function ProcessoFormDialog({
             icon={<Users className="h-4 w-4" />}
             title="Governança e Responsáveis"
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs font-semibold text-slate-700">
                   Responsável
@@ -403,21 +402,7 @@ export function ProcessoFormDialog({
                   <ResponsavelInput
                     value={form.proprietarios || []}
                     onChange={(next) => update("proprietarios", next)}
-                    areas={areas}
                     emptyMessage="Nenhum responsável"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold text-slate-700">
-                  Atores
-                </Label>
-                <div className="mt-1.5">
-                  <UserMultiPicker
-                    value={form.atores || []}
-                    onChange={(next) => update("atores", next)}
-                    placeholder="Selecionar ator"
-                    emptyMessage="Nenhum ator"
                   />
                 </div>
               </div>
