@@ -31,12 +31,12 @@ import {
   ProcessoNegocio,
   CreateProcessoNegocioDto,
   REVISAO_POLITICA_TEXTO,
+  getFluxograma,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { ListInput } from "./ListInput";
 import { ResponsavelInput } from "./ResponsavelInput";
 import { UnidadeMultiPicker } from "./UnidadeMultiPicker";
-import { FluxogramaUpload } from "./FluxogramaUpload";
 import { DocumentosAnexadosInput } from "./DocumentosAnexadosInput";
 
 interface ProcessoFormDialogProps {
@@ -531,19 +531,40 @@ export function ProcessoFormDialog({
             icon={<Workflow className="h-4 w-4" />}
             title="Modelagem / Fluxograma"
           >
-            <FluxogramaUpload
-              data={form.fluxograma_data || null}
-              filename={form.fluxograma_filename || null}
-              mime={form.fluxograma_mime || null}
-              onChange={({ data, filename, mime }) => {
-                setForm((prev) => ({
-                  ...prev,
-                  fluxograma_data: data,
-                  fluxograma_filename: filename,
-                  fluxograma_mime: mime,
-                }));
-              }}
-            />
+            {(() => {
+              const flux = getFluxograma(form);
+              if (!flux.data) {
+                return (
+                  <p className="text-xs italic text-slate-400">
+                    Anexe o fluxograma na seção "Documentos Anexados" (tipo
+                    "Fluxograma") para exibi-lo aqui.
+                  </p>
+                );
+              }
+              if (flux.mime?.startsWith("image/")) {
+                return (
+                  <img
+                    src={flux.data}
+                    alt={flux.filename || "Fluxograma"}
+                    className="w-full max-h-[600px] object-contain rounded-md border border-slate-200 bg-white"
+                  />
+                );
+              }
+              if (flux.mime === "application/pdf") {
+                return (
+                  <iframe
+                    src={flux.data}
+                    title={flux.filename || "Fluxograma"}
+                    className="w-full h-[600px] rounded-md border border-slate-200 bg-white"
+                  />
+                );
+              }
+              return (
+                <p className="text-xs italic text-slate-400">
+                  Pré-visualização indisponível ({flux.filename}).
+                </p>
+              );
+            })()}
           </Section>
 
           {/* Anexar Documentos */}
