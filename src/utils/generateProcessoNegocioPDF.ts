@@ -967,19 +967,66 @@ export function generateProcessoNegocioPDF(
   }
   y += 6;
 
-  // 9. Revisão
-  y = checkPageBreak(doc, y, 24);
+  // 9. Revisão (2 colunas: Periodicidade | Próxima Revisão)
+  y = checkPageBreak(doc, y, 30);
   y = drawNumberedSectionHeader(doc, 9, "Revisão", y);
-  const proximaRevisao = processo.periodo
-    ? `Próxima revisão: ${addOneYearToDate(processo.periodo)}`
-    : "Período não informado — próxima revisão não pôde ser calculada.";
-  y = drawMultilineContent(
+  const revHeaderH = 8;
+  const revColW = CONTENT_WIDTH / 2;
+  drawTextCell(doc, "PERIODICIDADE", MARGIN_LEFT, y, revColW, revHeaderH, {
+    bold: true,
+    fontSize: 8.5,
+    align: "center",
+    bg: ACCENT_BG_LIGHT,
+    color: BLUE_TITLE,
+  });
+  drawTextCell(
     doc,
-    `Periodicidade: ${REVISAO_POLITICA_TEXTO}\n${proximaRevisao}`,
+    "PRÓXIMA REVISÃO",
+    MARGIN_LEFT + revColW,
     y,
-    24,
+    revColW,
+    revHeaderH,
+    {
+      bold: true,
+      fontSize: 8.5,
+      align: "center",
+      bg: ACCENT_BG_LIGHT,
+      color: BLUE_TITLE,
+    },
   );
-  y += 6;
+  y += revHeaderH;
+
+  const proximaRevisao = processo.periodo
+    ? addOneYearToDate(processo.periodo)
+    : "—";
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const periodicidadeLines = doc.splitTextToSize(
+    REVISAO_POLITICA_TEXTO,
+    revColW - 8,
+  );
+  const revLineH = lineHeightFor(9);
+  const revRowH = Math.max(periodicidadeLines.length * revLineH + 4, 16);
+  y = checkPageBreak(doc, y, revRowH);
+  doc.setDrawColor(...BORDER_GRAY);
+  doc.setLineWidth(0.3);
+  doc.rect(MARGIN_LEFT, y, revColW, revRowH, "S");
+  doc.rect(MARGIN_LEFT + revColW, y, revColW, revRowH, "S");
+  // Esquerda: periodicidade (texto multilinha)
+  doc.setTextColor(...TEXT_GRAY);
+  let revTextY = y + 5;
+  for (const line of periodicidadeLines) {
+    doc.text(line, MARGIN_LEFT + 4, revTextY);
+    revTextY += revLineH;
+  }
+  // Direita: próxima revisão (centralizada)
+  doc.text(
+    proximaRevisao,
+    MARGIN_LEFT + revColW + revColW / 2,
+    y + revRowH / 2 + 1.4,
+    { align: "center" },
+  );
+  y += revRowH + 6;
 
   // 10. Histórico de Validação
   y = checkPageBreak(doc, y, 35);
