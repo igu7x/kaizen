@@ -107,24 +107,22 @@ function CabecalhoInstitucional({ processo }: { processo: ProcessoNegocio }) {
         <div className="divide-y divide-slate-300">
           <div className="px-4 py-3 text-center bg-white">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Processo de Negócio da Área {processo.diretoria || "—"}
+              Processo de Negócio
             </p>
           </div>
-          <CabecalhoRow
-            label="Macroprocesso:"
-            value={processo.macroprocesso || "—"}
-          />
-          <CabecalhoRow
-            label="Área Responsável"
-            value={processo.diretoria || "—"}
-            label2="Período"
-            value2={formatDataCompleta(processo.periodo)}
-          />
           <CabecalhoRow
             label="Revisão:"
             value={processo.revisao || "—"}
             label2="Código/Versão"
             value2={processo.codigo_versao || "—"}
+          />
+          <CabecalhoRow
+            label="Macroprocesso:"
+            value={processo.macroprocesso || "—"}
+          />
+          <CabecalhoRow
+            label="Data:"
+            value={formatDataCompleta(processo.periodo)}
           />
         </div>
       </div>
@@ -627,10 +625,9 @@ export function ProcessoDetalhe({
                     title: "Responsável:",
                     items: (processo.proprietarios || []).map((r) => {
                       const n = normalizeResponsavel(r);
-                      return n.area ? `${n.cargo} — ${n.area}` : n.cargo;
+                      return n.area ? `${n.cargo} (${n.area})` : n.cargo;
                     }),
                   },
-                  { title: "Atores:", items: processo.atores || [] },
                   {
                     title: "Áreas Envolvidas",
                     items: processo.areas_responsaveis || [],
