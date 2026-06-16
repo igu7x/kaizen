@@ -63,8 +63,16 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-// Converter nome do mês para formato MM/YYYY
-function formatMesAno(mesNome: string): string {
+function formatMesAno(mesVal: string): string {
+  if (!mesVal) return "";
+  // Se for data ISO (YYYY-MM-DD), formata para MM/YYYY
+  if (mesVal.includes("-")) {
+    const parts = mesVal.split("-");
+    if (parts.length >= 2) {
+      return `${parts[1]}/${parts[0]}`;
+    }
+  }
+  // Mantém legado caso o back ainda mande "Janeiro"
   const mesesMap: Record<string, string> = {
     Janeiro: "01/2026",
     Fevereiro: "02/2026",
@@ -79,7 +87,7 @@ function formatMesAno(mesNome: string): string {
     Novembro: "11/2026",
     Dezembro: "12/2026",
   };
-  return mesesMap[mesNome] || mesNome;
+  return mesesMap[mesVal] || mesVal;
 }
 
 export function EsteiraContratacoes() {
@@ -100,7 +108,6 @@ export function EsteiraContratacoes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterArea, setFilterArea] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterResponsavel, setFilterResponsavel] = useState<string>("all");
   const [filterTipo, setFilterTipo] = useState<string>("all");
   const [filterMes, setFilterMes] = useState<string>("all");
 
@@ -115,7 +122,6 @@ export function EsteiraContratacoes() {
     item_pca: "",
     tipo: "Contratação",
     area_demandante: "",
-    responsavel: "",
     objeto: "",
     valor_estimado: 0,
     valor_formalizado: 0,
@@ -134,8 +140,6 @@ export function EsteiraContratacoes() {
   // Estados dos comboboxes de busca
   const [areaSearch, setAreaSearch] = useState("");
   const [areaDropdownOpen, setAreaDropdownOpen] = useState(false);
-  const [responsavelSearch, setResponsavelSearch] = useState("");
-  const [responsavelDropdownOpen, setResponsavelDropdownOpen] = useState(false);
 
   // Verificar se usuário pode editar (MANAGER ou ADMIN)
   const canEdit = user?.role === "MANAGER" || user?.role === "ADMIN";
@@ -180,15 +184,13 @@ export function EsteiraContratacoes() {
         const matchesSearch =
           item.item_pca.toLowerCase().includes(term) ||
           item.objeto.toLowerCase().includes(term) ||
-          item.area_demandante.toLowerCase().includes(term) ||
-          item.responsavel.toLowerCase().includes(term);
+          item.area_demandante.toLowerCase().includes(term);
         if (!matchesSearch) return false;
       }
       if (filterArea !== "all" && item.area_demandante !== filterArea)
         return false;
       if (filterStatus !== "all" && item.status !== filterStatus) return false;
-      if (filterResponsavel !== "all" && item.responsavel !== filterResponsavel)
-        return false;
+
       if (filterTipo !== "all" && (item.tipo || "Contratação") !== filterTipo)
         return false;
       if (filterMes !== "all" && item.data_estimada_contratacao !== filterMes)
@@ -200,7 +202,6 @@ export function EsteiraContratacoes() {
     searchTerm,
     filterArea,
     filterStatus,
-    filterResponsavel,
     filterTipo,
     filterMes,
   ]);
@@ -210,7 +211,7 @@ export function EsteiraContratacoes() {
     setSearchTerm("");
     setFilterArea("all");
     setFilterStatus("all");
-    setFilterResponsavel("all");
+
     setFilterTipo("all");
     setFilterMes("all");
   }
@@ -229,9 +230,6 @@ export function EsteiraContratacoes() {
       errors.push("Área demandante é obrigatória");
     }
 
-    if (!formData.responsavel.trim()) {
-      errors.push("Responsável é obrigatório");
-    }
 
     if (!formData.objeto.trim()) {
       errors.push("Objeto é obrigatório");
@@ -255,7 +253,6 @@ export function EsteiraContratacoes() {
       item_pca: "",
       tipo: "Contratação",
       area_demandante: "",
-      responsavel: "",
       objeto: "",
       valor_estimado: 0,
       valor_formalizado: 0,
@@ -266,8 +263,7 @@ export function EsteiraContratacoes() {
     setFormErrors([]);
     setAreaSearch("");
     setAreaDropdownOpen(false);
-    setResponsavelSearch("");
-    setResponsavelDropdownOpen(false);
+
   }
 
   // Abrir modal de adicionar
@@ -283,7 +279,6 @@ export function EsteiraContratacoes() {
       item_pca: item.item_pca,
       tipo: item.tipo || "Contratação",
       area_demandante: item.area_demandante,
-      responsavel: item.responsavel,
       objeto: item.objeto,
       valor_estimado: item.valor_estimado,
       valor_formalizado: item.valor_formalizado || 0,
@@ -346,7 +341,6 @@ export function EsteiraContratacoes() {
         item_pca: formData.item_pca,
         tipo: formData.tipo,
         area_demandante: formData.area_demandante,
-        responsavel: formData.responsavel,
         objeto: formData.objeto,
         valor_estimado: formData.valor_estimado,
         valor_formalizado: formData.valor_formalizado,
@@ -650,22 +644,7 @@ export function EsteiraContratacoes() {
                   className="pl-10 pr-4 h-10 w-60 bg-white border-gray-300 text-sm rounded-xl focus:border-slate-500 focus:ring-slate-500"
                 />
               </div>
-              <Select
-                value={filterResponsavel}
-                onValueChange={setFilterResponsavel}
-              >
-                <SelectTrigger className="h-10 w-48 bg-white border-gray-300 text-sm rounded-xl">
-                  <SelectValue placeholder="Responsável" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Responsáveis</SelectItem>
-                  {filters?.responsaveis.map((resp) => (
-                    <SelectItem key={resp} value={resp}>
-                      {resp}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
               <Select value={filterTipo} onValueChange={setFilterTipo}>
                 <SelectTrigger className="h-10 w-44 bg-white border-gray-300 text-sm rounded-xl">
                   <SelectValue placeholder="Contratações" />
@@ -783,13 +762,8 @@ export function EsteiraContratacoes() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h4 className="text-gray-900 font-semibold text-base truncate group-hover:text-blue-600 transition-colors">
-                        {item.item_pca}
+                        {parseInt(item.item_pca, 10) ? `PCA ${parseInt(item.item_pca, 10)}` : `PCA ${item.item_pca}`}
                       </h4>
-                      {item.responsavel && (
-                        <span className="text-xs text-gray-500 flex-shrink-0">
-                          — Responsável: {item.responsavel}
-                        </span>
-                      )}
                     </div>
                     <p className="text-xs text-gray-500 mt-1 line-clamp-2">
                       {item.objeto}
@@ -998,68 +972,7 @@ export function EsteiraContratacoes() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="responsavel">Responsável *</Label>
-              <div className="relative">
-                <Input
-                  id="responsavel"
-                  placeholder="Digite para buscar..."
-                  value={
-                    responsavelDropdownOpen
-                      ? responsavelSearch
-                      : formData.responsavel
-                  }
-                  onChange={(e) => {
-                    setResponsavelSearch(e.target.value);
-                    setResponsavelDropdownOpen(true);
-                  }}
-                  onFocus={() => {
-                    setResponsavelSearch(formData.responsavel);
-                    setResponsavelDropdownOpen(true);
-                  }}
-                  onBlur={() =>
-                    setTimeout(() => setResponsavelDropdownOpen(false), 150)
-                  }
-                  autoComplete="off"
-                />
-                {responsavelDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {pessoasList.filter((p) =>
-                      (p.nome_exibicao || p.nome)
-                        .toLowerCase()
-                        .includes(responsavelSearch.toLowerCase()),
-                    ).length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">
-                        Nenhum responsável encontrado
-                      </div>
-                    ) : (
-                      pessoasList
-                        .filter((p) =>
-                          (p.nome_exibicao || p.nome)
-                            .toLowerCase()
-                            .includes(responsavelSearch.toLowerCase()),
-                        )
-                        .map((p) => (
-                          <div
-                            key={p.id}
-                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                            onMouseDown={() => {
-                              setFormData((f) => ({
-                                ...f,
-                                responsavel: p.nome_exibicao || p.nome,
-                              }));
-                              setResponsavelDropdownOpen(false);
-                              setResponsavelSearch("");
-                            }}
-                          >
-                            {p.nome_exibicao || p.nome}
-                          </div>
-                        ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+
 
             <div className="space-y-2">
               <Label htmlFor="objeto">Objeto *</Label>
@@ -1300,68 +1213,7 @@ export function EsteiraContratacoes() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit_responsavel">Responsável *</Label>
-              <div className="relative">
-                <Input
-                  id="edit_responsavel"
-                  placeholder="Digite para buscar..."
-                  value={
-                    responsavelDropdownOpen
-                      ? responsavelSearch
-                      : formData.responsavel
-                  }
-                  onChange={(e) => {
-                    setResponsavelSearch(e.target.value);
-                    setResponsavelDropdownOpen(true);
-                  }}
-                  onFocus={() => {
-                    setResponsavelSearch(formData.responsavel);
-                    setResponsavelDropdownOpen(true);
-                  }}
-                  onBlur={() =>
-                    setTimeout(() => setResponsavelDropdownOpen(false), 150)
-                  }
-                  autoComplete="off"
-                />
-                {responsavelDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {pessoasList.filter((p) =>
-                      (p.nome_exibicao || p.nome)
-                        .toLowerCase()
-                        .includes(responsavelSearch.toLowerCase()),
-                    ).length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">
-                        Nenhum responsável encontrado
-                      </div>
-                    ) : (
-                      pessoasList
-                        .filter((p) =>
-                          (p.nome_exibicao || p.nome)
-                            .toLowerCase()
-                            .includes(responsavelSearch.toLowerCase()),
-                        )
-                        .map((p) => (
-                          <div
-                            key={p.id}
-                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                            onMouseDown={() => {
-                              setFormData((f) => ({
-                                ...f,
-                                responsavel: p.nome_exibicao || p.nome,
-                              }));
-                              setResponsavelDropdownOpen(false);
-                              setResponsavelSearch("");
-                            }}
-                          >
-                            {p.nome_exibicao || p.nome}
-                          </div>
-                        ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+
 
             <div className="space-y-2">
               <Label htmlFor="edit_objeto">Objeto *</Label>

@@ -244,9 +244,6 @@ export interface PcaItem {
   area_demandante: string;
   area_demandante_id: number | null;
   area_demandante_nome?: string;
-  responsavel: string;
-  responsavel_id: number | null;
-  responsavel_nome?: string;
   objeto: string;
   valor_estimado: number;
   valor_formalizado: number | null;
@@ -265,8 +262,6 @@ export interface CreatePcaItemDto {
   tipo?: PcaTipo;
   area_demandante: string;
   area_demandante_id?: number;
-  responsavel: string;
-  responsavel_id?: number;
   objeto: string;
   valor_estimado: number;
   valor_formalizado?: number;
@@ -280,8 +275,6 @@ export interface UpdatePcaItemDto {
   tipo?: PcaTipo;
   area_demandante?: string;
   area_demandante_id?: number;
-  responsavel?: string;
-  responsavel_id?: number;
   objeto?: string;
   valor_estimado?: number;
   valor_formalizado?: number;
@@ -300,7 +293,6 @@ export interface PcaStats {
 
 export interface PcaFilters {
   areasDemandantes: string[];
-  responsaveis: string[];
   meses: string[];
   statusOptions: PcaStatus[];
 }

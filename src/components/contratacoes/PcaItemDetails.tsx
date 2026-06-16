@@ -964,10 +964,6 @@ export function PcaItemDetailsPage() {
               {pcaItem.status}
             </Badge>
           </div>
-          <p className="text-gray-500 flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Responsável: {pcaItem.responsavel}
-          </p>
         </div>
       </div>
 
