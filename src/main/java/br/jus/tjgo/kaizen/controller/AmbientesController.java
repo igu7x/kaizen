@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.controller;
 
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.service.AmbientesService;
+import br.jus.tjgo.kaizen.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -22,12 +23,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AmbientesController {
 
-    private static final Set<String> DEV_EMAILS = Set.of(
-            "ifccupertino@tjgo.jus.br",
-            "acandrade@tjgo.jus.br",
-            "sgrocha@tjgo.jus.br");
-
     private final AmbientesService service;
+    private final UserService userService;
 
     /** devOnly: userId via principal ou header x-user-id; valida email == DEV_EMAIL. */
     private ResponseEntity<?> devOnly(HttpServletRequest req) {
@@ -45,8 +42,7 @@ public class AmbientesController {
         if (userId == 0) {
             return ResponseEntity.status(403).body(Map.of("error", "Acesso negado: usuário não identificado"));
         }
-        String email = service.getEmailById(userId);
-        if (email == null || !DEV_EMAILS.contains(email)) {
+        if (!userService.isDeveloper(userId)) {
             return ResponseEntity.status(403).body(Map.of("error", "Acesso negado: apenas desenvolvedores autorizados"));
         }
         return null;
@@ -149,8 +145,8 @@ public class AmbientesController {
         if (denied != null) {
             return denied;
         }
-        if (isBlank(body.get("email")) || isBlank(body.get("name"))) {
-            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: email, name"));
+        if (isBlank(body.get("email"))) {
+            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: email"));
         }
         Map<String, Object> admin = service.addAdmin(codigo, body, resolveUserId(req));
         return ResponseEntity.status(HttpStatus.CREATED).body(admin);
@@ -167,6 +163,38 @@ public class AmbientesController {
             return ResponseEntity.status(404).body(Map.of("error", "Usuário não encontrado"));
         }
         return ResponseEntity.ok(Map.of("message", "Admin removido com sucesso"));
+    }
+
+    @GetMapping("/developers")
+    public ResponseEntity<?> getDevelopers(HttpServletRequest req) {
+        ResponseEntity<?> denied = devOnly(req);
+        if (denied != null) {
+            return denied;
+        }
+        return ResponseEntity.ok(userService.getDevelopers());
+    }
+
+    @PostMapping("/developers")
+    public ResponseEntity<?> addDeveloper(HttpServletRequest req, @RequestBody Map<String, Object> body) {
+        ResponseEntity<?> denied = devOnly(req);
+        if (denied != null) {
+            return denied;
+        }
+        Map<String, Object> dev = userService.addDeveloper(body);
+        return ResponseEntity.status(HttpStatus.CREATED).body(dev);
+    }
+
+    @DeleteMapping("/developers/{userId:\\d+}")
+    public ResponseEntity<?> removeDeveloper(HttpServletRequest req, @PathVariable long userId) {
+        ResponseEntity<?> denied = devOnly(req);
+        if (denied != null) {
+            return denied;
+        }
+        boolean removed = userService.removeDeveloper(userId);
+        if (!removed) {
+            return ResponseEntity.status(404).body(Map.of("error", "Usuário não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("message", "Status de desenvolvedor removido com sucesso"));
     }
 
     private static boolean isBlank(Object v) {
