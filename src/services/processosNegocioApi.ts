@@ -12,7 +12,7 @@ export type ProcessoStatus =
   | "validado_final"
   | "recusado";
 
-export type TipoDocumentoAnexado = "MPS" | "POP" | "AUX" | "PRI";
+export type TipoDocumentoAnexado = "MPS" | "POP" | "AUX" | "PRI" | "FLUXOGRAMA";
 
 export interface DocumentoAnexado {
   tipo: TipoDocumentoAnexado;
@@ -34,6 +34,7 @@ export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoAnexado, string> = {
   POP: "POP — Procedimento Operacional Padrão",
   AUX: "Docs Auxiliares",
   PRI: "Documento Primário",
+  FLUXOGRAMA: "Fluxograma",
 };
 
 export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
@@ -41,7 +42,29 @@ export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
   POP: "bg-emerald-100 text-emerald-700 border-emerald-200",
   AUX: "bg-slate-100 text-slate-700 border-slate-200",
   PRI: "bg-violet-100 text-violet-700 border-violet-200",
+  FLUXOGRAMA: "bg-pink-100 text-pink-700 border-pink-200",
 };
+
+/**
+ * Resolve o fluxograma do processo: prefere o documento anexado tipo "FLUXOGRAMA";
+ * faz fallback para os campos legados fluxograma_* (processos antigos).
+ */
+export function getFluxograma(p: {
+  documentos_anexados?: DocumentoAnexado[] | null;
+  fluxograma_data?: string | null;
+  fluxograma_filename?: string | null;
+  fluxograma_mime?: string | null;
+}): { data: string | null; filename: string | null; mime: string | null } {
+  const doc = (p.documentos_anexados || []).find(
+    (d) => d.tipo === "FLUXOGRAMA",
+  );
+  if (doc) return { data: doc.data, filename: doc.nome, mime: doc.mime };
+  return {
+    data: p.fluxograma_data ?? null,
+    filename: p.fluxograma_filename ?? null,
+    mime: p.fluxograma_mime ?? null,
+  };
+}
 
 /**
  * Responsável por um processo: área + cargo (camada 1 = área, camada 2 = cargo).

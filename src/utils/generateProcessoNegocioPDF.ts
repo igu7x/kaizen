@@ -3,6 +3,7 @@ import type { ProcessoNegocio } from "../services/processosNegocioApi";
 import {
   normalizeResponsavel,
   REVISAO_POLITICA_TEXTO,
+  getFluxograma,
 } from "../services/processosNegocioApi";
 import { TIPO_DOCUMENTO_LABEL } from "../services/processosNegocioApi";
 import { P_CENT_BASE64 } from "./pCentBase64";
@@ -865,15 +866,13 @@ export function generateProcessoNegocioPDF(
   // 7. Modelagem / Fluxograma
   y = checkPageBreak(doc, y, 30);
   y = drawNumberedSectionHeader(doc, 7, "Modelagem / Fluxograma", y);
-  if (
-    processo.fluxograma_data &&
-    processo.fluxograma_mime?.startsWith("image/")
-  ) {
+  const flux = getFluxograma(processo);
+  if (flux.data && flux.mime?.startsWith("image/")) {
     // Embedar imagem mantendo proporção
     try {
-      const fmt = processo.fluxograma_mime.includes("png")
+      const fmt = flux.mime.includes("png")
         ? "PNG"
-        : processo.fluxograma_mime.includes("webp")
+        : flux.mime.includes("webp")
           ? "WEBP"
           : "JPEG";
       // Estimar altura via tag <img> dinâmica não é trivial em jsPDF; assumimos largura full
@@ -882,7 +881,7 @@ export function generateProcessoNegocioPDF(
       const imgH = imgW * 0.5; // proporção segura pra diagrama
       y = checkPageBreak(doc, y, imgH + 4);
       doc.addImage(
-        processo.fluxograma_data,
+        flux.data,
         fmt as any,
         MARGIN_LEFT,
         y + 2,
@@ -897,18 +896,15 @@ export function generateProcessoNegocioPDF(
     } catch (e) {
       y = drawMultilineContent(
         doc,
-        `Fluxograma anexado: ${processo.fluxograma_filename || ""} (não foi possível incorporar a imagem no PDF)`,
+        `Fluxograma anexado: ${flux.filename || ""} (não foi possível incorporar a imagem no PDF)`,
         y,
         16,
       );
     }
-  } else if (
-    processo.fluxograma_data &&
-    processo.fluxograma_mime === "application/pdf"
-  ) {
+  } else if (flux.data && flux.mime === "application/pdf") {
     y = drawMultilineContent(
       doc,
-      `Fluxograma em PDF anexado: ${processo.fluxograma_filename || ""}`,
+      `Fluxograma em PDF anexado: ${flux.filename || ""}`,
       y,
       16,
     );
