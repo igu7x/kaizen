@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { isDevEmail } from "@/utils/devEmails";
 import { cn } from "@/lib/utils";
 import {
   Target,
@@ -205,7 +204,7 @@ function MenuItemComponent({
   }
 
   // Itens devOnly só aparecem para desenvolvedores
-  if (item.devOnly && !isDevEmail(user?.email)) {
+  if (item.devOnly && !user?.is_developer) {
     return null;
   }
 

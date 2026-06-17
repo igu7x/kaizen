@@ -4,7 +4,6 @@ import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { useDirectorate } from "@/contexts/DirectorateContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { isDevEmail } from "@/utils/devEmails";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,7 +16,7 @@ export function Layout({ children }: LayoutProps) {
   const { user } = useAuth();
   const { devEnvironment, setDevEnvironment } = useDirectorate();
   const showDevBanner =
-    isDevEmail(user?.email) &&
+    !!user?.is_developer &&
     devEnvironment &&
     location.pathname !== "/desenvolvimento";
   const isHomePage = location.pathname === "/";

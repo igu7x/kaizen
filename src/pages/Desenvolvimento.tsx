@@ -69,7 +69,13 @@ export default function Desenvolvimento() {
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [savingAdmin, setSavingAdmin] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
-  const [newAdminName, setNewAdminName] = useState("");
+
+  // Devs modal state
+  const [devModalOpen, setDevModalOpen] = useState(false);
+  const [developers, setDevelopers] = useState<AmbienteAdmin[]>([]);
+  const [loadingDevs, setLoadingDevs] = useState(false);
+  const [savingDev, setSavingDev] = useState(false);
+  const [newDevEmail, setNewDevEmail] = useState("");
 
   // Carregar ambientes
   const carregarAmbientes = async () => {
@@ -157,7 +163,6 @@ export default function Desenvolvimento() {
     setAdminModalCodigo(codigo);
     setAdminModalOpen(true);
     setNewAdminEmail("");
-    setNewAdminName("");
     try {
       setLoadingAdmins(true);
       const data = await ambientesApi.getAdmins(codigo);
@@ -171,10 +176,10 @@ export default function Desenvolvimento() {
 
   // Adicionar admin
   const handleAddAdmin = async () => {
-    if (!newAdminEmail.trim() || !newAdminName.trim()) {
+    if (!newAdminEmail.trim()) {
       toast({
-        title: "Campos obrigatorios",
-        description: "Preencha email e nome.",
+        title: "Campos obrigatórios",
+        description: "Preencha o email.",
         variant: "destructive",
       });
       return;
@@ -183,10 +188,8 @@ export default function Desenvolvimento() {
       setSavingAdmin(true);
       await ambientesApi.addAdmin(adminModalCodigo, {
         email: newAdminEmail.trim(),
-        name: newAdminName.trim(),
       });
       setNewAdminEmail("");
-      setNewAdminName("");
       // Recarregar lista
       const data = await ambientesApi.getAdmins(adminModalCodigo);
       setAdmins(data);
@@ -206,6 +209,57 @@ export default function Desenvolvimento() {
       setAdmins(data);
     } catch (error: any) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+    }
+  };
+
+  // Funções para Devs
+  const handleOpenDevs = async () => {
+    setDevModalOpen(true);
+    setNewDevEmail("");
+    try {
+      setLoadingDevs(true);
+      const data = await ambientesApi.getDevelopers();
+      setDevelopers(data);
+    } catch (error) {
+      /* ignorado */
+    } finally {
+      setLoadingDevs(false);
+    }
+  };
+
+  const handleAddDev = async () => {
+    if (!newDevEmail.trim()) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha o email.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setSavingDev(true);
+      await ambientesApi.addDeveloper({
+        email: newDevEmail.trim(),
+      });
+      setNewDevEmail("");
+      const data = await ambientesApi.getDevelopers();
+      setDevelopers(data);
+    } catch (error: any) {
+      /* ignorado */
+    } finally {
+      setSavingDev(false);
+    }
+  };
+
+  const handleRemoveDev = async (userId: number) => {
+    try {
+      await ambientesApi.removeDeveloper(userId);
+      const data = await ambientesApi.getDevelopers();
+      setDevelopers(data);
+    } catch (error: any) {
+      if (error.response?.data?.error) {
+        toast({ title: "Erro", description: error.response.data.error, variant: "destructive" });
+      }
     }
   };
 
@@ -252,13 +306,23 @@ export default function Desenvolvimento() {
                 </p>
               </div>
             </div>
-            <Button
-              onClick={handleNovoAmbiente}
-              className="bg-violet-600 hover:bg-violet-700 text-white"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Ambiente
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleOpenDevs}
+                className="bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300"
+              >
+                <Code className="h-4 w-4 mr-2" />
+                Gerenciar Devs
+              </Button>
+              <Button
+                onClick={handleNovoAmbiente}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Ambiente
+              </Button>
+            </div>
           </div>
 
           {/* Loading */}
@@ -573,12 +637,6 @@ export default function Desenvolvimento() {
                 placeholder="Email"
                 className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
               />
-              <Input
-                value={newAdminName}
-                onChange={(e) => setNewAdminName(e.target.value)}
-                placeholder="Nome"
-                className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
-              />
               <Button
                 onClick={handleAddAdmin}
                 disabled={savingAdmin}
@@ -601,6 +659,88 @@ export default function Desenvolvimento() {
             <Button
               variant="ghost"
               onClick={() => setAdminModalOpen(false)}
+              className="text-white/70 hover:text-white hover:bg-white/10"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Gerenciar Devs */}
+      <Dialog open={devModalOpen} onOpenChange={setDevModalOpen}>
+        <DialogContent className="bg-[#0a1929] border-white/10 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Code className="h-5 w-5 text-cyan-400" />
+              Desenvolvedores do Sistema
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Gerencie os desenvolvedores com acesso global a todos os ambientes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-white/70 text-sm">Desenvolvedores Atuais</Label>
+              {loadingDevs ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+                </div>
+              ) : developers.length === 0 ? (
+                <p className="text-xs text-white/30 py-2">Nenhum dev cadastrado.</p>
+              ) : (
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {developers.map((dev) => (
+                    <div
+                      key={dev.id}
+                      className="flex items-center justify-between bg-white/5 rounded px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-white truncate">{dev.name}</p>
+                        <p className="text-xs text-white/40 truncate">{dev.email}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveDev(dev.id)}
+                        className="ml-2 p-1 rounded hover:bg-red-500/20 text-white/30 hover:text-red-400 transition-colors"
+                        title="Remover dev"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 pt-3 border-t border-white/10">
+              <Label className="text-white/70 text-sm flex items-center gap-1.5">
+                <UserPlus className="h-3.5 w-3.5" />
+                Adicionar novo Desenvolvedor
+              </Label>
+              <Input
+                value={newDevEmail}
+                onChange={(e) => setNewDevEmail(e.target.value)}
+                placeholder="Email"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+              />
+              <Button
+                onClick={handleAddDev}
+                disabled={savingDev}
+                size="sm"
+                className="bg-cyan-600 hover:bg-cyan-700 text-white w-full"
+              >
+                {savingDev && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                Adicionar Desenvolvedor
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setDevModalOpen(false)}
               className="text-white/70 hover:text-white hover:bg-white/10"
             >
               Fechar
