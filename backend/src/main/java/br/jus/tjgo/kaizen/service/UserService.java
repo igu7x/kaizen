@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Porte fiel de user.service.ts + base.service.ts (parte de users).
@@ -44,9 +45,52 @@ public class UserService {
         dto.put("matricula", u.get("matricula"));
         dto.put("cargo_funcao", u.get("cargo_funcao"));
         dto.put("foto_perfil", u.get("foto_perfil"));
+        dto.put("is_developer", Boolean.TRUE.equals(u.get("is_developer")));
         dto.put("created_at", u.get("created_at"));
         dto.put("updated_at", u.get("updated_at"));
         return dto;
+    }
+
+    public boolean isDeveloper(long userId) {
+        Map<String, Object> user = findOneRaw(userId);
+        return user != null && Boolean.TRUE.equals(user.get("is_developer"));
+    }
+
+    public List<Map<String, Object>> getDevelopers() {
+        var rows = jdbc.queryForList("SELECT * FROM users WHERE is_developer = TRUE AND is_deleted = FALSE ORDER BY name");
+        return rows.stream().map(this::toResponseDto).toList();
+    }
+
+    public Map<String, Object> addDeveloper(Map<String, Object> data) {
+        String email = data.get("email") != null ? String.valueOf(data.get("email")).trim() : null;
+        if (email == null || email.isBlank()) {
+            throw new ApiException(400, "Campos obrigatórios: email");
+        }
+        var existing = jdbc.queryForList("SELECT id, is_deleted, status FROM users WHERE email = ?", email);
+        if (existing.isEmpty()) {
+            throw new ApiException(404, "Usuário não encontrado. O e-mail deve estar previamente cadastrado.");
+        }
+        Map<String, Object> user = existing.get(0);
+        if (Boolean.TRUE.equals(user.get("is_deleted")) || !"ACTIVE".equals(user.get("status"))) {
+            throw new ApiException(400, "Usuário inativo ou excluído. Não é possível conceder permissões.");
+        }
+        return jdbc.queryForMap(
+                "UPDATE users SET is_developer = TRUE, updated_at = NOW() WHERE email = ? RETURNING *",
+                email);
+    }
+
+    public boolean removeDeveloper(long userId) {
+        Map<String, Object> user = findOneRaw(userId);
+        if (user == null) {
+            return false;
+        }
+        String email = String.valueOf(user.get("email"));
+        if ("ifccupertino@tjgo.jus.br".equals(email) ||
+            "acandrade@tjgo.jus.br".equals(email) ||
+            "sgrocha@tjgo.jus.br".equals(email)) {
+            throw new ApiException(400, "Não é possível remover o status de desenvolvedor destes e-mails nativos.");
+        }
+        return jdbc.update("UPDATE users SET is_developer = FALSE, updated_at = NOW() WHERE id = ? AND is_deleted = FALSE", userId) > 0;
     }
 
     // ---------- leitura ----------
