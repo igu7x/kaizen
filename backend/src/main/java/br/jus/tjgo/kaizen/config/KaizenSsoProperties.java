@@ -13,6 +13,7 @@ public class KaizenSsoProperties {
     private boolean enabled;
     private String realm;
     private String clientId;
+    private String clientSecret;
     private String keycloakUrl;
     private String redirectUri;
 }
