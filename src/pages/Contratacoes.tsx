@@ -10,6 +10,8 @@ export default function Contratacoes() {
   const location = useLocation();
   const [isAnimating, setIsAnimating] = useState(false);
 
+  const [anoSelecionado, setAnoSelecionado] = useState(2026);
+
   // Trigger animation on route change
   useEffect(() => {
     setIsAnimating(true);
@@ -20,10 +22,10 @@ export default function Contratacoes() {
   // Renderizar conteúdo baseado na URL
   const renderContent = () => {
     if (location.pathname.includes("/renovacoes")) {
-      return <EsteiraRenovacoes />;
+      return <EsteiraRenovacoes anoSelecionado={anoSelecionado} setAnoSelecionado={setAnoSelecionado} />;
     }
     // Padrão: Novas Contratações
-    return <EsteiraContratacoes />;
+    return <EsteiraContratacoes anoSelecionado={anoSelecionado} setAnoSelecionado={setAnoSelecionado} />;
   };
 
   const isRenovacoes = location.pathname.includes("/renovacoes");
@@ -34,7 +36,7 @@ export default function Contratacoes() {
         <Breadcrumbs
           items={[
             { label: "Contratações de TI", to: "/contratacoes-ti" },
-            { label: isRenovacoes ? "Renovações" : "Novas Contratações" },
+            { label: isRenovacoes ? "Renovações" : "PCAs" },
           ]}
         />
         {/* Header da página */}
@@ -44,10 +46,10 @@ export default function Contratacoes() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Contratações de TI
+              Plano de Contratações Anual {anoSelecionado}
             </h1>
             <p className="text-gray-500 text-sm">
-              Gestão de contratações e renovações do PCA 2026
+              Gestão de contratações e renovações
             </p>
           </div>
         </div>

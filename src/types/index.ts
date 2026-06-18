@@ -249,39 +249,66 @@ export interface PcaItem {
   valor_estimado: number;
   valor_formalizado: number | null;
   data_estimada_contratacao: string;
-  status: PcaStatus;
+  status: PcaStatus | string | number;
   ano: number;
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
   created_by: number | null;
   updated_by: number | null;
+
+  // Novos campos do domínio Pca.java
+  code?: string;
+  year?: string;
+  description?: string;
+  justification?: string;
+  process?: string;
+  financial_resource_type?: string;
+  contract_type?: string;
+  object_name?: string;
+  directory_acronym?: string;
+  estimated_value_cents?: number;
+  priority?: string;
+  step?: string;
+  estimated_date?: string;
 }
 
 export interface CreatePcaItemDto {
   item_pca: string;
-  tipo?: PcaTipo;
+  tipo?: PcaTipo | string;
   area_demandante: string;
   area_demandante_id?: number;
   objeto: string;
   valor_estimado: number;
   valor_formalizado?: number;
   data_estimada_contratacao: string;
-  status?: PcaStatus;
+  status?: PcaStatus | string | number;
   ano?: number;
+  description?: string;
+  justification?: string;
+  process?: string;
+  financial_resource_type?: string;
+  priority?: string;
+  step?: string;
 }
 
 export interface UpdatePcaItemDto {
   item_pca?: string;
-  tipo?: PcaTipo;
+  tipo?: PcaTipo | string;
   area_demandante?: string;
   area_demandante_id?: number;
   objeto?: string;
   valor_estimado?: number;
   valor_formalizado?: number;
   data_estimada_contratacao?: string;
-  status?: PcaStatus;
+  status?: PcaStatus | string | number;
   ano?: number;
+  description?: string;
+  justification?: string;
+  process?: string;
+  financial_resource_type?: string;
+  priority?: string;
+  step?: string;
 }
 
 export interface PcaStats {

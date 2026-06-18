@@ -90,7 +90,12 @@ function formatMesAno(mesVal: string): string {
   return mesesMap[mesVal] || mesVal;
 }
 
-export function EsteiraContratacoes() {
+interface EsteiraContratacoesProps {
+  anoSelecionado: number;
+  setAnoSelecionado: (ano: number) => void;
+}
+
+export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: EsteiraContratacoesProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -102,7 +107,6 @@ export function EsteiraContratacoes() {
   const [filters, setFilters] = useState<PcaFilters | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [anoSelecionado, setAnoSelecionado] = useState<number>(2026);
 
   // Estados de filtros ativos
   const [searchTerm, setSearchTerm] = useState("");
@@ -128,13 +132,17 @@ export function EsteiraContratacoes() {
     data_estimada_contratacao: "",
     status: "Não Iniciada",
     ano: 2026,
+    process: "",
+    description: "",
+    justification: "",
+    financial_resource_type: "",
+    priority: "",
+    step: "",
   });
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // Listas para comboboxes de área demandante e responsável
-  const [areasList, setAreasList] = useState<
-    (Unidade & { area_nome?: string; area_sigla?: string })[]
-  >([]);
+  const [areasList, setAreasList] = useState<Area[]>([]);
   const [pessoasList, setPessoasList] = useState<Pessoa[]>([]);
 
   // Estados dos comboboxes de busca
@@ -149,13 +157,13 @@ export function EsteiraContratacoes() {
     loadData();
     // Carregar áreas e pessoas para os selects (apenas uma vez)
     areasApi
-      .getAllUnidades(selectedDirectorate || undefined)
+      .getAll()
       .then(setAreasList)
-      .catch(() => {});
+      .catch(() => { });
     pessoasApi
       .getAll(selectedDirectorate || undefined)
       .then(setPessoasList)
-      .catch(() => {});
+      .catch(() => { });
   }, [anoSelecionado, selectedDirectorate]);
 
   async function loadData() {
@@ -259,6 +267,12 @@ export function EsteiraContratacoes() {
       data_estimada_contratacao: "",
       status: "Não Iniciada",
       ano: anoSelecionado,
+      process: "",
+      description: "",
+      justification: "",
+      financial_resource_type: "",
+      priority: "",
+      step: "",
     });
     setFormErrors([]);
     setAreaSearch("");
@@ -276,15 +290,21 @@ export function EsteiraContratacoes() {
   function openEditModal(item: PcaItem) {
     setSelectedItem(item);
     setFormData({
-      item_pca: item.item_pca,
-      tipo: item.tipo || "Contratação",
-      area_demandante: item.area_demandante,
-      objeto: item.objeto,
-      valor_estimado: item.valor_estimado,
+      item_pca: item.code || item.item_pca,
+      tipo: item.contract_type || item.tipo || "Contratação",
+      area_demandante: item.directory_acronym || item.area_demandante,
+      objeto: item.object_name || item.objeto,
+      valor_estimado: item.estimated_value_cents ? item.estimated_value_cents / 100 : item.valor_estimado,
       valor_formalizado: item.valor_formalizado || 0,
-      data_estimada_contratacao: item.data_estimada_contratacao,
+      data_estimada_contratacao: item.estimated_date || item.data_estimada_contratacao,
       status: item.status,
-      ano: item.ano,
+      ano: item.ano || (item.year ? parseInt(item.year, 10) : anoSelecionado),
+      process: item.process || "",
+      description: item.description || "",
+      justification: item.justification || "",
+      financial_resource_type: item.financial_resource_type || "",
+      priority: item.priority || "",
+      step: item.step || "",
     });
     setFormErrors([]);
     setIsEditModalOpen(true);
@@ -346,6 +366,12 @@ export function EsteiraContratacoes() {
         valor_formalizado: formData.valor_formalizado,
         data_estimada_contratacao: formData.data_estimada_contratacao,
         status: formData.status,
+        process: formData.process,
+        description: formData.description,
+        justification: formData.justification,
+        financial_resource_type: formData.financial_resource_type,
+        priority: formData.priority,
+        step: formData.step,
       };
 
       const updated = await pcaApi.updatePcaItem(selectedItem.id, updateData);
@@ -501,35 +527,19 @@ export function EsteiraContratacoes() {
       {/* Seletor de Ano */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Plano de Contratações de TIC
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAnoSelecionado(2026)}
-              className={`px-3 py-1 rounded-md text-sm font-medium border transition-colors ${
-                anoSelecionado === 2026
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600"
-              }`}
-            >
-              2026
-            </button>
-            <Select
-              value={anoSelecionado !== 2026 ? String(anoSelecionado) : ""}
-              onValueChange={(v) => setAnoSelecionado(parseInt(v))}
-            >
-              <SelectTrigger
-                className={`w-[130px] h-8 text-sm border ${anoSelecionado !== 2026 ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300"}`}
-              >
-                <SelectValue placeholder="Outros anos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2027">2027</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select
+            value={String(anoSelecionado)}
+            onValueChange={(v) => setAnoSelecionado(parseInt(v))}
+          >
+            <SelectTrigger className="w-[130px] h-9 font-medium text-sm bg-white text-gray-700 border-gray-300">
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2025">2025</SelectItem>
+              <SelectItem value="2026">2026</SelectItem>
+              <SelectItem value="2027">2027</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {canEdit && (
           <Button
@@ -737,11 +747,10 @@ export function EsteiraContratacoes() {
                 <div className="flex items-center gap-4 min-w-0 flex-1">
                   <div className="flex flex-col items-center gap-3 flex-shrink-0">
                     <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${
-                        item.tipo === "Renovação"
-                          ? "bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/30"
-                          : "bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/30"
-                      }`}
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${item.tipo === "Renovação"
+                        ? "bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/30"
+                        : "bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/30"
+                        }`}
                     >
                       {item.tipo === "Renovação" ? (
                         <RefreshCw className="h-5 w-5 text-white" />
@@ -750,11 +759,10 @@ export function EsteiraContratacoes() {
                       )}
                     </div>
                     <span
-                      className={`text-xs font-medium leading-none ${
-                        item.tipo === "Renovação"
-                          ? "text-emerald-600"
-                          : "text-blue-600"
-                      }`}
+                      className={`text-xs font-medium leading-none ${item.tipo === "Renovação"
+                        ? "text-emerald-600"
+                        : "text-blue-600"
+                        }`}
                     >
                       {item.tipo === "Renovação" ? "Renovação" : "Nova"}
                     </span>
@@ -765,7 +773,7 @@ export function EsteiraContratacoes() {
                         {parseInt(item.item_pca, 10) ? `PCA ${parseInt(item.item_pca, 10)}` : `PCA ${item.item_pca}`}
                       </h4>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                    <p className="text-xs text-gray-500 mt-1">
                       {item.objeto}
                     </p>
                   </div>
@@ -868,7 +876,7 @@ export function EsteiraContratacoes() {
           )}
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="item_pca">Item do PCA *</Label>
                 <Input
@@ -877,6 +885,17 @@ export function EsteiraContratacoes() {
                   value={formData.item_pca}
                   onChange={(e) =>
                     setFormData({ ...formData, item_pca: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ano">Ano *</Label>
+                <Input
+                  id="ano"
+                  type="number"
+                  value={formData.ano}
+                  onChange={(e) =>
+                    setFormData({ ...formData, ano: parseInt(e.target.value) || new Date().getFullYear() })
                   }
                 />
               </div>
@@ -926,12 +945,12 @@ export function EsteiraContratacoes() {
                           a.nome
                             .toLowerCase()
                             .includes(areaSearch.toLowerCase()) ||
-                          (a.area_sigla || "")
+                          (a.sigla || "")
                             .toLowerCase()
                             .includes(areaSearch.toLowerCase()),
                       ).length === 0 ? (
                         <div className="px-3 py-2 text-sm text-gray-500">
-                          Nenhuma unidade encontrada
+                          Nenhuma área encontrada
                         </div>
                       ) : (
                         areasList
@@ -940,7 +959,7 @@ export function EsteiraContratacoes() {
                               a.nome
                                 .toLowerCase()
                                 .includes(areaSearch.toLowerCase()) ||
-                              (a.area_sigla || "")
+                              (a.sigla || "")
                                 .toLowerCase()
                                 .includes(areaSearch.toLowerCase()),
                           )
@@ -951,16 +970,16 @@ export function EsteiraContratacoes() {
                               onMouseDown={() => {
                                 setFormData((f) => ({
                                   ...f,
-                                  area_demandante: a.nome,
+                                  area_demandante: a.sigla || a.nome,
                                 }));
                                 setAreaDropdownOpen(false);
-                                setAreaSearch("");
+                                setAreaSearch(a.sigla || a.nome);
                               }}
                             >
                               <span>{a.nome}</span>
-                              {a.area_sigla && (
+                              {a.sigla && (
                                 <span className="text-gray-400 ml-1">
-                                  ({a.area_sigla})
+                                  ({a.sigla})
                                 </span>
                               )}
                             </div>
@@ -974,20 +993,116 @@ export function EsteiraContratacoes() {
 
 
 
-            <div className="space-y-2">
-              <Label htmlFor="objeto">Objeto *</Label>
-              <Textarea
-                id="objeto"
-                placeholder="Descrição detalhada da contratação"
-                rows={4}
-                value={formData.objeto}
-                onChange={(e) =>
-                  setFormData({ ...formData, objeto: e.target.value })
-                }
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="objeto">Objeto *</Label>
+                <Textarea
+                  id="objeto"
+                  placeholder="Descrição detalhada da contratação"
+                  rows={2}
+                  value={formData.objeto}
+                  onChange={(e) =>
+                    setFormData({ ...formData, objeto: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="process">Processo</Label>
+                <Input
+                  id="process"
+                  placeholder="Ex: SEI..."
+                  value={formData.process || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, process: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Descrição da contratação"
+                  rows={2}
+                  value={formData.description || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="justification">Justificativa</Label>
+                <Textarea
+                  id="justification"
+                  placeholder="Justificativa da necessidade"
+                  rows={2}
+                  value={formData.justification || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, justification: e.target.value })
+                  }
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="financial_resource_type">Tipo de Recurso</Label>
+                <Select
+                  value={formData.financial_resource_type || undefined}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, financial_resource_type: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Investimento">Investimento</SelectItem>
+                    <SelectItem value="Custeio">Custeio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="priority">Grau de Prioridade</Label>
+                <Select
+                  value={formData.priority || undefined}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, priority: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Alto">Alto</SelectItem>
+                    <SelectItem value="Médio">Médio</SelectItem>
+                    <SelectItem value="Baixo">Baixo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="step">Etapa</Label>
+                <Select
+                  value={formData.step || undefined}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, step: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
+                    <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
+                    <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="valor_estimado">Valor Estimado (R$) *</Label>
                 <Input
@@ -1001,25 +1116,6 @@ export function EsteiraContratacoes() {
                     setFormData({
                       ...formData,
                       valor_estimado: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="valor_formalizado">
-                  Valor Formalizado (R$)
-                </Label>
-                <Input
-                  id="valor_formalizado"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                  value={formData.valor_formalizado || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      valor_formalizado: parseFloat(e.target.value) || 0,
                     })
                   }
                 />
@@ -1109,7 +1205,7 @@ export function EsteiraContratacoes() {
           )}
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_item_pca">Item do PCA *</Label>
                 <Input
@@ -1118,6 +1214,17 @@ export function EsteiraContratacoes() {
                   value={formData.item_pca}
                   onChange={(e) =>
                     setFormData({ ...formData, item_pca: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_ano">Ano *</Label>
+                <Input
+                  id="edit_ano"
+                  type="number"
+                  value={formData.ano}
+                  onChange={(e) =>
+                    setFormData({ ...formData, ano: parseInt(e.target.value) || new Date().getFullYear() })
                   }
                 />
               </div>
@@ -1215,17 +1322,113 @@ export function EsteiraContratacoes() {
 
 
 
-            <div className="space-y-2">
-              <Label htmlFor="edit_objeto">Objeto *</Label>
-              <Textarea
-                id="edit_objeto"
-                placeholder="Descrição detalhada da contratação"
-                rows={4}
-                value={formData.objeto}
-                onChange={(e) =>
-                  setFormData({ ...formData, objeto: e.target.value })
-                }
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_objeto">Objeto *</Label>
+                <Textarea
+                  id="edit_objeto"
+                  placeholder="Descrição detalhada da contratação"
+                  rows={2}
+                  value={formData.objeto}
+                  onChange={(e) =>
+                    setFormData({ ...formData, objeto: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_process">Processo</Label>
+                <Input
+                  id="edit_process"
+                  placeholder="Ex: SEI..."
+                  value={formData.process || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, process: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_description">Descrição</Label>
+                <Textarea
+                  id="edit_description"
+                  placeholder="Descrição da contratação"
+                  rows={2}
+                  value={formData.description || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_justification">Justificativa</Label>
+                <Textarea
+                  id="edit_justification"
+                  placeholder="Justificativa da necessidade"
+                  rows={2}
+                  value={formData.justification || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, justification: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_financial_resource_type">Tipo de Recurso</Label>
+                <Select
+                  value={formData.financial_resource_type || undefined}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, financial_resource_type: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Investimento">Investimento</SelectItem>
+                    <SelectItem value="Custeio">Custeio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_priority">Grau de Prioridade</Label>
+                <Select
+                  value={formData.priority || undefined}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, priority: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Alto">Alto</SelectItem>
+                    <SelectItem value="Médio">Médio</SelectItem>
+                    <SelectItem value="Baixo">Baixo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_step">Etapa</Label>
+                <Select
+                  value={formData.step || undefined}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, step: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
+                    <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
+                    <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">

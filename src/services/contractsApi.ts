@@ -76,12 +76,34 @@ export async function deleteContract(id: number): Promise<void> {
   });
 }
 
+// Relacionamento N:N com PCAs
+export async function getContractPcas(id: number): Promise<any[]> {
+  return apiClient.get<any[]>(`/api/contracts/${id}/pcas`, {
+    headers: getUserHeaders()
+  });
+}
+
+export async function linkPcas(id: number, pcaIds: number[]): Promise<void> {
+  return apiClient.post<void>(`/api/contracts/${id}/pcas`, { pcaIds }, {
+    headers: getUserHeaders()
+  });
+}
+
+export async function unlinkPca(id: number, pcaId: number): Promise<void> {
+  return apiClient.delete<void>(`/api/contracts/${id}/pcas/${pcaId}`, {
+    headers: getUserHeaders()
+  });
+}
+
 export const contractsApi = {
   getContracts,
   getContractById,
   createContract,
   updateContract,
-  deleteContract
+  deleteContract,
+  getContractPcas,
+  linkPcas,
+  unlinkPca
 };
 
 export default contractsApi;

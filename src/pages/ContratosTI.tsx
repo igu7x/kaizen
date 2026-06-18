@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Contract } from '@/types';
 import { contractsApi, ContractFilters as ApiContractFilters } from '@/services/contractsApi';
+import { areasApi } from '@/services/areasApi';
+import type { Area } from '@/services/areasApi';
 import { ContractList } from '@/components/contratacoes/ContractList';
 import { ContractFilters } from '@/components/contratacoes/ContractFilters';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +32,11 @@ export function ContratosTI() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Áreas/Unidades State
+  const [areasList, setAreasList] = useState<Area[]>([]);
+  const [areaSearch, setAreaSearch] = useState("");
+  const [areaDropdownOpen, setAreaDropdownOpen] = useState(false);
 
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -122,6 +129,10 @@ export function ContratosTI() {
   useEffect(() => {
     fetchContracts();
   }, [filters]);
+
+  useEffect(() => {
+    areasApi.getAll().then(setAreasList).catch(() => {});
+  }, []);
 
   const handleInputChange = (field: keyof Contract, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -300,11 +311,72 @@ export function ContratosTI() {
 
             <div className="space-y-2">
               <Label>Diretoria / Unidade</Label>
-              <Input
-                value={formData.directory || ''}
-                onChange={(e) => handleInputChange('directory', e.target.value)}
-                placeholder="Ex: DSTI"
-              />
+              <div className="relative">
+                <Input
+                  placeholder="Digite para buscar..."
+                  value={
+                    areaDropdownOpen ? areaSearch : formData.directory || ""
+                  }
+                  onChange={(e) => {
+                    setAreaSearch(e.target.value);
+                    setAreaDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    setAreaSearch(formData.directory || "");
+                    setAreaDropdownOpen(true);
+                  }}
+                  onBlur={() =>
+                    setTimeout(() => setAreaDropdownOpen(false), 150)
+                  }
+                  autoComplete="off"
+                />
+                {areaDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {areasList.filter(
+                      (a) =>
+                        a.nome
+                          .toLowerCase()
+                          .includes(areaSearch.toLowerCase()) ||
+                        (a.sigla || "")
+                          .toLowerCase()
+                          .includes(areaSearch.toLowerCase()),
+                    ).length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">
+                        Nenhuma área encontrada
+                      </div>
+                    ) : (
+                      areasList
+                        .filter(
+                          (a) =>
+                            a.nome
+                              .toLowerCase()
+                              .includes(areaSearch.toLowerCase()) ||
+                            (a.sigla || "")
+                              .toLowerCase()
+                              .includes(areaSearch.toLowerCase()),
+                        )
+                        .map((a) => (
+                          <div
+                            key={a.id}
+                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                            onMouseDown={() => {
+                              handleInputChange('directory', a.sigla || a.nome);
+                              setAreaDropdownOpen(false);
+                              setAreaSearch(a.sigla || a.nome);
+                            }}
+                          >
+                            <span>{a.nome}</span>
+                            {a.sigla && (
+                              <span className="text-gray-400 ml-1">
+                                ({a.sigla})
+                              </span>
+                            )}
+                          </div>
+                        ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2 md:col-span-2">
