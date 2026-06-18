@@ -5,20 +5,21 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
 } from "../services/processosNegocioApi";
-import { TIPO_DOCUMENTO_LABEL } from "../services/processosNegocioApi";
-import { P_CENT_BASE64 } from "./pCentBase64";
+import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
 
 // ============================================================
-// Paleta — usa o mesmo bege/amber do template institucional
+// Paleta institucional revisada (mockup TJGO / Secretaria de
+// Governança Judiciária e Tecnológica)
 // ============================================================
-const TEXT_DARK = [15, 23, 42] as const;
-const ACCENT = [55, 65, 81] as const; // #374151 — cinza escuro institucional
-const ACCENT_BG_LIGHT = [241, 245, 249] as const; // #F1F5F9 — cinza claro harmonizado
-const BORDER_GRAY = [203, 213, 225] as const;
+const TEXT_DARK = [31, 41, 51] as const; // #1F2933 — títulos em geral
+const ACCENT = [31, 47, 70] as const; // #1F2F46 — fundo do número da seção
+const ACCENT_BG_LIGHT = [243, 246, 250] as const; // #F3F6FA — fundo dos títulos e subtítulos
+const BORDER_GRAY = [214, 222, 232] as const; // #D6DEE8 — linhas divisórias
+const NAVY = [31, 47, 70] as const; // #1F2F46 — nome do processo
+const SUBTITLE = [47, 95, 143] as const; // #2F5F8F — subtítulos (cabeçalhos de coluna)
 const LABEL_GRAY = [55, 65, 81] as const;
 const TEXT_GRAY = [31, 41, 55] as const;
 const MUTED_GRAY = [107, 114, 128] as const;
-const BLUE_TITLE = [29, 78, 216] as const; // título do processo em destaque azul
 const WHITE = [255, 255, 255] as const;
 
 const PAGE_WIDTH = 210;
@@ -237,7 +238,7 @@ function drawNumberedSectionHeader(
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  doc.text(title, MARGIN_LEFT + numberSquareW + 4, y + 6.8);
+  doc.text(title.toUpperCase(), MARGIN_LEFT + numberSquareW + 4, y + 6.8);
 
   doc.setDrawColor(...BORDER_GRAY);
   doc.setLineWidth(0.3);
@@ -406,93 +407,76 @@ function drawCabecalhoInstitucional(
   y: number,
 ): number {
   // Layout:
-  //   linha 1: [logo+textos institucionais (esq)] | [TÍTULO PROCESSO DE NEGÓCIO]
-  //   linha 2: [Revisão: | valor] [Código/Versão | valor]
-  //   linha 3: [Macroprocesso:] [valor]
-  //   linha 4: [Data: | valor]
-  //   linha 5: [NOME DO PROCESSO] [valor]
+  //   linha 1: [brasão colorido + textos institucionais (esq)] | [TÍTULO]
+  //   linha 2: [Macroprocesso:] [valor]
+  //   linha 3: [Data da Versão:] [valor]
+  //   linha 4: [NOME DO PROCESSO] [valor]
   const leftColW = 60;
   const rightColW = CONTENT_WIDTH - leftColW;
   const rowH = 9;
+  const titleH = 16; // título institucional ocupa 2 linhas
 
-  // Coluna esquerda — institucional. Atravessa as 4 primeiras linhas (título + 3 meta-rows)
-  const leftTotalH = rowH * 4;
+  // Coluna esquerda — institucional. Atravessa o título + 2 meta-rows.
+  const leftTotalH = titleH + rowH * 2;
   doc.setFillColor(...WHITE);
   doc.rect(MARGIN_LEFT, y, leftColW, leftTotalH, "F");
   doc.setDrawColor(...BORDER_GRAY);
   doc.setLineWidth(0.3);
   doc.rect(MARGIN_LEFT, y, leftColW, leftTotalH, "S");
 
-  // Brasão + textos institucionais como artwork pronto (mesma imagem do TAP/TEP).
-  // Aspecto original ~2071x1217 (1.7:1). Encaixa centralizado dentro da coluna esquerda.
-  const imgW = Math.min(leftColW - 6, 52);
-  const imgH = imgW * (1217 / 2071);
-  const imgX = MARGIN_LEFT + (leftColW - imgW) / 2;
-  const imgY = y + (leftTotalH - imgH) / 2;
-  doc.addImage(P_CENT_BASE64, "PNG", imgX, imgY, imgW, imgH, undefined, "FAST");
-
-  // Coluna direita — título do tipo de processo
-  doc.setFillColor(...WHITE);
-  doc.rect(MARGIN_LEFT + leftColW, y, rightColW, rowH, "F");
-  doc.rect(MARGIN_LEFT + leftColW, y, rightColW, rowH, "S");
-  doc.setFontSize(9.5);
+  // Brasão COLORIDO (500x500) + textos institucionais renderizados como texto.
+  const brasaoW = 19;
+  const brasaoH = brasaoW; // 1:1
+  const textLine1H = 4; // "PODER JUDICIÁRIO"
+  const subLines = doc.splitTextToSize(
+    "Tribunal de Justiça do Estado de Goiás",
+    leftColW - 6,
+  ) as string[];
+  const textLine2H = subLines.length * 3;
+  const lockupH = brasaoH + 1.5 + textLine1H + textLine2H;
+  let lockupY = y + (leftTotalH - lockupH) / 2;
+  const brasaoX = MARGIN_LEFT + (leftColW - brasaoW) / 2;
+  doc.addImage(
+    BRASAO_GOIAS_BASE64,
+    "PNG",
+    brasaoX,
+    lockupY,
+    brasaoW,
+    brasaoH,
+    undefined,
+    "FAST",
+  );
+  lockupY += brasaoH + 2.5;
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  doc.text(
-    "PROCESSO DE NEGÓCIO",
-    MARGIN_LEFT + leftColW + rightColW / 2,
-    y + rowH / 2 + 1.4,
-    { align: "center" },
-  );
-
-  const labelW = 35;
-  const halfRightW = rightColW / 2;
-
-  // Linha 2: Revisão | Código/Versão
-  const yRev = y + rowH;
-  drawTextCell(doc, "Revisão:", MARGIN_LEFT + leftColW, yRev, labelW, rowH, {
-    bold: true,
-    fontSize: 9,
-    bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
+  doc.text("PODER JUDICIÁRIO", MARGIN_LEFT + leftColW / 2, lockupY, {
     align: "center",
   });
+  lockupY += textLine1H - 0.5;
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...TEXT_GRAY);
+  for (const line of subLines) {
+    doc.text(line, MARGIN_LEFT + leftColW / 2, lockupY, { align: "center" });
+    lockupY += 3;
+  }
+
+  // Coluna direita — título do tipo de processo (multilinha, centralizado)
   drawTextCell(
     doc,
-    processo.revisao || "—",
-    MARGIN_LEFT + leftColW + labelW,
-    yRev,
-    halfRightW - labelW,
-    rowH,
-    { fontSize: 9 },
-  );
-  drawTextCell(
-    doc,
-    "Código/Versão",
-    MARGIN_LEFT + leftColW + halfRightW,
-    yRev,
-    labelW,
-    rowH,
-    {
-      bold: true,
-      fontSize: 9,
-      bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
-      align: "center",
-    },
-  );
-  drawTextCell(
-    doc,
-    processo.codigo_versao || "—",
-    MARGIN_LEFT + leftColW + halfRightW + labelW,
-    yRev,
-    halfRightW - labelW,
-    rowH,
-    { fontSize: 9 },
+    "PROCESSO DE NEGÓCIO DA SECRETARIA DE GOVERNANÇA JUDICIÁRIA E TECNOLÓGICA",
+    MARGIN_LEFT + leftColW,
+    y,
+    rightColW,
+    titleH,
+    { bold: true, fontSize: 9.5, align: "center", color: TEXT_DARK },
   );
 
-  // Linha 3: Macroprocesso (full right col)
-  const yMacro = yRev + rowH;
+  const labelW = 38;
+
+  // Linha 2: Macroprocesso (full right col)
+  const yMacro = y + titleH;
   drawTextCell(
     doc,
     "Macroprocesso:",
@@ -504,7 +488,7 @@ function drawCabecalhoInstitucional(
       bold: true,
       fontSize: 9,
       bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
+      color: TEXT_DARK,
       align: "center",
     },
   );
@@ -518,18 +502,29 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 4: Data (full right col)
+  // Linha 3: Data da Versão — preenchida só após homologação (validado_final).
   const yData = yMacro + rowH;
-  drawTextCell(doc, "Data:", MARGIN_LEFT + leftColW, yData, labelW, rowH, {
-    bold: true,
-    fontSize: 9,
-    bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
-    align: "center",
-  });
   drawTextCell(
     doc,
-    formatDate(processo.periodo) || "—",
+    "Data da Versão:",
+    MARGIN_LEFT + leftColW,
+    yData,
+    labelW,
+    rowH,
+    {
+      bold: true,
+      fontSize: 9,
+      bg: ACCENT_BG_LIGHT,
+      color: TEXT_DARK,
+      align: "center",
+    },
+  );
+  const dataVersao = processo.validado_final_em
+    ? formatDate(processo.periodo) || formatDate(processo.validado_final_em)
+    : "Pendente de aprovação";
+  drawTextCell(
+    doc,
+    dataVersao,
     MARGIN_LEFT + leftColW + labelW,
     yData,
     rightColW - labelW,
@@ -537,25 +532,21 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 5: NOME DO PROCESSO (full width, label esquerda + valor à direita em itálico azul)
+  // Linha 4: NOME DO PROCESSO (full width, label esquerda + valor à direita em itálico)
   const yNome = yData + rowH;
   const nomeRowH = 11;
-  drawTextCell(
-    doc,
-    "NOME DO PROCESSO",
-    MARGIN_LEFT,
-    yNome,
-    leftColW,
-    nomeRowH,
-    { bold: true, fontSize: 9, align: "center" },
-  );
+  drawTextCell(doc, "NOME DO PROCESSO", MARGIN_LEFT, yNome, leftColW, nomeRowH, {
+    bold: true,
+    fontSize: 9,
+    align: "center",
+  });
   doc.setFillColor(...WHITE);
   doc.rect(MARGIN_LEFT + leftColW, yNome, rightColW, nomeRowH, "F");
   doc.setDrawColor(...BORDER_GRAY);
   doc.rect(MARGIN_LEFT + leftColW, yNome, rightColW, nomeRowH, "S");
   doc.setFontSize(10);
   doc.setFont("helvetica", "bolditalic");
-  doc.setTextColor(...BLUE_TITLE);
+  doc.setTextColor(...NAVY);
   doc.text(
     processo.nome_processo || "—",
     MARGIN_LEFT + leftColW + 4,
@@ -563,68 +554,6 @@ function drawCabecalhoInstitucional(
   );
 
   return yNome + nomeRowH;
-}
-
-// ============================================================
-// Histórico de Validação (3 linhas — Autor, Diretoria, Final)
-// ============================================================
-function drawHistoricoValidacao(
-  doc: jsPDF,
-  processo: ProcessoNegocio,
-  y: number,
-): number {
-  y = checkPageBreak(doc, y, 35);
-  y = drawNumberedSectionHeader(doc, 99, "Histórico de Validação", y);
-  // Reusa drawNumberedSectionHeader mas substitui o número por ícone? Mantém 99 como placeholder.
-  // (Pra deixar mais elegante, vamos sobrescrever o quadrado do número manualmente.)
-  // Simplificação: vamos só usar 3 linhas tabela após o header.
-
-  const rowH = 9;
-  const labelW = 60;
-
-  const linhas = [
-    {
-      label: "Validação do Responsável",
-      valor:
-        processo.validado_autor_em && processo.validado_autor_nome
-          ? `${processo.validado_autor_nome} — ${formatDateTime(processo.validado_autor_em)}`
-          : "Pendente",
-    },
-    {
-      label: "Validação Setorial",
-      valor:
-        processo.validado_diretoria_em && processo.validado_diretoria_nome
-          ? `${processo.validado_diretoria_nome} — ${formatDateTime(processo.validado_diretoria_em)}`
-          : "Pendente",
-    },
-    {
-      label: "Validação Estratégica",
-      valor:
-        processo.validado_final_em && processo.validado_final_nome
-          ? `${processo.validado_final_nome} — ${formatDateTime(processo.validado_final_em)}`
-          : "Pendente",
-    },
-  ];
-
-  for (const linha of linhas) {
-    drawTextCell(doc, linha.label, MARGIN_LEFT, y, labelW, rowH, {
-      bold: true,
-      fontSize: 9,
-      bg: [248, 250, 252],
-    });
-    drawTextCell(
-      doc,
-      linha.valor,
-      MARGIN_LEFT + labelW,
-      y,
-      CONTENT_WIDTH - labelW,
-      rowH,
-      { fontSize: 9 },
-    );
-    y += rowH;
-  }
-
-  return y;
 }
 
 // ============================================================
@@ -651,9 +580,12 @@ function drawRodapeInstitucional(
   doc.setTextColor(...TEXT_DARK);
   // ID do documento (modelo) — ainda sem definição; placeholder por ora.
   doc.text("—", MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 60 });
-  doc.text(processo.versao || "1.0", PAGE_WIDTH / 2, FOOTER_Y + 4, {
-    align: "center",
-  });
+  doc.text(
+    (processo.versao || "1").replace(/\.0$/, ""),
+    PAGE_WIDTH / 2,
+    FOOTER_Y + 4,
+    { align: "center" },
+  );
   doc.text(
     formatDate(processo.updated_at),
     PAGE_WIDTH - MARGIN_RIGHT,
@@ -703,7 +635,7 @@ export function generateProcessoNegocioPDF(
     fontSize: 8.5,
     align: "center",
     bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
+    color: SUBTITLE,
   });
   drawTextCell(
     doc,
@@ -717,7 +649,7 @@ export function generateProcessoNegocioPDF(
       fontSize: 8.5,
       align: "center",
       bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
+      color: SUBTITLE,
     },
   );
   y += govHeaderH;
@@ -757,14 +689,14 @@ export function generateProcessoNegocioPDF(
     fontSize: 8.5,
     align: "center",
     bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
+    color: SUBTITLE,
   });
   drawTextCell(doc, "SAÍDA", MARGIN_LEFT + infColW, y, infColW, infHeaderH, {
     bold: true,
     fontSize: 8.5,
     align: "center",
     bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
+    color: SUBTITLE,
   });
   y += infHeaderH;
   const infRowH = Math.max(
@@ -813,7 +745,7 @@ export function generateProcessoNegocioPDF(
       fontSize: 8.5,
       align: "center",
       bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
+      color: SUBTITLE,
     },
   );
   drawTextCell(
@@ -828,7 +760,7 @@ export function generateProcessoNegocioPDF(
       fontSize: 8.5,
       align: "center",
       bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
+      color: SUBTITLE,
     },
   );
   y += infHeaderH;
@@ -882,7 +814,7 @@ export function generateProcessoNegocioPDF(
       y = checkPageBreak(doc, y, imgH + 4);
       doc.addImage(
         flux.data,
-        fmt as any,
+        fmt,
         MARGIN_LEFT,
         y + 2,
         imgW,
@@ -927,7 +859,7 @@ export function generateProcessoNegocioPDF(
       fontSize: 8.5,
       align: "center",
       bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
+      color: SUBTITLE,
     });
     drawTextCell(
       doc,
@@ -941,7 +873,7 @@ export function generateProcessoNegocioPDF(
         fontSize: 8.5,
         align: "center",
         bg: ACCENT_BG_LIGHT,
-        color: BLUE_TITLE,
+        color: SUBTITLE,
       },
     );
     y += docHeaderH;
@@ -973,7 +905,7 @@ export function generateProcessoNegocioPDF(
     fontSize: 8.5,
     align: "center",
     bg: ACCENT_BG_LIGHT,
-    color: BLUE_TITLE,
+    color: SUBTITLE,
   });
   drawTextCell(
     doc,
@@ -987,7 +919,7 @@ export function generateProcessoNegocioPDF(
       fontSize: 8.5,
       align: "center",
       bg: ACCENT_BG_LIGHT,
-      color: BLUE_TITLE,
+      color: SUBTITLE,
     },
   );
   y += revHeaderH;
@@ -1031,21 +963,21 @@ export function generateProcessoNegocioPDF(
   const histLabelW = 60;
   const histLinhas = [
     {
-      label: "Validação do Responsável",
+      label: "Responsável",
       valor:
         processo.validado_autor_em && processo.validado_autor_nome
           ? `${processo.validado_autor_nome} — ${formatDateTime(processo.validado_autor_em)}`
           : "Pendente",
     },
     {
-      label: "Validação Setorial",
+      label: "Revisor",
       valor:
         processo.validado_diretoria_em && processo.validado_diretoria_nome
           ? `${processo.validado_diretoria_nome} — ${formatDateTime(processo.validado_diretoria_em)}`
           : "Pendente",
     },
     {
-      label: "Validação Estratégica",
+      label: "Compliance Officer",
       valor:
         processo.validado_final_em && processo.validado_final_nome
           ? `${processo.validado_final_nome} — ${formatDateTime(processo.validado_final_em)}`
