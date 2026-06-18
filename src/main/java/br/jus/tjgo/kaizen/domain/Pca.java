@@ -67,8 +67,19 @@ public class Pca {
     @Column(name = "estimated_value_cents")
     private Long estimatedValueCents;
 
-    @Column(name = "priority_level")
-    private Integer priorityLevel;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority", length = 50)
+    private PcaPriorityEnum priority;
+
+    public enum PcaPriorityEnum {
+        ALTO("Alto"),
+        MEDIO("Médio"),
+        BAIXO("Baixo");
+
+        private final String value;
+        PcaPriorityEnum(String value) { this.value = value; }
+        public String getValue() { return value; }
+    }
 
     @Column(name = "step", length = 100)
     private PcaStepEnum step;
@@ -83,8 +94,19 @@ public class Pca {
         public String getValue() { return value; }
     }
 
-    @Column(name = "status")
-    private Integer status;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 50)
+    private PcaStatusEnum status;
+
+    public enum PcaStatusEnum {
+        NAO_INICIADA("Não iniciada"),
+        EM_ANDAMENTO("Em andamento"),
+        CONCLUIDA("Concluída");
+
+        private final String value;
+        PcaStatusEnum(String value) { this.value = value; }
+        public String getValue() { return value; }
+    }
 
     @Column(name = "estimated_date")
     private LocalDate estimatedDate;

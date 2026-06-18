@@ -23,7 +23,7 @@ public class ContractPlan {
     @JoinColumn(name = "pca_id", nullable = false)
     private Pca pca;
 
-    @Column(name = "object_name", length = 50, nullable = false)
+    @Column(name = "object_name", columnDefinition = "TEXT", nullable = false)
     private String objectName;
 
     @Column(name = "area_acronym", length = 20)

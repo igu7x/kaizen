@@ -43,12 +43,29 @@ public class PcaService {
     private static final String ORDER_BY_NUMERO =
             " ORDER BY CAST(NULLIF(regexp_replace(p.code, '[^0-9]', '', 'g'), '') AS INTEGER) NULLS LAST, p.code";
 
+    private static final String MONTH_CASE_SQL = 
+            "CASE EXTRACT(MONTH FROM p.estimated_date) WHEN 1 THEN 'Janeiro' WHEN 2 THEN 'Fevereiro' " +
+            "WHEN 3 THEN 'Março' WHEN 4 THEN 'Abril' WHEN 5 THEN 'Maio' WHEN 6 THEN 'Junho' " +
+            "WHEN 7 THEN 'Julho' WHEN 8 THEN 'Agosto' WHEN 9 THEN 'Setembro' WHEN 10 THEN 'Outubro' " +
+            "WHEN 11 THEN 'Novembro' WHEN 12 THEN 'Dezembro' ELSE CAST(p.estimated_date AS TEXT) END";
+
+    private String parseMonthToDateStr(String monthName, Object yearObj) {
+        if (monthName == null) return null;
+        Integer m = MONTH_ORDER.get(monthName);
+        if (m != null) {
+            String y = yearObj != null ? String.valueOf(yearObj) : String.valueOf(LocalDate.now().getYear());
+            return String.format("%s-%02d-01", y, m);
+        }
+        return monthName;
+    }
+
     public List<Map<String, Object>> findAll(Integer ano, String diretoria) {
         StringBuilder sql = new StringBuilder(
                 "SELECT p.id, p.code as item_pca, CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
                         "p.directory_acronym as area_demandante, p.object_name as objeto, p.estimated_value_cents / 100.0 as valor_estimado, " +
-                        "CAST(p.estimated_date AS TEXT) as data_estimada_contratacao, " +
-                        "CASE p.status WHEN 2 THEN 'Concluída' WHEN 1 THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                        MONTH_CASE_SQL + " as data_estimada_contratacao, " +
+                        "CASE p.status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                        "p.priority, p.process, p.description, p.justification, p.financial_resource_type, p.step, " +
                         "CAST(p.year AS INTEGER) as ano, p.is_deleted, p.created_at, p.updated_at " +
                         "FROM pcas p " +
                         "WHERE (p.is_deleted = FALSE OR p.is_deleted IS NULL)");
@@ -69,8 +86,9 @@ public class PcaService {
     public Map<String, Object> findById(long id) {
         var rows = jdbc.queryForList("SELECT p.id, p.code as item_pca, CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
                 "p.directory_acronym as area_demandante, p.object_name as objeto, p.estimated_value_cents / 100.0 as valor_estimado, " +
-                "CAST(p.estimated_date AS TEXT) as data_estimada_contratacao, " +
-                "CASE p.status WHEN 2 THEN 'Concluída' WHEN 1 THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                MONTH_CASE_SQL + " as data_estimada_contratacao, " +
+                "CASE p.status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                "p.priority, p.process, p.description, p.justification, p.financial_resource_type, p.step, " +
                 "CAST(p.year AS INTEGER) as ano, p.is_deleted, p.created_at, p.updated_at " +
                 "FROM pcas p WHERE p.id = ? AND p.is_deleted = FALSE", id);
         return rows.isEmpty() ? null : rows.get(0);
@@ -79,8 +97,9 @@ public class PcaService {
     public Map<String, Object> findByItemPca(String itemPca) {
         var rows = jdbc.queryForList("SELECT p.id, p.code as item_pca, CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
                 "p.directory_acronym as area_demandante, p.object_name as objeto, p.estimated_value_cents / 100.0 as valor_estimado, " +
-                "CAST(p.estimated_date AS TEXT) as data_estimada_contratacao, " +
-                "CASE p.status WHEN 2 THEN 'Concluída' WHEN 1 THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                MONTH_CASE_SQL + " as data_estimada_contratacao, " +
+                "CASE p.status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                "p.priority, p.process, p.description, p.justification, p.financial_resource_type, p.step, " +
                 "CAST(p.year AS INTEGER) as ano, p.is_deleted, p.created_at, p.updated_at " +
                 "FROM pcas p WHERE p.code = ? AND p.is_deleted = FALSE", itemPca);
         return rows.isEmpty() ? null : rows.get(0);
@@ -104,27 +123,35 @@ public class PcaService {
             throw new ApiException(409, "Item PCA \"" + itemPca + "\" já existe");
         }
         
-        Integer statusInt = parseStatus((String) data.get("status"));
+        String statusStr = parseStatusStr((String) data.get("status"));
         Long valCents = asCents(data.get("valor_estimado"));
         String tipo = mapTipoToContractType((String) data.get("tipo"));
 
         Map<String, Object> created = jdbc.queryForMap(
                 "INSERT INTO pcas (code, contract_type, directory_acronym, " +
-                        "object_name, estimated_value_cents, estimated_date, status, year, created_by) " +
-                        "VALUES (?, ?, ?, ?, ?, CAST(? AS DATE), ?, ?, ?) RETURNING id, code as item_pca, " +
+                        "object_name, estimated_value_cents, estimated_date, status, year, " +
+                        "process, description, justification, financial_resource_type, step, priority, created_by) " +
+                        "VALUES (?, ?, ?, ?, ?, CAST(? AS DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, code as item_pca, " +
                         "CASE WHEN contract_type = 'RENOVACAO' THEN 'Renovação' WHEN contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
                         "directory_acronym as area_demandante, object_name as objeto, estimated_value_cents / 100.0 as valor_estimado, " +
-                        "CAST(estimated_date AS TEXT) as data_estimada_contratacao, " +
-                        "CASE status WHEN 2 THEN 'Concluída' WHEN 1 THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                        "CASE EXTRACT(MONTH FROM estimated_date) WHEN 1 THEN 'Janeiro' WHEN 2 THEN 'Fevereiro' WHEN 3 THEN 'Março' WHEN 4 THEN 'Abril' WHEN 5 THEN 'Maio' WHEN 6 THEN 'Junho' WHEN 7 THEN 'Julho' WHEN 8 THEN 'Agosto' WHEN 9 THEN 'Setembro' WHEN 10 THEN 'Outubro' WHEN 11 THEN 'Novembro' WHEN 12 THEN 'Dezembro' ELSE CAST(estimated_date AS TEXT) END as data_estimada_contratacao, " +
+                        "CASE status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                        "priority, process, description, justification, financial_resource_type, step, " +
                         "CAST(year AS INTEGER) as ano, is_deleted, created_at, updated_at",
                 itemPca,
                 tipo,
                 data.get("area_demandante"),
                 data.get("objeto"),
                 valCents,
-                data.get("data_estimada_contratacao"),
-                statusInt,
+                parseMonthToDateStr((String) data.get("data_estimada_contratacao"), data.get("ano")),
+                statusStr,
                 String.valueOf(data.get("ano") != null ? data.get("ano") : LocalDate.now().getYear()),
+                data.get("process"),
+                data.get("description"),
+                data.get("justification"),
+                data.get("financial_resource_type"),
+                data.get("step"),
+                parsePriorityStr((String) data.get("priority")),
                 userId);
         audit.log("pcas", asLong(created.get("id")), "INSERT", userId, null, null, created);
         return created;
@@ -149,9 +176,15 @@ public class PcaService {
         if (data.containsKey("area_demandante")) { updates.add("directory_acronym = ?"); values.add(data.get("area_demandante")); }
         if (data.containsKey("objeto")) { updates.add("object_name = ?"); values.add(data.get("objeto")); }
         if (data.containsKey("valor_estimado")) { updates.add("estimated_value_cents = ?"); values.add(asCents(data.get("valor_estimado"))); }
-        if (data.containsKey("data_estimada_contratacao")) { updates.add("estimated_date = CAST(? AS DATE)"); values.add(data.get("data_estimada_contratacao")); }
-        if (data.containsKey("status")) { updates.add("status = ?"); values.add(parseStatus((String) data.get("status"))); }
+        if (data.containsKey("data_estimada_contratacao")) { updates.add("estimated_date = CAST(? AS DATE)"); values.add(parseMonthToDateStr((String) data.get("data_estimada_contratacao"), data.get("ano") != null ? data.get("ano") : oldRecord.get("ano"))); }
+        if (data.containsKey("status")) { updates.add("status = ?"); values.add(parseStatusStr((String) data.get("status"))); }
         if (data.containsKey("ano")) { updates.add("year = ?"); values.add(String.valueOf(data.get("ano"))); }
+        if (data.containsKey("process")) { updates.add("process = ?"); values.add(data.get("process")); }
+        if (data.containsKey("description")) { updates.add("description = ?"); values.add(data.get("description")); }
+        if (data.containsKey("justification")) { updates.add("justification = ?"); values.add(data.get("justification")); }
+        if (data.containsKey("financial_resource_type")) { updates.add("financial_resource_type = ?"); values.add(data.get("financial_resource_type")); }
+        if (data.containsKey("step")) { updates.add("step = ?"); values.add(data.get("step")); }
+        if (data.containsKey("priority")) { updates.add("priority = ?"); values.add(parsePriorityStr((String) data.get("priority"))); }
 
         updates.add("updated_by = ?");
         values.add(userId);
@@ -165,7 +198,8 @@ public class PcaService {
                         "CASE WHEN contract_type = 'RENOVACAO' THEN 'Renovação' WHEN contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
                         "directory_acronym as area_demandante, object_name as objeto, estimated_value_cents / 100.0 as valor_estimado, " +
                         "CAST(estimated_date AS TEXT) as data_estimada_contratacao, " +
-                        "CASE status WHEN 2 THEN 'Concluída' WHEN 1 THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                        "CASE status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                        "priority, process, description, justification, financial_resource_type, step, " +
                         "CAST(year AS INTEGER) as ano, is_deleted, created_at, updated_at", values.toArray());
         if (rows.isEmpty()) {
             return null;
@@ -180,15 +214,16 @@ public class PcaService {
         if (oldRecord == null) {
             return null;
         }
-        Integer statusInt = parseStatus(status);
+        String statusStr = parseStatusStr(status);
         var rows = jdbc.queryForList(
                 "UPDATE pcas SET status = ?, updated_by = ?, updated_at = NOW() " +
                         "WHERE id = ? AND (is_deleted = FALSE OR is_deleted IS NULL) RETURNING id, code as item_pca, " +
                         "CASE WHEN contract_type = 'RENOVACAO' THEN 'Renovação' WHEN contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
                         "directory_acronym as area_demandante, object_name as objeto, estimated_value_cents / 100.0 as valor_estimado, " +
                         "CAST(estimated_date AS TEXT) as data_estimada_contratacao, " +
-                        "CASE status WHEN 2 THEN 'Concluída' WHEN 1 THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
-                        "CAST(year AS INTEGER) as ano, is_deleted, created_at, updated_at", statusInt, userId, id);
+                        "CASE status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
+                        "priority, process, description, justification, financial_resource_type, step, " +
+                        "CAST(year AS INTEGER) as ano, is_deleted, created_at, updated_at", statusStr, userId, id);
         if (rows.isEmpty()) {
             return null;
         }
@@ -215,9 +250,9 @@ public class PcaService {
     public Map<String, Object> getStats(Integer ano, String diretoria) {
         StringBuilder sql = new StringBuilder(
                 "SELECT COUNT(*) as total, COALESCE(SUM(estimated_value_cents), 0) as valor_total_cents, " +
-                        "COUNT(CASE WHEN status = 2 THEN 1 END) as concluidos, " +
-                        "COUNT(CASE WHEN status = 1 THEN 1 END) as em_andamento, " +
-                        "COUNT(CASE WHEN status = 0 THEN 1 END) as nao_iniciados " +
+                        "COUNT(CASE WHEN status = 'CONCLUIDA' THEN 1 END) as concluidos, " +
+                        "COUNT(CASE WHEN status = 'EM_ANDAMENTO' THEN 1 END) as em_andamento, " +
+                        "COUNT(CASE WHEN status = 'NAO_INICIADA' THEN 1 END) as nao_iniciados " +
                         "FROM pcas p WHERE p.is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
@@ -259,10 +294,16 @@ public class PcaService {
 
     // ---------- helpers ----------
 
-    private static Integer parseStatus(String status) {
-        if ("Concluída".equals(status)) return 2;
-        if ("Em andamento".equals(status)) return 1;
-        return 0;
+    private static String parseStatusStr(String status) {
+        if ("Concluída".equals(status)) return "CONCLUIDA";
+        if ("Em andamento".equals(status)) return "EM_ANDAMENTO";
+        return "NAO_INICIADA";
+    }
+
+    private static String parsePriorityStr(String priority) {
+        if ("Alto".equalsIgnoreCase(priority)) return "ALTO";
+        if ("Baixo".equalsIgnoreCase(priority)) return "BAIXO";
+        return "MEDIO";
     }
     
     private static String mapTipoToContractType(String tipo) {

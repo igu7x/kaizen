@@ -160,4 +160,32 @@ public class ContractService {
         contract.setDeletedBy(userId);
         contractRepository.save(contract);
     }
+
+    public List<java.util.Map<String, Object>> getPcas(Long contractId) {
+        String sql = "SELECT p.id, p.code as item_pca, p.object_name as objeto, p.year as ano, CAST(p.estimated_date AS TEXT) as data_estimada_contratacao " +
+                     "FROM pcas p " +
+                     "INNER JOIN contracts_pcas cp ON cp.pca_id = p.id " +
+                     "WHERE cp.contract_id = ? AND (p.is_deleted = FALSE OR p.is_deleted IS NULL)";
+        return jdbcTemplate.queryForList(sql, contractId);
+    }
+
+    @Transactional
+    public void linkPcas(Long contractId, List<Long> pcaIds) {
+        if (pcaIds == null || pcaIds.isEmpty()) return;
+        // Verify contract exists
+        findById(contractId);
+        
+        for (Long pcaId : pcaIds) {
+            // DO NOTHING on conflict to avoid duplicates
+            jdbcTemplate.update(
+                "INSERT INTO contracts_pcas (contract_id, pca_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                contractId, pcaId
+            );
+        }
+    }
+
+    @Transactional
+    public void unlinkPca(Long contractId, Long pcaId) {
+        jdbcTemplate.update("DELETE FROM contracts_pcas WHERE contract_id = ? AND pca_id = ?", contractId, pcaId);
+    }
 }
