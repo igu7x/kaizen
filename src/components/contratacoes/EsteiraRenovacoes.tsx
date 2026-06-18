@@ -79,7 +79,12 @@ function formatMesAno(mesNome: string): string {
   return mesesMap[mesNome] || mesNome;
 }
 
-export function EsteiraRenovacoes() {
+interface EsteiraRenovacoesProps {
+  anoSelecionado: number;
+  setAnoSelecionado: (ano: number) => void;
+}
+
+export function EsteiraRenovacoes({ anoSelecionado, setAnoSelecionado }: EsteiraRenovacoesProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -459,9 +464,19 @@ export function EsteiraRenovacoes() {
       {/* Cabeçalho Compacto */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Renovações - PCA 2026
-          </h2>
+          <Select
+            value={String(anoSelecionado)}
+            onValueChange={(v) => setAnoSelecionado(parseInt(v))}
+          >
+            <SelectTrigger className="w-[130px] h-9 font-medium text-sm bg-white text-gray-700 border-gray-300">
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2025">2025</SelectItem>
+              <SelectItem value="2026">2026</SelectItem>
+              <SelectItem value="2027">2027</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {canEdit && (
           <Button

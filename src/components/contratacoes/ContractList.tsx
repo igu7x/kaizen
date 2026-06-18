@@ -1,22 +1,25 @@
 import { Contract } from '@/types';
 import { formatCurrency } from '@/services/pcaApi';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Building2, Calendar } from 'lucide-react';
+import { FileText, Building2, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 interface ContractListProps {
   contracts: Contract[];
+  onEdit?: (contract: Contract) => void;
+  onDelete?: (contract: Contract) => void;
 }
 
-export function ContractList({ contracts }: ContractListProps) {
+export function ContractList({ contracts, onEdit, onDelete }: ContractListProps) {
   const navigate = useNavigate();
 
   const handleRowClick = (id: number) => {
@@ -48,14 +51,15 @@ export function ContractList({ contracts }: ContractListProps) {
             <TableHead>Modelo / Tipo</TableHead>
             <TableHead className="text-right">Valor Mensal</TableHead>
             <TableHead className="text-right">Valor Total</TableHead>
+            <TableHead className="w-[100px] text-center">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {contracts.map((contract) => (
-            <TableRow 
+            <TableRow
               key={contract.id}
               className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => handleRowClick(contract.id)}
+              onClick={() => handleRowClick(contract.id!)}
             >
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
@@ -72,7 +76,7 @@ export function ContractList({ contracts }: ContractListProps) {
                 </div>
               </TableCell>
               <TableCell className="hidden md:table-cell">
-                <p className="text-sm text-muted-foreground" title={contract.objectName || 'Não informado'}>
+                <p className="text-sm text-muted-foreground line-clamp-2" title={contract.objectName || 'Não informado'}>
                   {contract.objectName || '-'}
                 </p>
               </TableCell>
@@ -92,6 +96,28 @@ export function ContractList({ contracts }: ContractListProps) {
               <TableCell className="text-right text-sm font-medium text-emerald-600">
                 {formatCurrency(contract.totalValueCents || 0)}
               </TableCell>
+              <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-center gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onEdit && onEdit(contract)}
+                    className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                    title="Editar Contrato"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onDelete && onDelete(contract)}
+                    className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                    title="Excluir Contrato"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -99,3 +125,5 @@ export function ContractList({ contracts }: ContractListProps) {
     </div>
   );
 }
+
+export default ContractList;
