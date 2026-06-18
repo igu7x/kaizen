@@ -325,6 +325,16 @@ public class AuthController {
     }
 
     private String getFrontendUrl() {
+        // Prioridade 1: OPENSHIFT_FRONTEND_URL (nome novo, padronizado nos secrets api2-default
+        // e api1-default do TJGO). Funciona pra qualquer ambiente sem precisar inferir.
+        String openshiftUrl = nullToEmpty(env.getProperty("OPENSHIFT_FRONTEND_URL")).trim();
+        if (!openshiftUrl.isEmpty()
+                && openshiftUrl.matches("(?i)^https?://.*")
+                && !openshiftUrl.contains("${")) {
+            return openshiftUrl;
+        }
+
+        // Prioridade 2: FRONTEND_URL (legado, usado em dev local).
         String frontendUrlRaw = nullToEmpty(env.getProperty("FRONTEND_URL")).trim();
         boolean valid = !frontendUrlRaw.isEmpty()
                 && frontendUrlRaw.matches("(?i)^https?://.*")
@@ -332,9 +342,11 @@ public class AuthController {
         if (valid) {
             return frontendUrlRaw;
         }
+
+        // Prioridade 3: deduzir do ambiente, com fallback FRONTEND_URL_STAGING/_PRODUCTION (legado).
         String ambiente = nullToEmpty(env.getProperty("OPENSHIFT_BACKEND_AMBIENTE")).toLowerCase().trim();
         if (ambiente.equals("stag") || ambiente.equals("staging")) {
-            return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend.apps.ocp-prd.tjgo.jus.br");
+            return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend2.apps.ocp-prd.tjgo.jus.br");
         }
         if (ambiente.equals("prd") || ambiente.equals("production")) {
             return env.getProperty("FRONTEND_URL_PRODUCTION", "https://kaizen.tjgo.jus.br");
@@ -344,7 +356,7 @@ public class AuthController {
                     env.getProperty("OPENSHIFT_SSO_KEYCLOACK_REDIRECT_URI"), "");
             String apiUrl = env.getProperty("OPENSHIFT_API_URL", "");
             if (redirectUri.contains("stag") || apiUrl.contains("stag")) {
-                return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend.apps.ocp-prd.tjgo.jus.br");
+                return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend2.apps.ocp-prd.tjgo.jus.br");
             }
             return env.getProperty("FRONTEND_URL_PRODUCTION", "https://kaizen.tjgo.jus.br");
         }
