@@ -24,6 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Porte fiel de routes/auth.ts. Login local/base64 (NÃO JWT — replica auth.ts 271-297);
@@ -37,6 +39,12 @@ import java.util.Map;
 public class AuthController {
 
     private static final long TOKEN_TTL_MS = 8L * 60 * 60 * 1000;
+
+    // idToken do Keycloak por userId. Nao volta na URL do redirect pro frontend (era ate 50KB
+    // pra admins, estourava o HAProxy do Route em ~16KB -> 502 Bad Gateway). Fica aqui em memoria
+    // e o /sso/logout resolve internamente via Authorization header do request.
+    // Limpa quando o pod reinicia (aceitavel: 1 replica, e o user precisaria relogar igual).
+    private static final ConcurrentMap<String, String> ID_TOKEN_STORE = new ConcurrentHashMap<>();
 
     private final SsoConfig sso;
     private final UserService userService;
@@ -141,14 +149,24 @@ public class AuthController {
             tokenPayload.put("email", user.get("email"));
             String localToken = base64(tokenPayload);
 
-            // 5. Montar payload de tokens que o frontend (AuthCallback.tsx) espera
-            //    idToken vai junto pra o frontend conseguir mandar como id_token_hint
-            //    quando chamar /sso/logout (Keycloak antigo exige isso pra encerrar sessao).
+            // 5. Montar payload de tokens que o frontend (AuthCallback.tsx) espera.
+            //    idToken e refreshToken NAO vao no payload (juntos passavam de 80KB pra admins
+            //    -> HAProxy do Route estourava com 502 Bad Gateway).
+            //    - idToken: guardado em memoria aqui, /sso/logout resolve internamente.
+            //    - refreshToken: o endpoint /sso/refresh nem esta implementado hoje (lanca 500
+            //      por design), entao mandar vazio nao quebra nada.
             Map<String, Object> tokens = new LinkedHashMap<>();
             tokens.put("accessToken", localToken);
-            tokens.put("refreshToken", String.valueOf(tokenResp.getOrDefault("refresh_token", "")));
-            tokens.put("idToken", idTokenObj != null ? String.valueOf(idTokenObj) : "");
+            tokens.put("refreshToken", "");
+            tokens.put("idToken", "");
             tokens.put("expiresAt", System.currentTimeMillis() + TOKEN_TTL_MS);
+
+            if (idTokenObj != null) {
+                String idTokenStr = String.valueOf(idTokenObj);
+                if (!idTokenStr.isBlank()) {
+                    ID_TOKEN_STORE.put(String.valueOf(user.get("id")), idTokenStr);
+                }
+            }
 
             // 6. Decodificar returnUrl do state (base64 de {"returnUrl": "..."})
             String returnUrl = "/";
@@ -167,14 +185,23 @@ public class AuthController {
                 }
             }
 
-            // 7. Redirecionar pro AuthCallback do frontend com user+tokens+returnUrl
-            String userJson = objectMapper.writeValueAsString(user);
+            // 7. Redirecionar pro AuthCallback do frontend com user+tokens+returnUrl.
+            //    Remove foto_perfil do payload — coluna armazena base64 da imagem, e pra
+            //    admin pode passar de 150KB (caso ifccupertino: payload total ~190KB,
+            //    estourava HAProxy do Route com 502). Frontend usa avatar default no
+            //    primeiro render; quando carregar telas que listam users, a foto vem nos
+            //    endpoints normais de /api/users.
+            Map<String, Object> userForRedirect = new LinkedHashMap<>(user);
+            Object fotoRemovida = userForRedirect.remove("foto_perfil");
+            String userJson = objectMapper.writeValueAsString(userForRedirect);
             String tokensJson = objectMapper.writeValueAsString(tokens);
-            log.info("SSO callback: login OK p/ {}", email);
-            return redirect(frontend + "/auth/callback"
-                    + "?user=" + enc(userJson)
+            String query = "?user=" + enc(userJson)
                     + "&tokens=" + enc(tokensJson)
-                    + "&returnUrl=" + enc(returnUrl));
+                    + "&returnUrl=" + enc(returnUrl);
+            log.info("SSO callback: login OK p/ {} [user={}B tokens={}B query={}B foto_perfil_omitida={}B]",
+                    email, userJson.length(), tokensJson.length(), query.length(),
+                    fotoRemovida == null ? 0 : String.valueOf(fotoRemovida).length());
+            return redirect(frontend + "/auth/callback" + query);
         } catch (Exception e) {
             log.error("SSO callback: erro inesperado", e);
             return redirect(frontend + "/login?error=" + enc("Erro na autenticação SSO: " + e.getMessage()));
@@ -211,20 +238,45 @@ public class AuthController {
     @GetMapping("/sso/logout")
     public ResponseEntity<?> ssoLogout(
             @RequestParam(value = "redirect", required = false) String redirect,
-            @RequestParam(value = "id_token_hint", required = false) String idTokenHint) {
+            @RequestParam(value = "id_token_hint", required = false) String idTokenHint,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String frontend = getFrontendUrl();
         if (!sso.isEnabled()) {
             return redirect(frontend + "/login");
         }
         String postLogoutUri = (redirect != null && !redirect.isBlank()) ? redirect : frontend + "/login";
+
+        // Resolver id_token_hint internamente. O frontend nao recebe mais o idToken (era grande
+        // demais e estourava o HAProxy no callback). Usa o Authorization Bearer <accessToken local>
+        // pra descobrir o userId e buscar o idToken guardado no ID_TOKEN_STORE no momento do login.
+        String resolvedIdToken = idTokenHint;
+        if ((resolvedIdToken == null || resolvedIdToken.isBlank())
+                && authHeader != null && authHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            String accessTokenLocal = authHeader.substring(7).trim();
+            try {
+                byte[] decoded = Base64.getDecoder().decode(accessTokenLocal);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> payload = objectMapper.readValue(decoded, Map.class);
+                Object uid = payload.get("userId");
+                if (uid != null) {
+                    String stored = ID_TOKEN_STORE.remove(String.valueOf(uid));
+                    if (stored != null && !stored.isBlank()) {
+                        resolvedIdToken = stored;
+                    }
+                }
+            } catch (Exception ignore) {
+                // accessToken malformado ou nao-base64 — segue sem id_token_hint
+            }
+        }
+
         // Manda nome novo (post_logout_redirect_uri, Keycloak 19+) e nome antigo (redirect_uri,
         // Keycloak <19, que e o caso do TJGO). Tambem inclui client_id que algumas versoes exigem.
         StringBuilder logoutUrl = new StringBuilder(sso.getLogoutUrl())
                 .append("?post_logout_redirect_uri=").append(enc(postLogoutUri))
                 .append("&redirect_uri=").append(enc(postLogoutUri))
                 .append("&client_id=").append(enc(sso.getClientId()));
-        if (idTokenHint != null && !idTokenHint.isBlank()) {
-            logoutUrl.append("&id_token_hint=").append(enc(idTokenHint));
+        if (resolvedIdToken != null && !resolvedIdToken.isBlank()) {
+            logoutUrl.append("&id_token_hint=").append(enc(resolvedIdToken));
         }
         return redirect(logoutUrl.toString());
     }
@@ -325,6 +377,16 @@ public class AuthController {
     }
 
     private String getFrontendUrl() {
+        // Prioridade 1: OPENSHIFT_FRONTEND_URL (nome novo, padronizado nos secrets api2-default
+        // e api1-default do TJGO). Funciona pra qualquer ambiente sem precisar inferir.
+        String openshiftUrl = nullToEmpty(env.getProperty("OPENSHIFT_FRONTEND_URL")).trim();
+        if (!openshiftUrl.isEmpty()
+                && openshiftUrl.matches("(?i)^https?://.*")
+                && !openshiftUrl.contains("${")) {
+            return openshiftUrl;
+        }
+
+        // Prioridade 2: FRONTEND_URL (legado, usado em dev local).
         String frontendUrlRaw = nullToEmpty(env.getProperty("FRONTEND_URL")).trim();
         boolean valid = !frontendUrlRaw.isEmpty()
                 && frontendUrlRaw.matches("(?i)^https?://.*")
@@ -332,9 +394,11 @@ public class AuthController {
         if (valid) {
             return frontendUrlRaw;
         }
+
+        // Prioridade 3: deduzir do ambiente, com fallback FRONTEND_URL_STAGING/_PRODUCTION (legado).
         String ambiente = nullToEmpty(env.getProperty("OPENSHIFT_BACKEND_AMBIENTE")).toLowerCase().trim();
         if (ambiente.equals("stag") || ambiente.equals("staging")) {
-            return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend.apps.ocp-prd.tjgo.jus.br");
+            return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend2.apps.ocp-prd.tjgo.jus.br");
         }
         if (ambiente.equals("prd") || ambiente.equals("production")) {
             return env.getProperty("FRONTEND_URL_PRODUCTION", "https://kaizen.tjgo.jus.br");
@@ -344,7 +408,7 @@ public class AuthController {
                     env.getProperty("OPENSHIFT_SSO_KEYCLOACK_REDIRECT_URI"), "");
             String apiUrl = env.getProperty("OPENSHIFT_API_URL", "");
             if (redirectUri.contains("stag") || apiUrl.contains("stag")) {
-                return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend.apps.ocp-prd.tjgo.jus.br");
+                return env.getProperty("FRONTEND_URL_STAGING", "https://painel-sgjt-stag-frontend2.apps.ocp-prd.tjgo.jus.br");
             }
             return env.getProperty("FRONTEND_URL_PRODUCTION", "https://kaizen.tjgo.jus.br");
         }

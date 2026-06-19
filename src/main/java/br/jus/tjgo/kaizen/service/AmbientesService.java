@@ -117,23 +117,26 @@ public class AmbientesService {
 
     public Map<String, Object> addAdmin(String codigo, Map<String, Object> data, long createdBy) {
         String diretoriaRaiz = diretoriaRaizOrThrow(codigo);
-        String rawPassword = data.get("password") != null ? str(data.get("password")) : "123456";
-        String hashedPassword = PasswordHasher.sha256Hex(rawPassword);
         String email = str(data.get("email"));
-        String name = str(data.get("name"));
-
-        var existingUser = jdbc.queryForList("SELECT id FROM users WHERE email = ?", email);
-        if (!existingUser.isEmpty()) {
-            return jdbc.queryForMap(
-                    "UPDATE users SET diretoria = ?, role = 'ADMIN', is_superadmin = TRUE, dominio = ?, updated_at = NOW() " +
-                            "WHERE email = ? RETURNING id, name, email, role, diretoria, is_superadmin",
-                    diretoriaRaiz, codigo, email);
+        if (email != null) email = email.trim();
+        if (email == null || email.isBlank()) {
+            throw new ApiException(400, "Campos obrigatórios: email");
         }
+
+        var existingUser = jdbc.queryForList("SELECT id, is_deleted, status FROM users WHERE email = ?", email);
+        if (existingUser.isEmpty()) {
+            throw new ApiException(404, "Usuário não encontrado. O e-mail deve estar previamente cadastrado.");
+        }
+        Map<String, Object> user = existingUser.get(0);
+        if (Boolean.TRUE.equals(user.get("is_deleted")) || !"ACTIVE".equals(user.get("status"))) {
+            throw new ApiException(400, "Usuário inativo ou excluído. Não é possível conceder permissões.");
+        }
+        
         return jdbc.queryForMap(
-                "INSERT INTO users (name, email, password_hash, diretoria, role, is_superadmin, dominio, status, " +
-                        "is_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, 'ADMIN', TRUE, ?, 'ACTIVE', FALSE, NOW(), NOW()) " +
-                        "RETURNING id, name, email, role, diretoria, is_superadmin",
-                name, email, hashedPassword, diretoriaRaiz, codigo);
+                "UPDATE users SET diretoria = ?, role = 'ADMIN', is_superadmin = TRUE, dominio = ?, " +
+                        "updated_at = NOW() " +
+                        "WHERE email = ? RETURNING id, name, email, role, diretoria, is_superadmin",
+                diretoriaRaiz, codigo, email);
     }
 
     public boolean removeAdmin(String codigo, long userId) {

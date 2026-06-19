@@ -39,6 +39,13 @@ spring:
 
 server:
   port: ${PORT:8081}
+  # Tokens do Keycloak (id_token + refresh_token) chegam como JWT grandes (~3-5KB cada).
+  # O redirect do callback SSO embute esses tokens no Location header (via query string)
+  # pro frontend salvar no localStorage. Sem aumentar o limite, o Tomcat estoura com
+  # HeadersTooLargeException ao escrever a resposta. 64KB cobre com folga.
+  max-http-request-header-size: 64KB
+  tomcat:
+    max-http-response-header-size: 64KB
 
 management:
   endpoints:
@@ -60,6 +67,7 @@ kaizen:
     enabled: ${SSO_ENABLED:false}
     realm: ${OPENSHIFT_SSO_KEYCLOACK_REALM:${KEYCLOAK_REALM:}}
     client-id: ${OPENSHIFT_SSO_CLIENT_ID:${KEYCLOAK_CLIENT_ID:}}
+    client-secret: ${OPENSHIFT_SSO_SECRET:${KEYCLOAK_CLIENT_SECRET:}}
     keycloak-url: ${OPENSHIFT_SSO_KEYCLOACK_URL:${KEYCLOAK_URL:}}
     redirect-uri: ${OPENSHIFT_SSO_KEYCLOACK_REDIRECT_URI:${KEYCLOAK_REDIRECT_URI:}}
   frontend:
