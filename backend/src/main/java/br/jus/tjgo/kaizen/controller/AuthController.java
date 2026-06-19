@@ -150,12 +150,14 @@ public class AuthController {
             String localToken = base64(tokenPayload);
 
             // 5. Montar payload de tokens que o frontend (AuthCallback.tsx) espera.
-            //    idToken NAO vai no payload (passava de 50KB pra admins -> HAProxy do Route
-            //    estourava com 502 Bad Gateway). Guarda em memoria aqui, atrelado ao userId,
-            //    e o /sso/logout resolve internamente.
+            //    idToken e refreshToken NAO vao no payload (juntos passavam de 80KB pra admins
+            //    -> HAProxy do Route estourava com 502 Bad Gateway).
+            //    - idToken: guardado em memoria aqui, /sso/logout resolve internamente.
+            //    - refreshToken: o endpoint /sso/refresh nem esta implementado hoje (lanca 500
+            //      por design), entao mandar vazio nao quebra nada.
             Map<String, Object> tokens = new LinkedHashMap<>();
             tokens.put("accessToken", localToken);
-            tokens.put("refreshToken", String.valueOf(tokenResp.getOrDefault("refresh_token", "")));
+            tokens.put("refreshToken", "");
             tokens.put("idToken", "");
             tokens.put("expiresAt", System.currentTimeMillis() + TOKEN_TTL_MS);
 
@@ -186,11 +188,12 @@ public class AuthController {
             // 7. Redirecionar pro AuthCallback do frontend com user+tokens+returnUrl
             String userJson = objectMapper.writeValueAsString(user);
             String tokensJson = objectMapper.writeValueAsString(tokens);
-            log.info("SSO callback: login OK p/ {}", email);
-            return redirect(frontend + "/auth/callback"
-                    + "?user=" + enc(userJson)
+            String query = "?user=" + enc(userJson)
                     + "&tokens=" + enc(tokensJson)
-                    + "&returnUrl=" + enc(returnUrl));
+                    + "&returnUrl=" + enc(returnUrl);
+            log.info("SSO callback: login OK p/ {} [user={}B tokens={}B query={}B]",
+                    email, userJson.length(), tokensJson.length(), query.length());
+            return redirect(frontend + "/auth/callback" + query);
         } catch (Exception e) {
             log.error("SSO callback: erro inesperado", e);
             return redirect(frontend + "/login?error=" + enc("Erro na autenticação SSO: " + e.getMessage()));
