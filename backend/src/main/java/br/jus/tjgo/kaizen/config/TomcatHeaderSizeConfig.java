@@ -22,7 +22,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class TomcatHeaderSizeConfig {
 
-    private static final int MAX_HEADER_BYTES = 64 * 1024; // 64KB
+    // 512KB. 64KB era o suficiente pra usuarios comuns, mas o JWT do Keycloak embute todas
+    // as roles/grupos/atributos do user — admins (ex.: ifccupertino) tem dezenas de roles e o
+    // id_token + refresh_token combinados passam de 64KB. 512KB cobre o cenario extremo com folga.
+    private static final int MAX_HEADER_BYTES = 512 * 1024;
 
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> tomcatHeaderSizeCustomizer() {
