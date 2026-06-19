@@ -143,7 +143,6 @@ public class PcaItemsController {
         data.put("item_pca", body.get("item_pca"));
         data.put("tipo", body.get("tipo") != null ? body.get("tipo") : "Contratação");
         data.put("area_demandante", body.get("area_demandante"));
-        data.put("responsavel", body.get("responsavel"));
         data.put("objeto", body.get("objeto"));
         Double valorEstimado = parseFloatJs(body.get("valor_estimado"));
         data.put("valor_estimado", valorEstimado);
@@ -168,12 +167,6 @@ public class PcaItemsController {
             errors.add("Área demandante é obrigatória");
         } else if (area.length() > 100) {
             errors.add("Área demandante deve ter no máximo 100 caracteres");
-        }
-        String resp = str(data.get("responsavel"));
-        if (resp == null || resp.trim().isEmpty()) {
-            errors.add("Responsável é obrigatório");
-        } else if (resp.length() > 255) {
-            errors.add("Responsável deve ter no máximo 255 caracteres");
         }
         String objeto = str(data.get("objeto"));
         if (objeto == null || objeto.trim().isEmpty()) {
@@ -204,7 +197,6 @@ public class PcaItemsController {
         if (body.containsKey("item_pca")) data.put("item_pca", body.get("item_pca"));
         if (body.containsKey("tipo")) data.put("tipo", body.get("tipo"));
         if (body.containsKey("area_demandante")) data.put("area_demandante", body.get("area_demandante"));
-        if (body.containsKey("responsavel")) data.put("responsavel", body.get("responsavel"));
         if (body.containsKey("objeto")) data.put("objeto", body.get("objeto"));
         if (body.containsKey("valor_estimado")) data.put("valor_estimado", parseFloatJs(body.get("valor_estimado")));
         if (body.containsKey("valor_formalizado")) data.put("valor_formalizado", parseFloatJs(body.get("valor_formalizado")));
@@ -222,11 +214,6 @@ public class PcaItemsController {
             String v = str(data.get("area_demandante"));
             if (v == null || v.trim().isEmpty()) errors.add("Área demandante não pode ser vazia");
             else if (v.length() > 100) errors.add("Área demandante deve ter no máximo 100 caracteres");
-        }
-        if (data.containsKey("responsavel")) {
-            String v = str(data.get("responsavel"));
-            if (v == null || v.trim().isEmpty()) errors.add("Responsável não pode ser vazio");
-            else if (v.length() > 255) errors.add("Responsável deve ter no máximo 255 caracteres");
         }
         if (data.containsKey("objeto")) {
             String v = str(data.get("objeto"));
