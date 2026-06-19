@@ -185,14 +185,22 @@ public class AuthController {
                 }
             }
 
-            // 7. Redirecionar pro AuthCallback do frontend com user+tokens+returnUrl
-            String userJson = objectMapper.writeValueAsString(user);
+            // 7. Redirecionar pro AuthCallback do frontend com user+tokens+returnUrl.
+            //    Remove foto_perfil do payload — coluna armazena base64 da imagem, e pra
+            //    admin pode passar de 150KB (caso ifccupertino: payload total ~190KB,
+            //    estourava HAProxy do Route com 502). Frontend usa avatar default no
+            //    primeiro render; quando carregar telas que listam users, a foto vem nos
+            //    endpoints normais de /api/users.
+            Map<String, Object> userForRedirect = new LinkedHashMap<>(user);
+            Object fotoRemovida = userForRedirect.remove("foto_perfil");
+            String userJson = objectMapper.writeValueAsString(userForRedirect);
             String tokensJson = objectMapper.writeValueAsString(tokens);
             String query = "?user=" + enc(userJson)
                     + "&tokens=" + enc(tokensJson)
                     + "&returnUrl=" + enc(returnUrl);
-            log.info("SSO callback: login OK p/ {} [user={}B tokens={}B query={}B]",
-                    email, userJson.length(), tokensJson.length(), query.length());
+            log.info("SSO callback: login OK p/ {} [user={}B tokens={}B query={}B foto_perfil_omitida={}B]",
+                    email, userJson.length(), tokensJson.length(), query.length(),
+                    fotoRemovida == null ? 0 : String.valueOf(fotoRemovida).length());
             return redirect(frontend + "/auth/callback" + query);
         } catch (Exception e) {
             log.error("SSO callback: erro inesperado", e);
