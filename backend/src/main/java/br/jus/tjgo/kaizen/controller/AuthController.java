@@ -24,6 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Porte fiel de routes/auth.ts. Login local/base64 (NÃO JWT — replica auth.ts 271-297);
@@ -37,6 +39,12 @@ import java.util.Map;
 public class AuthController {
 
     private static final long TOKEN_TTL_MS = 8L * 60 * 60 * 1000;
+
+    // idToken do Keycloak por userId. Nao volta na URL do redirect pro frontend (era ate 50KB
+    // pra admins, estourava o HAProxy do Route em ~16KB -> 502 Bad Gateway). Fica aqui em memoria
+    // e o /sso/logout resolve internamente via Authorization header do request.
+    // Limpa quando o pod reinicia (aceitavel: 1 replica, e o user precisaria relogar igual).
+    private static final ConcurrentMap<String, String> ID_TOKEN_STORE = new ConcurrentHashMap<>();
 
     private final SsoConfig sso;
     private final UserService userService;
@@ -141,14 +149,22 @@ public class AuthController {
             tokenPayload.put("email", user.get("email"));
             String localToken = base64(tokenPayload);
 
-            // 5. Montar payload de tokens que o frontend (AuthCallback.tsx) espera
-            //    idToken vai junto pra o frontend conseguir mandar como id_token_hint
-            //    quando chamar /sso/logout (Keycloak antigo exige isso pra encerrar sessao).
+            // 5. Montar payload de tokens que o frontend (AuthCallback.tsx) espera.
+            //    idToken NAO vai no payload (passava de 50KB pra admins -> HAProxy do Route
+            //    estourava com 502 Bad Gateway). Guarda em memoria aqui, atrelado ao userId,
+            //    e o /sso/logout resolve internamente.
             Map<String, Object> tokens = new LinkedHashMap<>();
             tokens.put("accessToken", localToken);
             tokens.put("refreshToken", String.valueOf(tokenResp.getOrDefault("refresh_token", "")));
-            tokens.put("idToken", idTokenObj != null ? String.valueOf(idTokenObj) : "");
+            tokens.put("idToken", "");
             tokens.put("expiresAt", System.currentTimeMillis() + TOKEN_TTL_MS);
+
+            if (idTokenObj != null) {
+                String idTokenStr = String.valueOf(idTokenObj);
+                if (!idTokenStr.isBlank()) {
+                    ID_TOKEN_STORE.put(String.valueOf(user.get("id")), idTokenStr);
+                }
+            }
 
             // 6. Decodificar returnUrl do state (base64 de {"returnUrl": "..."})
             String returnUrl = "/";
@@ -211,20 +227,45 @@ public class AuthController {
     @GetMapping("/sso/logout")
     public ResponseEntity<?> ssoLogout(
             @RequestParam(value = "redirect", required = false) String redirect,
-            @RequestParam(value = "id_token_hint", required = false) String idTokenHint) {
+            @RequestParam(value = "id_token_hint", required = false) String idTokenHint,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String frontend = getFrontendUrl();
         if (!sso.isEnabled()) {
             return redirect(frontend + "/login");
         }
         String postLogoutUri = (redirect != null && !redirect.isBlank()) ? redirect : frontend + "/login";
+
+        // Resolver id_token_hint internamente. O frontend nao recebe mais o idToken (era grande
+        // demais e estourava o HAProxy no callback). Usa o Authorization Bearer <accessToken local>
+        // pra descobrir o userId e buscar o idToken guardado no ID_TOKEN_STORE no momento do login.
+        String resolvedIdToken = idTokenHint;
+        if ((resolvedIdToken == null || resolvedIdToken.isBlank())
+                && authHeader != null && authHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            String accessTokenLocal = authHeader.substring(7).trim();
+            try {
+                byte[] decoded = Base64.getDecoder().decode(accessTokenLocal);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> payload = objectMapper.readValue(decoded, Map.class);
+                Object uid = payload.get("userId");
+                if (uid != null) {
+                    String stored = ID_TOKEN_STORE.remove(String.valueOf(uid));
+                    if (stored != null && !stored.isBlank()) {
+                        resolvedIdToken = stored;
+                    }
+                }
+            } catch (Exception ignore) {
+                // accessToken malformado ou nao-base64 — segue sem id_token_hint
+            }
+        }
+
         // Manda nome novo (post_logout_redirect_uri, Keycloak 19+) e nome antigo (redirect_uri,
         // Keycloak <19, que e o caso do TJGO). Tambem inclui client_id que algumas versoes exigem.
         StringBuilder logoutUrl = new StringBuilder(sso.getLogoutUrl())
                 .append("?post_logout_redirect_uri=").append(enc(postLogoutUri))
                 .append("&redirect_uri=").append(enc(postLogoutUri))
                 .append("&client_id=").append(enc(sso.getClientId()));
-        if (idTokenHint != null && !idTokenHint.isBlank()) {
-            logoutUrl.append("&id_token_hint=").append(enc(idTokenHint));
+        if (resolvedIdToken != null && !resolvedIdToken.isBlank()) {
+            logoutUrl.append("&id_token_hint=").append(enc(resolvedIdToken));
         }
         return redirect(logoutUrl.toString());
     }
