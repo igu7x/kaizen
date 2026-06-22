@@ -975,11 +975,11 @@ export function ControleExecucaoNovo() {
   const projetosPorDiretoria =
     filtroUnidade !== "todos"
       ? projetosBase.filter((p) => {
-          const areasStr = (p as any).areas_execucao_diretorias || "";
-          return areasStr
-            .split(", ")
-            .some((a: string) => a.trim() === filtroUnidade);
-        })
+        const areasStr = (p as any).areas_execucao_diretorias || "";
+        return areasStr
+          .split(", ")
+          .some((a: string) => a.trim() === filtroUnidade);
+      })
       : projetosBase;
 
   // Gestores únicos dos projetos (para o filtro)
@@ -1056,14 +1056,14 @@ export function ControleExecucaoNovo() {
   const projetosFiltrados = (
     buscaProjeto.trim()
       ? projetosFiltradosPorCampos.filter(
-          (projeto) =>
-            (projeto.nome || "")
-              .toLowerCase()
-              .includes(buscaProjeto.toLowerCase()) ||
-            (projeto.codigo || "")
-              .toLowerCase()
-              .includes(buscaProjeto.toLowerCase()),
-        )
+        (projeto) =>
+          (projeto.nome || "")
+            .toLowerCase()
+            .includes(buscaProjeto.toLowerCase()) ||
+          (projeto.codigo || "")
+            .toLowerCase()
+            .includes(buscaProjeto.toLowerCase()),
+      )
       : projetosFiltradosPorCampos
   ).sort((a, b) => {
     const dataA = a.data_prevista_conclusao
@@ -2269,11 +2269,10 @@ export function ControleExecucaoNovo() {
               {/* Card - Total de Projetos */}
               <button
                 onClick={() => setFiltroStatus("todos")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
-                  filtroStatus === "todos"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "todos"
                     ? "border-slate-400 shadow-lg ring-2 ring-slate-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                }`}
+                  }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2294,11 +2293,10 @@ export function ControleExecucaoNovo() {
               {/* Card - Concluídos */}
               <button
                 onClick={() => setFiltroStatus("concluido")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
-                  filtroStatus === "concluido"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "concluido"
                     ? "border-emerald-400 shadow-lg ring-2 ring-emerald-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                }`}
+                  }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2319,11 +2317,10 @@ export function ControleExecucaoNovo() {
               {/* Card - Em Andamento */}
               <button
                 onClick={() => setFiltroStatus("em_execucao")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
-                  filtroStatus === "em_execucao"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "em_execucao"
                     ? "border-amber-400 shadow-lg ring-2 ring-amber-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                }`}
+                  }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2344,11 +2341,10 @@ export function ControleExecucaoNovo() {
               {/* Card - Não Iniciados */}
               <button
                 onClick={() => setFiltroStatus("planejado")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
-                  filtroStatus === "planejado"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "planejado"
                     ? "border-rose-400 shadow-lg ring-2 ring-rose-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                }`}
+                  }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2669,10 +2665,10 @@ export function ControleExecucaoNovo() {
                     {planoFiltroId
                       ? "Nenhum projeto vinculado"
                       : filtroStatus !== "todos" ||
-                          filtroSituacao !== "todos" ||
-                          filtroSaude !== "todos" ||
-                          filtroPrioridade !== "todos" ||
-                          filtroTap !== "todos"
+                        filtroSituacao !== "todos" ||
+                        filtroSaude !== "todos" ||
+                        filtroPrioridade !== "todos" ||
+                        filtroTap !== "todos"
                         ? "Nenhum projeto com os filtros selecionados"
                         : "Nenhum projeto encontrado"}
                   </p>
@@ -2691,25 +2687,24 @@ export function ControleExecucaoNovo() {
                       0;
                     const prazoEstimado =
                       (projeto as any).data_prevista_conclusao ||
-                      (projeto as any).data_fim_prevista
+                        (projeto as any).data_fim_prevista
                         ? new Date(
-                            (projeto as any).data_prevista_conclusao ||
-                              (projeto as any).data_fim_prevista,
-                          ).toLocaleDateString("pt-BR", {
-                            month: "2-digit",
-                            year: "numeric",
-                          })
+                          (projeto as any).data_prevista_conclusao ||
+                          (projeto as any).data_fim_prevista,
+                        ).toLocaleDateString("pt-BR", {
+                          month: "2-digit",
+                          year: "numeric",
+                        })
                         : "—";
 
                     return (
                       <div
                         key={projeto.id}
                         onClick={() => handleVerProjetoDetalhes(projeto.id)}
-                        className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${
-                          index !== projetosFiltrados.length - 1
+                        className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${index !== projetosFiltrados.length - 1
                             ? "border-b border-gray-100"
                             : ""
-                        }`}
+                          }`}
                       >
                         {/* Info do Projeto */}
                         <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -2754,7 +2749,7 @@ export function ControleExecucaoNovo() {
                             >
                               {
                                 statusProjetoLabels[
-                                  projeto.status || "planejado"
+                                projeto.status || "planejado"
                                 ]
                               }
                             </Badge>
@@ -3036,15 +3031,14 @@ export function ControleExecucaoNovo() {
                 <div className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-2 h-2 rounded-full ${
-                        projetoDetalhes.status === "concluido"
+                      className={`w-2 h-2 rounded-full ${projetoDetalhes.status === "concluido"
                           ? "bg-green-500"
                           : projetoDetalhes.status === "em_execucao"
                             ? "bg-blue-500"
                             : projetoDetalhes.status === "cancelado"
                               ? "bg-gray-500"
                               : "bg-gray-400"
-                      }`}
+                        }`}
                     />
                     <span>
                       {statusProjetoLabels[projetoDetalhes.status] ||
@@ -3072,11 +3066,11 @@ export function ControleExecucaoNovo() {
                 <p className="text-gray-900">
                   {projetoDetalhes.data_prevista_conclusao
                     ? new Date(
-                        projetoDetalhes.data_prevista_conclusao,
-                      ).toLocaleDateString("pt-BR", {
-                        month: "2-digit",
-                        year: "numeric",
-                      })
+                      projetoDetalhes.data_prevista_conclusao,
+                    ).toLocaleDateString("pt-BR", {
+                      month: "2-digit",
+                      year: "numeric",
+                    })
                     : "-"}
                 </p>
               </div>
@@ -3135,7 +3129,7 @@ export function ControleExecucaoNovo() {
                       : tapPendenteUsuario
                         ? "Validar TAP — Pendente"
                         : projetoDetalhes.tap_versao &&
-                            projetoDetalhes.tap_versao > 0
+                          projetoDetalhes.tap_versao > 0
                           ? tapPronto
                             ? "Visualizar TAP"
                             : "Gerar TAP"
@@ -3373,13 +3367,12 @@ export function ControleExecucaoNovo() {
                                 >
                                   <div className="flex items-center gap-2">
                                     <div
-                                      className={`w-2 h-2 rounded-full ${
-                                        entrega.status === "concluida"
+                                      className={`w-2 h-2 rounded-full ${entrega.status === "concluida"
                                           ? "bg-green-500"
                                           : entrega.status === "em_andamento"
                                             ? "bg-orange-500"
                                             : "bg-gray-400"
-                                      }`}
+                                        }`}
                                     />
                                     <span>
                                       {entrega.status === "nao_iniciada"
@@ -3619,9 +3612,9 @@ export function ControleExecucaoNovo() {
                 max={
                   projetoDetalhes?.data_prevista_conclusao
                     ? String(projetoDetalhes.data_prevista_conclusao).slice(
-                        0,
-                        10,
-                      )
+                      0,
+                      10,
+                    )
                     : undefined
                 }
               />
@@ -3636,7 +3629,7 @@ export function ControleExecucaoNovo() {
               {novaEntregaPrazo &&
                 projetoDetalhes?.data_prevista_conclusao &&
                 new Date(novaEntregaPrazo) >
-                  new Date(projetoDetalhes.data_prevista_conclusao) && (
+                new Date(projetoDetalhes.data_prevista_conclusao) && (
                   <p className="text-xs text-red-600 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
                     Prazo posterior à conclusão prevista do projeto. Ajuste a
@@ -3666,7 +3659,7 @@ export function ControleExecucaoNovo() {
                 (!!novaEntregaPrazo &&
                   !!projetoDetalhes?.data_prevista_conclusao &&
                   new Date(novaEntregaPrazo) >
-                    new Date(projetoDetalhes.data_prevista_conclusao))
+                  new Date(projetoDetalhes.data_prevista_conclusao))
               }
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -3790,9 +3783,9 @@ export function ControleExecucaoNovo() {
                 max={
                   projetoDetalhes?.data_prevista_conclusao
                     ? String(projetoDetalhes.data_prevista_conclusao).slice(
-                        0,
-                        10,
-                      )
+                      0,
+                      10,
+                    )
                     : undefined
                 }
               />
@@ -3807,7 +3800,7 @@ export function ControleExecucaoNovo() {
               {editEntregaPrazo &&
                 projetoDetalhes?.data_prevista_conclusao &&
                 new Date(editEntregaPrazo) >
-                  new Date(projetoDetalhes.data_prevista_conclusao) && (
+                new Date(projetoDetalhes.data_prevista_conclusao) && (
                   <p className="text-xs text-red-600 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
                     Prazo posterior à conclusão prevista do projeto. Ajuste a
@@ -3835,7 +3828,7 @@ export function ControleExecucaoNovo() {
                 (!!editEntregaPrazo &&
                   !!projetoDetalhes?.data_prevista_conclusao &&
                   new Date(editEntregaPrazo) >
-                    new Date(projetoDetalhes.data_prevista_conclusao))
+                  new Date(projetoDetalhes.data_prevista_conclusao))
               }
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -3994,18 +3987,17 @@ export function ControleExecucaoNovo() {
                 <div className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-2 h-2 rounded-full ${
-                        entregaSelecionada.status === "concluida" ||
-                        temEvidenciaPdf
+                      className={`w-2 h-2 rounded-full ${entregaSelecionada.status === "concluida" ||
+                          temEvidenciaPdf
                           ? "bg-green-500"
                           : entregaSelecionada.status === "em_andamento"
                             ? "bg-orange-500"
                             : "bg-gray-400"
-                      }`}
+                        }`}
                     />
                     <span>
                       {entregaSelecionada.status === "concluida" ||
-                      temEvidenciaPdf
+                        temEvidenciaPdf
                         ? "Concluída"
                         : entregaSelecionada.status === "em_andamento"
                           ? "Em Andamento"
@@ -4255,25 +4247,25 @@ export function ControleExecucaoNovo() {
             )}
             {(instrumentoDetalhes.periodo_vigencia_inicio ||
               instrumentoDetalhes.periodo_vigencia_fim) && (
-              <div>
-                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
-                  Vigência
-                </p>
-                <p className="text-gray-900 text-base">
-                  {instrumentoDetalhes.periodo_vigencia_inicio
-                    ? new Date(
+                <div>
+                  <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
+                    Vigência
+                  </p>
+                  <p className="text-gray-900 text-base">
+                    {instrumentoDetalhes.periodo_vigencia_inicio
+                      ? new Date(
                         instrumentoDetalhes.periodo_vigencia_inicio,
                       ).toLocaleDateString("pt-BR")
-                    : "?"}
-                  {" → "}
-                  {instrumentoDetalhes.periodo_vigencia_fim
-                    ? new Date(
+                      : "?"}
+                    {" → "}
+                    {instrumentoDetalhes.periodo_vigencia_fim
+                      ? new Date(
                         instrumentoDetalhes.periodo_vigencia_fim,
                       ).toLocaleDateString("pt-BR")
-                    : "?"}
-                </p>
-              </div>
-            )}
+                      : "?"}
+                  </p>
+                </div>
+              )}
           </div>
 
           {/* Botão Exibir informações completas */}
@@ -4346,7 +4338,7 @@ export function ControleExecucaoNovo() {
                             >
                               {
                                 statusProjetoLabels[
-                                  projeto.status || "planejado"
+                                projeto.status || "planejado"
                                 ]
                               }
                             </Badge>
@@ -4960,14 +4952,14 @@ export function ControleExecucaoNovo() {
                     <p className="text-gray-900">
                       {instrumentoDetalhes.periodo_vigencia_inicio
                         ? new Date(
-                            instrumentoDetalhes.periodo_vigencia_inicio,
-                          ).toLocaleDateString("pt-BR")
+                          instrumentoDetalhes.periodo_vigencia_inicio,
+                        ).toLocaleDateString("pt-BR")
                         : "Não definido"}
                       {" → "}
                       {instrumentoDetalhes.periodo_vigencia_fim
                         ? new Date(
-                            instrumentoDetalhes.periodo_vigencia_fim,
-                          ).toLocaleDateString("pt-BR")
+                          instrumentoDetalhes.periodo_vigencia_fim,
+                        ).toLocaleDateString("pt-BR")
                         : "Não definido"}
                     </p>
                   </div>
@@ -5305,8 +5297,8 @@ export function ControleExecucaoNovo() {
                       <p className="text-gray-900">
                         {projetoDetalhes.data_prevista_inicio
                           ? new Date(
-                              projetoDetalhes.data_prevista_inicio,
-                            ).toLocaleDateString("pt-BR")
+                            projetoDetalhes.data_prevista_inicio,
+                          ).toLocaleDateString("pt-BR")
                           : "Não definido"}
                       </p>
                     </div>
@@ -5317,8 +5309,8 @@ export function ControleExecucaoNovo() {
                       <p className="text-gray-900">
                         {projetoDetalhes.data_prevista_conclusao
                           ? new Date(
-                              projetoDetalhes.data_prevista_conclusao,
-                            ).toLocaleDateString("pt-BR")
+                            projetoDetalhes.data_prevista_conclusao,
+                          ).toLocaleDateString("pt-BR")
                           : "Não definido"}
                       </p>
                     </div>
@@ -5387,11 +5379,11 @@ export function ControleExecucaoNovo() {
                         <p className="text-gray-900 font-medium">
                           {projetoDetalhes.valor_estimado_contratacao != null
                             ? Number(
-                                projetoDetalhes.valor_estimado_contratacao,
-                              ).toLocaleString("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              })
+                              projetoDetalhes.valor_estimado_contratacao,
+                            ).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })
                             : "Não informado"}
                         </p>
                       </div>
@@ -5417,13 +5409,12 @@ export function ControleExecucaoNovo() {
                     </p>
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-3 h-3 rounded-full ${
-                          projetoDetalhes.saude === "verde"
+                        className={`w-3 h-3 rounded-full ${projetoDetalhes.saude === "verde"
                             ? "bg-green-500"
                             : projetoDetalhes.saude === "amarelo"
                               ? "bg-yellow-500"
                               : "bg-red-500"
-                        }`}
+                          }`}
                       />
                       <span className="font-medium">
                         {saudeLabels[projetoDetalhes.saude] ||
@@ -5478,68 +5469,68 @@ export function ControleExecucaoNovo() {
             {/* SEÇÃO: ESCOPO */}
             {(projetoDetalhes.escopo_sintetico ||
               projetoDetalhes.fora_do_escopo) && (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-cyan-50 px-4 py-3 flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-cyan-600" />
-                  <span className="font-semibold text-cyan-900">Escopo</span>
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-cyan-50 px-4 py-3 flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-cyan-600" />
+                    <span className="font-semibold text-cyan-900">Escopo</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {projetoDetalhes.escopo_sintetico && (
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                          Escopo Sintético
+                        </p>
+                        <p className="text-gray-900 whitespace-pre-wrap">
+                          {projetoDetalhes.escopo_sintetico}
+                        </p>
+                      </div>
+                    )}
+                    {projetoDetalhes.fora_do_escopo && (
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                          Fora do Escopo
+                        </p>
+                        <p className="text-gray-900 whitespace-pre-wrap">
+                          {projetoDetalhes.fora_do_escopo}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="p-4 space-y-3">
-                  {projetoDetalhes.escopo_sintetico && (
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                        Escopo Sintético
-                      </p>
-                      <p className="text-gray-900 whitespace-pre-wrap">
-                        {projetoDetalhes.escopo_sintetico}
-                      </p>
-                    </div>
-                  )}
-                  {projetoDetalhes.fora_do_escopo && (
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                        Fora do Escopo
-                      </p>
-                      <p className="text-gray-900 whitespace-pre-wrap">
-                        {projetoDetalhes.fora_do_escopo}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              )}
 
             {/* SEÇÃO: ANCORAGEM ESTRATÉGICA */}
             {(projetoDetalhes.ancoragem_estrategica_plano_gestao ||
               projetoDetalhes.ancoragem_estrategica_pep ||
               projetoDetalhes.ancoragem_estrategica_programa_x) && (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-indigo-50 px-4 py-3 flex items-center gap-2">
-                  <Target className="h-4 w-4 text-indigo-600" />
-                  <span className="font-semibold text-indigo-900">
-                    Ancoragem Estratégica
-                  </span>
-                </div>
-                <div className="p-4">
-                  <div className="flex flex-wrap gap-2">
-                    {projetoDetalhes.ancoragem_estrategica_plano_gestao && (
-                      <Badge className="bg-indigo-100 text-indigo-700 border-0">
-                        Plano de Gestão
-                      </Badge>
-                    )}
-                    {projetoDetalhes.ancoragem_estrategica_pep && (
-                      <Badge className="bg-indigo-100 text-indigo-700 border-0">
-                        PEP
-                      </Badge>
-                    )}
-                    {projetoDetalhes.ancoragem_estrategica_programa_x && (
-                      <Badge className="bg-indigo-100 text-indigo-700 border-0">
-                        Programa X
-                      </Badge>
-                    )}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-indigo-50 px-4 py-3 flex items-center gap-2">
+                    <Target className="h-4 w-4 text-indigo-600" />
+                    <span className="font-semibold text-indigo-900">
+                      Ancoragem Estratégica
+                    </span>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {projetoDetalhes.ancoragem_estrategica_plano_gestao && (
+                        <Badge className="bg-indigo-100 text-indigo-700 border-0">
+                          Plano de Gestão
+                        </Badge>
+                      )}
+                      {projetoDetalhes.ancoragem_estrategica_pep && (
+                        <Badge className="bg-indigo-100 text-indigo-700 border-0">
+                          PEP
+                        </Badge>
+                      )}
+                      {projetoDetalhes.ancoragem_estrategica_programa_x && (
+                        <Badge className="bg-indigo-100 text-indigo-700 border-0">
+                          Programa X
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* SEÇÃO: TAP — STATUS DETALHADO */}
             {projetoDetalhes.tap_id && (
@@ -5567,8 +5558,8 @@ export function ControleExecucaoNovo() {
                       <p className="text-gray-900">
                         {projetoDetalhes.tap_gerado_em
                           ? new Date(
-                              projetoDetalhes.tap_gerado_em,
-                            ).toLocaleString("pt-BR")
+                            projetoDetalhes.tap_gerado_em,
+                          ).toLocaleString("pt-BR")
                           : "-"}
                       </p>
                     </div>
@@ -5593,8 +5584,8 @@ export function ControleExecucaoNovo() {
                       >
                         {projetoDetalhes.tap_validado_gestor_em
                           ? new Date(
-                              projetoDetalhes.tap_validado_gestor_em,
-                            ).toLocaleString("pt-BR")
+                            projetoDetalhes.tap_validado_gestor_em,
+                          ).toLocaleString("pt-BR")
                           : "Pendente"}
                       </p>
                     </div>
@@ -5609,8 +5600,8 @@ export function ControleExecucaoNovo() {
                       >
                         {projetoDetalhes.tap_validado_diretor_em
                           ? new Date(
-                              projetoDetalhes.tap_validado_diretor_em,
-                            ).toLocaleString("pt-BR")
+                            projetoDetalhes.tap_validado_diretor_em,
+                          ).toLocaleString("pt-BR")
                           : "Pendente"}
                       </p>
                     </div>
@@ -5625,8 +5616,8 @@ export function ControleExecucaoNovo() {
                       >
                         {projetoDetalhes.tap_validado_patrocinador_em
                           ? new Date(
-                              projetoDetalhes.tap_validado_patrocinador_em,
-                            ).toLocaleString("pt-BR")
+                            projetoDetalhes.tap_validado_patrocinador_em,
+                          ).toLocaleString("pt-BR")
                           : "Pendente"}
                       </p>
                     </div>
@@ -5680,8 +5671,8 @@ export function ControleExecucaoNovo() {
                     <p className="text-gray-900 text-sm">
                       {projetoDetalhes.created_at
                         ? new Date(projetoDetalhes.created_at).toLocaleString(
-                            "pt-BR",
-                          )
+                          "pt-BR",
+                        )
                         : "-"}
                     </p>
                   </div>
@@ -5692,8 +5683,8 @@ export function ControleExecucaoNovo() {
                     <p className="text-gray-900 text-sm">
                       {projetoDetalhes.updated_at
                         ? new Date(projetoDetalhes.updated_at).toLocaleString(
-                            "pt-BR",
-                          )
+                          "pt-BR",
+                        )
                         : "-"}
                     </p>
                   </div>
@@ -5802,7 +5793,7 @@ export function ControleExecucaoNovo() {
                           <Button
                             size="sm"
                             className="bg-blue-600 hover:bg-blue-700 text-white"
-                            onClick={() => {}}
+                            onClick={() => { }}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Gestor
@@ -5830,7 +5821,7 @@ export function ControleExecucaoNovo() {
                         <Button
                           size="sm"
                           className="bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={() => {}}
+                          onClick={() => { }}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como
                           Diretor
@@ -5858,7 +5849,7 @@ export function ControleExecucaoNovo() {
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => {}}
+                            onClick={() => { }}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Patrocinador
@@ -5981,7 +5972,7 @@ export function ControleExecucaoNovo() {
                           <Button
                             size="sm"
                             className="bg-blue-600 hover:bg-blue-700 text-white"
-                            onClick={() => {}}
+                            onClick={() => { }}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Gestor
@@ -6007,7 +5998,7 @@ export function ControleExecucaoNovo() {
                         <Button
                           size="sm"
                           className="bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={() => {}}
+                          onClick={() => { }}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como
                           Diretor
@@ -6033,7 +6024,7 @@ export function ControleExecucaoNovo() {
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => {}}
+                            onClick={() => { }}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Patrocinador
