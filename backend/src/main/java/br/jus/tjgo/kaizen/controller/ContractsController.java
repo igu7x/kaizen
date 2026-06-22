@@ -75,4 +75,22 @@ public class ContractsController {
     public void delete(@PathVariable Long id, @RequestHeader("x-user-id") Long userId) {
         contractService.softDelete(id, userId);
     }
+
+    @GetMapping("/{id}/pcas")
+    public List<java.util.Map<String, Object>> getPcas(@PathVariable Long id) {
+        return contractService.getPcas(id);
+    }
+
+    @PostMapping("/{id}/pcas")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void linkPcas(@PathVariable Long id, @RequestBody java.util.Map<String, List<Long>> payload) {
+        List<Long> pcaIds = payload.get("pcaIds");
+        contractService.linkPcas(id, pcaIds);
+    }
+
+    @DeleteMapping("/{id}/pcas/{pcaId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unlinkPca(@PathVariable Long id, @PathVariable Long pcaId) {
+        contractService.unlinkPca(id, pcaId);
+    }
 }

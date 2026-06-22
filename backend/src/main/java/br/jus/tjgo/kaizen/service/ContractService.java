@@ -79,8 +79,10 @@ public class ContractService {
         contract.setSupplier(req.supplier());
         contract.setContractModel(req.contractModel());
         contract.setProcess(req.process());
-        contract.setStartDate(req.startDate() != null ? LocalDate.parse(req.startDate()) : null);
-        contract.setEndDate(req.endDate() != null ? LocalDate.parse(req.endDate()) : null);
+        contract.setStartDate(req.startDate() != null && !req.startDate().isBlank() ? LocalDate.parse(req.startDate()) : null);
+        contract.setEndDate(req.endDate() != null && !req.endDate().isBlank() ? LocalDate.parse(req.endDate()) : null);
+        contract.setEffectiveDate(req.effectiveDate() != null && !req.effectiveDate().isBlank() ? LocalDate.parse(req.effectiveDate()) : null);
+        contract.setLimitDate(req.limitDate() != null && !req.limitDate().isBlank() ? LocalDate.parse(req.limitDate()) : null);
         contract.setContractType(req.contractType());
         contract.setAdditiveTermType(req.additiveTermType());
         contract.setObjectName(req.objectName());
@@ -112,8 +114,10 @@ public class ContractService {
         if (req.supplier() != null) contract.setSupplier(req.supplier());
         if (req.contractModel() != null) contract.setContractModel(req.contractModel());
         if (req.process() != null) contract.setProcess(req.process());
-        if (req.startDate() != null) contract.setStartDate(LocalDate.parse(req.startDate()));
-        if (req.endDate() != null) contract.setEndDate(LocalDate.parse(req.endDate()));
+        if (req.startDate() != null && !req.startDate().isBlank()) contract.setStartDate(LocalDate.parse(req.startDate()));
+        if (req.endDate() != null && !req.endDate().isBlank()) contract.setEndDate(LocalDate.parse(req.endDate()));
+        if (req.effectiveDate() != null && !req.effectiveDate().isBlank()) contract.setEffectiveDate(LocalDate.parse(req.effectiveDate()));
+        if (req.limitDate() != null && !req.limitDate().isBlank()) contract.setLimitDate(LocalDate.parse(req.limitDate()));
         if (req.contractType() != null) contract.setContractType(req.contractType());
         if (req.additiveTermType() != null) contract.setAdditiveTermType(req.additiveTermType());
         if (req.objectName() != null) contract.setObjectName(req.objectName());
@@ -155,5 +159,33 @@ public class ContractService {
         contract.setDeletedAt(LocalDateTime.now());
         contract.setDeletedBy(userId);
         contractRepository.save(contract);
+    }
+
+    public List<java.util.Map<String, Object>> getPcas(Long contractId) {
+        String sql = "SELECT p.id, p.code as item_pca, p.object_name as objeto, p.year as ano, CAST(p.estimated_date AS TEXT) as data_estimada_contratacao " +
+                     "FROM pcas p " +
+                     "INNER JOIN contracts_pcas cp ON cp.pca_id = p.id " +
+                     "WHERE cp.contract_id = ? AND (p.is_deleted = FALSE OR p.is_deleted IS NULL)";
+        return jdbcTemplate.queryForList(sql, contractId);
+    }
+
+    @Transactional
+    public void linkPcas(Long contractId, List<Long> pcaIds) {
+        if (pcaIds == null || pcaIds.isEmpty()) return;
+        // Verify contract exists
+        findById(contractId);
+        
+        for (Long pcaId : pcaIds) {
+            // DO NOTHING on conflict to avoid duplicates
+            jdbcTemplate.update(
+                "INSERT INTO contracts_pcas (contract_id, pca_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                contractId, pcaId
+            );
+        }
+    }
+
+    @Transactional
+    public void unlinkPca(Long contractId, Long pcaId) {
+        jdbcTemplate.update("DELETE FROM contracts_pcas WHERE contract_id = ? AND pca_id = ?", contractId, pcaId);
     }
 }
