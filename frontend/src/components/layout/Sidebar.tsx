@@ -105,7 +105,7 @@ const menuItemsCompleto: MenuItem[] = [
     icon: DollarSign,
     children: [
       {
-        title: "Plano de Contratações de TIC",
+        title: "PCAs",
         icon: FilePlus,
         path: "/contratacoes-ti/novas",
         permissaoCodigo: "contratacoes_novas",

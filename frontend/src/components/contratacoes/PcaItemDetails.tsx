@@ -789,13 +789,13 @@ export function PcaItemDetailsPage() {
             prev.map((pc) =>
               pc.id === selectedPCForTarefa
                 ? {
-                    ...pc,
-                    tarefas: [...pc.tarefas, created].sort(
-                      (a, b) =>
-                        new Date(a.prazo).getTime() -
-                        new Date(b.prazo).getTime(),
-                    ),
-                  }
+                  ...pc,
+                  tarefas: [...pc.tarefas, created].sort(
+                    (a, b) =>
+                      new Date(a.prazo).getTime() -
+                      new Date(b.prazo).getTime(),
+                  ),
+                }
                 : pc,
             ),
           );
@@ -871,12 +871,12 @@ export function PcaItemDetailsPage() {
           prev.map((pc) =>
             pc.id === deletedTarefa.ponto_controle_id
               ? {
-                  ...pc,
-                  tarefas: [...pc.tarefas, deletedTarefa].sort(
-                    (a, b) =>
-                      new Date(a.prazo).getTime() - new Date(b.prazo).getTime(),
-                  ),
-                }
+                ...pc,
+                tarefas: [...pc.tarefas, deletedTarefa].sort(
+                  (a, b) =>
+                    new Date(a.prazo).getTime() - new Date(b.prazo).getTime(),
+                ),
+              }
               : pc,
           ),
         );
@@ -964,10 +964,6 @@ export function PcaItemDetailsPage() {
               {pcaItem.status}
             </Badge>
           </div>
-          <p className="text-gray-500 flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Responsável: {pcaItem.responsavel}
-          </p>
         </div>
       </div>
 
@@ -1004,11 +1000,11 @@ export function PcaItemDetailsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label className="text-gray-500 text-xs uppercase">
-                Valor Anual
+                Valor Estimado
               </Label>
               <p className="font-medium flex items-center gap-2 mt-1">
                 <DollarSign className="h-4 w-4 text-green-600" />
-                {formatCurrency(pcaItem.valor_anual)}
+                {formatCurrency(pcaItem.valor_estimado)}
               </p>
             </div>
             <div>
@@ -1325,7 +1321,7 @@ export function PcaItemDetailsPage() {
 
           {/* Accordion de Pontos de Controle */}
           {pontosControleComTarefas.length === 0 &&
-          tarefasOrfas.length === 0 ? (
+            tarefasOrfas.length === 0 ? (
             <div className="text-center text-gray-500 py-12">
               <ListTodo className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p>Nenhum ponto de controle cadastrado</p>
@@ -1547,11 +1543,10 @@ export function PcaItemDetailsPage() {
             disabled={!hasUnsavedChanges || saving}
             className={`
                             shadow-lg transition-all duration-300
-                            ${
-                              hasUnsavedChanges
-                                ? "bg-green-600 hover:bg-green-700"
-                                : "bg-gray-400 cursor-not-allowed opacity-50"
-                            }
+                            ${hasUnsavedChanges
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-gray-400 cursor-not-allowed opacity-50"
+              }
                         `}
             title="Salvar (Ctrl+S)"
           >
@@ -1735,9 +1730,9 @@ export function PcaItemDetailsPage() {
 
                 {/* Verificar se tem tarefas */}
                 {deletingPonto &&
-                pontosControleComTarefas.find(
-                  (pc) => pc.id === deletingPonto.id,
-                )?.tarefas.length ? (
+                  pontosControleComTarefas.find(
+                    (pc) => pc.id === deletingPonto.id,
+                  )?.tarefas.length ? (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="font-medium text-amber-800 mb-2">
                       Este ponto possui{" "}

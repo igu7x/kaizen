@@ -1032,11 +1032,10 @@ export function ProcessoDetalhe({
                     key={c}
                     type="button"
                     onClick={() => setRecusaCamada(c)}
-                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                      recusaCamada === c
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${recusaCamada === c
                         ? "bg-slate-900 text-white border-slate-900"
                         : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     {c === "autor"
                       ? "Autor"
