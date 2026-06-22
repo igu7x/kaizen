@@ -52,6 +52,12 @@ interface ProcessoDetalheProps {
   onChanged: (next: ProcessoNegocio | null) => void;
   /** Callback ao clicar em editar — abre o ProcessoFormDialog */
   onEdit: (processo: ProcessoNegocio) => void;
+  /**
+   * True enquanto o objeto completo (com os bytes de fluxograma/anexos) está sendo
+   * buscado por id. A listagem entrega um payload enxuto (sem base64), então o detalhe
+   * abre na hora com os metadados e preenche o conteúdo pesado quando o fetch retorna.
+   */
+  loadingFull?: boolean;
 }
 
 // ============================================================
@@ -359,6 +365,7 @@ export function ProcessoDetalhe({
   processo,
   onChanged,
   onEdit,
+  loadingFull = false,
 }: ProcessoDetalheProps) {
   const { user } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
@@ -688,6 +695,16 @@ export function ProcessoDetalhe({
               {(() => {
                 const flux = getFluxograma(processo);
                 if (!flux.data) {
+                  // Só mostra "Carregando" se o payload enxuto indicar que há fluxograma
+                  // (tem_fluxograma). Processos sem fluxograma mostram "Nenhum" de imediato.
+                  if (loadingFull && processo.tem_fluxograma !== false) {
+                    return (
+                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando fluxograma…
+                      </div>
+                    );
+                  }
                   return (
                     <p className="text-xs italic text-slate-400">
                       Nenhum fluxograma anexado.
@@ -773,15 +790,22 @@ export function ProcessoDetalhe({
                             </div>
                           </td>
                           <td className="border border-slate-300 px-3 py-2 bg-white text-center">
-                            <a
-                              href={doc.data}
-                              download={doc.nome}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                              title="Baixar"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              Baixar
-                            </a>
+                            {doc.data ? (
+                              <a
+                                href={doc.data}
+                                download={doc.nome}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                title="Baixar"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                Baixar
+                              </a>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Carregando…
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );
