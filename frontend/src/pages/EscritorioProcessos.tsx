@@ -543,6 +543,8 @@ export default function EscritorioProcessos() {
   const [editing, setEditing] = useState<ProcessoNegocio | null>(null);
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [selecionado, setSelecionado] = useState<ProcessoNegocio | null>(null);
+  // True enquanto busca o processo completo (com base64) ao abrir o detalhe.
+  const [detalheLoading, setDetalheLoading] = useState(false);
 
   const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSuperadmin = (user as any)?.is_superadmin === true;
@@ -754,11 +756,14 @@ export default function EscritorioProcessos() {
     // deles para preview, download e geração de PDF.
     setSelecionado(p);
     setDetalheOpen(true);
+    setDetalheLoading(true);
     try {
       const full = await processosNegocioApi.getById(p.id);
       setSelecionado((cur) => (cur && cur.id === full.id ? full : cur));
     } catch {
       /* mantém o objeto enxuto; erro já tratado pelo apiClient */
+    } finally {
+      setDetalheLoading(false);
     }
   };
 
@@ -1164,6 +1169,7 @@ export default function EscritorioProcessos() {
         processo={selecionado}
         onChanged={handleChanged}
         onEdit={handleEditar}
+        loadingFull={detalheLoading}
       />
     </Layout>
   );
