@@ -24,7 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   processosNegocioApi,
   ProcessoNegocio,
-  getFluxograma,
+  temFluxograma,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
@@ -174,7 +174,7 @@ function maturidadeOf(p: ProcessoNegocio): 1 | 2 | 3 | 4 {
   const hasMps = docs.some((d) => d.tipo === "MPS");
   const hasPop = docs.some((d) => d.tipo === "POP");
   const hasAux = docs.some((d) => d.tipo === "AUX");
-  const hasFlux = !!getFluxograma(p).data;
+  const hasFlux = temFluxograma(p);
   if (hasMps && hasPop && hasFlux) return 4;
   const total = [hasMps, hasPop, hasAux, hasFlux].filter(Boolean).length;
   if (total >= 2) return 3;
@@ -630,7 +630,7 @@ export default function EscritorioProcessos() {
         return false;
       if (filtroArtefato === "pop" && !docs.some((d) => d.tipo === "POP"))
         return false;
-      if (filtroArtefato === "flux" && !getFluxograma(p).data) return false;
+      if (filtroArtefato === "flux" && !temFluxograma(p)) return false;
       return true;
     });
   }, [filteredBase, filtroArtefato]);
@@ -652,7 +652,7 @@ export default function EscritorioProcessos() {
       const docs = p.documentos_anexados || [];
       if (docs.some((d) => d.tipo === "MPS")) mps++;
       if (docs.some((d) => d.tipo === "POP")) pop++;
-      if (getFluxograma(p).data) flux++;
+      if (temFluxograma(p)) flux++;
     });
     return { total, mps, pop, flux };
   }, [filtered]);
@@ -748,9 +748,18 @@ export default function EscritorioProcessos() {
     setEditing(p);
     setFormOpen(true);
   };
-  const handleAbrirDetalhe = (p: ProcessoNegocio) => {
+  const handleAbrirDetalhe = async (p: ProcessoNegocio) => {
+    // Abre já com o objeto enxuto (instantâneo) e busca o completo em seguida —
+    // a listagem não traz os bytes do fluxograma/documentos, mas o detalhe precisa
+    // deles para preview, download e geração de PDF.
     setSelecionado(p);
     setDetalheOpen(true);
+    try {
+      const full = await processosNegocioApi.getById(p.id);
+      setSelecionado((cur) => (cur && cur.id === full.id ? full : cur));
+    } catch {
+      /* mantém o objeto enxuto; erro já tratado pelo apiClient */
+    }
   };
 
   const handleSaved = (p: ProcessoNegocio) => {
@@ -1055,7 +1064,7 @@ export default function EscritorioProcessos() {
                       const hasPop = docs.some((d) => d.tipo === "POP");
                       const hasPri = docs.some((d) => d.tipo === "PRI");
                       const hasAux = docs.some((d) => d.tipo === "AUX");
-                      const hasFlux = !!getFluxograma(p).data;
+                      const hasFlux = temFluxograma(p);
                       const areaLabel =
                         (p.areas_responsaveis || [])[0] || p.diretoria || "—";
                       return (
