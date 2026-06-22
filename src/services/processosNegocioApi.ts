@@ -67,6 +67,20 @@ export function getFluxograma(p: {
 }
 
 /**
+ * Indica se o processo tem fluxograma. Prefere o flag `tem_fluxograma` do payload enxuto da
+ * listagem (sem base64); cai para a checagem dos dados completos quando o flag não vier
+ * (objeto vindo de getById/create/update).
+ */
+export function temFluxograma(p: {
+  tem_fluxograma?: boolean;
+  documentos_anexados?: DocumentoAnexado[] | null;
+  fluxograma_data?: string | null;
+}): boolean {
+  if (typeof p.tem_fluxograma === "boolean") return p.tem_fluxograma;
+  return !!getFluxograma(p).data;
+}
+
+/**
  * Responsável por um processo: área + cargo (camada 1 = área, camada 2 = cargo).
  * No PDF aparece apenas o cargo. Persistido no JSONB legado `proprietarios`.
  */
@@ -113,6 +127,12 @@ export interface ProcessoNegocio {
   fluxograma_filename: string | null;
   fluxograma_mime: string | null;
   documentos_anexados: DocumentoAnexado[];
+  /**
+   * Presente apenas no payload da listagem (getAll), que vem enxuto sem os bytes base64.
+   * Indica se o processo tem fluxograma (legado ou doc tipo FLUXOGRAMA) sem trafegar a imagem.
+   * No detalhe (getById) vem undefined — use {@link getFluxograma} a partir dos dados completos.
+   */
+  tem_fluxograma?: boolean;
   periodicidade_revisao: string | null;
   numero_proad: string | null;
   observacoes_gerais: string | null;
