@@ -160,7 +160,7 @@ export default function Home() {
         `}</style>
 
         {/* Seletor de diretoria — fixo no canto superior direito (não empurra o banner) */}
-        <div className="absolute -right-2 top-6 z-20 lg:-right-4 lg:top-10 xl:-right-6 2xl:-right-8">
+        <div className="absolute -right-2 top-1 z-20 lg:-right-4 lg:top-2 xl:-right-6 2xl:-right-8">
           <DirectorateSelector />
         </div>
 
