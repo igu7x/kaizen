@@ -1,5 +1,6 @@
 package br.jus.tjgo.kaizen.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,14 @@ public class ProcessosNegocioService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Listagem para o Escritório de Processos. A tela só precisa dos metadados (nome, status,
+     * tipos de documentos anexados, se há fluxograma) — NUNCA dos bytes base64. Enviar o
+     * fluxograma (~6MB) e os documentos (~20MB) de cada processo travava o carregamento da lista.
+     * Por isso enxugamos o payload aqui: zeramos {@code fluxograma_data}, removemos o {@code data}
+     * de cada documento (mantendo tipo/nome/mime) e expomos {@code tem_fluxograma}. O detalhe
+     * (findById) continua retornando o processo completo para preview/download/PDF.
+     */
     public List<Map<String, Object>> findAll(String diretoria) {
         List<Object> params = new ArrayList<>();
         StringBuilder where = new StringBuilder("is_deleted = FALSE");
@@ -38,9 +47,54 @@ public class ProcessosNegocioService {
             params.add(diretoria);
             where.append(" AND diretoria = ?");
         }
-        return jdbc.queryForList(
+        List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT * FROM processos_negocio WHERE " + where + " ORDER BY updated_at DESC",
                 params.toArray());
+        for (Map<String, Object> row : rows) {
+            stripHeavyFields(row);
+        }
+        return rows;
+    }
+
+    /** Remove os bytes base64 (fluxograma + documentos) de uma linha da listagem, in-place. */
+    private void stripHeavyFields(Map<String, Object> row) {
+        Object fluxograma = row.get("fluxograma_data");
+        boolean temFluxograma = fluxograma != null && !str(fluxograma).isBlank();
+        row.put("fluxograma_data", null);
+
+        List<Map<String, Object>> docs = stripDocumentosData(row.get("documentos_anexados"));
+        row.put("documentos_anexados", docs);
+        if (!temFluxograma) {
+            temFluxograma = docs.stream()
+                    .anyMatch(d -> "FLUXOGRAMA".equals(String.valueOf(d.get("tipo"))));
+        }
+        row.put("tem_fluxograma", temFluxograma);
+    }
+
+    /** Parseia o jsonb de documentos e descarta o campo {@code data} de cada item (mantém metadados). */
+    private List<Map<String, Object>> stripDocumentosData(Object raw) {
+        if (raw == null) {
+            return new ArrayList<>();
+        }
+        String json = String.valueOf(raw);
+        if (json.isBlank() || "null".equals(json)) {
+            return new ArrayList<>();
+        }
+        try {
+            List<Map<String, Object>> docs = objectMapper.readValue(json, new TypeReference<>() {});
+            if (docs == null) {
+                return new ArrayList<>();
+            }
+            for (Map<String, Object> d : docs) {
+                if (d != null) {
+                    d.remove("data");
+                }
+            }
+            return docs;
+        } catch (Exception e) {
+            log.warn("[processosNegocio] falha ao enxugar documentos_anexados na listagem: {}", e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     public Map<String, Object> findById(long id) {
