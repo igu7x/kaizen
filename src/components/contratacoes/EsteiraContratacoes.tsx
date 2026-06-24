@@ -694,9 +694,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectContent>
               </Select>
             </div>
-            <div className="hidden lg:flex items-center text-lg font-bold text-gray-800">
+            <div className="hidden lg:flex items-center text-sm font-bold text-gray-800">
               <Select value={filterArea} onValueChange={setFilterArea}>
-                <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-lg font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Área Demandante</span>
                 </SelectTrigger>
                 <SelectContent>
@@ -710,7 +710,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </Select>
               <span className="w-36 text-center">Valor Estimado</span>
               <Select value={filterMes} onValueChange={setFilterMes}>
-                <SelectTrigger className="w-44 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-lg font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <SelectTrigger className="w-44 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Prazo Estimado</span>
                 </SelectTrigger>
                 <SelectContent>
@@ -723,7 +723,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-36 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-lg font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <SelectTrigger className="w-36 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Status</span>
                 </SelectTrigger>
                 <SelectContent>
