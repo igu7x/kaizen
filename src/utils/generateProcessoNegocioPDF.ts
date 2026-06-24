@@ -13,7 +13,8 @@ import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
 // ============================================================
 const TEXT_DARK = [31, 41, 51] as const; // #1F2933 — títulos em geral
 const ACCENT = [31, 47, 70] as const; // #1F2F46 — fundo do número da seção
-const ACCENT_BG_LIGHT = [243, 246, 250] as const; // #F3F6FA — fundo dos títulos e subtítulos
+const ACCENT_BG_LIGHT = [243, 246, 250] as const; // #F3F6FA — fundo dos subtítulos (cabeçalhos de coluna)
+const TITLE_BG = [220, 230, 242] as const; // #DCE6F2 — fundo dos títulos de seção (tom mais escuro)
 const BORDER_GRAY = [214, 222, 232] as const; // #D6DEE8 — linhas divisórias
 const NAVY = [31, 47, 70] as const; // #1F2F46 — nome do processo
 const SUBTITLE = [47, 95, 143] as const; // #2F5F8F — subtítulos (cabeçalhos de coluna)
@@ -227,7 +228,7 @@ function drawNumberedSectionHeader(
     align: "center",
   });
 
-  doc.setFillColor(...ACCENT_BG_LIGHT);
+  doc.setFillColor(...TITLE_BG);
   doc.rect(
     MARGIN_LEFT + numberSquareW,
     y,
@@ -366,16 +367,14 @@ function renderBulletList(
   }
 
   const lineHeight = lineHeightFor(9);
+  const cx = x + w / 2;
   let cy = y + 5;
   for (const item of items) {
-    const lines = doc.splitTextToSize(item, w - 10);
+    const lines = doc.splitTextToSize(item, w - 14) as string[];
     for (let i = 0; i < lines.length; i++) {
-      if (i === 0) {
-        doc.text("•", x + 3, cy);
-        doc.text(lines[i], x + 7, cy);
-      } else {
-        doc.text(lines[i], x + 7, cy);
-      }
+      // Bullet só na 1ª linha; cada linha centralizada na coluna.
+      const text = i === 0 ? `•  ${lines[i]}` : lines[i];
+      doc.text(text, cx, cy, { align: "center" });
       cy += lineHeight;
     }
   }
@@ -393,7 +392,7 @@ function calcBulletListHeight(
   const lineHeight = lineHeightFor(9);
   let totalLines = 0;
   for (const item of items) {
-    totalLines += doc.splitTextToSize(item, w - 10).length;
+    totalLines += doc.splitTextToSize(item, w - 14).length;
   }
   return Math.max(minHeight, totalLines * lineHeight + 6);
 }
@@ -411,7 +410,7 @@ function drawCabecalhoInstitucional(
   //   linha 2: [Macroprocesso:] [valor]
   //   linha 3: [Data da Versão:] [valor]
   //   linha 4: [NOME DO PROCESSO] [valor]
-  const leftColW = 60;
+  const leftColW = 46; // área da logo reduzida (mockup)
   const rightColW = CONTENT_WIDTH - leftColW;
   const rowH = 9;
   const titleH = 16; // título institucional ocupa 2 linhas
@@ -425,13 +424,11 @@ function drawCabecalhoInstitucional(
   doc.rect(MARGIN_LEFT, y, leftColW, leftTotalH, "S");
 
   // Brasão COLORIDO (500x500) + textos institucionais renderizados como texto.
-  const brasaoW = 19;
+  const brasaoW = 15;
   const brasaoH = brasaoW; // 1:1
   const textLine1H = 4; // "PODER JUDICIÁRIO"
-  const subLines = doc.splitTextToSize(
-    "Tribunal de Justiça do Estado de Goiás",
-    leftColW - 6,
-  ) as string[];
+  // Forçado em 2 linhas (a coluna estreita quebraria em 4 no auto-wrap).
+  const subLines = ["Tribunal de Justiça do", "Estado de Goiás"];
   const textLine2H = subLines.length * 3;
   const lockupH = brasaoH + 1.5 + textLine1H + textLine2H;
   let lockupY = y + (leftTotalH - lockupH) / 2;
@@ -447,14 +444,14 @@ function drawCabecalhoInstitucional(
     "FAST",
   );
   lockupY += brasaoH + 2.5;
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
   doc.text("PODER JUDICIÁRIO", MARGIN_LEFT + leftColW / 2, lockupY, {
     align: "center",
   });
   lockupY += textLine1H - 0.5;
-  doc.setFontSize(6.5);
+  doc.setFontSize(6);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...TEXT_GRAY);
   for (const line of subLines) {
@@ -462,15 +459,27 @@ function drawCabecalhoInstitucional(
     lockupY += 3;
   }
 
-  // Coluna direita — título do tipo de processo (multilinha, centralizado)
-  drawTextCell(
-    doc,
-    "PROCESSO DE NEGÓCIO DA SECRETARIA DE GOVERNANÇA JUDICIÁRIA E TECNOLÓGICA",
-    MARGIN_LEFT + leftColW,
-    y,
-    rightColW,
-    titleH,
-    { bold: true, fontSize: 9.5, align: "center", color: TEXT_DARK },
+  // Coluna direita — título em 2 linhas: "PROCESSO DE NEGÓCIO" em destaque +
+  // subtítulo "SECRETARIA DE GOVERNANÇA JUDICIÁRIA E TECNOLÓGICA" abaixo.
+  const titleX = MARGIN_LEFT + leftColW + rightColW / 2;
+  doc.setFillColor(...WHITE);
+  doc.rect(MARGIN_LEFT + leftColW, y, rightColW, titleH, "F");
+  doc.setDrawColor(...BORDER_GRAY);
+  doc.rect(MARGIN_LEFT + leftColW, y, rightColW, titleH, "S");
+  doc.setFontSize(11.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...TEXT_DARK);
+  doc.text("PROCESSO DE NEGÓCIO", titleX, y + titleH / 2 - 0.5, {
+    align: "center",
+  });
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(
+    "SECRETARIA DE GOVERNANÇA JUDICIÁRIA E TECNOLÓGICA",
+    titleX,
+    y + titleH / 2 + 4.2,
+    { align: "center" },
   );
 
   const labelW = 38;
@@ -532,9 +541,17 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 4: NOME DO PROCESSO (full width, label esquerda + valor à direita em itálico)
+  // Linha 4: NOME DO PROCESSO (label esquerda + valor centralizado, quebra em 2+ linhas se extenso)
   const yNome = yData + rowH;
-  const nomeRowH = 11;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bolditalic");
+  const nomeLines = doc.splitTextToSize(
+    processo.nome_processo || "—",
+    rightColW - 8,
+  ) as string[];
+  const nomeLineH = 4.8;
+  const nomeRowH = Math.max(11, nomeLines.length * nomeLineH + 4);
+
   drawTextCell(doc, "NOME DO PROCESSO", MARGIN_LEFT, yNome, leftColW, nomeRowH, {
     bold: true,
     fontSize: 9,
@@ -547,11 +564,12 @@ function drawCabecalhoInstitucional(
   doc.setFontSize(10);
   doc.setFont("helvetica", "bolditalic");
   doc.setTextColor(...NAVY);
-  doc.text(
-    processo.nome_processo || "—",
-    MARGIN_LEFT + leftColW + 4,
-    yNome + nomeRowH / 2 + 1.6,
-  );
+  const nomeCx = MARGIN_LEFT + leftColW + rightColW / 2;
+  let nomeY = yNome + (nomeRowH - nomeLines.length * nomeLineH) / 2 + nomeLineH - 1.2;
+  for (const ln of nomeLines) {
+    doc.text(ln, nomeCx, nomeY, { align: "center" });
+    nomeY += nomeLineH;
+  }
 
   return yNome + nomeRowH;
 }
@@ -940,11 +958,12 @@ export function generateProcessoNegocioPDF(
   doc.setLineWidth(0.3);
   doc.rect(MARGIN_LEFT, y, revColW, revRowH, "S");
   doc.rect(MARGIN_LEFT + revColW, y, revColW, revRowH, "S");
-  // Esquerda: periodicidade (texto multilinha)
+  // Esquerda: periodicidade (texto multilinha, centralizado ao meio)
   doc.setTextColor(...TEXT_GRAY);
-  let revTextY = y + 5;
+  const periodicidadeBlockH = periodicidadeLines.length * revLineH;
+  let revTextY = y + (revRowH - periodicidadeBlockH) / 2 + revLineH - 1.2;
   for (const line of periodicidadeLines) {
-    doc.text(line, MARGIN_LEFT + 4, revTextY);
+    doc.text(line, MARGIN_LEFT + revColW / 2, revTextY, { align: "center" });
     revTextY += revLineH;
   }
   // Direita: próxima revisão (centralizada)
