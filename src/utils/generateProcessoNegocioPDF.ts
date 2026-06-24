@@ -13,7 +13,8 @@ import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
 // ============================================================
 const TEXT_DARK = [31, 41, 51] as const; // #1F2933 — títulos em geral
 const ACCENT = [31, 47, 70] as const; // #1F2F46 — fundo do número da seção
-const ACCENT_BG_LIGHT = [243, 246, 250] as const; // #F3F6FA — fundo dos títulos e subtítulos
+const ACCENT_BG_LIGHT = [243, 246, 250] as const; // #F3F6FA — fundo dos subtítulos (cabeçalhos de coluna)
+const TITLE_BG = [220, 230, 242] as const; // #DCE6F2 — fundo dos títulos de seção (tom mais escuro)
 const BORDER_GRAY = [214, 222, 232] as const; // #D6DEE8 — linhas divisórias
 const NAVY = [31, 47, 70] as const; // #1F2F46 — nome do processo
 const SUBTITLE = [47, 95, 143] as const; // #2F5F8F — subtítulos (cabeçalhos de coluna)
@@ -227,7 +228,7 @@ function drawNumberedSectionHeader(
     align: "center",
   });
 
-  doc.setFillColor(...ACCENT_BG_LIGHT);
+  doc.setFillColor(...TITLE_BG);
   doc.rect(
     MARGIN_LEFT + numberSquareW,
     y,
@@ -366,16 +367,14 @@ function renderBulletList(
   }
 
   const lineHeight = lineHeightFor(9);
+  const cx = x + w / 2;
   let cy = y + 5;
   for (const item of items) {
-    const lines = doc.splitTextToSize(item, w - 10);
+    const lines = doc.splitTextToSize(item, w - 14) as string[];
     for (let i = 0; i < lines.length; i++) {
-      if (i === 0) {
-        doc.text("•", x + 3, cy);
-        doc.text(lines[i], x + 7, cy);
-      } else {
-        doc.text(lines[i], x + 7, cy);
-      }
+      // Bullet só na 1ª linha; cada linha centralizada na coluna.
+      const text = i === 0 ? `•  ${lines[i]}` : lines[i];
+      doc.text(text, cx, cy, { align: "center" });
       cy += lineHeight;
     }
   }
@@ -393,7 +392,7 @@ function calcBulletListHeight(
   const lineHeight = lineHeightFor(9);
   let totalLines = 0;
   for (const item of items) {
-    totalLines += doc.splitTextToSize(item, w - 10).length;
+    totalLines += doc.splitTextToSize(item, w - 14).length;
   }
   return Math.max(minHeight, totalLines * lineHeight + 6);
 }
