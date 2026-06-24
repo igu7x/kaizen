@@ -110,7 +110,7 @@ export async function deleteUser(id: string): Promise<void> {
 
 // Perfil do próprio usuário (matrícula, cargo/função, foto)
 export async function getMeuPerfil(): Promise<User> {
-  return apiClient.get<User>("/api/users/me/perfil");
+  return apiClient.get<User>("/api/users/me/perfil", { headers: { "x-silent-error": "true" } });
 }
 
 export async function updateMeuPerfil(data: {

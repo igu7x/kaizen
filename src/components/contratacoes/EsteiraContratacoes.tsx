@@ -143,6 +143,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
   // Listas para comboboxes de área demandante e responsável
   const [areasList, setAreasList] = useState<Area[]>([]);
+  const [unidadesList, setUnidadesList] = useState<Unidade[]>([]);
   const [pessoasList, setPessoasList] = useState<Pessoa[]>([]);
 
   // Estados dos comboboxes de busca
@@ -157,8 +158,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     loadData();
     // Carregar áreas e pessoas para os selects (apenas uma vez)
     areasApi
-      .getAll()
-      .then(setAreasList)
+      .getAllUnidades()
+      .then(setUnidadesList)
       .catch(() => { });
     pessoasApi
       .getAll(selectedDirectorate || undefined)
@@ -169,6 +170,23 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   async function loadData() {
     try {
       setLoading(true);
+
+      let diretoriaId: number | undefined = undefined;
+      if (selectedDirectorate) {
+        try {
+          const allAreas = await areasApi.getAll();
+          setAreasList(allAreas);
+          const matchedArea = allAreas.find(
+            (a) => a.sigla === selectedDirectorate || a.nome === selectedDirectorate
+          );
+          if (matchedArea) {
+            diretoriaId = matchedArea.id;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       const [itemsData, statsData, filtersData] = await Promise.all([
         pcaApi.getPcaItems(anoSelecionado, selectedDirectorate || undefined),
         pcaApi.getPcaStats(anoSelecionado, selectedDirectorate || undefined),
@@ -234,15 +252,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       errors.push("Item do PCA deve ter no máximo 50 caracteres");
     }
 
-    if (!formData.area_demandante.trim()) {
-      errors.push("Área demandante é obrigatória");
-    }
-
-
-    if (!formData.objeto.trim()) {
-      errors.push("Objeto é obrigatório");
-    }
-
     if (!formData.valor_estimado || formData.valor_estimado <= 0) {
       errors.push("Valor anual deve ser maior que zero");
     }
@@ -261,6 +270,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       item_pca: "",
       tipo: "Contratação",
       area_demandante: "",
+      id_diretoria: undefined,
+      id_area_demandante: undefined,
       objeto: "",
       valor_estimado: 0,
       valor_formalizado: 0,
@@ -277,8 +288,21 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     setFormErrors([]);
     setAreaSearch("");
     setAreaDropdownOpen(false);
-
   }
+
+  const handleCurrencyChange = (field: "valor_estimado" | "valor_formalizado", value: string) => {
+    const numericStr = value.replace(/\D/g, "");
+    const numericValue = numericStr ? parseInt(numericStr, 10) / 100 : 0;
+    setFormData((prev) => ({ ...prev, [field]: numericValue }));
+  };
+
+  const formatValueBRL = (val?: number) => {
+    if (!val) return "";
+    return val.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
 
   // Abrir modal de adicionar
   function openAddModal() {
@@ -293,6 +317,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       item_pca: item.code || item.item_pca,
       tipo: item.contract_type || item.tipo || "Contratação",
       area_demandante: item.directory_acronym || item.area_demandante,
+      id_diretoria: item.id_diretoria,
+      id_area_demandante: item.id_area_demandante,
       objeto: item.object_name || item.objeto,
       valor_estimado: item.estimated_value_cents ? item.estimated_value_cents / 100 : item.valor_estimado,
       valor_formalizado: item.valor_formalizado || 0,
@@ -361,6 +387,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
         item_pca: formData.item_pca,
         tipo: formData.tipo,
         area_demandante: formData.area_demandante,
+        id_diretoria: formData.id_diretoria,
+        id_area_demandante: formData.id_area_demandante,
         objeto: formData.objeto,
         valor_estimado: formData.valor_estimado,
         valor_formalizado: formData.valor_formalizado,
@@ -666,10 +694,10 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectContent>
               </Select>
             </div>
-            <div className="hidden lg:flex items-center text-lg font-bold text-gray-800">
+            <div className="hidden lg:flex items-center text-sm font-bold text-gray-800">
               <Select value={filterArea} onValueChange={setFilterArea}>
-                <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-lg font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                  <span>Área</span>
+                <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                  <span>Área Demandante</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
@@ -682,7 +710,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </Select>
               <span className="w-36 text-center">Valor Estimado</span>
               <Select value={filterMes} onValueChange={setFilterMes}>
-                <SelectTrigger className="w-44 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-lg font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <SelectTrigger className="w-44 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Prazo Estimado</span>
                 </SelectTrigger>
                 <SelectContent>
@@ -695,7 +723,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-36 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-lg font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <SelectTrigger className="w-36 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Status</span>
                 </SelectTrigger>
                 <SelectContent>
@@ -876,17 +904,20 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
           )}
 
           <div className="grid gap-4 py-4">
+            {/* Linha 1 - 4 colunas */}
             <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="item_pca">Item do PCA *</Label>
                 <Input
                   id="item_pca"
-                  placeholder="Ex: PCA 275"
+                  placeholder="230"
                   value={formData.item_pca}
-                  onChange={(e) =>
-                    setFormData({ ...formData, item_pca: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    setFormData({ ...formData, item_pca: val });
+                  }}
                 />
+                <p className="text-[10px] text-gray-500">Adicione apenas o número</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ano">Ano *</Label>
@@ -917,135 +948,124 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="area_demandante">Área Demandante *</Label>
-                <div className="relative">
-                  <Input
-                    id="area_demandante"
-                    placeholder="Digite para buscar..."
-                    value={
-                      areaDropdownOpen ? areaSearch : formData.area_demandante
-                    }
-                    onChange={(e) => {
-                      setAreaSearch(e.target.value);
-                      setAreaDropdownOpen(true);
-                    }}
-                    onFocus={() => {
-                      setAreaSearch(formData.area_demandante);
-                      setAreaDropdownOpen(true);
-                    }}
-                    onBlur={() =>
-                      setTimeout(() => setAreaDropdownOpen(false), 150)
-                    }
-                    autoComplete="off"
-                  />
-                  {areaDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                      {areasList.filter(
-                        (a) =>
-                          a.nome
-                            .toLowerCase()
-                            .includes(areaSearch.toLowerCase()) ||
-                          (a.sigla || "")
-                            .toLowerCase()
-                            .includes(areaSearch.toLowerCase()),
-                      ).length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500">
-                          Nenhuma área encontrada
-                        </div>
-                      ) : (
-                        areasList
-                          .filter(
-                            (a) =>
-                              a.nome
-                                .toLowerCase()
-                                .includes(areaSearch.toLowerCase()) ||
-                              (a.sigla || "")
-                                .toLowerCase()
-                                .includes(areaSearch.toLowerCase()),
-                          )
-                          .map((a) => (
-                            <div
-                              key={a.id}
-                              className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                              onMouseDown={() => {
-                                setFormData((f) => ({
-                                  ...f,
-                                  area_demandante: a.sigla || a.nome,
-                                }));
-                                setAreaDropdownOpen(false);
-                                setAreaSearch(a.sigla || a.nome);
-                              }}
-                            >
-                              <span>{a.nome}</span>
-                              {a.sigla && (
-                                <span className="text-gray-400 ml-1">
-                                  ({a.sigla})
-                                </span>
-                              )}
-                            </div>
-                          ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                <Label htmlFor="data_estimada">Data Estimada *</Label>
+                <Select
+                  value={formData.data_estimada_contratacao}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      data_estimada_contratacao: value,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MESES_ORDENADOS.map((mes) => (
+                      <SelectItem key={mes} value={mes}>
+                        {mes}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="objeto">Objeto *</Label>
-                <Textarea
-                  id="objeto"
-                  placeholder="Descrição detalhada da contratação"
-                  rows={2}
-                  value={formData.objeto}
-                  onChange={(e) =>
-                    setFormData({ ...formData, objeto: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="process">Processo</Label>
-                <Input
-                  id="process"
-                  placeholder="Ex: SEI..."
-                  value={formData.process || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, process: e.target.value })
-                  }
-                />
-              </div>
+            {/* Linha 2 - Diretoria (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="id_diretoria">Diretoria</Label>
+              <Select
+                value={formData.id_diretoria ? String(formData.id_diretoria) : undefined}
+                onValueChange={(v) => {
+                  const dirId = parseInt(v, 10);
+                  const unidade = unidadesList.find(u => u.id === dirId);
+                  setFormData({ 
+                    ...formData, 
+                    id_diretoria: dirId, 
+                    area_demandante: unidade?.nome || "", 
+                    id_area_demandante: undefined 
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a Diretoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesList.map(u => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Descrição da contratação"
-                  rows={2}
-                  value={formData.description || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="justification">Justificativa</Label>
-                <Textarea
-                  id="justification"
-                  placeholder="Justificativa da necessidade"
-                  rows={2}
-                  value={formData.justification || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, justification: e.target.value })
-                  }
-                />
-              </div>
+            {/* Linha 3 - Área Demandante (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="id_area_demandante">Área Demandante</Label>
+              <Select
+                value={formData.id_area_demandante ? String(formData.id_area_demandante) : undefined}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, id_area_demandante: parseInt(v, 10) })
+                }
+                disabled={!formData.id_diretoria}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar área responsável..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesList
+                    .filter(u => u.id === formData.id_diretoria || u.unidade_superior_id === formData.id_diretoria)
+                    .map(u => (
+                      <SelectItem key={u.id} value={String(u.id)}>{u.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
+            {/* Linha 4 - Objeto (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="objeto">Objeto</Label>
+              <Input
+                id="objeto"
+                placeholder="Descrição detalhada da contratação"
+                value={formData.objeto}
+                onChange={(e) =>
+                  setFormData({ ...formData, objeto: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Linha 5 - Demanda da Unidade (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Demanda da Unidade</Label>
+              <Textarea
+                id="description"
+                placeholder="Descrição da demanda da unidade"
+                rows={2}
+                value={formData.description || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Linha 6 - Justificativa (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="justification">Justificativa</Label>
+              <Textarea
+                id="justification"
+                placeholder="Justificativa da necessidade"
+                rows={2}
+                value={formData.justification || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, justification: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Linha 7 - 3 colunas */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="financial_resource_type">Tipo de Recurso</Label>
@@ -1102,66 +1122,67 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </div>
             </div>
 
+            {/* Linha 8 - 2 colunas */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="valor_estimado">Valor Estimado (R$) *</Label>
+                <Label htmlFor="valor_estimado">Valor Global Estimado (R$) *</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                  <Input
+                    id="valor_estimado"
+                    className="pl-9"
+                    placeholder="0,00"
+                    value={formData.valor_estimado ? formatValueBRL(formData.valor_estimado).replace("R$", "").trim() : ""}
+                    onChange={(e) => handleCurrencyChange("valor_estimado", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="valor_formalizado">Valor Ano Referência (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                  <Input
+                    id="valor_formalizado"
+                    className="pl-9"
+                    placeholder="0,00"
+                    value={formData.valor_formalizado ? formatValueBRL(formData.valor_formalizado).replace("R$", "").trim() : ""}
+                    onChange={(e) => handleCurrencyChange("valor_formalizado", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Linha 9 - 2 colunas */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="process">PROAD</Label>
                 <Input
-                  id="valor_estimado"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                  value={formData.valor_estimado || ""}
+                  id="process"
+                  placeholder="202xxxx"
+                  value={formData.process || ""}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      valor_estimado: parseFloat(e.target.value) || 0,
-                    })
+                    setFormData({ ...formData, process: e.target.value })
                   }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="data_estimada">Data Estimada *</Label>
+                <Label htmlFor="status">Status</Label>
                 <Select
-                  value={formData.data_estimada_contratacao}
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      data_estimada_contratacao: value,
-                    })
+                  value={String(formData.status)}
+                  onValueChange={(value: PcaStatus) =>
+                    setFormData({ ...formData, status: value })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione o mês" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {MESES_ORDENADOS.map((mes) => (
-                      <SelectItem key={mes} value={mes}>
-                        {mes}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
+                    <SelectItem value="Em andamento">Em andamento</SelectItem>
+                    <SelectItem value="Concluída">Concluída</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value: PcaStatus) =>
-                  setFormData({ ...formData, status: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                  <SelectItem value="Em andamento">Em andamento</SelectItem>
-                  <SelectItem value="Concluída">Concluída</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -1205,17 +1226,20 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
           )}
 
           <div className="grid gap-4 py-4">
+            {/* Linha 1 - 4 colunas */}
             <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_item_pca">Item do PCA *</Label>
                 <Input
                   id="edit_item_pca"
-                  placeholder="Ex: PCA 275"
+                  placeholder="230"
                   value={formData.item_pca}
-                  onChange={(e) =>
-                    setFormData({ ...formData, item_pca: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    setFormData({ ...formData, item_pca: val });
+                  }}
                 />
+                <p className="text-[10px] text-gray-500">Adicione apenas o número</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_ano">Ano *</Label>
@@ -1246,135 +1270,124 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_area_demandante">Área Demandante *</Label>
-                <div className="relative">
-                  <Input
-                    id="edit_area_demandante"
-                    placeholder="Digite para buscar..."
-                    value={
-                      areaDropdownOpen ? areaSearch : formData.area_demandante
-                    }
-                    onChange={(e) => {
-                      setAreaSearch(e.target.value);
-                      setAreaDropdownOpen(true);
-                    }}
-                    onFocus={() => {
-                      setAreaSearch(formData.area_demandante);
-                      setAreaDropdownOpen(true);
-                    }}
-                    onBlur={() =>
-                      setTimeout(() => setAreaDropdownOpen(false), 150)
-                    }
-                    autoComplete="off"
-                  />
-                  {areaDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                      {areasList.filter(
-                        (a) =>
-                          a.nome
-                            .toLowerCase()
-                            .includes(areaSearch.toLowerCase()) ||
-                          (a.area_sigla || "")
-                            .toLowerCase()
-                            .includes(areaSearch.toLowerCase()),
-                      ).length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500">
-                          Nenhuma unidade encontrada
-                        </div>
-                      ) : (
-                        areasList
-                          .filter(
-                            (a) =>
-                              a.nome
-                                .toLowerCase()
-                                .includes(areaSearch.toLowerCase()) ||
-                              (a.area_sigla || "")
-                                .toLowerCase()
-                                .includes(areaSearch.toLowerCase()),
-                          )
-                          .map((a) => (
-                            <div
-                              key={a.id}
-                              className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                              onMouseDown={() => {
-                                setFormData((f) => ({
-                                  ...f,
-                                  area_demandante: a.nome,
-                                }));
-                                setAreaDropdownOpen(false);
-                                setAreaSearch("");
-                              }}
-                            >
-                              <span>{a.nome}</span>
-                              {a.area_sigla && (
-                                <span className="text-gray-400 ml-1">
-                                  ({a.area_sigla})
-                                </span>
-                              )}
-                            </div>
-                          ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                <Label htmlFor="edit_data_estimada">Data Estimada *</Label>
+                <Select
+                  value={formData.data_estimada_contratacao}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      data_estimada_contratacao: value,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MESES_ORDENADOS.map((mes) => (
+                      <SelectItem key={mes} value={mes}>
+                        {mes}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_objeto">Objeto *</Label>
-                <Textarea
-                  id="edit_objeto"
-                  placeholder="Descrição detalhada da contratação"
-                  rows={2}
-                  value={formData.objeto}
-                  onChange={(e) =>
-                    setFormData({ ...formData, objeto: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_process">Processo</Label>
-                <Input
-                  id="edit_process"
-                  placeholder="Ex: SEI..."
-                  value={formData.process || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, process: e.target.value })
-                  }
-                />
-              </div>
+            {/* Linha 2 - Diretoria (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="edit_id_diretoria">Diretoria</Label>
+              <Select
+                value={formData.id_diretoria ? String(formData.id_diretoria) : undefined}
+                onValueChange={(v) => {
+                  const dirId = parseInt(v, 10);
+                  const unidade = unidadesList.find(u => u.id === dirId);
+                  setFormData({ 
+                    ...formData, 
+                    id_diretoria: dirId, 
+                    area_demandante: unidade?.nome || "", 
+                    id_area_demandante: undefined 
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a Diretoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesList.map(u => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_description">Descrição</Label>
-                <Textarea
-                  id="edit_description"
-                  placeholder="Descrição da contratação"
-                  rows={2}
-                  value={formData.description || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_justification">Justificativa</Label>
-                <Textarea
-                  id="edit_justification"
-                  placeholder="Justificativa da necessidade"
-                  rows={2}
-                  value={formData.justification || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, justification: e.target.value })
-                  }
-                />
-              </div>
+            {/* Linha 3 - Área Demandante (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="edit_id_area_demandante">Área Demandante</Label>
+              <Select
+                value={formData.id_area_demandante ? String(formData.id_area_demandante) : undefined}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, id_area_demandante: parseInt(v, 10) })
+                }
+                disabled={!formData.id_diretoria}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar área responsável..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesList
+                    .filter(u => u.id === formData.id_diretoria || u.unidade_superior_id === formData.id_diretoria)
+                    .map(u => (
+                      <SelectItem key={u.id} value={String(u.id)}>{u.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
+            {/* Linha 4 - Objeto (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="edit_objeto">Objeto</Label>
+              <Input
+                id="edit_objeto"
+                placeholder="Descrição detalhada da contratação"
+                value={formData.objeto}
+                onChange={(e) =>
+                  setFormData({ ...formData, objeto: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Linha 5 - Demanda da Unidade (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="edit_description">Demanda da Unidade</Label>
+              <Textarea
+                id="edit_description"
+                placeholder="Descrição da demanda da unidade"
+                rows={2}
+                value={formData.description || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Linha 6 - Justificativa (full width) */}
+            <div className="space-y-2">
+              <Label htmlFor="edit_justification">Justificativa</Label>
+              <Textarea
+                id="edit_justification"
+                placeholder="Justificativa da necessidade"
+                rows={2}
+                value={formData.justification || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, justification: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Linha 7 - 3 colunas */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_financial_resource_type">Tipo de Recurso</Label>
@@ -1431,87 +1444,67 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            {/* Linha 8 - 2 colunas */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit_valor_estimado">
-                  Valor Estimado (R$) *
-                </Label>
-                <Input
-                  id="edit_valor_estimado"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                  value={formData.valor_estimado || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      valor_estimado: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                />
+                <Label htmlFor="edit_valor_estimado">Valor Global Estimado (R$) *</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                  <Input
+                    id="edit_valor_estimado"
+                    className="pl-9"
+                    placeholder="0,00"
+                    value={formData.valor_estimado ? formatValueBRL(formData.valor_estimado).replace("R$", "").trim() : ""}
+                    onChange={(e) => handleCurrencyChange("valor_estimado", e.target.value)}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_valor_formalizado">
-                  Valor Formalizado (R$)
-                </Label>
-                <Input
-                  id="edit_valor_formalizado"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                  value={formData.valor_formalizado || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      valor_formalizado: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_data_estimada">Data Estimada *</Label>
-                <Select
-                  value={formData.data_estimada_contratacao}
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      data_estimada_contratacao: value,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o mês" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MESES_ORDENADOS.map((mes) => (
-                      <SelectItem key={mes} value={mes}>
-                        {mes}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edit_valor_formalizado">Valor Ano Referência (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                  <Input
+                    id="edit_valor_formalizado"
+                    className="pl-9"
+                    placeholder="0,00"
+                    value={formData.valor_formalizado ? formatValueBRL(formData.valor_formalizado).replace("R$", "").trim() : ""}
+                    onChange={(e) => handleCurrencyChange("valor_formalizado", e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit_status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value: PcaStatus) =>
-                  setFormData({ ...formData, status: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                  <SelectItem value="Em andamento">Em andamento</SelectItem>
-                  <SelectItem value="Concluída">Concluída</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Linha 9 - 2 colunas */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_process">PROAD</Label>
+                <Input
+                  id="edit_process"
+                  placeholder="202xxxx"
+                  value={formData.process || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, process: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_status">Status</Label>
+                <Select
+                  value={String(formData.status)}
+                  onValueChange={(value: PcaStatus) =>
+                    setFormData({ ...formData, status: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
+                    <SelectItem value="Em andamento">Em andamento</SelectItem>
+                    <SelectItem value="Concluída">Concluída</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 

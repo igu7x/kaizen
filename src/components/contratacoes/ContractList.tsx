@@ -50,7 +50,7 @@ export function ContractList({ contracts, onEdit, onDelete }: ContractListProps)
             <TableHead className="hidden md:table-cell">Objeto</TableHead>
             <TableHead>Modelo / Tipo</TableHead>
             <TableHead className="text-right">Valor Mensal</TableHead>
-            <TableHead className="text-right">Valor Total</TableHead>
+            <TableHead className="text-right">Valor Total do Contrato</TableHead>
             <TableHead className="w-[100px] text-center">Ações</TableHead>
           </TableRow>
         </TableHeader>
