@@ -427,10 +427,8 @@ function drawCabecalhoInstitucional(
   const brasaoW = 15;
   const brasaoH = brasaoW; // 1:1
   const textLine1H = 4; // "PODER JUDICIÁRIO"
-  const subLines = doc.splitTextToSize(
-    "Tribunal de Justiça do Estado de Goiás",
-    leftColW - 5,
-  ) as string[];
+  // Forçado em 2 linhas (a coluna estreita quebraria em 4 no auto-wrap).
+  const subLines = ["Tribunal de Justiça do", "Estado de Goiás"];
   const textLine2H = subLines.length * 3;
   const lockupH = brasaoH + 1.5 + textLine1H + textLine2H;
   let lockupY = y + (leftTotalH - lockupH) / 2;
