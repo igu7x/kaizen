@@ -80,14 +80,14 @@ public class PcaItemsController {
 
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(value = "ano", required = false) Integer ano,
-                                          @RequestParam(value = "diretoria", required = false) String diretoria) {
-        return pcaService.findAll(ano, diretoria);
+                                          @RequestParam(value = "diretoriaId", required = false) Long diretoriaId) {
+        return pcaService.findAll(ano, diretoriaId);
     }
 
     @GetMapping("/stats")
     public Map<String, Object> stats(@RequestParam(value = "ano", required = false) Integer ano,
-                                     @RequestParam(value = "diretoria", required = false) String diretoria) {
-        return pcaService.getStats(ano, diretoria);
+                                     @RequestParam(value = "diretoriaId", required = false) Long diretoriaId) {
+        return pcaService.getStats(ano, diretoriaId);
     }
 
     @GetMapping("/filters")
@@ -154,6 +154,13 @@ public class PcaItemsController {
         if (body.get("ano") != null) {
             data.put("ano", parseIntJs(body.get("ano")));
         }
+        // Novos campos FK para diretoria/área
+        if (body.containsKey("id_diretoria")) {
+            data.put("id_diretoria", body.get("id_diretoria"));
+        }
+        if (body.containsKey("id_area_demandante")) {
+            data.put("id_area_demandante", body.get("id_area_demandante"));
+        }
 
         List<String> errors = new ArrayList<>();
         String itemPca = str(data.get("item_pca"));
@@ -163,15 +170,10 @@ public class PcaItemsController {
             errors.add("Item do PCA deve ter no máximo 50 caracteres");
         }
         String area = str(data.get("area_demandante"));
-        if (area == null || area.trim().isEmpty()) {
-            errors.add("Área demandante é obrigatória");
-        } else if (area.length() > 100) {
+        if (area != null && area.length() > 100) {
             errors.add("Área demandante deve ter no máximo 100 caracteres");
         }
         String objeto = str(data.get("objeto"));
-        if (objeto == null || objeto.trim().isEmpty()) {
-            errors.add("Objeto é obrigatório");
-        }
         if (valorEstimado == null || valorEstimado.isNaN() || valorEstimado <= 0) {
             errors.add("Valor anual deve ser um número positivo maior que zero");
         }
@@ -203,6 +205,9 @@ public class PcaItemsController {
         if (body.containsKey("data_estimada_contratacao")) data.put("data_estimada_contratacao", body.get("data_estimada_contratacao"));
         if (body.containsKey("status")) data.put("status", body.get("status"));
         if (body.containsKey("ano")) data.put("ano", parseIntJs(body.get("ano")));
+        // Novos campos FK para diretoria/área
+        if (body.containsKey("id_diretoria")) data.put("id_diretoria", body.get("id_diretoria"));
+        if (body.containsKey("id_area_demandante")) data.put("id_area_demandante", body.get("id_area_demandante"));
 
         List<String> errors = new ArrayList<>();
         if (data.containsKey("item_pca")) {
@@ -212,12 +217,10 @@ public class PcaItemsController {
         }
         if (data.containsKey("area_demandante")) {
             String v = str(data.get("area_demandante"));
-            if (v == null || v.trim().isEmpty()) errors.add("Área demandante não pode ser vazia");
-            else if (v.length() > 100) errors.add("Área demandante deve ter no máximo 100 caracteres");
+            if (v != null && v.length() > 100) errors.add("Área demandante deve ter no máximo 100 caracteres");
         }
         if (data.containsKey("objeto")) {
             String v = str(data.get("objeto"));
-            if (v == null || v.trim().isEmpty()) errors.add("Objeto não pode ser vazio");
         }
         if (data.containsKey("valor_estimado")) {
             Double ve = (Double) data.get("valor_estimado");

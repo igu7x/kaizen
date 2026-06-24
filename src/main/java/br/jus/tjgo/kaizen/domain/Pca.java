@@ -67,6 +67,18 @@ public class Pca {
     @Column(name = "estimated_value_cents")
     private Long estimatedValueCents;
 
+    @Column(name = "formalized_value_cents")
+    private Long formalizedValueCents;
+
+    @Column(name = "id_diretoria")
+    private Long idDiretoria;
+
+    @Column(name = "id_area_demandante")
+    private Long idAreaDemandante;
+
+    @Column(name = "id_cadastros_areas")
+    private Long idCadastrosAreas;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "priority", length = 50)
     private PcaPriorityEnum priority;
