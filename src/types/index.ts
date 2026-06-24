@@ -271,6 +271,12 @@ export interface PcaItem {
   priority?: string;
   step?: string;
   estimated_date?: string;
+
+  // Campos FK para Diretoria/Área Demandante
+  id_diretoria?: number;
+  id_area_demandante?: number;
+  diretoria_sigla?: string;
+  diretoria_nome?: string;
 }
 
 export interface CreatePcaItemDto {
@@ -290,6 +296,9 @@ export interface CreatePcaItemDto {
   financial_resource_type?: string;
   priority?: string;
   step?: string;
+  // FK Diretoria/Área
+  id_diretoria?: number;
+  id_area_demandante?: number;
 }
 
 export interface UpdatePcaItemDto {
@@ -309,6 +318,9 @@ export interface UpdatePcaItemDto {
   financial_resource_type?: string;
   priority?: string;
   step?: string;
+  // FK Diretoria/Área
+  id_diretoria?: number;
+  id_area_demandante?: number;
 }
 
 export interface PcaStats {
