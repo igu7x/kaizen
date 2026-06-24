@@ -958,11 +958,12 @@ export function generateProcessoNegocioPDF(
   doc.setLineWidth(0.3);
   doc.rect(MARGIN_LEFT, y, revColW, revRowH, "S");
   doc.rect(MARGIN_LEFT + revColW, y, revColW, revRowH, "S");
-  // Esquerda: periodicidade (texto multilinha)
+  // Esquerda: periodicidade (texto multilinha, centralizado ao meio)
   doc.setTextColor(...TEXT_GRAY);
-  let revTextY = y + 5;
+  const periodicidadeBlockH = periodicidadeLines.length * revLineH;
+  let revTextY = y + (revRowH - periodicidadeBlockH) / 2 + revLineH - 1.2;
   for (const line of periodicidadeLines) {
-    doc.text(line, MARGIN_LEFT + 4, revTextY);
+    doc.text(line, MARGIN_LEFT + revColW / 2, revTextY, { align: "center" });
     revTextY += revLineH;
   }
   // Direita: próxima revisão (centralizada)
