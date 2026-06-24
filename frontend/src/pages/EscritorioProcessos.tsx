@@ -324,9 +324,8 @@ function StatCard({
     <button
       type="button"
       onClick={onClick}
-      className={`text-left bg-white rounded-2xl border ${borderColor} p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${
-        active ? `ring-2 ${activeRing} shadow-md` : ""
-      }`}
+      className={`text-left bg-white rounded-2xl border ${borderColor} p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${active ? `ring-2 ${activeRing} shadow-md` : ""
+        }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

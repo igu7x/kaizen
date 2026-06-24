@@ -101,17 +101,17 @@ const menuItemsCompleto: MenuItem[] = [
     ],
   },
   {
-    title: "Contratações de TI",
+    title: "Contratações de TIC",
     icon: DollarSign,
     children: [
       {
-        title: "PCAs",
+        title: "Orçamento",
         icon: FilePlus,
         path: "/contratacoes-ti/novas",
         permissaoCodigo: "contratacoes_novas",
       },
       {
-        title: "Contratos de TIC",
+        title: "Gestão Contratual",
         icon: FileText,
         path: "/contratos-ti",
         permissaoCodigo: "contratos_ti"

@@ -246,7 +246,7 @@ export function ContractDetails() {
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-emerald-800">Valor Total Estimado</p>
+                  <p className="text-sm font-medium text-emerald-800">Valor Total do Contrato</p>
                   <p className="text-3xl font-bold text-emerald-900">
                     {formatCurrency(contract.totalValueCents || 0)}
                   </p>
@@ -262,7 +262,7 @@ export function ContractDetails() {
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-blue-800">Valor Mensal Estimado</p>
+                  <p className="text-sm font-medium text-blue-800">Valor Mensal</p>
                   <p className="text-3xl font-bold text-blue-900">
                     {formatCurrency(contract.monthlyValueCents || 0)}
                   </p>
@@ -278,7 +278,7 @@ export function ContractDetails() {
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Valor Anual Estimado</p>
+                  <p className="text-sm font-medium text-muted-foreground">Valor Anual do Contrato</p>
                   <p className="text-3xl font-bold">
                     {formatCurrency(contract.yearValue || 0)}
                   </p>
@@ -364,20 +364,16 @@ export function ContractDetails() {
             <CardContent className="grid gap-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Data de Início</p>
+                  <p className="text-sm font-medium text-muted-foreground">Início Vigência Atual</p>
                   <p className="font-medium">{formatDate(contract.startDate)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Data de Término</p>
+                  <p className="text-sm font-medium text-muted-foreground">Fim Vigência Atual</p>
                   <p className="font-medium">{formatDate(contract.endDate)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Data Efetiva</p>
                   <p className="font-medium">{formatDate(contract.effectiveDate)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Data Limite</p>
-                  <p className="font-medium">{formatDate(contract.limitDate)}</p>
                 </div>
               </div>
 

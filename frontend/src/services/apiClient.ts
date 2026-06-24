@@ -302,8 +302,12 @@ export class ApiClient {
               : JSON.stringify(errorMessage);
         }
 
-        // Dispara toast global de erro
-        toast.error(finalErrorMessage);
+        const isSilentError = options?.headers && "x-silent-error" in (options.headers as any);
+        
+        // Dispara toast global de erro apenas se não for silencioso
+        if (!isSilentError) {
+          toast.error(finalErrorMessage);
+        }
 
         throw new ApiError(finalErrorMessage, response.status, errorCode);
       }
