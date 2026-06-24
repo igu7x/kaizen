@@ -466,7 +466,7 @@ function drawCabecalhoInstitucional(
   doc.rect(MARGIN_LEFT + leftColW, y, rightColW, titleH, "F");
   doc.setDrawColor(...BORDER_GRAY);
   doc.rect(MARGIN_LEFT + leftColW, y, rightColW, titleH, "S");
-  doc.setFontSize(13);
+  doc.setFontSize(11.5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
   doc.text("PROCESSO DE NEGÓCIO", titleX, y + titleH / 2 - 0.5, {
