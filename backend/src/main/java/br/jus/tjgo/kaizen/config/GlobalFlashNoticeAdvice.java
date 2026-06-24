@@ -22,9 +22,12 @@ public class GlobalFlashNoticeAdvice implements ResponseBodyAdvice<Object> {
                                   Class selectedConverterType, ServerHttpRequest request, ServerHttpResponse response) {
         
         HttpMethod method = request.getMethod();
+        String path = request.getURI().getPath();
         
         // Aplica interceptação genérica de sucesso apenas para rotas que alteram estado
-        if (method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.DELETE) {
+        // Ignora rotas de auth para evitar "Criação bem-sucedida!" no logout local ou SSO
+        if ((method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.DELETE) 
+            && (path == null || !path.startsWith("/api/auth/"))) {
             
             if (response instanceof org.springframework.http.server.ServletServerHttpResponse) {
                 int status = ((org.springframework.http.server.ServletServerHttpResponse) response).getServletResponse().getStatus();
