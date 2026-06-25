@@ -161,6 +161,12 @@ public class PcaItemsController {
         if (body.containsKey("id_area_demandante")) {
             data.put("id_area_demandante", body.get("id_area_demandante"));
         }
+        if (body.containsKey("process")) data.put("process", body.get("process"));
+        if (body.containsKey("description")) data.put("description", body.get("description"));
+        if (body.containsKey("justification")) data.put("justification", body.get("justification"));
+        if (body.containsKey("financial_resource_type")) data.put("financial_resource_type", body.get("financial_resource_type"));
+        if (body.containsKey("priority")) data.put("priority", body.get("priority"));
+        if (body.containsKey("step")) data.put("step", body.get("step"));
 
         List<String> errors = new ArrayList<>();
         String itemPca = str(data.get("item_pca"));
@@ -208,6 +214,12 @@ public class PcaItemsController {
         // Novos campos FK para diretoria/área
         if (body.containsKey("id_diretoria")) data.put("id_diretoria", body.get("id_diretoria"));
         if (body.containsKey("id_area_demandante")) data.put("id_area_demandante", body.get("id_area_demandante"));
+        if (body.containsKey("process")) data.put("process", body.get("process"));
+        if (body.containsKey("description")) data.put("description", body.get("description"));
+        if (body.containsKey("justification")) data.put("justification", body.get("justification"));
+        if (body.containsKey("financial_resource_type")) data.put("financial_resource_type", body.get("financial_resource_type"));
+        if (body.containsKey("priority")) data.put("priority", body.get("priority"));
+        if (body.containsKey("step")) data.put("step", body.get("step"));
 
         List<String> errors = new ArrayList<>();
         if (data.containsKey("item_pca")) {
