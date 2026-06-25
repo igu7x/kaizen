@@ -80,6 +80,64 @@ export function temFluxograma(p: {
   return !!getFluxograma(p).data;
 }
 
+/** Tem documento primário = anexo com tipo `PRI`. */
+export function temDocumentoPrimario(p: {
+  documentos_anexados?: DocumentoAnexado[] | null;
+}): boolean {
+  return (p.documentos_anexados || []).some((d) => d.tipo === "PRI");
+}
+
+/** Tem PDF de aprovação. Prefere o flag enxuto `tem_aprovacao`; cai para os dados completos. */
+export function temAprovacao(p: {
+  tem_aprovacao?: boolean;
+  aprovacao_data?: string | null;
+}): boolean {
+  if (typeof p.tem_aprovacao === "boolean") return p.tem_aprovacao;
+  return !!p.aprovacao_data;
+}
+
+/**
+ * Modelo K1: PDF de aprovação anexado E as 3 camadas de validação concluídas (status
+ * validado_final). É derivado — cai sozinho se o processo sair do validado_final (reedição).
+ */
+export function isK1(p: {
+  status: ProcessoStatus;
+  tem_aprovacao?: boolean;
+  aprovacao_data?: string | null;
+}): boolean {
+  return p.status === "validado_final" && temAprovacao(p);
+}
+
+/** Próxima revisão = período cadastrado + 1 ano. Null se período ausente/inválido. */
+export function proximaRevisao(p: { periodo: string | null }): Date | null {
+  if (!p.periodo) return null;
+  const m = p.periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setFullYear(d.getFullYear() + 1);
+  return d;
+}
+
+/** Revisão vencida = próxima revisão no passado. */
+export function revisaoVencida(p: { periodo: string | null }): boolean {
+  const next = proximaRevisao(p);
+  return next != null && next.getTime() < Date.now();
+}
+
+/** Vigente = tem documento primário OU é Modelo K1. */
+export function isVigente(p: ProcessoNegocio): boolean {
+  return temDocumentoPrimario(p) || isK1(p);
+}
+
+/**
+ * Revisão ou Novo = NÃO é K1 OU revisão vencida. Não é exclusivo de {@link isVigente}:
+ * um processo pode aparecer nas duas abas (ex: doc primário sem K1, ou K1 com revisão vencida).
+ */
+export function isRevisaoOuNovo(p: ProcessoNegocio): boolean {
+  return !isK1(p) || revisaoVencida(p);
+}
+
 /**
  * Responsável por um processo: área + cargo (camada 1 = área, camada 2 = cargo).
  * No PDF aparece apenas o cargo. Persistido no JSONB legado `proprietarios`.
@@ -127,12 +185,17 @@ export interface ProcessoNegocio {
   fluxograma_filename: string | null;
   fluxograma_mime: string | null;
   documentos_anexados: DocumentoAnexado[];
+  /** PDF de aprovação (data URL base64). Junto com status validado_final, define o Modelo K1. */
+  aprovacao_data: string | null;
+  aprovacao_filename: string | null;
+  aprovacao_mime: string | null;
   /**
-   * Presente apenas no payload da listagem (getAll), que vem enxuto sem os bytes base64.
-   * Indica se o processo tem fluxograma (legado ou doc tipo FLUXOGRAMA) sem trafegar a imagem.
-   * No detalhe (getById) vem undefined — use {@link getFluxograma} a partir dos dados completos.
+   * Presentes apenas no payload da listagem (getAll), que vem enxuto sem os bytes base64.
+   * `tem_fluxograma`: tem fluxograma (legado ou doc tipo FLUXOGRAMA); `tem_aprovacao`: tem PDF de aprovação.
+   * No detalhe (getById) vêm undefined — use {@link getFluxograma}/{@link isK1} a partir dos dados completos.
    */
   tem_fluxograma?: boolean;
+  tem_aprovacao?: boolean;
   periodicidade_revisao: string | null;
   numero_proad: string | null;
   observacoes_gerais: string | null;
@@ -241,6 +304,19 @@ export const processosNegocioApi = {
 
   remove(id: number): Promise<void> {
     return apiClient.delete(`${BASE}/${id}`);
+  },
+
+  /** Anexa o PDF de aprovação (Modelo K1). Restrito a superadmin no backend. */
+  setAprovacao(
+    id: number,
+    data: { aprovacao_data: string; aprovacao_filename: string; aprovacao_mime: string },
+  ): Promise<ProcessoNegocio> {
+    return apiClient.put<ProcessoNegocio>(`${BASE}/${id}/aprovacao`, data);
+  },
+
+  /** Remove o PDF de aprovação. Restrito a superadmin no backend. */
+  removeAprovacao(id: number): Promise<ProcessoNegocio> {
+    return apiClient.delete<ProcessoNegocio>(`${BASE}/${id}/aprovacao`);
   },
 
   /** Lista as versões homologadas (snapshots) de um processo */
