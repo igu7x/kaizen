@@ -24,6 +24,7 @@ import {
   Paperclip,
   BarChart3,
   Save,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -32,6 +33,7 @@ import {
   CreateProcessoNegocioDto,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
+  COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { ListInput } from "./ListInput";
@@ -71,6 +73,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   fluxograma_filename: null,
   fluxograma_mime: null,
   documentos_anexados: [],
+  apreciacao: [],
   periodicidade_revisao: "",
   numero_proad: "",
   observacoes_gerais: "",
@@ -176,6 +179,7 @@ export function ProcessoFormDialog({
         fluxograma_filename: processo.fluxograma_filename || null,
         fluxograma_mime: processo.fluxograma_mime || null,
         documentos_anexados: processo.documentos_anexados || [],
+        apreciacao: processo.apreciacao || [],
         periodicidade_revisao: processo.periodicidade_revisao || "",
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
@@ -641,6 +645,45 @@ export function ProcessoFormDialog({
                   className="mt-1 bg-white resize-y"
                 />
               </div>
+            </div>
+          </Section>
+
+          <Section
+            icon={<ShieldCheck className="h-4 w-4" />}
+            title="Apreciação"
+          >
+            <p className="text-xs text-slate-500 mb-2">
+              Marque os comitês que precisam aprovar este processo (camada de
+              validação). Pode deixar nenhum, um ou os dois.
+            </p>
+            <div className="space-y-2">
+              {Object.entries(COMITES_APROVACAO).map(([sigla, nome]) => {
+                const marcado = (form.apreciacao || []).includes(sigla);
+                return (
+                  <label
+                    key={sigla}
+                    className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={marcado}
+                      onChange={(e) => {
+                        const atual = form.apreciacao || [];
+                        update(
+                          "apreciacao",
+                          e.target.checked
+                            ? [...atual, sigla]
+                            : atual.filter((c) => c !== sigla),
+                        );
+                      }}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-semibold">{sigla}</span> — {nome}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </Section>
         </div>

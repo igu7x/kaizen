@@ -7,6 +7,7 @@ import {
   COMITES_APROVACAO,
   isK1,
   temDocumentoPrimario,
+  aprovacaoDoComite,
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
 
@@ -984,7 +985,7 @@ export function generateProcessoNegocioPDF(
   y += revRowH + 6;
 
   // 10. Rito de Aprovação
-  y = checkPageBreak(doc, y, 44);
+  y = checkPageBreak(doc, y, 62);
   y = drawNumberedSectionHeader(doc, 10, "Rito de Aprovação", y);
   const histRowH = 9;
   const histLabelW = 60;
@@ -1029,28 +1030,52 @@ export function generateProcessoNegocioPDF(
     y += histRowH;
   }
 
-  // Linha "Aprovado por:" — comitê de aprovação + data (Modelo K1)
-  const comiteSigla = processo.aprovacao_comite;
-  const aprovadoPor = comiteSigla
-    ? `${COMITES_APROVACAO[comiteSigla] || comiteSigla}${
-        processo.aprovacao_em ? ` — ${formatDate(processo.aprovacao_em)}` : ""
-      }`
-    : "Pendente";
-  drawTextCell(doc, "Aprovado por:", MARGIN_LEFT, y, histLabelW, histRowH, {
-    bold: true,
-    fontSize: 9,
-    bg: [248, 250, 252],
-  });
-  drawTextCell(
-    doc,
-    aprovadoPor,
-    MARGIN_LEFT + histLabelW,
-    y,
-    CONTENT_WIDTH - histLabelW,
-    histRowH,
-    { fontSize: 9 },
-  );
-  y += histRowH;
+  // Linhas "Aprovado por (comitê):" — uma por comitê da apreciação (Modelo K1)
+  const exigidos = processo.apreciacao || [];
+  if (exigidos.length === 0) {
+    drawTextCell(doc, "Aprovado por:", MARGIN_LEFT, y, histLabelW, histRowH, {
+      bold: true,
+      fontSize: 9,
+      bg: [248, 250, 252],
+    });
+    drawTextCell(
+      doc,
+      "Não requer aprovação de comitê",
+      MARGIN_LEFT + histLabelW,
+      y,
+      CONTENT_WIDTH - histLabelW,
+      histRowH,
+      { fontSize: 9 },
+    );
+    y += histRowH;
+  } else {
+    for (const comite of exigidos) {
+      const aprov = aprovacaoDoComite(processo, comite);
+      const nome = COMITES_APROVACAO[comite] || comite;
+      const valor = aprov
+        ? `${nome}${aprov.em ? ` — ${formatDate(aprov.em)}` : ""}`
+        : `${nome} — Pendente`;
+      drawTextCell(
+        doc,
+        `Aprovado por (${comite}):`,
+        MARGIN_LEFT,
+        y,
+        histLabelW,
+        histRowH,
+        { bold: true, fontSize: 9, bg: [248, 250, 252] },
+      );
+      drawTextCell(
+        doc,
+        valor,
+        MARGIN_LEFT + histLabelW,
+        y,
+        CONTENT_WIDTH - histLabelW,
+        histRowH,
+        { fontSize: 9 },
+      );
+      y += histRowH;
+    }
+  }
 
   // Rodapé em todas as páginas
   const totalPages = doc.getNumberOfPages();
