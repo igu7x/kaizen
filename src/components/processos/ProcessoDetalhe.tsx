@@ -43,6 +43,7 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   isK1,
+  temDocumentoPrimario,
   COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
@@ -1132,7 +1133,11 @@ export function ProcessoDetalhe({
                   Modelo:
                 </div>
                 <div className="mt-1 font-bold text-slate-700 leading-tight">
-                  {/* ID do documento (modelo) — ainda sem definição */}—
+                  {isK1(processo)
+                    ? "Modelo K1"
+                    : temDocumentoPrimario(processo)
+                      ? "Doc. Primário"
+                      : "—"}
                 </div>
               </div>
               <div>
