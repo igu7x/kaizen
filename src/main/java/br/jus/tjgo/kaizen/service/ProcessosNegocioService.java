@@ -28,6 +28,8 @@ public class ProcessosNegocioService {
     private static final int FLUXOGRAMA_MAX_BYTES = 6_000_000;
     /** ~20MB — soma das bases64 dos documentos anexados. */
     private static final int DOCUMENTOS_TOTAL_MAX_BYTES = 20_000_000;
+    /** ~6MB — PDF de aprovação (data URL base64). */
+    private static final int APROVACAO_MAX_BYTES = 6_000_000;
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -56,11 +58,16 @@ public class ProcessosNegocioService {
         return rows;
     }
 
-    /** Remove os bytes base64 (fluxograma + documentos) de uma linha da listagem, in-place. */
+    /** Remove os bytes base64 (fluxograma + documentos + aprovação) de uma linha da listagem, in-place. */
     private void stripHeavyFields(Map<String, Object> row) {
         Object fluxograma = row.get("fluxograma_data");
         boolean temFluxograma = fluxograma != null && !str(fluxograma).isBlank();
         row.put("fluxograma_data", null);
+
+        Object aprovacao = row.get("aprovacao_data");
+        boolean temAprovacao = aprovacao != null && !str(aprovacao).isBlank();
+        row.put("aprovacao_data", null);
+        row.put("tem_aprovacao", temAprovacao);
 
         List<Map<String, Object>> docs = stripDocumentosData(row.get("documentos_anexados"));
         row.put("documentos_anexados", docs);
@@ -100,6 +107,36 @@ public class ProcessosNegocioService {
     public Map<String, Object> findById(long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT * FROM processos_negocio WHERE id = ? AND is_deleted = FALSE", id);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /**
+     * Anexa/atualiza o PDF de aprovação (restrito a superadmin no controller). É o artefato que,
+     * junto com as 3 camadas de validação concluídas (status = validado_final), torna o processo
+     * um "Modelo K1". Não mexe no status — o K1 é derivado no front a partir destes dois fatos.
+     */
+    public Map<String, Object> setAprovacao(long id, String data, String filename, String mime, long userId) {
+        if (data == null || data.isBlank()) {
+            throw new RuntimeException("APROVACAO_REQUIRED");
+        }
+        if (data.length() > APROVACAO_MAX_BYTES) {
+            throw new RuntimeException("APROVACAO_TOO_LARGE");
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "UPDATE processos_negocio SET aprovacao_data = ?, aprovacao_filename = ?, aprovacao_mime = ?, " +
+                        "updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                        "WHERE id = ? AND is_deleted = FALSE RETURNING *",
+                data, filename, mime, userId, id);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Remove o PDF de aprovação (o processo deixa de ser elegível a Modelo K1). */
+    public Map<String, Object> removeAprovacao(long id, long userId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "UPDATE processos_negocio SET aprovacao_data = NULL, aprovacao_filename = NULL, aprovacao_mime = NULL, " +
+                        "updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                        "WHERE id = ? AND is_deleted = FALSE RETURNING *",
+                userId, id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
