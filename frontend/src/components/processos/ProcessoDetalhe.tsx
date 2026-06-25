@@ -43,6 +43,7 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   isK1,
+  COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -387,6 +388,8 @@ export function ProcessoDetalhe({
   const [aprovacaoBusy, setAprovacaoBusy] = useState(false);
   // Data de aprovação informada ao anexar o PDF (YYYY-MM-DD).
   const [aprovacaoEmInput, setAprovacaoEmInput] = useState("");
+  // Comitê selecionado ao anexar o PDF (sigla: CGTIC / CGovTIC).
+  const [aprovacaoComiteInput, setAprovacaoComiteInput] = useState("");
 
   // Carrega áreas uma vez ao abrir o detalhe — usado pra resolver
   // sigla da diretoria → nome completo no rodapé institucional.
@@ -529,6 +532,10 @@ export function ProcessoDetalhe({
       toast.error("Informe a data de aprovação antes de anexar o PDF.");
       return;
     }
+    if (!aprovacaoComiteInput) {
+      toast.error("Selecione o comitê de aprovação antes de anexar o PDF.");
+      return;
+    }
     if (
       file.type !== "application/pdf" &&
       !file.name.toLowerCase().endsWith(".pdf")
@@ -553,9 +560,11 @@ export function ProcessoDetalhe({
         aprovacao_filename: file.name,
         aprovacao_mime: file.type || "application/pdf",
         aprovacao_em: aprovacaoEmInput,
+        aprovacao_comite: aprovacaoComiteInput,
       });
       onChanged(updated);
       setAprovacaoEmInput("");
+      setAprovacaoComiteInput("");
       toast.success("PDF de aprovação anexado.");
     } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
@@ -984,6 +993,13 @@ export function ProcessoDetalhe({
                       </div>
                     ) : temPdf ? (
                       <div className="space-y-2">
+                        {processo.aprovacao_comite && (
+                          <p className="text-sm text-slate-700">
+                            <span className="font-semibold">Aprovado por:</span>{" "}
+                            {COMITES_APROVACAO[processo.aprovacao_comite] ||
+                              processo.aprovacao_comite}
+                          </p>
+                        )}
                         <p className="text-sm text-slate-700">
                           <span className="font-semibold">Aprovado em:</span>{" "}
                           {formatDataCompleta(processo.aprovacao_em)}
@@ -1025,7 +1041,7 @@ export function ProcessoDetalhe({
                         </div>
                       </div>
                     ) : isSuperadmin ? (
-                      <div className="flex flex-wrap items-end gap-4">
+                      <div className="space-y-3">
                         <div className="flex flex-col gap-1">
                           <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
                             Data de aprovação
@@ -1034,12 +1050,40 @@ export function ProcessoDetalhe({
                             type="date"
                             value={aprovacaoEmInput}
                             onChange={(e) => setAprovacaoEmInput(e.target.value)}
-                            className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                            className="h-9 w-[200px] rounded-md border border-slate-300 bg-white px-3 text-sm"
                           />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                            Comitê de aprovação
+                          </span>
+                          {Object.entries(COMITES_APROVACAO).map(
+                            ([sigla, nome]) => (
+                              <label
+                                key={sigla}
+                                className="inline-flex items-start gap-2 text-sm text-slate-700 cursor-pointer"
+                              >
+                                <input
+                                  type="radio"
+                                  name="aprovacao-comite"
+                                  value={sigla}
+                                  checked={aprovacaoComiteInput === sigla}
+                                  onChange={(e) =>
+                                    setAprovacaoComiteInput(e.target.value)
+                                  }
+                                  className="mt-0.5"
+                                />
+                                <span>
+                                  <span className="font-semibold">{sigla}</span> —{" "}
+                                  {nome}
+                                </span>
+                              </label>
+                            ),
+                          )}
                         </div>
                         <label
                           className={`inline-flex items-center gap-2 text-sm font-medium ${
-                            aprovacaoEmInput
+                            aprovacaoEmInput && aprovacaoComiteInput
                               ? "cursor-pointer text-blue-600 hover:text-blue-700"
                               : "cursor-not-allowed text-slate-400"
                           }`}
@@ -1054,7 +1098,11 @@ export function ProcessoDetalhe({
                             type="file"
                             accept="application/pdf,.pdf"
                             className="hidden"
-                            disabled={aprovacaoBusy || !aprovacaoEmInput}
+                            disabled={
+                              aprovacaoBusy ||
+                              !aprovacaoEmInput ||
+                              !aprovacaoComiteInput
+                            }
                             onChange={(e) => {
                               const f = e.target.files?.[0];
                               if (f) handleUploadAprovacao(f);
