@@ -385,6 +385,8 @@ export function ProcessoDetalhe({
   const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
   // True enquanto anexa/remove o PDF de aprovação (Modelo K1).
   const [aprovacaoBusy, setAprovacaoBusy] = useState(false);
+  // Data de aprovação informada ao anexar o PDF (YYYY-MM-DD).
+  const [aprovacaoEmInput, setAprovacaoEmInput] = useState("");
 
   // Carrega áreas uma vez ao abrir o detalhe — usado pra resolver
   // sigla da diretoria → nome completo no rodapé institucional.
@@ -523,6 +525,10 @@ export function ProcessoDetalhe({
 
   // Anexa o PDF de aprovação (Modelo K1) — restrito a superadmin.
   const handleUploadAprovacao = async (file: File) => {
+    if (!aprovacaoEmInput) {
+      toast.error("Informe a data de aprovação antes de anexar o PDF.");
+      return;
+    }
     if (
       file.type !== "application/pdf" &&
       !file.name.toLowerCase().endsWith(".pdf")
@@ -546,8 +552,10 @@ export function ProcessoDetalhe({
         aprovacao_data: dataUrl,
         aprovacao_filename: file.name,
         aprovacao_mime: file.type || "application/pdf",
+        aprovacao_em: aprovacaoEmInput,
       });
       onChanged(updated);
+      setAprovacaoEmInput("");
       toast.success("PDF de aprovação anexado.");
     } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
@@ -875,111 +883,6 @@ export function ProcessoDetalhe({
             </SectionBlock>
 
             <SectionBlock
-              icon={<ShieldCheck className="h-4 w-4" />}
-              title="Aprovação (Modelo K1)"
-            >
-              {(() => {
-                const k1 = isK1(processo);
-                const temPdf = !!processo.aprovacao_data;
-                const carregandoPdf =
-                  loadingFull && !temPdf && !!processo.tem_aprovacao;
-                return (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {k1 ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Modelo K1
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-slate-50 text-slate-600 border-slate-200">
-                          Ainda não é Modelo K1
-                        </span>
-                      )}
-                    </div>
-
-                    {!k1 && (
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Para virar Modelo K1: anexar o PDF de aprovação{" "}
-                        {temPdf || carregandoPdf ? "✓" : "(pendente)"} e concluir
-                        as 3 camadas de validação{" "}
-                        {processo.status === "validado_final"
-                          ? "✓"
-                          : "(pendente)"}
-                        .
-                      </p>
-                    )}
-
-                    {carregandoPdf ? (
-                      <div className="flex items-center gap-2 text-sm text-slate-400">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Carregando…
-                      </div>
-                    ) : temPdf ? (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-2 text-sm text-slate-700">
-                          <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />
-                          <span className="break-words">
-                            {processo.aprovacao_filename || "aprovacao.pdf"}
-                          </span>
-                        </div>
-                        <a
-                          href={processo.aprovacao_data || undefined}
-                          download={processo.aprovacao_filename || "aprovacao.pdf"}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Baixar
-                        </a>
-                        {isSuperadmin && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoverAprovacao}
-                            disabled={aprovacaoBusy}
-                            className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            {aprovacaoBusy ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                            <span className="ml-1">Remover</span>
-                          </Button>
-                        )}
-                      </div>
-                    ) : isSuperadmin ? (
-                      <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700">
-                        {aprovacaoBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
-                        Adicionar aprovação (PDF)
-                        <input
-                          type="file"
-                          accept="application/pdf,.pdf"
-                          className="hidden"
-                          disabled={aprovacaoBusy}
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) handleUploadAprovacao(f);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                    ) : (
-                      <p className="text-xs italic text-slate-400">
-                        Nenhum PDF de aprovação anexado.
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
-            </SectionBlock>
-
-            <SectionBlock
               icon={<Calendar className="h-4 w-4" />}
               title="Revisão"
             >
@@ -1037,6 +940,138 @@ export function ProcessoDetalhe({
             </SectionBlock>
 
             <HistoricoValidacao processo={processo} />
+
+            <SectionBlock
+              icon={<ShieldCheck className="h-4 w-4" />}
+              title="Aprovação (Modelo K1)"
+            >
+              {(() => {
+                const k1 = isK1(processo);
+                const temPdf = !!processo.aprovacao_data;
+                const carregandoPdf =
+                  loadingFull && !temPdf && !!processo.tem_aprovacao;
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {k1 ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Modelo K1
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-slate-50 text-slate-600 border-slate-200">
+                          Ainda não é Modelo K1
+                        </span>
+                      )}
+                    </div>
+
+                    {!k1 && (
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Para virar Modelo K1: anexar o PDF de aprovação{" "}
+                        {temPdf || carregandoPdf ? "✓" : "(pendente)"} e concluir
+                        as 3 camadas de validação{" "}
+                        {processo.status === "validado_final"
+                          ? "✓"
+                          : "(pendente)"}
+                        .
+                      </p>
+                    )}
+
+                    {carregandoPdf ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando…
+                      </div>
+                    ) : temPdf ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-slate-700">
+                          <span className="font-semibold">Aprovado em:</span>{" "}
+                          {formatDataCompleta(processo.aprovacao_em)}
+                        </p>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-2 text-sm text-slate-700">
+                            <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />
+                            <span className="break-words">
+                              {processo.aprovacao_filename || "aprovacao.pdf"}
+                            </span>
+                          </div>
+                          <a
+                            href={processo.aprovacao_data || undefined}
+                            download={
+                              processo.aprovacao_filename || "aprovacao.pdf"
+                            }
+                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Baixar
+                          </a>
+                          {isSuperadmin && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRemoverAprovacao}
+                              disabled={aprovacaoBusy}
+                              className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              {aprovacaoBusy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                              <span className="ml-1">Remover</span>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : isSuperadmin ? (
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                            Data de aprovação
+                          </label>
+                          <input
+                            type="date"
+                            value={aprovacaoEmInput}
+                            onChange={(e) => setAprovacaoEmInput(e.target.value)}
+                            className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                          />
+                        </div>
+                        <label
+                          className={`inline-flex items-center gap-2 text-sm font-medium ${
+                            aprovacaoEmInput
+                              ? "cursor-pointer text-blue-600 hover:text-blue-700"
+                              : "cursor-not-allowed text-slate-400"
+                          }`}
+                        >
+                          {aprovacaoBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
+                          Adicionar aprovação (PDF)
+                          <input
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="hidden"
+                            disabled={aprovacaoBusy || !aprovacaoEmInput}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleUploadAprovacao(f);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <p className="text-xs italic text-slate-400">
+                        Nenhum PDF de aprovação anexado.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </SectionBlock>
 
             {/* Rodapé institucional — todos os campos são dinâmicos:
                 - Elaborado por: nome completo da diretoria do processo (lookup por sigla)

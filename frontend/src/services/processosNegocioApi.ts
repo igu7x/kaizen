@@ -189,6 +189,8 @@ export interface ProcessoNegocio {
   aprovacao_data: string | null;
   aprovacao_filename: string | null;
   aprovacao_mime: string | null;
+  /** Data de aprovação informada ao anexar o PDF (YYYY-MM-DD). */
+  aprovacao_em: string | null;
   /**
    * Presentes apenas no payload da listagem (getAll), que vem enxuto sem os bytes base64.
    * `tem_fluxograma`: tem fluxograma (legado ou doc tipo FLUXOGRAMA); `tem_aprovacao`: tem PDF de aprovação.
@@ -309,7 +311,12 @@ export const processosNegocioApi = {
   /** Anexa o PDF de aprovação (Modelo K1). Restrito a superadmin no backend. */
   setAprovacao(
     id: number,
-    data: { aprovacao_data: string; aprovacao_filename: string; aprovacao_mime: string },
+    data: {
+      aprovacao_data: string;
+      aprovacao_filename: string;
+      aprovacao_mime: string;
+      aprovacao_em: string;
+    },
   ): Promise<ProcessoNegocio> {
     return apiClient.put<ProcessoNegocio>(`${BASE}/${id}/aprovacao`, data);
   },
