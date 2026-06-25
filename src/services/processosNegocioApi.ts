@@ -106,16 +106,57 @@ export function aprovacaoDoComite(
 }
 
 /**
- * Modelo K1: as 3 camadas de validação concluídas (status validado_final) E todos os comitês
- * exigidos na apreciação aprovaram. Apreciação vazia ⇒ basta o validado_final. É derivado —
- * cai sozinho se o processo sair do validado_final (reedição).
+ * Campos obrigatórios para um processo virar Modelo K1. Tudo é exigido EXCETO Indicadores
+ * e os anexos (Documento Primário / POP / MPS / fluxograma), que são opcionais.
  */
-export function isK1(p: {
-  status: ProcessoStatus;
-  apreciacao?: string[] | null;
-  aprovacoes?: AprovacaoComite[] | null;
-}): boolean {
+const CAMPOS_OBRIGATORIOS_K1: Array<{
+  key: keyof ProcessoNegocio;
+  label: string;
+  lista?: boolean;
+}> = [
+  { key: "macroprocesso", label: "Macroprocesso" },
+  { key: "diretoria", label: "Diretoria" },
+  { key: "nome_processo", label: "Nome do processo" },
+  { key: "periodo", label: "Data da versão" },
+  { key: "revisao", label: "Revisão" },
+  { key: "codigo_versao", label: "Código/Versão" },
+  { key: "descricao", label: "Descrição do processo" },
+  { key: "detalhamento", label: "Estrutura do processo" },
+  { key: "proprietarios", label: "Responsável", lista: true },
+  { key: "areas_responsaveis", label: "Áreas envolvidas", lista: true },
+  { key: "entradas", label: "Entradas", lista: true },
+  { key: "saidas", label: "Saídas", lista: true },
+  { key: "sistemas_ferramentas", label: "Sistemas / Ferramentas", lista: true },
+  {
+    key: "normativos_referencias",
+    label: "Normativos / Referências",
+    lista: true,
+  },
+  { key: "numero_proad", label: "Nº do Proad" },
+  { key: "observacoes_gerais", label: "Observações Gerais" },
+];
+
+/** Lista (labels) dos campos obrigatórios ainda não preenchidos — vazia = tudo preenchido. */
+export function camposFaltantesK1(p: ProcessoNegocio): string[] {
+  const faltam: string[] = [];
+  for (const c of CAMPOS_OBRIGATORIOS_K1) {
+    const v = p[c.key];
+    const vazio = c.lista
+      ? !Array.isArray(v) || v.length === 0
+      : v == null || String(v).trim() === "";
+    if (vazio) faltam.push(c.label);
+  }
+  return faltam;
+}
+
+/**
+ * Modelo K1: status validado_final, todos os campos obrigatórios preenchidos E todos os comitês
+ * exigidos na apreciação aprovaram (apreciação vazia ⇒ basta o resto). É derivado — cai sozinho
+ * se o processo sair do validado_final (reedição) ou se faltar campo.
+ */
+export function isK1(p: ProcessoNegocio): boolean {
   if (p.status !== "validado_final") return false;
+  if (camposFaltantesK1(p).length > 0) return false;
   const exigidos = p.apreciacao || [];
   const aprovados = p.aprovacoes || [];
   return exigidos.every((c) => aprovados.some((a) => a.comite === c));
