@@ -26,6 +26,8 @@ import {
   FileDown,
   History,
   BarChart3,
+  ShieldCheck,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,6 +42,7 @@ import {
   normalizeResponsavel,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
+  isK1,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -380,6 +383,8 @@ export function ProcessoDetalhe({
   const [versoes, setVersoes] = useState<VersaoHistorico[]>([]);
   const [loadingVersoes, setLoadingVersoes] = useState(false);
   const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
+  // True enquanto anexa/remove o PDF de aprovação (Modelo K1).
+  const [aprovacaoBusy, setAprovacaoBusy] = useState(false);
 
   // Carrega áreas uma vez ao abrir o detalhe — usado pra resolver
   // sigla da diretoria → nome completo no rodapé institucional.
@@ -513,6 +518,60 @@ export function ProcessoDetalhe({
       generateProcessoNegocioPDF(processo, diretoriaNome);
     } catch (err: any) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+    }
+  };
+
+  // Anexa o PDF de aprovação (Modelo K1) — restrito a superadmin.
+  const handleUploadAprovacao = async (file: File) => {
+    if (
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      toast.error("Envie um arquivo PDF.");
+      return;
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error("PDF muito grande. Tamanho máximo: 6MB.");
+      return;
+    }
+    setAprovacaoBusy(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const updated = await processosNegocioApi.setAprovacao(processo.id, {
+        aprovacao_data: dataUrl,
+        aprovacao_filename: file.name,
+        aprovacao_mime: file.type || "application/pdf",
+      });
+      onChanged(updated);
+      toast.success("PDF de aprovação anexado.");
+    } catch {
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+    } finally {
+      setAprovacaoBusy(false);
+    }
+  };
+
+  const handleRemoverAprovacao = async () => {
+    if (
+      !window.confirm(
+        "Remover o PDF de aprovação? O processo deixará de ser Modelo K1.",
+      )
+    )
+      return;
+    setAprovacaoBusy(true);
+    try {
+      const updated = await processosNegocioApi.removeAprovacao(processo.id);
+      onChanged(updated);
+      toast.success("PDF de aprovação removido.");
+    } catch {
+      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+    } finally {
+      setAprovacaoBusy(false);
     }
   };
 
@@ -813,6 +872,111 @@ export function ProcessoDetalhe({
                   </tbody>
                 </table>
               )}
+            </SectionBlock>
+
+            <SectionBlock
+              icon={<ShieldCheck className="h-4 w-4" />}
+              title="Aprovação (Modelo K1)"
+            >
+              {(() => {
+                const k1 = isK1(processo);
+                const temPdf = !!processo.aprovacao_data;
+                const carregandoPdf =
+                  loadingFull && !temPdf && !!processo.tem_aprovacao;
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {k1 ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Modelo K1
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-slate-50 text-slate-600 border-slate-200">
+                          Ainda não é Modelo K1
+                        </span>
+                      )}
+                    </div>
+
+                    {!k1 && (
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Para virar Modelo K1: anexar o PDF de aprovação{" "}
+                        {temPdf || carregandoPdf ? "✓" : "(pendente)"} e concluir
+                        as 3 camadas de validação{" "}
+                        {processo.status === "validado_final"
+                          ? "✓"
+                          : "(pendente)"}
+                        .
+                      </p>
+                    )}
+
+                    {carregandoPdf ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando…
+                      </div>
+                    ) : temPdf ? (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 text-sm text-slate-700">
+                          <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />
+                          <span className="break-words">
+                            {processo.aprovacao_filename || "aprovacao.pdf"}
+                          </span>
+                        </div>
+                        <a
+                          href={processo.aprovacao_data || undefined}
+                          download={processo.aprovacao_filename || "aprovacao.pdf"}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Baixar
+                        </a>
+                        {isSuperadmin && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoverAprovacao}
+                            disabled={aprovacaoBusy}
+                            className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            {aprovacaoBusy ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                            <span className="ml-1">Remover</span>
+                          </Button>
+                        )}
+                      </div>
+                    ) : isSuperadmin ? (
+                      <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700">
+                        {aprovacaoBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                        Adicionar aprovação (PDF)
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          className="hidden"
+                          disabled={aprovacaoBusy}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUploadAprovacao(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    ) : (
+                      <p className="text-xs italic text-slate-400">
+                        Nenhum PDF de aprovação anexado.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </SectionBlock>
 
             <SectionBlock

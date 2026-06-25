@@ -651,12 +651,13 @@ export default function EscritorioProcessos() {
       .slice(0, 6);
   }, [filtered]);
 
-  // Donut "por área" — agrupado por diretoria do processo (top 4 + "Outras").
-  const diretoriaChartData = useMemo(() => {
+  // Donut "por área" — agrupado pela área responsável principal do processo (top 4 + "Outras").
+  const areaChartData = useMemo(() => {
     const counts = new Map<string, number>();
     filtered.forEach((p) => {
-      const d = p.diretoria || "Não informada";
-      counts.set(d, (counts.get(d) || 0) + 1);
+      const a =
+        (p.areas_responsaveis || [])[0] || p.diretoria || "Não informada";
+      counts.set(a, (counts.get(a) || 0) + 1);
     });
     const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
     const arr = sorted.slice(0, 4).map(([name, value], i) => ({
@@ -800,7 +801,7 @@ export default function EscritorioProcessos() {
             </div>
           </div>
 
-          {isAdminOrManager && (
+          {isAdminOrManager && aba === "revisao" && (
             <Button
               onClick={handleNovoProcesso}
               className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
@@ -951,7 +952,7 @@ export default function EscritorioProcessos() {
           />
           <DonutChartCard
             title={`Processos ${tabWord} por área`}
-            data={diretoriaChartData}
+            data={areaChartData}
             total={stats.total}
           />
           <ColumnChartCard
