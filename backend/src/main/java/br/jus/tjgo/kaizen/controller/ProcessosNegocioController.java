@@ -249,9 +249,9 @@ public class ProcessosNegocioController {
             return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode anexar o PDF de aprovação."));
         }
         try {
-            Map<String, Object> updated = service.setAprovacao(id, str(body.get("aprovacao_data")),
-                    str(body.get("aprovacao_filename")), str(body.get("aprovacao_mime")),
-                    str(body.get("aprovacao_em")), str(body.get("aprovacao_comite")), userId);
+            Map<String, Object> updated = service.addAprovacao(id, str(body.get("aprovacao_comite")),
+                    str(body.get("aprovacao_data")), str(body.get("aprovacao_filename")),
+                    str(body.get("aprovacao_mime")), str(body.get("aprovacao_em")), userId);
             if (updated == null) {
                 return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
             }
@@ -264,13 +264,17 @@ public class ProcessosNegocioController {
             if ("APROVACAO_REQUIRED".equals(e.getMessage())) {
                 return ResponseEntity.status(400).body(Map.of("error", "PDF de aprovação é obrigatório."));
             }
+            if ("COMITE_REQUIRED".equals(e.getMessage())) {
+                return ResponseEntity.status(400).body(Map.of("error", "Comitê é obrigatório."));
+            }
             throw e;
         }
     }
 
-    // DELETE /api/processos-negocio/:id/aprovacao — remove o PDF de aprovação (superadmin)
+    // DELETE /api/processos-negocio/:id/aprovacao?comite=CGTIC — remove a aprovação de um comitê (superadmin)
     @DeleteMapping("/{id:\\d+}/aprovacao")
-    public ResponseEntity<?> removeAprovacao(@PathVariable long id) {
+    public ResponseEntity<?> removeAprovacao(@PathVariable long id,
+                                             @RequestParam(value = "comite", required = false) String comite) {
         Long userId = getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
@@ -279,7 +283,7 @@ public class ProcessosNegocioController {
         if (user == null || !Boolean.TRUE.equals(user.get("is_superadmin"))) {
             return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode remover o PDF de aprovação."));
         }
-        Map<String, Object> updated = service.removeAprovacao(id, userId);
+        Map<String, Object> updated = service.removeAprovacao(id, comite, userId);
         if (updated == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
         }

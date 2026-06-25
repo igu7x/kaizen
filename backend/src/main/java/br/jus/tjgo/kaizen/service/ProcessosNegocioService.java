@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -64,10 +65,18 @@ public class ProcessosNegocioService {
         boolean temFluxograma = fluxograma != null && !str(fluxograma).isBlank();
         row.put("fluxograma_data", null);
 
-        Object aprovacao = row.get("aprovacao_data");
-        boolean temAprovacao = aprovacao != null && !str(aprovacao).isBlank();
+        // Coluna legada de aprovação única (migrations 163-165), não mais usada.
         row.put("aprovacao_data", null);
-        row.put("tem_aprovacao", temAprovacao);
+
+        // Aprovações por comitê: mantém metadados (comite/filename/mime/em), remove os bytes do PDF.
+        List<Map<String, Object>> aprovacoes = parseAprovacoes(row.get("aprovacoes"));
+        for (Map<String, Object> a : aprovacoes) {
+            if (a != null) {
+                a.remove("data");
+            }
+        }
+        row.put("aprovacoes", aprovacoes);
+        row.put("tem_aprovacao", !aprovacoes.isEmpty());
 
         List<Map<String, Object>> docs = stripDocumentosData(row.get("documentos_anexados"));
         row.put("documentos_anexados", docs);
@@ -115,31 +124,72 @@ public class ProcessosNegocioService {
      * junto com as 3 camadas de validação concluídas (status = validado_final), torna o processo
      * um "Modelo K1". Não mexe no status — o K1 é derivado no front a partir destes dois fatos.
      */
-    public Map<String, Object> setAprovacao(long id, String data, String filename, String mime,
-                                            String aprovacaoEm, String aprovacaoComite, long userId) {
+    /**
+     * Anexa/atualiza a aprovação de UM comitê (CGTIC/CGovTIC) na lista {@code aprovacoes}.
+     * Cada comitê tem no máximo uma entrada (re-anexar substitui). Restrito a superadmin no controller.
+     */
+    public Map<String, Object> addAprovacao(long id, String comite, String data, String filename,
+                                            String mime, String aprovacaoEm, long userId) {
+        if (comite == null || comite.isBlank()) {
+            throw new RuntimeException("COMITE_REQUIRED");
+        }
         if (data == null || data.isBlank()) {
             throw new RuntimeException("APROVACAO_REQUIRED");
         }
         if (data.length() > APROVACAO_MAX_BYTES) {
             throw new RuntimeException("APROVACAO_TOO_LARGE");
         }
+        Map<String, Object> proc = findById(id);
+        if (proc == null) {
+            return null;
+        }
+        List<Map<String, Object>> aprovacoes = parseAprovacoes(proc.get("aprovacoes"));
+        aprovacoes.removeIf(a -> comite.equals(String.valueOf(a.get("comite"))));
+        Map<String, Object> nova = new LinkedHashMap<>();
+        nova.put("comite", comite);
+        nova.put("filename", filename);
+        nova.put("mime", mime);
+        nova.put("data", data);
+        nova.put("em", orNull(aprovacaoEm));
+        aprovacoes.add(nova);
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "UPDATE processos_negocio SET aprovacao_data = ?, aprovacao_filename = ?, aprovacao_mime = ?, " +
-                        "aprovacao_em = CAST(? AS DATE), aprovacao_comite = ?, " +
-                        "updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                "UPDATE processos_negocio SET aprovacoes = ?::jsonb, updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE RETURNING *",
-                data, filename, mime, orNull(aprovacaoEm), orNull(aprovacaoComite), userId, id);
+                toJson(aprovacoes), userId, id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    /** Remove o PDF de aprovação (o processo deixa de ser elegível a Modelo K1). */
-    public Map<String, Object> removeAprovacao(long id, long userId) {
+    /** Remove a aprovação de um comitê específico da lista {@code aprovacoes}. */
+    public Map<String, Object> removeAprovacao(long id, String comite, long userId) {
+        Map<String, Object> proc = findById(id);
+        if (proc == null) {
+            return null;
+        }
+        List<Map<String, Object>> aprovacoes = parseAprovacoes(proc.get("aprovacoes"));
+        aprovacoes.removeIf(a -> comite != null && comite.equals(String.valueOf(a.get("comite"))));
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "UPDATE processos_negocio SET aprovacao_data = NULL, aprovacao_filename = NULL, aprovacao_mime = NULL, " +
-                        "aprovacao_em = NULL, aprovacao_comite = NULL, updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                "UPDATE processos_negocio SET aprovacoes = ?::jsonb, updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE RETURNING *",
-                userId, id);
+                toJson(aprovacoes), userId, id);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseAprovacoes(Object raw) {
+        if (raw == null) {
+            return new ArrayList<>();
+        }
+        String json = String.valueOf(raw);
+        if (json.isBlank() || "null".equals(json)) {
+            return new ArrayList<>();
+        }
+        try {
+            List<Map<String, Object>> list = objectMapper.readValue(json, new TypeReference<>() {});
+            return list == null ? new ArrayList<>() : list;
+        } catch (Exception e) {
+            log.warn("[processosNegocio] falha ao parsear aprovacoes: {}", e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     public Map<String, Object> create(Map<String, Object> data, long userId) {
@@ -158,7 +208,7 @@ public class ProcessosNegocioService {
                         "  entradas, saidas, " +
                         "  sistemas_ferramentas, normativos_referencias, " +
                         "  fluxograma_data, fluxograma_filename, fluxograma_mime, " +
-                        "  documentos_anexados, " +
+                        "  documentos_anexados, apreciacao, " +
                         "  periodicidade_revisao, " +
                         "  numero_proad, observacoes_gerais, indicadores, " +
                         "  status, created_by, updated_by " +
@@ -169,7 +219,7 @@ public class ProcessosNegocioService {
                         "  ?::jsonb, ?::jsonb, " +
                         "  ?::jsonb, ?::jsonb, " +
                         "  ?, ?, ?, " +
-                        "  ?::jsonb, " +
+                        "  ?::jsonb, ?::jsonb, " +
                         "  ?, " +
                         "  ?, ?, ?, " +
                         "  'em_elaboracao', ?, ? " +
@@ -181,7 +231,7 @@ public class ProcessosNegocioService {
                 toJsonArray(data.get("entradas")), toJsonArray(data.get("saidas")),
                 toJsonArray(data.get("sistemas_ferramentas")), toJsonArray(data.get("normativos_referencias")),
                 orNull(data.get("fluxograma_data")), orNull(data.get("fluxograma_filename")), orNull(data.get("fluxograma_mime")),
-                toJsonArray(data.get("documentos_anexados")),
+                toJsonArray(data.get("documentos_anexados")), toJsonArray(data.get("apreciacao")),
                 orNull(data.get("periodicidade_revisao")),
                 orNull(data.get("numero_proad")), orNull(data.get("observacoes_gerais")), orNull(data.get("indicadores")),
                 userId, userId);
@@ -219,6 +269,7 @@ public class ProcessosNegocioService {
         pushScalar(data, fields, values, "fluxograma_filename");
         pushScalar(data, fields, values, "fluxograma_mime");
         pushJson(data, fields, values, "documentos_anexados");
+        pushJson(data, fields, values, "apreciacao");
         pushScalar(data, fields, values, "periodicidade_revisao");
         pushScalar(data, fields, values, "numero_proad");
         pushScalar(data, fields, values, "observacoes_gerais");
