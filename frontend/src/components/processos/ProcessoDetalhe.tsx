@@ -45,6 +45,7 @@ import {
   isK1,
   temDocumentoPrimario,
   aprovacaoDoComite,
+  camposFaltantesK1,
   COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
@@ -960,6 +961,7 @@ export function ProcessoDetalhe({
               {(() => {
                 const k1 = isK1(processo);
                 const exigidos = processo.apreciacao || [];
+                const faltam = camposFaltantesK1(processo);
                 return (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -974,6 +976,17 @@ export function ProcessoDetalhe({
                         </span>
                       )}
                     </div>
+
+                    {faltam.length > 0 && (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        Para atualizar o processo para o modelo atual, preencha
+                        os campos:{" "}
+                        <span className="font-semibold">
+                          {faltam.join(", ")}
+                        </span>
+                        .
+                      </div>
+                    )}
 
                     {exigidos.length === 0 ? (
                       <p className="text-xs italic text-slate-400">
