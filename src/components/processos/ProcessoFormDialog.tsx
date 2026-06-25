@@ -130,6 +130,8 @@ export function ProcessoFormDialog({
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [areas, setAreas] = useState<Area[]>([]);
+  // "Passa por apreciação em instâncias colegiadas?" (Sim/Não). Controla a lista de comitês.
+  const [apreciacaoSim, setApreciacaoSim] = useState(false);
   // Id do processo sendo editado. Em "Salvar Alterações" num processo novo,
   // passamos a editar o mesmo registro (evita recriar a cada clique).
   const [currentId, setCurrentId] = useState<number | null>(
@@ -184,8 +186,10 @@ export function ProcessoFormDialog({
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
       });
+      setApreciacaoSim((processo.apreciacao || []).length > 0);
     } else {
       setForm({ ...emptyForm, diretoria: diretoriaPadrao || "" });
+      setApreciacaoSim(false);
     }
   }, [open, processo, diretoriaPadrao]);
 
@@ -650,41 +654,86 @@ export function ProcessoFormDialog({
 
           <Section
             icon={<ShieldCheck className="h-4 w-4" />}
-            title="Apreciação"
+            title="Apreciação em Instâncias Colegiadas"
           >
             <p className="text-xs text-slate-500 mb-2">
-              Marque os comitês que precisam aprovar este processo (camada de
-              validação). Pode deixar nenhum, um ou os dois.
+              Este processo passa por apreciação em instâncias colegiadas
+              (comitês)?
             </p>
-            <div className="space-y-2">
-              {Object.entries(COMITES_APROVACAO).map(([sigla, nome]) => {
-                const marcado = (form.apreciacao || []).includes(sigla);
-                return (
-                  <label
-                    key={sigla}
-                    className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={marcado}
-                      onChange={(e) => {
-                        const atual = form.apreciacao || [];
-                        update(
-                          "apreciacao",
-                          e.target.checked
-                            ? [...atual, sigla]
-                            : atual.filter((c) => c !== sigla),
-                        );
-                      }}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      <span className="font-semibold">{sigla}</span> — {nome}
-                    </span>
-                  </label>
-                );
-              })}
+            <div className="flex gap-2 mb-3">
+              {[
+                { label: "Sim", val: true },
+                { label: "Não", val: false },
+              ].map(({ label, val }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    setApreciacaoSim(val);
+                    if (!val) update("apreciacao", []);
+                  }}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+                    apreciacaoSim === val
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {apreciacaoSim && (
+              <div className="space-y-2">
+                {(form.apreciacao || []).length <
+                  Object.keys(COMITES_APROVACAO).length && (
+                  <Select
+                    value=""
+                    onValueChange={(sigla) => {
+                      const atual = form.apreciacao || [];
+                      if (!atual.includes(sigla))
+                        update("apreciacao", [...atual, sigla]);
+                    }}
+                  >
+                    <SelectTrigger className="h-10 bg-white max-w-md">
+                      <SelectValue placeholder="Selecionar comitê" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(COMITES_APROVACAO)
+                        .filter(([s]) => !(form.apreciacao || []).includes(s))
+                        .map(([sigla, nome]) => (
+                          <SelectItem key={sigla} value={sigla}>
+                            {sigla} — {nome}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {(form.apreciacao || []).map((sigla) => (
+                    <span
+                      key={sigla}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                    >
+                      {sigla}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          update(
+                            "apreciacao",
+                            (form.apreciacao || []).filter((c) => c !== sigla),
+                          )
+                        }
+                        className="text-blue-400 hover:text-blue-700"
+                        aria-label={`Remover ${sigla}`}
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </Section>
         </div>
 
