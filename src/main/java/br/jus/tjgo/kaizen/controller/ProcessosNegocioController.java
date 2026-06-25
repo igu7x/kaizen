@@ -250,7 +250,8 @@ public class ProcessosNegocioController {
         }
         try {
             Map<String, Object> updated = service.setAprovacao(id, str(body.get("aprovacao_data")),
-                    str(body.get("aprovacao_filename")), str(body.get("aprovacao_mime")), userId);
+                    str(body.get("aprovacao_filename")), str(body.get("aprovacao_mime")),
+                    str(body.get("aprovacao_em")), userId);
             if (updated == null) {
                 return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
             }

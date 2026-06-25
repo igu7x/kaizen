@@ -115,7 +115,8 @@ public class ProcessosNegocioService {
      * junto com as 3 camadas de validação concluídas (status = validado_final), torna o processo
      * um "Modelo K1". Não mexe no status — o K1 é derivado no front a partir destes dois fatos.
      */
-    public Map<String, Object> setAprovacao(long id, String data, String filename, String mime, long userId) {
+    public Map<String, Object> setAprovacao(long id, String data, String filename, String mime,
+                                            String aprovacaoEm, long userId) {
         if (data == null || data.isBlank()) {
             throw new RuntimeException("APROVACAO_REQUIRED");
         }
@@ -124,9 +125,9 @@ public class ProcessosNegocioService {
         }
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "UPDATE processos_negocio SET aprovacao_data = ?, aprovacao_filename = ?, aprovacao_mime = ?, " +
-                        "updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                        "aprovacao_em = CAST(? AS DATE), updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE RETURNING *",
-                data, filename, mime, userId, id);
+                data, filename, mime, orNull(aprovacaoEm), userId, id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -134,7 +135,7 @@ public class ProcessosNegocioService {
     public Map<String, Object> removeAprovacao(long id, long userId) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "UPDATE processos_negocio SET aprovacao_data = NULL, aprovacao_filename = NULL, aprovacao_mime = NULL, " +
-                        "updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                        "aprovacao_em = NULL, updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE RETURNING *",
                 userId, id);
         return rows.isEmpty() ? null : rows.get(0);
