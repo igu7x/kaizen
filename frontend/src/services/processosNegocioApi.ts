@@ -21,6 +21,15 @@ export interface DocumentoAnexado {
   data: string; // data URL base64
 }
 
+/** Aprovação de um comitê (item da lista `aprovacoes`). `data` vem só no detalhe (não na listagem). */
+export interface AprovacaoComite {
+  comite: string; // sigla: CGTIC | CGovTIC
+  filename: string | null;
+  mime: string | null;
+  em: string | null; // data de aprovação (YYYY-MM-DD)
+  data?: string | null; // PDF base64 (ausente no payload enxuto da listagem)
+}
+
 export interface VersaoHistorico {
   id: number;
   versao: string;
@@ -88,24 +97,28 @@ export function temDocumentoPrimario(p: {
 }
 
 /** Tem PDF de aprovação. Prefere o flag enxuto `tem_aprovacao`; cai para os dados completos. */
-export function temAprovacao(p: {
-  tem_aprovacao?: boolean;
-  aprovacao_data?: string | null;
-}): boolean {
-  if (typeof p.tem_aprovacao === "boolean") return p.tem_aprovacao;
-  return !!p.aprovacao_data;
+/** Aprovação de um comitê específico (se existe na lista). */
+export function aprovacaoDoComite(
+  p: { aprovacoes?: AprovacaoComite[] | null },
+  comite: string,
+): AprovacaoComite | undefined {
+  return (p.aprovacoes || []).find((a) => a.comite === comite);
 }
 
 /**
- * Modelo K1: PDF de aprovação anexado E as 3 camadas de validação concluídas (status
- * validado_final). É derivado — cai sozinho se o processo sair do validado_final (reedição).
+ * Modelo K1: as 3 camadas de validação concluídas (status validado_final) E todos os comitês
+ * exigidos na apreciação aprovaram. Apreciação vazia ⇒ basta o validado_final. É derivado —
+ * cai sozinho se o processo sair do validado_final (reedição).
  */
 export function isK1(p: {
   status: ProcessoStatus;
-  tem_aprovacao?: boolean;
-  aprovacao_data?: string | null;
+  apreciacao?: string[] | null;
+  aprovacoes?: AprovacaoComite[] | null;
 }): boolean {
-  return p.status === "validado_final" && temAprovacao(p);
+  if (p.status !== "validado_final") return false;
+  const exigidos = p.apreciacao || [];
+  const aprovados = p.aprovacoes || [];
+  return exigidos.every((c) => aprovados.some((a) => a.comite === c));
 }
 
 /** Próxima revisão = período cadastrado + 1 ano. Null se período ausente/inválido. */
@@ -191,14 +204,19 @@ export interface ProcessoNegocio {
   fluxograma_filename: string | null;
   fluxograma_mime: string | null;
   documentos_anexados: DocumentoAnexado[];
-  /** PDF de aprovação (data URL base64). Junto com status validado_final, define o Modelo K1. */
-  aprovacao_data: string | null;
-  aprovacao_filename: string | null;
-  aprovacao_mime: string | null;
-  /** Data de aprovação informada ao anexar o PDF (YYYY-MM-DD). */
-  aprovacao_em: string | null;
-  /** Comitê que aprovou (sigla: CGTIC ou CGovTIC). Ver {@link COMITES_APROVACAO}. */
-  aprovacao_comite: string | null;
+  /**
+   * Apreciação: comitês exigidos para aprovar este processo (siglas). Vazio = não passa por comitê.
+   * Definido no cadastro. Junto com {@link aprovacoes} e o status, determina o Modelo K1.
+   */
+  apreciacao: string[];
+  /** Aprovações por comitê (uma por comitê). Na listagem vem sem os bytes do PDF. */
+  aprovacoes: AprovacaoComite[];
+  /** @deprecated colunas de aprovação única (legado, sempre null) — ver {@link aprovacoes}. */
+  aprovacao_data?: string | null;
+  aprovacao_filename?: string | null;
+  aprovacao_mime?: string | null;
+  aprovacao_em?: string | null;
+  aprovacao_comite?: string | null;
   /**
    * Presentes apenas no payload da listagem (getAll), que vem enxuto sem os bytes base64.
    * `tem_fluxograma`: tem fluxograma (legado ou doc tipo FLUXOGRAMA); `tem_aprovacao`: tem PDF de aprovação.
@@ -252,6 +270,8 @@ export interface CreateProcessoNegocioDto {
   fluxograma_filename?: string | null;
   fluxograma_mime?: string | null;
   documentos_anexados?: DocumentoAnexado[];
+  /** Comitês exigidos para aprovação (siglas). Vazio = não passa por comitê. */
+  apreciacao?: string[];
   periodicidade_revisao?: string | null;
   numero_proad?: string | null;
   observacoes_gerais?: string | null;
@@ -330,9 +350,11 @@ export const processosNegocioApi = {
     return apiClient.put<ProcessoNegocio>(`${BASE}/${id}/aprovacao`, data);
   },
 
-  /** Remove o PDF de aprovação. Restrito a superadmin no backend. */
-  removeAprovacao(id: number): Promise<ProcessoNegocio> {
-    return apiClient.delete<ProcessoNegocio>(`${BASE}/${id}/aprovacao`);
+  /** Remove a aprovação de um comitê específico. Restrito a superadmin no backend. */
+  removeAprovacao(id: number, comite: string): Promise<ProcessoNegocio> {
+    return apiClient.delete<ProcessoNegocio>(
+      `${BASE}/${id}/aprovacao?comite=${encodeURIComponent(comite)}`,
+    );
   },
 
   /** Lista as versões homologadas (snapshots) de um processo */

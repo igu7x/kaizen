@@ -44,6 +44,7 @@ import {
   getFluxograma,
   isK1,
   temDocumentoPrimario,
+  aprovacaoDoComite,
   COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
@@ -385,12 +386,14 @@ export function ProcessoDetalhe({
   const [versoes, setVersoes] = useState<VersaoHistorico[]>([]);
   const [loadingVersoes, setLoadingVersoes] = useState(false);
   const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
-  // True enquanto anexa/remove o PDF de aprovação (Modelo K1).
-  const [aprovacaoBusy, setAprovacaoBusy] = useState(false);
-  // Data de aprovação informada ao anexar o PDF (YYYY-MM-DD).
-  const [aprovacaoEmInput, setAprovacaoEmInput] = useState("");
-  // Comitê selecionado ao anexar o PDF (sigla: CGTIC / CGovTIC).
-  const [aprovacaoComiteInput, setAprovacaoComiteInput] = useState("");
+  // Comitê cuja aprovação está sendo anexada/removida no momento (sigla) ou null.
+  const [aprovacaoBusyComite, setAprovacaoBusyComite] = useState<string | null>(
+    null,
+  );
+  // Data de aprovação informada por comitê (sigla -> YYYY-MM-DD), antes de anexar.
+  const [aprovacaoEmInputs, setAprovacaoEmInputs] = useState<
+    Record<string, string>
+  >({});
 
   // Carrega áreas uma vez ao abrir o detalhe — usado pra resolver
   // sigla da diretoria → nome completo no rodapé institucional.
@@ -527,14 +530,11 @@ export function ProcessoDetalhe({
     }
   };
 
-  // Anexa o PDF de aprovação (Modelo K1) — restrito a superadmin.
-  const handleUploadAprovacao = async (file: File) => {
-    if (!aprovacaoEmInput) {
+  // Anexa o PDF de aprovação de UM comitê (Modelo K1) — restrito a superadmin.
+  const handleUploadAprovacao = async (comite: string, file: File) => {
+    const dataAprovacao = aprovacaoEmInputs[comite];
+    if (!dataAprovacao) {
       toast.error("Informe a data de aprovação antes de anexar o PDF.");
-      return;
-    }
-    if (!aprovacaoComiteInput) {
-      toast.error("Selecione o comitê de aprovação antes de anexar o PDF.");
       return;
     }
     if (
@@ -548,7 +548,7 @@ export function ProcessoDetalhe({
       toast.error("PDF muito grande. Tamanho máximo: 6MB.");
       return;
     }
-    setAprovacaoBusy(true);
+    setAprovacaoBusyComite(comite);
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -560,36 +560,38 @@ export function ProcessoDetalhe({
         aprovacao_data: dataUrl,
         aprovacao_filename: file.name,
         aprovacao_mime: file.type || "application/pdf",
-        aprovacao_em: aprovacaoEmInput,
-        aprovacao_comite: aprovacaoComiteInput,
+        aprovacao_em: dataAprovacao,
+        aprovacao_comite: comite,
       });
       onChanged(updated);
-      setAprovacaoEmInput("");
-      setAprovacaoComiteInput("");
-      toast.success("PDF de aprovação anexado.");
+      setAprovacaoEmInputs((prev) => ({ ...prev, [comite]: "" }));
+      toast.success("Aprovação anexada.");
     } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
-      setAprovacaoBusy(false);
+      setAprovacaoBusyComite(null);
     }
   };
 
-  const handleRemoverAprovacao = async () => {
+  const handleRemoverAprovacao = async (comite: string) => {
     if (
       !window.confirm(
-        "Remover o PDF de aprovação? O processo deixará de ser Modelo K1.",
+        `Remover a aprovação do ${comite}? O processo pode deixar de ser Modelo K1.`,
       )
     )
       return;
-    setAprovacaoBusy(true);
+    setAprovacaoBusyComite(comite);
     try {
-      const updated = await processosNegocioApi.removeAprovacao(processo.id);
+      const updated = await processosNegocioApi.removeAprovacao(
+        processo.id,
+        comite,
+      );
       onChanged(updated);
-      toast.success("PDF de aprovação removido.");
+      toast.success("Aprovação removida.");
     } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
-      setAprovacaoBusy(false);
+      setAprovacaoBusyComite(null);
     }
   };
 
@@ -957,9 +959,7 @@ export function ProcessoDetalhe({
             >
               {(() => {
                 const k1 = isK1(processo);
-                const temPdf = !!processo.aprovacao_data;
-                const carregandoPdf =
-                  loadingFull && !temPdf && !!processo.tem_aprovacao;
+                const exigidos = processo.apreciacao || [];
                 return (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -975,147 +975,137 @@ export function ProcessoDetalhe({
                       )}
                     </div>
 
-                    {!k1 && (
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Para virar Modelo K1: anexar o PDF de aprovação{" "}
-                        {temPdf || carregandoPdf ? "✓" : "(pendente)"} e concluir
-                        as 3 camadas de validação{" "}
-                        {processo.status === "validado_final"
-                          ? "✓"
-                          : "(pendente)"}
-                        .
-                      </p>
-                    )}
-
-                    {carregandoPdf ? (
-                      <div className="flex items-center gap-2 text-sm text-slate-400">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Carregando…
-                      </div>
-                    ) : temPdf ? (
-                      <div className="space-y-2">
-                        {processo.aprovacao_comite && (
-                          <p className="text-sm text-slate-700">
-                            <span className="font-semibold">Aprovado por:</span>{" "}
-                            {COMITES_APROVACAO[processo.aprovacao_comite] ||
-                              processo.aprovacao_comite}
-                          </p>
-                        )}
-                        <p className="text-sm text-slate-700">
-                          <span className="font-semibold">Aprovado em:</span>{" "}
-                          {formatDataCompleta(processo.aprovacao_em)}
-                        </p>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className="flex items-center gap-2 text-sm text-slate-700">
-                            <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />
-                            <span className="break-words">
-                              {processo.aprovacao_filename || "aprovacao.pdf"}
-                            </span>
-                          </div>
-                          <a
-                            href={processo.aprovacao_data || undefined}
-                            download={
-                              processo.aprovacao_filename || "aprovacao.pdf"
-                            }
-                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            Baixar
-                          </a>
-                          {isSuperadmin && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleRemoverAprovacao}
-                              disabled={aprovacaoBusy}
-                              className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              {aprovacaoBusy ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                              <span className="ml-1">Remover</span>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ) : isSuperadmin ? (
-                      <div className="space-y-3">
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                            Data de aprovação
-                          </label>
-                          <input
-                            type="date"
-                            value={aprovacaoEmInput}
-                            onChange={(e) => setAprovacaoEmInput(e.target.value)}
-                            className="h-9 w-[200px] rounded-md border border-slate-300 bg-white px-3 text-sm"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                            Comitê de aprovação
-                          </span>
-                          {Object.entries(COMITES_APROVACAO).map(
-                            ([sigla, nome]) => (
-                              <label
-                                key={sigla}
-                                className="inline-flex items-start gap-2 text-sm text-slate-700 cursor-pointer"
-                              >
-                                <input
-                                  type="radio"
-                                  name="aprovacao-comite"
-                                  value={sigla}
-                                  checked={aprovacaoComiteInput === sigla}
-                                  onChange={(e) =>
-                                    setAprovacaoComiteInput(e.target.value)
-                                  }
-                                  className="mt-0.5"
-                                />
-                                <span>
-                                  <span className="font-semibold">{sigla}</span> —{" "}
-                                  {nome}
-                                </span>
-                              </label>
-                            ),
-                          )}
-                        </div>
-                        <label
-                          className={`inline-flex items-center gap-2 text-sm font-medium ${
-                            aprovacaoEmInput && aprovacaoComiteInput
-                              ? "cursor-pointer text-blue-600 hover:text-blue-700"
-                              : "cursor-not-allowed text-slate-400"
-                          }`}
-                        >
-                          {aprovacaoBusy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Upload className="h-4 w-4" />
-                          )}
-                          Adicionar aprovação (PDF)
-                          <input
-                            type="file"
-                            accept="application/pdf,.pdf"
-                            className="hidden"
-                            disabled={
-                              aprovacaoBusy ||
-                              !aprovacaoEmInput ||
-                              !aprovacaoComiteInput
-                            }
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handleUploadAprovacao(f);
-                              e.target.value = "";
-                            }}
-                          />
-                        </label>
-                      </div>
-                    ) : (
+                    {exigidos.length === 0 ? (
                       <p className="text-xs italic text-slate-400">
-                        Nenhum PDF de aprovação anexado.
+                        Este processo não passa por aprovação de comitê
+                        (apreciação vazia).
                       </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {exigidos.map((comite) => {
+                          const aprov = aprovacaoDoComite(processo, comite);
+                          const nome = COMITES_APROVACAO[comite] || comite;
+                          const busy = aprovacaoBusyComite === comite;
+                          const carregando = loadingFull && !!aprov && !aprov.data;
+                          return (
+                            <div
+                              key={comite}
+                              className="rounded-md border border-slate-200 p-3"
+                            >
+                              <p className="text-sm font-semibold text-slate-800">
+                                {comite}{" "}
+                                <span className="font-normal text-slate-500">
+                                  — {nome}
+                                </span>
+                              </p>
+                              {aprov ? (
+                                <div className="mt-2 space-y-1.5">
+                                  <p className="text-sm text-slate-700">
+                                    <span className="font-semibold">
+                                      Aprovado em:
+                                    </span>{" "}
+                                    {formatDataCompleta(aprov.em)}
+                                  </p>
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2 text-sm text-slate-700">
+                                      <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />
+                                      <span className="break-words">
+                                        {aprov.filename || "aprovacao.pdf"}
+                                      </span>
+                                    </div>
+                                    {carregando ? (
+                                      <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        Carregando…
+                                      </span>
+                                    ) : (
+                                      aprov.data && (
+                                        <a
+                                          href={aprov.data}
+                                          download={
+                                            aprov.filename || "aprovacao.pdf"
+                                          }
+                                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                        >
+                                          <Download className="h-3.5 w-3.5" />
+                                          Baixar
+                                        </a>
+                                      )
+                                    )}
+                                    {isSuperadmin && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleRemoverAprovacao(comite)
+                                        }
+                                        disabled={busy}
+                                        className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      >
+                                        {busy ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-4 w-4" />
+                                        )}
+                                        <span className="ml-1">Remover</span>
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : isSuperadmin ? (
+                                <div className="mt-2 flex flex-wrap items-end gap-3">
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                                      Data de aprovação
+                                    </label>
+                                    <input
+                                      type="date"
+                                      value={aprovacaoEmInputs[comite] || ""}
+                                      onChange={(e) =>
+                                        setAprovacaoEmInputs((prev) => ({
+                                          ...prev,
+                                          [comite]: e.target.value,
+                                        }))
+                                      }
+                                      className="h-9 w-[180px] rounded-md border border-slate-300 bg-white px-3 text-sm"
+                                    />
+                                  </div>
+                                  <label
+                                    className={`inline-flex items-center gap-2 text-sm font-medium ${
+                                      aprovacaoEmInputs[comite]
+                                        ? "cursor-pointer text-blue-600 hover:text-blue-700"
+                                        : "cursor-not-allowed text-slate-400"
+                                    }`}
+                                  >
+                                    {busy ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Upload className="h-4 w-4" />
+                                    )}
+                                    Anexar aprovação (PDF)
+                                    <input
+                                      type="file"
+                                      accept="application/pdf,.pdf"
+                                      className="hidden"
+                                      disabled={busy || !aprovacaoEmInputs[comite]}
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleUploadAprovacao(comite, f);
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              ) : (
+                                <p className="mt-1 text-xs italic text-slate-400">
+                                  Aprovação pendente.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 );
