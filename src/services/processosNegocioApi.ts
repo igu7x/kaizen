@@ -161,6 +161,12 @@ export function normalizeResponsavel(raw: unknown): ResponsavelEntry {
 export const REVISAO_POLITICA_TEXTO =
   "A revisão do processo deverá ocorrer de forma ordinária, anualmente, ou de forma extraordinária, sempre que houver necessidade de atualização.";
 
+/** Comitês que podem aprovar um processo (Modelo K1). Chave = sigla persistida. */
+export const COMITES_APROVACAO: Record<string, string> = {
+  CGTIC: "Comitê Gestor de Tecnologia da Informação e Comunicação",
+  CGovTIC: "Comitê de Governança de Tecnologia da Informação e Comunicação",
+};
+
 export interface ProcessoNegocio {
   id: number;
   macroprocesso: string;
@@ -191,6 +197,8 @@ export interface ProcessoNegocio {
   aprovacao_mime: string | null;
   /** Data de aprovação informada ao anexar o PDF (YYYY-MM-DD). */
   aprovacao_em: string | null;
+  /** Comitê que aprovou (sigla: CGTIC ou CGovTIC). Ver {@link COMITES_APROVACAO}. */
+  aprovacao_comite: string | null;
   /**
    * Presentes apenas no payload da listagem (getAll), que vem enxuto sem os bytes base64.
    * `tem_fluxograma`: tem fluxograma (legado ou doc tipo FLUXOGRAMA); `tem_aprovacao`: tem PDF de aprovação.
@@ -316,6 +324,7 @@ export const processosNegocioApi = {
       aprovacao_filename: string;
       aprovacao_mime: string;
       aprovacao_em: string;
+      aprovacao_comite: string;
     },
   ): Promise<ProcessoNegocio> {
     return apiClient.put<ProcessoNegocio>(`${BASE}/${id}/aprovacao`, data);
