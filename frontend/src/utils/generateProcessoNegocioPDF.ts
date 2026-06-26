@@ -606,7 +606,7 @@ function drawRodapeInstitucional(
   doc.setTextColor(...TEXT_DARK);
   // Modelo vigente: K1 quando aprovado/homologado; senão Doc. Primário; senão "—".
   const modeloLabel = isK1(processo)
-    ? "Modelo K1"
+    ? "K1"
     : temDocumentoPrimario(processo)
       ? "Doc. Primário"
       : "—";
