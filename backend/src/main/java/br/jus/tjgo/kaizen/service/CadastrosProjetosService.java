@@ -1,6 +1,7 @@
 package br.jus.tjgo.kaizen.service;
 
 import br.jus.tjgo.kaizen.exception.ApiException;
+import br.jus.tjgo.kaizen.utils.OrgCodigos;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,9 +43,7 @@ public class CadastrosProjetosService {
 
     private static final Set<String> STATUS_MANUAIS = Set.of("concluido", "cancelado", "suspenso");
 
-    private static final Map<String, String> DIRETORIA_CODES = Map.of(
-            "SGJT", "01", "DIJUD", "02", "DPE", "03", "DITI", "04",
-            "DSTI", "05", "DG", "06", "SGP", "07");
+    // Códigos de diretoria/macro área centralizados em OrgCodigos (compartilhado com processos).
 
     private static final List<String> TAP_CRITICAL_FIELDS = List.of(
             "nome", "objetivo", "contexto_justificativa", "patrocinador_id", "gestor_id",
@@ -416,7 +415,7 @@ public class CadastrosProjetosService {
         if (projeto.get("tap_id") != null) {
             return getProjetoById(projetoId);
         }
-        String codDiretoria = DIRETORIA_CODES.getOrDefault((String) projeto.get("diretoria"), "00");
+        String codDiretoria = OrgCodigos.diretoria((String) projeto.get("diretoria"));
         int ano;
         Object dpi = projeto.get("data_prevista_inicio");
         if (dpi instanceof Date d) {
@@ -426,7 +425,7 @@ public class CadastrosProjetosService {
         } else {
             ano = LocalDate.now().getYear();
         }
-        String prefix = "PRJ_" + codDiretoria + "_" + ano + "_";
+        String prefix = "PRJ_" + OrgCodigos.MACRO_AREA + "_" + codDiretoria + "_" + ano + "_";
         Integer nextSeqRaw = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(CAST(SUBSTRING(tap_id FROM ? || '(\\d+)$') AS INTEGER)), 1) + 1 AS next_seq " +
                         "FROM cadastros_projetos WHERE tap_id LIKE ?",
