@@ -5,6 +5,8 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   COMITES_APROVACAO,
+  isK1,
+  temDocumentoPrimario,
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
@@ -586,11 +588,15 @@ function drawRodapeInstitucional(
   pageNum: number,
   totalPages: number,
 ) {
+  // 4 colunas no rodapé: MODELO (esq), ID (centro-esq), VERSÃO (centro-dir), DATA (dir).
+  const ID_X = 75;
+  const VERSAO_X = 135;
   doc.setFontSize(7.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...MUTED_GRAY);
   doc.text("MODELO:", MARGIN_LEFT, FOOTER_Y);
-  doc.text("VERSÃO:", PAGE_WIDTH / 2, FOOTER_Y, { align: "center" });
+  doc.text("ID:", ID_X, FOOTER_Y, { align: "center" });
+  doc.text("VERSÃO:", VERSAO_X, FOOTER_Y, { align: "center" });
   doc.text("DATA DA PROPOSTA:", PAGE_WIDTH - MARGIN_RIGHT, FOOTER_Y, {
     align: "right",
   });
@@ -598,13 +604,18 @@ function drawRodapeInstitucional(
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  // ID do documento (modelo): código institucional do processo (PN_{macroArea}_{diretoria}_{seq}),
-  // gerado ao virar Modelo K1 pela primeira vez. "—" enquanto não for K1.
-  const modeloLabel = processo.codigo || "—";
-  doc.text(modeloLabel, MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 60 });
+  // Modelo vigente: K1 quando aprovado/homologado; senão Doc. Primário; senão "—".
+  const modeloLabel = isK1(processo)
+    ? "Modelo K1"
+    : temDocumentoPrimario(processo)
+      ? "Doc. Primário"
+      : "—";
+  doc.text(modeloLabel, MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 55 });
+  // ID: código institucional (PN_{macroArea}_{diretoria}_{seq}), gerado no 1º Modelo K1.
+  doc.text(processo.codigo || "—", ID_X, FOOTER_Y + 4, { align: "center" });
   doc.text(
     (processo.versao || "1").replace(/\.0$/, ""),
-    PAGE_WIDTH / 2,
+    VERSAO_X,
     FOOTER_Y + 4,
     { align: "center" },
   );

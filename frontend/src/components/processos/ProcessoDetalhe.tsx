@@ -43,6 +43,7 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   isK1,
+  temDocumentoPrimario,
   aprovacaoDoComite,
   camposObrigatoriosFaltantes,
   COMITES_APROVACAO,
@@ -1137,10 +1138,22 @@ export function ProcessoDetalhe({
                 - Versão: campo `versao` do processo (inicia em 1.0, incrementa 0.1 a cada
                   reenvio pós-recusa)
                 - Data da atualização: timestamp de updated_at do processo */}
-            <div className="grid grid-cols-3 gap-4 px-4 pt-4 mt-2 text-center text-xs text-slate-600">
+            <div className="grid grid-cols-4 gap-4 px-4 pt-4 mt-2 text-center text-xs text-slate-600">
               <div>
                 <div className="text-[10px] uppercase tracking-wide text-slate-500">
                   Modelo:
+                </div>
+                <div className="mt-1 font-bold text-slate-700 leading-tight">
+                  {isK1(processo)
+                    ? "Modelo K1"
+                    : temDocumentoPrimario(processo)
+                      ? "Doc. Primário"
+                      : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                  ID:
                 </div>
                 <div className="mt-1 font-bold text-slate-700 leading-tight tabular-nums">
                   {processo.codigo || "—"}
