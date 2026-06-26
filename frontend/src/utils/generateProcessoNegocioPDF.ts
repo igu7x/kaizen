@@ -588,53 +588,48 @@ function drawRodapeInstitucional(
   pageNum: number,
   totalPages: number,
 ) {
-  // 4 campos inline ("LABEL: valor" na mesma linha): MODELO (esq), ID (centro-esq),
-  // VERSÃO (centro-dir), DATA (dir). Label em cinza, valor em negrito escuro.
+  // 4 campos inline ("LABEL: valor") distribuídos com espaçamento uniforme ao longo da
+  // largura útil. Label em cinza, valor em negrito escuro, com um respiro entre eles.
   const modeloLabel = isK1(processo)
     ? "K1"
     : temDocumentoPrimario(processo)
       ? "Doc. Primário"
       : "—";
 
-  const drawInline = (
-    label: string,
-    value: string,
-    anchorX: number,
-    align: "left" | "center" | "right",
-  ) => {
+  const GAP_LABEL_VALUE = 1.6; // respiro entre o label e o valor
+  const footerFields = [
+    { label: "MODELO:", value: modeloLabel },
+    { label: "ID:", value: processo.codigo || "—" },
+    {
+      label: "VERSÃO:",
+      value: (processo.versao || "1").replace(/\.0$/, ""),
+    },
+    { label: "DATA DA PROPOSTA:", value: formatDate(processo.updated_at) },
+  ].map((f) => {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    const labelText = `${label} `;
-    const labelW = doc.getTextWidth(labelText);
+    const labelW = doc.getTextWidth(f.label);
     doc.setFont("helvetica", "bold");
-    const valueW = doc.getTextWidth(value);
-    const total = labelW + valueW;
-    let startX = anchorX;
-    if (align === "center") startX = anchorX - total / 2;
-    else if (align === "right") startX = anchorX - total;
+    const valueW = doc.getTextWidth(f.value);
+    return { ...f, labelW, valueW, w: labelW + GAP_LABEL_VALUE + valueW };
+  });
 
+  const totalText = footerFields.reduce((s, f) => s + f.w, 0);
+  const gap = Math.max(
+    4,
+    (CONTENT_WIDTH - totalText) / (footerFields.length - 1),
+  );
+  let fx = MARGIN_LEFT;
+  for (const f of footerFields) {
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...MUTED_GRAY);
-    doc.text(labelText, startX, FOOTER_Y + 2);
+    doc.text(f.label, fx, FOOTER_Y + 2);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...TEXT_DARK);
-    doc.text(value, startX + labelW, FOOTER_Y + 2);
-  };
-
-  drawInline("MODELO:", modeloLabel, MARGIN_LEFT, "left");
-  drawInline("ID:", processo.codigo || "—", PAGE_WIDTH * 0.42, "center");
-  drawInline(
-    "VERSÃO:",
-    (processo.versao || "1").replace(/\.0$/, ""),
-    PAGE_WIDTH * 0.66,
-    "center",
-  );
-  drawInline(
-    "DATA DA PROPOSTA:",
-    formatDate(processo.updated_at),
-    PAGE_WIDTH - MARGIN_RIGHT,
-    "right",
-  );
+    doc.text(f.value, fx + f.labelW + GAP_LABEL_VALUE, FOOTER_Y + 2);
+    fx += f.w + gap;
+  }
 
   // Linha discreta com paginação
   doc.setFontSize(7);
