@@ -859,7 +859,7 @@ export function MonitoramentoOKRs() {
                           STATUS
                         </th>
                         <th className="text-center p-2 lg:p-4 font-semibold text-xs lg:text-sm text-gray-700 w-32">
-                          SITUAÇÃO
+                          ÁREA RESPONSÁVEL
                         </th>
                         <th className="text-center p-2 lg:p-4 font-semibold text-xs lg:text-sm text-gray-700 w-32 lg:w-40">
                           PRAZO
@@ -913,10 +913,8 @@ export function MonitoramentoOKRs() {
                                 (meta.status || "NAO_INICIADO") as OKRStatus,
                               )}
                             </td>
-                            <td className="p-2 lg:p-4 text-center">
-                              {getSituationBadge(
-                                (meta.situacao || "NO_PRAZO") as OKRSituation,
-                              )}
+                            <td className="p-2 lg:p-4 text-center text-xs lg:text-sm text-gray-700">
+                              {meta.areaNome || meta.areaSigla || "-"}
                             </td>
                             <td className="p-2 lg:p-4 text-center text-xs lg:text-sm text-gray-600">
                               {meta.prazo || "-"}
