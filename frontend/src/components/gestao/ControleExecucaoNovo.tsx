@@ -186,6 +186,27 @@ const formatDatePtBr = (dateString: string | null | undefined): string => {
 };
 
 // ============================================================
+// EXCEÇÃO (ajuste de produção): o plano/programa "Plano de Transformação Digital" e seus
+// projetos (cujos nomes iniciam com "PTD") NÃO são exibidos no Escritório de Projetos.
+// ============================================================
+function semAcento(s: string | null | undefined): string {
+  return (s || "")
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function ehPlanoOculto(nome: string | null | undefined): boolean {
+  return semAcento(nome).includes("transformacao digital");
+}
+
+function ehProjetoPtd(nome: string | null | undefined): boolean {
+  return /^ptd\b/.test(semAcento(nome));
+}
+
+// ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
 
@@ -962,13 +983,15 @@ export function ControleExecucaoNovo() {
     }
   }, [activeTab, ehGestorDeProjeto]);
 
-  // Base de projetos: se aba "meus" ativa → só os do usuário; senão, respeita plano selecionado
-  const projetosBase =
+  // Base de projetos: se aba "meus" ativa → só os do usuário; senão, respeita plano selecionado.
+  // Exceção: projetos do "Plano de Transformação Digital" (nome iniciando com "PTD") são removidos.
+  const projetosBase = (
     activeTab === "meus"
       ? meusProjetos
       : planoFiltroId
         ? projetosVinculados
-        : todosProjetos;
+        : todosProjetos
+  ).filter((p) => !ehProjetoPtd(p.nome));
 
   // O backend já filtra por diretoria em ambos os endpoints (getProjetos e getProjetosByInstrumentoId)
   // Filtrar por unidade se selecionada
@@ -2178,7 +2201,9 @@ export function ControleExecucaoNovo() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os Planos</SelectItem>
-                  {planos.map((plano) => (
+                  {planos
+                    .filter((plano) => !ehPlanoOculto(plano.nome))
+                    .map((plano) => (
                     <SelectItem key={plano.id} value={String(plano.id)}>
                       {plano.nome}
                     </SelectItem>
