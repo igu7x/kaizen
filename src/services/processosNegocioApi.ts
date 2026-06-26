@@ -106,16 +106,17 @@ export function aprovacaoDoComite(
 }
 
 /**
- * Campos obrigatórios para um processo virar Modelo K1. Tudo é exigido EXCETO Indicadores
- * e os anexos (Documento Primário / POP / MPS / fluxograma), que são opcionais.
+ * Campos obrigatórios (mesma regra para "Enviar para Validação" e para virar Modelo K1).
+ * Tudo é exigido EXCETO: Indicadores, Observações Gerais e os anexos (Documento Primário /
+ * POP / MPS / fluxograma), que são opcionais.
  */
-const CAMPOS_OBRIGATORIOS_K1: Array<{
+const CAMPOS_OBRIGATORIOS: Array<{
   key: keyof ProcessoNegocio;
   label: string;
   lista?: boolean;
 }> = [
   { key: "macroprocesso", label: "Macroprocesso" },
-  { key: "diretoria", label: "Diretoria" },
+  { key: "diretoria", label: "Área Responsável" },
   { key: "nome_processo", label: "Nome do processo" },
   { key: "periodo", label: "Data da Versão" },
   { key: "descricao", label: "Descrição do processo" },
@@ -131,13 +132,12 @@ const CAMPOS_OBRIGATORIOS_K1: Array<{
     lista: true,
   },
   { key: "numero_proad", label: "Nº do Proad" },
-  { key: "observacoes_gerais", label: "Observações Gerais" },
 ];
 
 /** Lista (labels) dos campos obrigatórios ainda não preenchidos — vazia = tudo preenchido. */
-export function camposFaltantesK1(p: ProcessoNegocio): string[] {
+export function camposObrigatoriosFaltantes(p: Partial<ProcessoNegocio>): string[] {
   const faltam: string[] = [];
-  for (const c of CAMPOS_OBRIGATORIOS_K1) {
+  for (const c of CAMPOS_OBRIGATORIOS) {
     const v = p[c.key];
     const vazio = c.lista
       ? !Array.isArray(v) || v.length === 0
@@ -154,7 +154,7 @@ export function camposFaltantesK1(p: ProcessoNegocio): string[] {
  */
 export function isK1(p: ProcessoNegocio): boolean {
   if (p.status !== "validado_final") return false;
-  if (camposFaltantesK1(p).length > 0) return false;
+  if (camposObrigatoriosFaltantes(p).length > 0) return false;
   const exigidos = p.apreciacao || [];
   const aprovados = p.aprovacoes || [];
   return exigidos.every((c) => aprovados.some((a) => a.comite === c));

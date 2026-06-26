@@ -45,7 +45,7 @@ import {
   isK1,
   temDocumentoPrimario,
   aprovacaoDoComite,
-  camposFaltantesK1,
+  camposObrigatoriosFaltantes,
   COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
@@ -464,10 +464,18 @@ export function ProcessoDetalhe({
     }
   };
 
-  const handleEnviar = () =>
+  const handleEnviar = () => {
+    const faltam = camposObrigatoriosFaltantes(processo);
+    if (faltam.length > 0) {
+      toast.error(
+        `Para enviar à validação, preencha os campos: ${faltam.join(", ")}.`,
+      );
+      return;
+    }
     handleAcao("Envio para validação", () =>
       processosNegocioApi.enviar(processo.id),
     );
+  };
   const handleValidarAutor = () =>
     handleAcao("Validação do autor", () =>
       processosNegocioApi.validarAutor(processo.id),
@@ -961,7 +969,7 @@ export function ProcessoDetalhe({
               {(() => {
                 const k1 = isK1(processo);
                 const exigidos = processo.apreciacao || [];
-                const faltam = camposFaltantesK1(processo);
+                const faltam = camposObrigatoriosFaltantes(processo);
                 return (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
