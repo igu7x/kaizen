@@ -644,6 +644,8 @@ function drawRodapeInstitucional(
 export function generateProcessoNegocioPDF(
   processo: ProcessoNegocio,
   diretoriaNome?: string,
+  // Aba pré-aberta no gesto do clique (evita bloqueio de popup quando há await antes).
+  targetWindow?: Window | null,
 ) {
   const doc = new jsPDF("p", "mm", "a4");
   let y = 15;
@@ -1080,5 +1082,9 @@ export function generateProcessoNegocioPDF(
   }
 
   const blobUrl = doc.output("bloburl");
-  window.open(blobUrl, "_blank");
+  if (targetWindow) {
+    targetWindow.location.href = blobUrl as unknown as string;
+  } else {
+    window.open(blobUrl, "_blank");
+  }
 }
