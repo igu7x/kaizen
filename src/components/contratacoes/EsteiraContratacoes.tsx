@@ -364,7 +364,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     filteredItems.forEach(item => {
       let rawFase = item.step || item.status || "Não Iniciada";
       if (item.status === "Concluída") rawFase = "Concluído";
-      
+
       const fase = normalizeStep(rawFase) || rawFase;
       faseCounts[fase] = (faseCounts[fase] || 0) + 1;
     });
@@ -821,7 +821,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5 2xl:gap-6">
-        
+
         {/* Gráfico 1: Estimativa de valores das demandas */}
         <Card className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
           <CardHeader className="pb-2 pt-4 px-4 text-center">
@@ -837,14 +837,14 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 >
                   <XAxis type="number" hide />
                   <YAxis dataKey="name" type="category" hide />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
-                    cursor={{fill: 'transparent'}}
+                    cursor={{ fill: 'transparent' }}
                   />
                   <Bar dataKey="valor" radius={[0, 4, 4, 0]} barSize={24}>
-                    <LabelList 
-                      dataKey="valor" 
-                      position="right" 
+                    <LabelList
+                      dataKey="valor"
+                      position="right"
                       formatter={(val: number) => formatCurrency(val)}
                       style={{ fontSize: '10px', fontWeight: 500, fill: '#374151' }}
                     />
@@ -873,29 +873,29 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   margin={{ top: 10, right: 90, left: 30, bottom: 20 }}
                 >
                   <XAxis type="number" hide />
-                  <YAxis 
-                    dataKey="tipo" 
-                    type="category" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 500 }} 
+                  <YAxis
+                    dataKey="tipo"
+                    type="category"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 500 }}
                   />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
-                    cursor={{fill: 'transparent'}}
+                    cursor={{ fill: 'transparent' }}
                   />
                   <Bar dataKey="estimado" name="Soma de Valor Total (R$)" fill="#2563EB" radius={[0, 4, 4, 0]} barSize={16}>
-                     <LabelList 
-                      dataKey="estimado" 
-                      position="right" 
+                    <LabelList
+                      dataKey="estimado"
+                      position="right"
                       formatter={(val: number) => formatCurrency(val)}
                       style={{ fontSize: '9px', fontWeight: 500, fill: '#374151' }}
                     />
                   </Bar>
                   <Bar dataKey="formalizado" name="Soma de Valor Ano Referência (R$)" fill="#16A34A" radius={[0, 4, 4, 0]} barSize={16}>
-                     <LabelList 
-                      dataKey="formalizado" 
-                      position="right" 
+                    <LabelList
+                      dataKey="formalizado"
+                      position="right"
                       formatter={(val: number) => formatCurrency(val)}
                       style={{ fontSize: '9px', fontWeight: 500, fill: '#374151' }}
                     />
@@ -922,32 +922,32 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   data={chartDataDatasPorTipo}
                   margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
                 >
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 500 }} 
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 500 }}
                   />
                   <YAxis hide />
                   <Tooltip />
-                  <Legend 
-                    iconType="plainline" 
+                  <Legend
+                    iconType="plainline"
                     wrapperStyle={{ fontSize: '10px', fontWeight: 500, color: '#6B7280', paddingTop: '10px' }}
                   />
-                  <Line 
-                    type="linear" 
-                    dataKey="NOVA CONTRATAÇÃO" 
-                    stroke="#2563EB" 
+                  <Line
+                    type="linear"
+                    dataKey="NOVA CONTRATAÇÃO"
+                    stroke="#2563EB"
                     strokeWidth={2}
                     activeDot={{ r: 6 }}
                     dot={{ r: 4, strokeWidth: 2 }}
                   >
                     <LabelList dataKey="NOVA CONTRATAÇÃO" position="top" style={{ fontSize: '10px', fontWeight: 600, fill: '#111827' }} />
                   </Line>
-                  <Line 
-                    type="linear" 
-                    dataKey="RENOVAÇÃO" 
-                    stroke="#F59E0B" 
+                  <Line
+                    type="linear"
+                    dataKey="RENOVAÇÃO"
+                    stroke="#F59E0B"
                     strokeWidth={2}
                     activeDot={{ r: 6 }}
                     dot={{ r: 4, strokeWidth: 2 }}
@@ -985,9 +985,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     <LabelList dataKey="value" position="inside" style={{ fill: '#FFF', fontSize: '9px', fontWeight: 600 }} />
                   </Pie>
                   <Tooltip />
-                  <Legend 
-                    layout="vertical" 
-                    verticalAlign="middle" 
+                  <Legend
+                    layout="vertical"
+                    verticalAlign="middle"
                     align="right"
                     iconType="square"
                     wrapperStyle={{ fontSize: '9px', fontWeight: 500, color: '#4B5563', right: '0' }}
@@ -1176,18 +1176,18 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
                   {/* Fase Atual */}
                   <div className="w-40 flex items-center justify-center gap-2">
-                    <div 
-                      className="w-2 h-2 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: STEP_COLORS[normalizeStep(item.step) || "Não Iniciada"] || "#9CA3AF" }} 
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: STEP_COLORS[normalizeStep(item.step) || "Não Iniciada"] || "#9CA3AF" }}
                     />
                     <span className="text-[11px] text-gray-700 font-medium whitespace-pre-line leading-tight max-w-[120px]" title={normalizeStep(item.step) || "Não Iniciada"}>
-                      {normalizeStep(item.step) === "Planejamento da Contratação" 
-                        ? "Planejamento\nda Contratação" 
+                      {normalizeStep(item.step) === "Planejamento da Contratação"
+                        ? "Planejamento\nda Contratação"
                         : normalizeStep(item.step) === "Seleção de Fornecedor"
-                        ? "Seleção de\nFornecedor"
-                        : normalizeStep(item.step) === "Gestão do Contrato"
-                        ? "Gestão\ndo Contrato"
-                        : (normalizeStep(item.step) || "Não Iniciada")}
+                          ? "Seleção de\nFornecedor"
+                          : normalizeStep(item.step) === "Gestão do Contrato"
+                            ? "Gestão\ndo Contrato"
+                            : (normalizeStep(item.step) || "Não Iniciada")}
                     </span>
                   </div>
 
@@ -1341,11 +1341,11 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
                   const unidade = diretoriasList.find(d => d.id === dirId);
-                  setFormData({ 
-                    ...formData, 
-                    id_diretoria: dirId, 
-                    area_demandante: unidade?.nome || "", 
-                    id_area_demandante: undefined 
+                  setFormData({
+                    ...formData,
+                    id_diretoria: dirId,
+                    area_demandante: unidade?.nome || "",
+                    id_area_demandante: undefined
                   });
                 }}
               >
@@ -1377,14 +1377,14 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectTrigger>
                 <SelectContent>
                   {unidadesList.map(u => {
-                      const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
-                      const sigla = dir?.sigla || dir?.nome;
-                      return (
-                        <SelectItem key={u.id} value={String(u.id)}>
-                          {u.nome} {sigla ? `(${sigla})` : ""}
-                        </SelectItem>
-                      );
-                    })}
+                    const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
+                    const sigla = dir?.sigla || dir?.nome;
+                    return (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.nome} {sigla ? `(${sigla})` : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1667,11 +1667,11 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
                   const unidade = diretoriasList.find(d => d.id === dirId);
-                  setFormData({ 
-                    ...formData, 
-                    id_diretoria: dirId, 
-                    area_demandante: unidade?.nome || "", 
-                    id_area_demandante: undefined 
+                  setFormData({
+                    ...formData,
+                    id_diretoria: dirId,
+                    area_demandante: unidade?.nome || "",
+                    id_area_demandante: undefined
                   });
                 }}
               >
@@ -1703,14 +1703,14 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectTrigger>
                 <SelectContent>
                   {unidadesList.map(u => {
-                      const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
-                      const sigla = dir?.sigla || dir?.nome;
-                      return (
-                        <SelectItem key={u.id} value={String(u.id)}>
-                          {u.nome} {sigla ? `(${sigla})` : ""}
-                        </SelectItem>
-                      );
-                    })}
+                    const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
+                    const sigla = dir?.sigla || dir?.nome;
+                    return (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.nome} {sigla ? `(${sigla})` : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
