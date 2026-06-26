@@ -147,6 +147,30 @@ export function camposObrigatoriosFaltantes(p: Partial<ProcessoNegocio>): string
   return faltam;
 }
 
+/** Diretorias (siglas) que obrigam a indicação de comitês de aprovação para o envio. */
+export const DIRETORIAS_COMITE_OBRIGATORIO = ["DITI", "DSTI", "GEJUT"];
+
+/** True quando a área responsável exige indicação de comitês de aprovação. */
+export function exigeComiteAprovacao(
+  diretoria: string | null | undefined,
+): boolean {
+  if (!diretoria) return false;
+  return DIRETORIAS_COMITE_OBRIGATORIO.includes(diretoria.trim().toUpperCase());
+}
+
+/**
+ * Validação dos comitês para envio: retorna mensagem de erro quando a área responsável
+ * exige comitês de aprovação (DITI, DSTI ou GEJUT) e nenhum foi indicado; senão null.
+ */
+export function validarComiteParaEnvio(
+  p: Partial<ProcessoNegocio>,
+): string | null {
+  if (exigeComiteAprovacao(p.diretoria) && (p.apreciacao || []).length === 0) {
+    return `A área responsável ${p.diretoria} exige a indicação de pelo menos um comitê de aprovação. Indique os comitês na seção "Apreciação em Instâncias Colegiadas" antes de enviar.`;
+  }
+  return null;
+}
+
 /**
  * Modelo K1: status validado_final, todos os campos obrigatórios preenchidos E todos os comitês
  * exigidos na apreciação aprovaram (apreciação vazia ⇒ basta o resto). É derivado — cai sozinho

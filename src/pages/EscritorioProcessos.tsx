@@ -36,6 +36,7 @@ import {
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
+import { toast } from "sonner";
 import {
   PieChart,
   Pie,
@@ -759,6 +760,36 @@ export default function EscritorioProcessos() {
     }
   };
 
+  // Abre o PDF do documento primário anexado diretamente (sem abrir o detalhe).
+  // A listagem não traz os bytes, então busca o processo completo e abre o anexo PRI.
+  const handleAbrirDocPrimario = async (
+    e: React.MouseEvent,
+    p: ProcessoNegocio,
+  ) => {
+    e.stopPropagation();
+    // Abre a janela já no gesto do clique (evita bloqueio de popup); navega quando o PDF chega.
+    const win = window.open("", "_blank");
+    try {
+      const full = await processosNegocioApi.getById(p.id);
+      const pri = (full.documentos_anexados || []).find(
+        (d) => d.tipo === "PRI",
+      );
+      if (!pri?.data) {
+        win?.close();
+        toast.error("Documento primário não encontrado.");
+        return;
+      }
+      const blob = await (await fetch(pri.data)).blob();
+      const url = URL.createObjectURL(blob);
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      win?.close();
+      toast.error("Não foi possível abrir o documento primário.");
+    }
+  };
+
   const handleSaved = (p: ProcessoNegocio) => {
     setProcessos((prev) => {
       const exists = prev.some((x) => x.id === p.id);
@@ -1075,9 +1106,14 @@ export default function EscritorioProcessos() {
                                 Modelo K1
                               </span>
                             ) : docPri ? (
-                              <span className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              <button
+                                type="button"
+                                onClick={(e) => handleAbrirDocPrimario(e, p)}
+                                title="Abrir documento primário (PDF)"
+                                className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                              >
                                 Doc. Primário
-                              </span>
+                              </button>
                             ) : (
                               <span className="text-xs italic text-slate-400">
                                 —
