@@ -1018,22 +1018,25 @@ export default function EscritorioProcessos() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                     <tr>
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Processo
                       </th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        ID
+                      </th>
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Macroprocesso
                       </th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Área
                       </th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Modelo Vigente
                       </th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Data da Versão
                       </th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Próxima Revisão
                       </th>
                       <th className="w-10"></th>
@@ -1054,16 +1057,19 @@ export default function EscritorioProcessos() {
                           onClick={() => handleAbrirDetalhe(p)}
                           className="hover:bg-blue-50/50 cursor-pointer transition-colors"
                         >
-                          <td className="px-5 py-3 text-slate-900 font-medium">
+                          <td className="px-5 py-3 text-center text-slate-900 font-medium">
                             {p.nome_processo}
                           </td>
-                          <td className="px-5 py-3 text-slate-700">
+                          <td className="px-5 py-3 text-center text-slate-600 tabular-nums whitespace-nowrap">
+                            {p.codigo || "—"}
+                          </td>
+                          <td className="px-5 py-3 text-center text-slate-700">
                             {p.macroprocesso || "—"}
                           </td>
-                          <td className="px-5 py-3 text-slate-700">
+                          <td className="px-5 py-3 text-center text-slate-700">
                             {areaLabel}
                           </td>
-                          <td className="px-5 py-3">
+                          <td className="px-5 py-3 text-center">
                             {k1 ? (
                               <span className="text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200">
                                 Modelo K1
@@ -1078,11 +1084,11 @@ export default function EscritorioProcessos() {
                               </span>
                             )}
                           </td>
-                          <td className="px-5 py-3 text-slate-700 tabular-nums">
+                          <td className="px-5 py-3 text-center text-slate-700 tabular-nums">
                             {formatDataVersao(p.periodo)}
                           </td>
                           <td
-                            className={`px-5 py-3 tabular-nums font-medium ${overdue ? "text-red-600" : "text-slate-700"}`}
+                            className={`px-5 py-3 text-center tabular-nums font-medium ${overdue ? "text-red-600" : "text-slate-700"}`}
                           >
                             {nextRev ? formatDateShort(nextRev) : "—"}
                           </td>

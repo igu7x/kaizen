@@ -221,6 +221,8 @@ export const COMITES_APROVACAO: Record<string, string> = {
 
 export interface ProcessoNegocio {
   id: number;
+  /** ID do processo (PN_{macroArea}_{diretoria}_{seq}), gerado no 1º Modelo K1; null antes disso. */
+  codigo: string | null;
   macroprocesso: string;
   diretoria: string;
   periodo: string | null;

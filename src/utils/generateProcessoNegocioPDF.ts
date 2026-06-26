@@ -5,8 +5,6 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   COMITES_APROVACAO,
-  isK1,
-  temDocumentoPrimario,
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
@@ -600,12 +598,9 @@ function drawRodapeInstitucional(
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  // Modelo vigente: K1 quando aprovado/homologado; senão Doc. Primário; senão "—".
-  const modeloLabel = isK1(processo)
-    ? "Modelo K1"
-    : temDocumentoPrimario(processo)
-      ? "Doc. Primário"
-      : "—";
+  // ID do documento (modelo): código institucional do processo (PN_{macroArea}_{diretoria}_{seq}),
+  // gerado ao virar Modelo K1 pela primeira vez. "—" enquanto não for K1.
+  const modeloLabel = processo.codigo || "—";
   doc.text(modeloLabel, MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 60 });
   doc.text(
     (processo.versao || "1").replace(/\.0$/, ""),
