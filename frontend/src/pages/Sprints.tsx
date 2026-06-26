@@ -74,7 +74,6 @@ import {
 } from "@/services/cadastrosProjetosApi";
 import { getUsers } from "@/services/api";
 import type { User as UserType } from "@/types";
-import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 
 // Interface para tarefa com dados relacionados para o Backlog
@@ -674,8 +673,6 @@ export default function Sprints() {
             </div>
           </div>
 
-          {/* Seletor de Diretoria - canto superior direito */}
-          <DirectorateSelector />
         </div>
 
         {/* Tabs de navegação */}
