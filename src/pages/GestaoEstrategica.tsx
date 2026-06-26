@@ -2,7 +2,6 @@ import { useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
-import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
 import { MonitoramentoOKRs } from "@/components/gestao/MonitoramentoOKRs";
 import { ControleExecucaoNovo } from "@/components/gestao/ControleExecucaoNovo";
 import { EscritorioProjetos } from "@/components/gestao/EscritorioProjetos";
@@ -126,8 +125,6 @@ export default function GestaoEstrategica() {
             </div>
           </div>
 
-          {/* Seletor de Diretoria - canto superior direito */}
-          <DirectorateSelector />
         </div>
 
         {/* Conteúdo baseado na rota com animação */}
