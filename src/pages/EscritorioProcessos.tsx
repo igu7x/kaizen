@@ -1019,16 +1019,16 @@ export default function EscritorioProcessos() {
                   <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                     <tr>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Processo
+                        ID
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        ID
+                        Processo
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Macroprocesso
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Área
+                        Área Responsável
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Modelo Vigente
@@ -1057,11 +1057,11 @@ export default function EscritorioProcessos() {
                           onClick={() => handleAbrirDetalhe(p)}
                           className="hover:bg-blue-50/50 cursor-pointer transition-colors"
                         >
-                          <td className="px-5 py-3 text-left text-slate-900 font-medium">
-                            {p.nome_processo}
-                          </td>
                           <td className="px-5 py-3 text-center text-slate-600 tabular-nums whitespace-nowrap">
                             {p.codigo || "—"}
+                          </td>
+                          <td className="px-5 py-3 text-left text-slate-900 font-medium">
+                            {p.nome_processo}
                           </td>
                           <td className="px-5 py-3 text-center text-slate-700">
                             {p.macroprocesso || "—"}
