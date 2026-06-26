@@ -1,5 +1,6 @@
 package br.jus.tjgo.kaizen.service;
 
+import br.jus.tjgo.kaizen.utils.OrgCodigos;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -227,8 +228,9 @@ public class ProcessosNegocioService {
     }
 
     /**
-     * Ao gerar o PRIMEIRO Modelo K1, carimba periodo (Data da Versão) e k1_gerado_em com a data
-     * de hoje. Idempotente: só carimba se ainda não foi gerado. Retorna a linha (atualizada ou não).
+     * Ao gerar o PRIMEIRO Modelo K1: carimba periodo (Data da Versão) e k1_gerado_em com a data de
+     * hoje E gera o ID do processo (PN_{macroArea}_{diretoria}_{seq}, sequencial global por ordem
+     * de geração). Idempotente: só na 1ª vez. Retorna a linha (atualizada ou não).
      */
     private Map<String, Object> stampK1IfFirst(long id) {
         Map<String, Object> proc = findById(id);
@@ -236,14 +238,27 @@ public class ProcessosNegocioService {
             return null;
         }
         if (proc.get("k1_gerado_em") == null && isK1Server(proc)) {
+            String codigo = gerarCodigoProcesso(str(proc.get("diretoria")));
             List<Map<String, Object>> rows = jdbc.queryForList(
                     "UPDATE processos_negocio SET periodo = CURRENT_DATE, k1_gerado_em = CURRENT_DATE, " +
-                            "updated_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE RETURNING *", id);
+                            "codigo = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE RETURNING *",
+                    codigo, id);
             if (!rows.isEmpty()) {
                 return rows.get(0);
             }
         }
         return proc;
+    }
+
+    /** Gera o ID do processo: PN_{macroArea}_{diretoria}_{seq3}. Sequencial global (ordem de geração). */
+    private String gerarCodigoProcesso(String diretoriaSigla) {
+        Integer nextSeq = jdbc.queryForObject(
+                "SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM '_(\\d+)$') AS INTEGER)), 0) + 1 " +
+                        "FROM processos_negocio WHERE codigo IS NOT NULL",
+                Integer.class);
+        int seq = nextSeq == null ? 1 : nextSeq;
+        return "PN_" + OrgCodigos.MACRO_AREA + "_" + OrgCodigos.diretoria(diretoriaSigla)
+                + "_" + String.format("%03d", seq);
     }
 
     public Map<String, Object> create(Map<String, Object> data, long userId) {
