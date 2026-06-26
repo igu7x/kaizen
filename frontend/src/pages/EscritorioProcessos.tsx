@@ -1018,7 +1018,7 @@ export default function EscritorioProcessos() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                     <tr>
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Processo
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
