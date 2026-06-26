@@ -58,10 +58,22 @@ export function ContratosTI() {
     startDate: '',
     endDate: '',
     effectiveDate: '',
-    limitDate: '',
     directory: '',
-    unidade: ''
+    unidade: '',
+    monthlyValueCents: 0,
+    totalValueCents: 0,
+    yearValue: 0
   });
+
+  const formatCurrencyInput = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return '';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value / 100);
+  };
+
+  const parseCurrencyInput = (value: string) => {
+    const numbersOnly = value.replace(/\D/g, '');
+    return numbersOnly ? parseInt(numbersOnly, 10) : 0;
+  };
 
   const openNewContractModal = () => {
     setContractToEdit(null);
@@ -76,9 +88,11 @@ export function ContratosTI() {
       startDate: '',
       endDate: '',
       effectiveDate: '',
-      limitDate: '',
       directory: '',
-      unidade: ''
+      unidade: '',
+      monthlyValueCents: 0,
+      totalValueCents: 0,
+      yearValue: 0
     });
     setIsAddModalOpen(true);
   };
@@ -147,7 +161,7 @@ export function ContratosTI() {
         throw new Error('Preencha os campos obrigatórios: Fornecedor, Objeto, Data Início e Data Término.');
       }
 
-      const dateFields = [formData.startDate, formData.endDate, formData.effectiveDate, formData.limitDate];
+      const dateFields = [formData.startDate, formData.endDate, formData.effectiveDate];
       for (const date of dateFields) {
         if (date && date.length > 10) {
           throw new Error('Data inválida (ano deve conter no máximo 4 dígitos).');
@@ -399,7 +413,7 @@ export function ContratosTI() {
             </div>
 
             <div className="space-y-2">
-              <Label>Data de Início <span className="text-red-500">*</span></Label>
+              <Label>Início Vigência Atual <span className="text-red-500">*</span></Label>
               <Input
                 type="date"
                 max="9999-12-31"
@@ -409,7 +423,7 @@ export function ContratosTI() {
             </div>
 
             <div className="space-y-2">
-              <Label>Data de Término <span className="text-red-500">*</span></Label>
+              <Label>Fim Vigência Atual <span className="text-red-500">*</span></Label>
               <Input
                 type="date"
                 max="9999-12-31"
@@ -429,32 +443,32 @@ export function ContratosTI() {
             </div>
 
             <div className="space-y-2">
-              <Label>Data Limite</Label>
+              <Label>Valor Mensal</Label>
               <Input
-                type="date"
-                max="9999-12-31"
-                value={formData.limitDate || ''}
-                onChange={(e) => handleInputChange('limitDate', e.target.value)}
+                type="text"
+                value={formatCurrencyInput(formData.monthlyValueCents)}
+                onChange={(e) => handleInputChange('monthlyValueCents', parseCurrencyInput(e.target.value))}
+                placeholder="R$ 0,00"
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Valor Mensal Estimado</Label>
+              <Label>Valor Anual do Contrato</Label>
               <Input
-                type="number"
-                value={formData.monthlyValueCents || ''}
-                onChange={(e) => handleInputChange('monthlyValueCents', Number(e.target.value))}
-                placeholder="Ex: 500000 para R$ 5.000,00"
+                type="text"
+                value={formatCurrencyInput(formData.yearValue)}
+                onChange={(e) => handleInputChange('yearValue', parseCurrencyInput(e.target.value))}
+                placeholder="R$ 0,00"
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Valor Total Estimado</Label>
+              <Label>Valor Total do Contrato</Label>
               <Input
-                type="number"
-                value={formData.totalValueCents || ''}
-                onChange={(e) => handleInputChange('totalValueCents', Number(e.target.value))}
-                placeholder="Ex: 6000000 para R$ 60.000,00"
+                type="text"
+                value={formatCurrencyInput(formData.totalValueCents)}
+                onChange={(e) => handleInputChange('totalValueCents', parseCurrencyInput(e.target.value))}
+                placeholder="R$ 0,00"
               />
             </div>
 

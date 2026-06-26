@@ -4,6 +4,10 @@ import {
   normalizeResponsavel,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
+  COMITES_APROVACAO,
+  isK1,
+  temDocumentoPrimario,
+  aprovacaoDoComite,
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
 
@@ -596,8 +600,13 @@ function drawRodapeInstitucional(
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_DARK);
-  // ID do documento (modelo) — ainda sem definição; placeholder por ora.
-  doc.text("—", MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 60 });
+  // Modelo vigente: K1 quando aprovado/homologado; senão Doc. Primário; senão "—".
+  const modeloLabel = isK1(processo)
+    ? "Modelo K1"
+    : temDocumentoPrimario(processo)
+      ? "Doc. Primário"
+      : "—";
+  doc.text(modeloLabel, MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 60 });
   doc.text(
     (processo.versao || "1").replace(/\.0$/, ""),
     PAGE_WIDTH / 2,
@@ -975,9 +984,9 @@ export function generateProcessoNegocioPDF(
   );
   y += revRowH + 6;
 
-  // 10. Histórico de Validação
-  y = checkPageBreak(doc, y, 35);
-  y = drawNumberedSectionHeader(doc, 10, "Histórico de Validação", y);
+  // 10. Rito de Aprovação
+  y = checkPageBreak(doc, y, 62);
+  y = drawNumberedSectionHeader(doc, 10, "Rito de Aprovação", y);
   const histRowH = 9;
   const histLabelW = 60;
   const histLinhas = [
@@ -1019,6 +1028,53 @@ export function generateProcessoNegocioPDF(
       { fontSize: 9 },
     );
     y += histRowH;
+  }
+
+  // Linhas "Aprovado por (comitê):" — uma por comitê da apreciação (Modelo K1)
+  const exigidos = processo.apreciacao || [];
+  if (exigidos.length === 0) {
+    drawTextCell(doc, "Aprovado por:", MARGIN_LEFT, y, histLabelW, histRowH, {
+      bold: true,
+      fontSize: 9,
+      bg: [248, 250, 252],
+    });
+    drawTextCell(
+      doc,
+      "Não requer aprovação de comitê",
+      MARGIN_LEFT + histLabelW,
+      y,
+      CONTENT_WIDTH - histLabelW,
+      histRowH,
+      { fontSize: 9 },
+    );
+    y += histRowH;
+  } else {
+    for (const comite of exigidos) {
+      const aprov = aprovacaoDoComite(processo, comite);
+      const nome = COMITES_APROVACAO[comite] || comite;
+      const valor = aprov
+        ? `${nome}${aprov.em ? ` — ${formatDate(aprov.em)}` : ""}`
+        : `${nome} — Pendente`;
+      drawTextCell(
+        doc,
+        `Aprovado por (${comite}):`,
+        MARGIN_LEFT,
+        y,
+        histLabelW,
+        histRowH,
+        { bold: true, fontSize: 9, bg: [248, 250, 252] },
+      );
+      drawTextCell(
+        doc,
+        valor,
+        MARGIN_LEFT + histLabelW,
+        y,
+        CONTENT_WIDTH - histLabelW,
+        histRowH,
+        { fontSize: 9 },
+      );
+      y += histRowH;
+    }
   }
 
   // Rodapé em todas as páginas

@@ -19,12 +19,19 @@ import {
   GitBranch,
   ChevronRight,
   Search,
+  Briefcase,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   processosNegocioApi,
   ProcessoNegocio,
   temFluxograma,
+  temDocumentoPrimario,
+  isK1,
+  isVigente,
+  isRevisaoOuNovo,
+  proximaRevisao,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
@@ -43,62 +50,48 @@ import {
 } from "recharts";
 
 // ============================================================
-// MAPEAMENTOS DE STATUS — converte o estado de validação interno (6 valores)
-// nos 4 buckets que o hub apresenta visualmente.
+// MATURIDADE — 3 níveis. "Mapeado" = processo cadastrado (sempre); todo processo é no
+// mínimo Mapeado. Estruturado exige fluxograma + POP; Otimizado exige fluxograma + POP + MPS.
 // ============================================================
-const HUB_STATUS = [
-  "Ativo",
-  "Em Revisão",
-  "Aguardando Revisão",
-  "Revisão Pendente",
-] as const;
-type HubStatus = (typeof HUB_STATUS)[number];
-
-const HUB_STATUS_BADGE: Record<HubStatus, string> = {
-  Ativo: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Em Revisão": "bg-blue-100 text-blue-700 border-blue-200",
-  "Aguardando Revisão": "bg-amber-100 text-amber-700 border-amber-200",
-  "Revisão Pendente": "bg-red-100 text-red-700 border-red-200",
-};
-
-const HUB_STATUS_DOT: Record<HubStatus, string> = {
-  Ativo: "#10b981",
-  "Em Revisão": "#3b82f6",
-  "Aguardando Revisão": "#f59e0b",
-  "Revisão Pendente": "#ef4444",
-};
-
-const REV_SITUACAO = [
-  "No prazo",
-  "Aguardando revisão",
-  "Revisão vencida",
-  "Em revisão",
-] as const;
-type RevSituacao = (typeof REV_SITUACAO)[number];
-const REV_SITUACAO_COLOR: Record<RevSituacao, string> = {
-  "No prazo": "#10b981",
-  "Aguardando revisão": "#f59e0b",
-  "Revisão vencida": "#ef4444",
-  "Em revisão": "#3b82f6",
-};
-
-const MATURIDADE_LABEL: Record<1 | 2 | 3 | 4, string> = {
+const MATURIDADE_LABEL: Record<1 | 2 | 3, string> = {
   1: "Nível 1 - Mapeado",
-  2: "Nível 2 - Básico",
-  3: "Nível 3 - Parcial",
-  4: "Nível 4 - Completo",
+  2: "Nível 2 - Estruturado",
+  3: "Nível 3 - Otimizado",
 };
-const MATURIDADE_DESC: Record<1 | 2 | 3 | 4, string> = {
-  1: "(Formulário cadastrado)",
-  2: "(Formulário + 1 doc.)",
-  3: "(Formulário + 2 docs.)",
-  4: "(Formulário + MPS + POP + Fluxograma)",
+const MATURIDADE_DESC: Record<1 | 2 | 3, string> = {
+  1: "(Cadastrado)",
+  2: "(Fluxograma + POP)",
+  3: "(Fluxograma + POP + MPS)",
 };
-const MATURIDADE_COLOR: Record<1 | 2 | 3 | 4, string> = {
+const MATURIDADE_COLOR: Record<1 | 2 | 3, string> = {
   1: "#8b5cf6",
   2: "#3b82f6",
-  3: "#f59e0b",
-  4: "#10b981",
+  3: "#10b981",
+};
+
+// Paleta do donut "por área" (agrupado por diretoria).
+const DIRETORIA_COLORS = [
+  "#3b82f6",
+  "#7c3aed",
+  "#f59e0b",
+  "#10b981",
+  "#1e3a8a",
+  "#ec4899",
+];
+
+// Baldes do gráfico "Próximas revisões por período".
+const PERIODO_BUCKETS = [
+  "Até 30 dias",
+  "31 – 90 dias",
+  "91 – 180 dias",
+  "+ de 180 dias",
+] as const;
+type PeriodoBucket = (typeof PERIODO_BUCKETS)[number];
+const PERIODO_COLORS: Record<PeriodoBucket, string> = {
+  "Até 30 dias": "#10b981",
+  "31 – 90 dias": "#3b82f6",
+  "91 – 180 dias": "#7c3aed",
+  "+ de 180 dias": "#f59e0b",
 };
 
 // ============================================================
@@ -106,80 +99,31 @@ const MATURIDADE_COLOR: Record<1 | 2 | 3 | 4, string> = {
 // ============================================================
 
 /**
- * Mapeia o status interno (em_elaboracao, enviado, etc.) → bucket do hub.
- * Regra:
- *  - Homologado (validado_final) + dentro do prazo → "Ativo"
- *  - Homologado mas próxima revisão vencida → "Revisão Pendente"
- *  - Em fluxo de validação → "Aguardando Revisão"
- *  - Em edição → "Em Revisão"
- *  - Recusado → "Revisão Pendente"
+ * Maturidade a partir dos artefatos. Todo processo é no mínimo "Mapeado".
+ *  Otimizado: fluxograma + POP + MPS
+ *  Estruturado: fluxograma + POP
+ *  Mapeado: o resto
  */
-function hubStatusOf(p: ProcessoNegocio): HubStatus {
-  if (p.status === "em_elaboracao") return "Em Revisão";
-  if (
-    p.status === "enviado" ||
-    p.status === "validado_autor" ||
-    p.status === "validado_diretoria"
-  ) {
-    return "Aguardando Revisão";
-  }
-  if (p.status === "recusado") return "Revisão Pendente";
-  // validado_final → verifica se a próxima revisão venceu
-  const next = nextRevisionDate(p);
-  if (next && next.getTime() < Date.now()) return "Revisão Pendente";
-  return "Ativo";
-}
-
-/**
- * Próxima revisão = Período cadastrado + 1 ano (regra fixa do módulo).
- * Retorna Date ou null se o período não estiver definido / for inválido.
- */
-function nextRevisionDate(p: ProcessoNegocio): Date | null {
-  if (!p.periodo) return null;
-  const m = p.periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setFullYear(d.getFullYear() + 1);
-  return d;
-}
-
-/** Situação da revisão pro gráfico "Situação das Revisões". */
-function revSituacaoOf(p: ProcessoNegocio): RevSituacao {
-  if (p.status === "em_elaboracao") return "Em revisão";
-  if (
-    p.status === "enviado" ||
-    p.status === "validado_autor" ||
-    p.status === "validado_diretoria"
-  ) {
-    return "Aguardando revisão";
-  }
-  const next = nextRevisionDate(p);
-  if (!next) return "No prazo";
-  const diff = next.getTime() - Date.now();
-  if (diff < 0) return "Revisão vencida";
-  if (diff < 60 * 24 * 60 * 60 * 1000) return "Aguardando revisão";
-  return "No prazo";
-}
-
-/**
- * Maturidade calculada a partir dos artefatos disponíveis.
- *  N1: só formulário cadastrado
- *  N2: 1 artefato (fluxograma OU 1 doc anexado)
- *  N3: 2 artefatos
- *  N4: completo — tem MPS + POP + Fluxograma
- */
-function maturidadeOf(p: ProcessoNegocio): 1 | 2 | 3 | 4 {
+function maturidadeOf(p: ProcessoNegocio): 1 | 2 | 3 {
   const docs = p.documentos_anexados || [];
-  const hasMps = docs.some((d) => d.tipo === "MPS");
   const hasPop = docs.some((d) => d.tipo === "POP");
-  const hasAux = docs.some((d) => d.tipo === "AUX");
+  const hasMps = docs.some((d) => d.tipo === "MPS");
   const hasFlux = temFluxograma(p);
-  if (hasMps && hasPop && hasFlux) return 4;
-  const total = [hasMps, hasPop, hasAux, hasFlux].filter(Boolean).length;
-  if (total >= 2) return 3;
-  if (total >= 1) return 2;
+  if (hasFlux && hasPop && hasMps) return 3;
+  if (hasFlux && hasPop) return 2;
   return 1;
+}
+
+/** Balde da próxima revisão. Só revisões futuras entram; vencidas/sem período → null. */
+function periodoRevisaoOf(p: ProcessoNegocio): PeriodoBucket | null {
+  const next = proximaRevisao(p);
+  if (!next) return null;
+  const dias = Math.ceil((next.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  if (dias < 0) return null;
+  if (dias <= 30) return "Até 30 dias";
+  if (dias <= 90) return "31 – 90 dias";
+  if (dias <= 180) return "91 – 180 dias";
+  return "+ de 180 dias";
 }
 
 function formatDateShort(d: string | null | undefined | Date) {
@@ -188,11 +132,18 @@ function formatDateShort(d: string | null | undefined | Date) {
   return date.toLocaleDateString("pt-BR");
 }
 
+/** Formata a Data da Versão (periodo, "YYYY-MM-DD") como DD/MM/AAAA sem deslocar fuso. */
+function formatDataVersao(periodo: string | null | undefined) {
+  if (!periodo) return "—";
+  const m = periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : periodo;
+}
+
 // ============================================================
 // HOOK DE ANIMAÇÃO — sweep horário + fade + scale (mesmo padrão usado em GraficoRosca).
 // O `key` permite reanimar quando os dados mudam (re-render do filtro).
 // ============================================================
-function useSweepAnimation(key: any, duration = 1200) {
+function useSweepAnimation(key: unknown, duration = 1200) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -221,11 +172,11 @@ function useSweepAnimation(key: any, duration = 1200) {
       if (progress < 1) {
         const mask = `conic-gradient(from -90deg at 50% 50%, black ${angle}deg, transparent ${angle}deg)`;
         el.style.maskImage = mask;
-        (el.style as any).webkitMaskImage = mask;
+        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = mask;
         frame = requestAnimationFrame(animate);
       } else {
         el.style.maskImage = "none";
-        (el.style as any).webkitMaskImage = "none";
+        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = "none";
         el.style.opacity = "1";
         el.style.transform = "none";
       }
@@ -239,10 +190,9 @@ function useSweepAnimation(key: any, duration = 1200) {
 }
 
 // ============================================================
-// HOOK DE ANIMAÇÃO HORIZONTAL — wipe da esquerda pra direita, ideal pra barras horizontais.
-// As barras "aparecem" como se uma cortina deslizasse revelando o conteúdo.
+// HOOK DE ANIMAÇÃO HORIZONTAL — wipe da esquerda pra direita, ideal pra barras.
 // ============================================================
-function useWipeAnimation(key: any, duration = 1300) {
+function useWipeAnimation(key: unknown, duration = 1300) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -261,11 +211,9 @@ function useWipeAnimation(key: any, duration = 1300) {
       const easedOut = 1 - Math.pow(1 - progress, 3);
       const wipePct = easedOut * 100;
 
-      // Fade-in nos primeiros 30%
       const opacity = Math.min(progress / 0.3, 1);
       el.style.opacity = String(opacity);
 
-      // Slide horizontal pequeno (-12px → 0) nos primeiros 50%
       const slideProgress = Math.min(progress / 0.5, 1);
       const slideEased = 1 - Math.pow(1 - slideProgress, 3);
       el.style.transform = `translateX(${-12 + 12 * slideEased}px)`;
@@ -273,11 +221,11 @@ function useWipeAnimation(key: any, duration = 1300) {
       if (progress < 1) {
         const mask = `linear-gradient(to right, black ${wipePct}%, transparent ${wipePct}%)`;
         el.style.maskImage = mask;
-        (el.style as any).webkitMaskImage = mask;
+        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = mask;
         frame = requestAnimationFrame(animate);
       } else {
         el.style.maskImage = "none";
-        (el.style as any).webkitMaskImage = "none";
+        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = "none";
         el.style.opacity = "1";
         el.style.transform = "none";
       }
@@ -357,10 +305,7 @@ interface DonutChartCardProps {
 }
 function DonutChartCard({ title, data, total }: DonutChartCardProps) {
   const chartData = data.filter((d) => d.value > 0);
-  // Esconde o número central enquanto o usuário está com o mouse em cima do donut
-  // (assim o tooltip não fica sobreposto pelo total).
   const [hovering, setHovering] = useState(false);
-  // Reanima a cada mudança no conjunto de dados (carregamento inicial + troca de filtro)
   const sweepKey = useMemo(
     () => chartData.map((d) => `${d.name}:${d.value}`).join("|"),
     [chartData],
@@ -396,7 +341,7 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 {(chartData.length > 0
                   ? chartData
                   : [{ color: "#e5e7eb" }]
-                ).map((entry: any, idx) => (
+                ).map((entry: { color: string }, idx) => (
                   <Cell key={idx} fill={entry.color} />
                 ))}
               </Pie>
@@ -410,7 +355,6 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
               )}
             </PieChart>
           </ResponsiveContainer>
-          {/* Total no centro do donut — some no hover pra não brigar com o tooltip */}
           {chartData.length > 0 && !hovering && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-xl font-bold text-slate-800 leading-none">
@@ -448,8 +392,6 @@ interface BarChartCardProps {
   data: Array<{ name: string; value: number; pct: number }>;
 }
 function BarChartCard({ title, data }: BarChartCardProps) {
-  // Animação distinta dos donuts: wipe horizontal da esquerda pra direita, casando
-  // com a orientação das barras (que crescem horizontalmente).
   const animKey = useMemo(
     () => data.map((d) => `${d.name}:${d.value}`).join("|"),
     [data],
@@ -481,10 +423,11 @@ function BarChartCard({ title, data }: BarChartCardProps) {
               axisLine={false}
             />
             <RTooltip
-              formatter={(v: number, _n, props: any) => [
-                `${v} (${props.payload.pct}%)`,
-                "Processos",
-              ]}
+              formatter={(
+                v: number,
+                _n: string,
+                props: { payload?: { pct?: number } },
+              ) => [`${v} (${props.payload?.pct ?? 0}%)`, "Processos"]}
             />
             <Bar
               dataKey="value"
@@ -516,6 +459,62 @@ function BarChartCard({ title, data }: BarChartCardProps) {
   );
 }
 
+interface ColumnChartCardProps {
+  title: string;
+  data: Array<{ name: string; value: number; color: string }>;
+}
+function ColumnChartCard({ title, data }: ColumnChartCardProps) {
+  const animKey = useMemo(
+    () => data.map((d) => `${d.name}:${d.value}`).join("|"),
+    [data],
+  );
+  const wipeRef = useWipeAnimation(animKey, 1300);
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm h-[300px] flex flex-col">
+      <h3 className="text-sm font-bold text-slate-900 mb-2">{title}</h3>
+      <div
+        ref={wipeRef}
+        className="flex-1 min-h-0"
+        style={{ overflow: "visible" }}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            key={animKey}
+            data={data}
+            margin={{ top: 18, right: 10, left: -22, bottom: 5 }}
+          >
+            <CartesianGrid vertical={false} stroke="#f1f5f9" />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 10, fill: "#475569" }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+            />
+            <RTooltip formatter={(v: number) => [`${v}`, "Processos"]} />
+            <Bar
+              dataKey="value"
+              radius={[4, 4, 0, 0]}
+              barSize={34}
+              isAnimationActive={false}
+              label={{ position: "top", fontSize: 11, fill: "#334155" }}
+            >
+              {data.map((d, idx) => (
+                <Cell key={idx} fill={d.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
 // PÁGINA PRINCIPAL
 // ============================================================
@@ -525,16 +524,17 @@ export default function EscritorioProcessos() {
   const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Aba ativa (substitui o antigo filtro de Status)
+  const [aba, setAba] = useState<"vigentes" | "revisao">("vigentes");
+
   // Filtros
-  const [filtroMacro, setFiltroMacro] = useState<string>("all");
   const [filtroArea, setFiltroArea] = useState<string>("all");
-  const [filtroStatus, setFiltroStatus] = useState<string>("all");
   const [filtroDiretoria, setFiltroDiretoria] = useState<string>("all");
-  // Filtro disparado pelos cards de topo: 'all' = nenhum (mostra tudo); demais filtram por tipo de artefato
+  // Filtro disparado pelos cards de topo
   const [filtroArtefato, setFiltroArtefato] = useState<
     "all" | "mps" | "pop" | "flux"
   >("all");
-  // Busca por nome do processo — afeta apenas a tabela (não os cards/gráficos)
+  // Busca por processo/macroprocesso/área — afeta apenas a tabela
   const [buscaProcesso, setBuscaProcesso] = useState("");
 
   // Modais
@@ -542,13 +542,10 @@ export default function EscritorioProcessos() {
   const [editing, setEditing] = useState<ProcessoNegocio | null>(null);
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [selecionado, setSelecionado] = useState<ProcessoNegocio | null>(null);
-  // True enquanto busca o processo completo (com base64) ao abrir o detalhe.
   const [detalheLoading, setDetalheLoading] = useState(false);
 
   const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
-  const isSuperadmin = (user as any)?.is_superadmin === true;
-  // Apenas superadmin e usuários da SGJT podem ver/trocar o filtro de Diretoria.
-  // Os demais ficam travados na própria diretoria.
+  const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const podeFiltrarDiretoria = isSuperadmin || user?.diretoria === "SGJT";
 
   const carregar = async () => {
@@ -567,7 +564,6 @@ export default function EscritorioProcessos() {
     carregar();
   }, []);
 
-  // Trava a diretoria do filtro pra do próprio usuário quando ele não pode trocar.
   useEffect(() => {
     if (!podeFiltrarDiretoria && user?.diretoria) {
       setFiltroDiretoria(user.diretoria);
@@ -577,12 +573,6 @@ export default function EscritorioProcessos() {
   // ============================================================
   // OPÇÕES DOS FILTROS
   // ============================================================
-
-  const macroprocessosOptions = useMemo(() => {
-    const set = new Set<string>();
-    processos.forEach((p) => p.macroprocesso && set.add(p.macroprocesso));
-    return Array.from(set).sort();
-  }, [processos]);
 
   const areasOptions = useMemo(() => {
     const set = new Set<string>();
@@ -599,16 +589,12 @@ export default function EscritorioProcessos() {
   }, [processos]);
 
   // ============================================================
-  // APLICAR FILTROS
+  // APLICAR FILTROS (aba + diretoria + área)
   // ============================================================
-
-  // Base — aplica os filtros "globais" (Macroprocesso, Área, Status, Diretoria).
-  // É usado pra calcular os stat cards de topo (que precisam mostrar a contagem
-  // de cada tipo de artefato no recorte atual, independente de qual card está ativo).
   const filteredBase = useMemo(() => {
     return processos.filter((p) => {
-      if (filtroMacro !== "all" && p.macroprocesso !== filtroMacro)
-        return false;
+      const naAba = aba === "vigentes" ? isVigente(p) : isRevisaoOuNovo(p);
+      if (!naAba) return false;
       if (
         filtroArea !== "all" &&
         !(p.areas_responsaveis || []).includes(filtroArea)
@@ -616,14 +602,11 @@ export default function EscritorioProcessos() {
         return false;
       if (filtroDiretoria !== "all" && p.diretoria !== filtroDiretoria)
         return false;
-      if (filtroStatus !== "all" && hubStatusOf(p) !== filtroStatus)
-        return false;
       return true;
     });
-  }, [processos, filtroMacro, filtroArea, filtroDiretoria, filtroStatus]);
+  }, [processos, aba, filtroArea, filtroDiretoria]);
 
-  // Conjunto totalmente filtrado (inclui o filtro disparado pelos cards). Usado nos
-  // gráficos e na tabela.
+  // Inclui o filtro disparado pelos cards. Usado nos gráficos e na tabela.
   const filtered = useMemo(() => {
     return filteredBase.filter((p) => {
       const docs = p.documentos_anexados || [];
@@ -639,11 +622,6 @@ export default function EscritorioProcessos() {
   // ============================================================
   // ESTATÍSTICAS / DADOS DOS GRÁFICOS
   // ============================================================
-
-  // Stat cards calculados sobre `filtered` — quando o usuário ativa um card de artefato,
-  // o total e as demais contagens passam a refletir só o subset filtrado (ex: clicar em
-  // MPS faz o total cair pro número de processos que têm MPS; POPs/Fluxogramas passam a
-  // contar dentro desse subset).
   const stats = useMemo(() => {
     const total = filtered.length;
     let mps = 0,
@@ -658,22 +636,9 @@ export default function EscritorioProcessos() {
     return { total, mps, pop, flux };
   }, [filtered]);
 
-  const statusChartData = useMemo(() => {
-    const counts: Record<HubStatus, number> = {
-      Ativo: 0,
-      "Em Revisão": 0,
-      "Aguardando Revisão": 0,
-      "Revisão Pendente": 0,
-    };
-    filtered.forEach((p) => {
-      counts[hubStatusOf(p)]++;
-    });
-    return HUB_STATUS.map((s) => ({
-      name: s,
-      value: counts[s],
-      color: HUB_STATUS_DOT[s],
-    }));
-  }, [filtered]);
+  const tabWord = aba === "vigentes" ? "vigentes" : "em revisão";
+  const card1Label =
+    aba === "vigentes" ? "Processos Vigentes" : "Em Revisão ou Novos";
 
   const macroChartData = useMemo(() => {
     const counts = new Map<string, number>();
@@ -681,7 +646,7 @@ export default function EscritorioProcessos() {
       const m = p.macroprocesso || "Não informado";
       counts.set(m, (counts.get(m) || 0) + 1);
     });
-    const arr = Array.from(counts.entries())
+    return Array.from(counts.entries())
       .map(([name, value]) => ({
         name,
         value,
@@ -690,32 +655,51 @@ export default function EscritorioProcessos() {
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
+  }, [filtered]);
+
+  // Donut "por área" — agrupado pela área responsável principal do processo (top 4 + "Outras").
+  const areaChartData = useMemo(() => {
+    const counts = new Map<string, number>();
+    filtered.forEach((p) => {
+      const a =
+        (p.areas_responsaveis || [])[0] || p.diretoria || "Não informada";
+      counts.set(a, (counts.get(a) || 0) + 1);
+    });
+    const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+    const arr = sorted.slice(0, 4).map(([name, value], i) => ({
+      name,
+      value,
+      color: DIRETORIA_COLORS[i % DIRETORIA_COLORS.length],
+    }));
+    const rest = sorted.slice(4).reduce((s, [, v]) => s + v, 0);
+    if (rest > 0) arr.push({ name: "Outras", value: rest, color: "#94a3b8" });
     return arr;
   }, [filtered]);
 
-  const revisaoChartData = useMemo(() => {
-    const counts: Record<RevSituacao, number> = {
-      "No prazo": 0,
-      "Aguardando revisão": 0,
-      "Revisão vencida": 0,
-      "Em revisão": 0,
+  const revisaoPeriodoData = useMemo(() => {
+    const counts: Record<PeriodoBucket, number> = {
+      "Até 30 dias": 0,
+      "31 – 90 dias": 0,
+      "91 – 180 dias": 0,
+      "+ de 180 dias": 0,
     };
     filtered.forEach((p) => {
-      counts[revSituacaoOf(p)]++;
+      const b = periodoRevisaoOf(p);
+      if (b) counts[b]++;
     });
-    return REV_SITUACAO.map((s) => ({
-      name: s,
-      value: counts[s],
-      color: REV_SITUACAO_COLOR[s],
+    return PERIODO_BUCKETS.map((b) => ({
+      name: b,
+      value: counts[b],
+      color: PERIODO_COLORS[b],
     }));
   }, [filtered]);
 
   const maturidadeChartData = useMemo(() => {
-    const counts: Record<1 | 2 | 3 | 4, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const counts: Record<1 | 2 | 3, number> = { 1: 0, 2: 0, 3: 0 };
     filtered.forEach((p) => {
       counts[maturidadeOf(p)]++;
     });
-    return ([1, 2, 3, 4] as const).map((n) => ({
+    return ([1, 2, 3] as const).map((n) => ({
       name: MATURIDADE_LABEL[n],
       desc: MATURIDADE_DESC[n],
       value: counts[n],
@@ -724,22 +708,24 @@ export default function EscritorioProcessos() {
   }, [filtered]);
 
   // ============================================================
-  // TABELA (sem colunas Status e Maturidade, conforme solicitado)
+  // TABELA — busca por processo / macroprocesso / área
   // ============================================================
-
-  // Aplica a busca por nome SOMENTE na tabela — cards/gráficos continuam baseados em `filtered`.
   const tabelaProcessos = useMemo(() => {
     const q = buscaProcesso.trim().toLowerCase();
     if (!q) return filtered;
-    return filtered.filter((p) =>
-      (p.nome_processo || "").toLowerCase().includes(q),
-    );
+    return filtered.filter((p) => {
+      const area = (p.areas_responsaveis || []).join(" ");
+      return (
+        (p.nome_processo || "").toLowerCase().includes(q) ||
+        (p.macroprocesso || "").toLowerCase().includes(q) ||
+        area.toLowerCase().includes(q)
+      );
+    });
   }, [filtered, buscaProcesso]);
 
   // ============================================================
   // HANDLERS
   // ============================================================
-
   const handleNovoProcesso = () => {
     setEditing(null);
     setFormOpen(true);
@@ -784,14 +770,17 @@ export default function EscritorioProcessos() {
     setSelecionado(next);
   };
 
+  const trocarAba = (nova: "vigentes" | "revisao") => {
+    setAba(nova);
+    setFiltroArtefato("all");
+  };
+
   // ============================================================
   // RENDER
   // ============================================================
-
   return (
     <Layout>
       <div className="space-y-5 page-transition-enter">
-        {/* Trilha de navegação */}
         <Breadcrumbs
           items={[
             { label: "Gestão Estratégica", to: "/gestao-estrategica" },
@@ -799,7 +788,7 @@ export default function EscritorioProcessos() {
           ]}
         />
 
-        {/* HEADER — barra azul + label da seção + título */}
+        {/* HEADER */}
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div
@@ -818,66 +807,70 @@ export default function EscritorioProcessos() {
             </div>
           </div>
 
-          <div className="flex items-end gap-3 flex-wrap">
-            {/* Seletor de Diretoria — visível apenas pra superadmin e usuários da SGJT.
-                Os demais ficam travados na própria diretoria (filtro aplicado no useEffect). */}
-            {podeFiltrarDiretoria && (
-              <div className="flex flex-col">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Diretoria
-                </label>
-                <Select
-                  value={filtroDiretoria}
-                  onValueChange={setFiltroDiretoria}
-                >
-                  <SelectTrigger className="w-[180px] h-10 bg-white">
-                    <SelectValue placeholder="Todas as diretorias" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as diretorias</SelectItem>
-                    {diretoriasOptions.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {isAdminOrManager && (
-              <Button
-                onClick={handleNovoProcesso}
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Processo
-              </Button>
-            )}
-          </div>
+          {isAdminOrManager && aba === "revisao" && (
+            <Button
+              onClick={handleNovoProcesso}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Processo
+            </Button>
+          )}
         </div>
 
-        {/* FILTROS + ÚLTIMA ATUALIZAÇÃO */}
+        {/* ABAS */}
+        <div className="flex gap-1 border-b border-slate-200">
+          <button
+            type="button"
+            onClick={() => trocarAba("vigentes")}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+              aba === "vigentes"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Briefcase className="h-4 w-4" />
+            Processos Vigentes
+          </button>
+          <button
+            type="button"
+            onClick={() => trocarAba("revisao")}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+              aba === "revisao"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <History className="h-4 w-4" />
+            Processos em Revisão ou Novos
+          </button>
+        </div>
+
+        {/* FILTROS — Diretoria + Área */}
         <div className="flex items-end gap-3 flex-wrap">
-          <div className="flex flex-col flex-1 min-w-[200px]">
+          <div className="flex flex-col flex-1 min-w-[220px]">
             <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
-              Macroprocesso
+              Diretoria
             </label>
-            <Select value={filtroMacro} onValueChange={setFiltroMacro}>
+            <Select
+              value={filtroDiretoria}
+              onValueChange={setFiltroDiretoria}
+              disabled={!podeFiltrarDiretoria}
+            >
               <SelectTrigger className="h-10 bg-white">
-                <SelectValue placeholder="Todos os macroprocessos" />
+                <SelectValue placeholder="Todas as diretorias" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os macroprocessos</SelectItem>
-                {macroprocessosOptions.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
+                <SelectItem value="all">Todas as diretorias</SelectItem>
+                {diretoriasOptions.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {d}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col flex-1 min-w-[200px]">
+          <div className="flex flex-col flex-1 min-w-[220px]">
             <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
               Área
             </label>
@@ -895,30 +888,12 @@ export default function EscritorioProcessos() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col flex-1 min-w-[200px]">
-            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
-              Status
-            </label>
-            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-              <SelectTrigger className="h-10 bg-white">
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                {HUB_STATUS.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
-        {/* STAT CARDS — cada um funciona como filtro. Clicar de novo no card ativo desativa. */}
+        {/* STAT CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Processos Mapeados"
+            title={card1Label}
             value={stats.total}
             hint={`${stats.total === 0 ? 0 : 100}% do total`}
             icon={<FileText className="h-6 w-6" />}
@@ -930,18 +905,17 @@ export default function EscritorioProcessos() {
             onClick={() => setFiltroArtefato("all")}
           />
           <StatCard
-            title="MPS"
-            subtitle="(Modelo Padrão de Serviço)"
-            value={stats.mps}
-            hint={`${stats.total > 0 ? Math.round((stats.mps / stats.total) * 100) : 0}% dos processos`}
-            icon={<Layers className="h-6 w-6" />}
-            iconBg="bg-emerald-100"
-            iconColor="text-emerald-600"
-            borderColor="border-emerald-200"
-            activeRing="ring-emerald-400"
-            active={filtroArtefato === "mps"}
+            title="Fluxogramas"
+            value={stats.flux}
+            hint={`${stats.total > 0 ? Math.round((stats.flux / stats.total) * 100) : 0}% dos processos`}
+            icon={<GitBranch className="h-6 w-6" />}
+            iconBg="bg-pink-100"
+            iconColor="text-pink-600"
+            borderColor="border-pink-200"
+            activeRing="ring-pink-400"
+            active={filtroArtefato === "flux"}
             onClick={() =>
-              setFiltroArtefato(filtroArtefato === "mps" ? "all" : "mps")
+              setFiltroArtefato(filtroArtefato === "flux" ? "all" : "flux")
             }
           />
           <StatCard
@@ -960,55 +934,55 @@ export default function EscritorioProcessos() {
             }
           />
           <StatCard
-            title="Fluxogramas"
-            value={stats.flux}
-            hint={`${stats.total > 0 ? Math.round((stats.flux / stats.total) * 100) : 0}% dos processos`}
-            icon={<GitBranch className="h-6 w-6" />}
-            iconBg="bg-pink-100"
-            iconColor="text-pink-600"
-            borderColor="border-pink-200"
-            activeRing="ring-pink-400"
-            active={filtroArtefato === "flux"}
+            title="MPS"
+            subtitle="(Modelo Padrão de Serviço)"
+            value={stats.mps}
+            hint={`${stats.total > 0 ? Math.round((stats.mps / stats.total) * 100) : 0}% dos processos`}
+            icon={<Layers className="h-6 w-6" />}
+            iconBg="bg-emerald-100"
+            iconColor="text-emerald-600"
+            borderColor="border-emerald-200"
+            activeRing="ring-emerald-400"
+            active={filtroArtefato === "mps"}
             onClick={() =>
-              setFiltroArtefato(filtroArtefato === "flux" ? "all" : "flux")
+              setFiltroArtefato(filtroArtefato === "mps" ? "all" : "mps")
             }
           />
         </div>
 
         {/* GRÁFICOS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <DonutChartCard
-            title="Status dos Processos"
-            data={statusChartData}
-            total={stats.total}
-          />
           <BarChartCard
-            title="Processos por Macroprocesso"
+            title={`Processos ${tabWord} por macroprocesso`}
             data={macroChartData}
           />
           <DonutChartCard
-            title="Situação das Revisões (Próxima Revisão)"
-            data={revisaoChartData}
+            title={`Processos ${tabWord} por área`}
+            data={areaChartData}
             total={stats.total}
           />
+          <ColumnChartCard
+            title="Próximas revisões por período"
+            data={revisaoPeriodoData}
+          />
           <DonutChartCard
-            title="Maturidade dos Processos"
+            title="Maturidade dos processos"
             data={maturidadeChartData}
             total={stats.total}
           />
         </div>
 
-        {/* TABELA — sem colunas Status e Maturidade (conforme solicitado) */}
+        {/* TABELA */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 flex items-center gap-4 flex-wrap">
             <h3 className="text-base font-bold text-slate-900">Processos</h3>
-            <div className="relative w-full sm:w-80">
+            <div className="relative w-full sm:w-96">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
                 type="text"
                 value={buscaProcesso}
                 onChange={(e) => setBuscaProcesso(e.target.value)}
-                placeholder="Buscar processo pelo nome..."
+                placeholder="Buscar por processo, macroprocesso ou área..."
                 className="h-9 pl-9 bg-white"
               />
             </div>
@@ -1047,10 +1021,10 @@ export default function EscritorioProcessos() {
                         Área
                       </th>
                       <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Documentos Vinculados
+                        Modelo Vigente
                       </th>
                       <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Última Atualização
+                        Data da Versão
                       </th>
                       <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Próxima Revisão
@@ -1060,17 +1034,13 @@ export default function EscritorioProcessos() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {tabelaProcessos.map((p) => {
-                      const nextRev = nextRevisionDate(p);
+                      const nextRev = proximaRevisao(p);
                       const overdue =
                         nextRev != null && nextRev.getTime() < Date.now();
-                      const docs = p.documentos_anexados || [];
-                      const hasMps = docs.some((d) => d.tipo === "MPS");
-                      const hasPop = docs.some((d) => d.tipo === "POP");
-                      const hasPri = docs.some((d) => d.tipo === "PRI");
-                      const hasAux = docs.some((d) => d.tipo === "AUX");
-                      const hasFlux = temFluxograma(p);
                       const areaLabel =
                         (p.areas_responsaveis || [])[0] || p.diretoria || "—";
+                      const k1 = isK1(p);
+                      const docPri = temDocumentoPrimario(p);
                       return (
                         <tr
                           key={p.id}
@@ -1087,45 +1057,22 @@ export default function EscritorioProcessos() {
                             {areaLabel}
                           </td>
                           <td className="px-5 py-3">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {hasMps && (
-                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200">
-                                  MPS
-                                </span>
-                              )}
-                              {hasPop && (
-                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
-                                  POP
-                                </span>
-                              )}
-                              {hasPri && (
-                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-violet-50 text-violet-700 border-violet-200">
-                                  PRI
-                                </span>
-                              )}
-                              {hasAux && (
-                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-slate-50 text-slate-700 border-slate-200">
-                                  AUX
-                                </span>
-                              )}
-                              {hasFlux && (
-                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-pink-50 text-pink-700 border-pink-200">
-                                  Fluxograma
-                                </span>
-                              )}
-                              {!hasMps &&
-                                !hasPop &&
-                                !hasPri &&
-                                !hasAux &&
-                                !hasFlux && (
-                                  <span className="text-xs italic text-slate-400">
-                                    —
-                                  </span>
-                                )}
-                            </div>
+                            {k1 ? (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200">
+                                Modelo K1
+                              </span>
+                            ) : docPri ? (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                Doc. Primário
+                              </span>
+                            ) : (
+                              <span className="text-xs italic text-slate-400">
+                                —
+                              </span>
+                            )}
                           </td>
                           <td className="px-5 py-3 text-slate-700 tabular-nums">
-                            {formatDateShort(p.updated_at)}
+                            {formatDataVersao(p.periodo)}
                           </td>
                           <td
                             className={`px-5 py-3 tabular-nums font-medium ${overdue ? "text-red-600" : "text-slate-700"}`}
@@ -1142,7 +1089,6 @@ export default function EscritorioProcessos() {
                 </table>
               </div>
 
-              {/* Total de processos */}
               <div className="px-5 py-3 border-t border-slate-200 bg-slate-50">
                 <span className="text-xs text-slate-600">
                   {tabelaProcessos.length} processo

@@ -24,6 +24,7 @@ import {
   Paperclip,
   BarChart3,
   Save,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -32,6 +33,8 @@ import {
   CreateProcessoNegocioDto,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
+  COMITES_APROVACAO,
+  camposObrigatoriosFaltantes,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { ListInput } from "./ListInput";
@@ -71,6 +74,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   fluxograma_filename: null,
   fluxograma_mime: null,
   documentos_anexados: [],
+  apreciacao: [],
   periodicidade_revisao: "",
   numero_proad: "",
   observacoes_gerais: "",
@@ -127,6 +131,8 @@ export function ProcessoFormDialog({
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [areas, setAreas] = useState<Area[]>([]);
+  // "Passa por apreciação em instâncias colegiadas?" (Sim/Não). Controla a lista de comitês.
+  const [apreciacaoSim, setApreciacaoSim] = useState(false);
   // Id do processo sendo editado. Em "Salvar Alterações" num processo novo,
   // passamos a editar o mesmo registro (evita recriar a cada clique).
   const [currentId, setCurrentId] = useState<number | null>(
@@ -176,12 +182,15 @@ export function ProcessoFormDialog({
         fluxograma_filename: processo.fluxograma_filename || null,
         fluxograma_mime: processo.fluxograma_mime || null,
         documentos_anexados: processo.documentos_anexados || [],
+        apreciacao: processo.apreciacao || [],
         periodicidade_revisao: processo.periodicidade_revisao || "",
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
       });
+      setApreciacaoSim((processo.apreciacao || []).length > 0);
     } else {
       setForm({ ...emptyForm, diretoria: diretoriaPadrao || "" });
+      setApreciacaoSim(false);
     }
   }, [open, processo, diretoriaPadrao]);
 
@@ -204,6 +213,15 @@ export function ProcessoFormDialog({
     if (err) {
       toast.error(err);
       return;
+    }
+    if (enviarApos) {
+      const faltam = camposObrigatoriosFaltantes(form);
+      if (faltam.length > 0) {
+        toast.error(
+          `Para enviar à validação, preencha os campos: ${faltam.join(", ")}.`,
+        );
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -326,7 +344,7 @@ export function ProcessoFormDialog({
                   htmlFor="periodo"
                   className="text-xs font-semibold text-slate-700"
                 >
-                  Período
+                  Data da Versão
                 </Label>
                 <Input
                   id="periodo"
@@ -338,38 +356,6 @@ export function ProcessoFormDialog({
                 <p className="text-xs text-slate-500 mt-1">
                   No PDF será exibido apenas o mês e o ano.
                 </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label
-                    htmlFor="revisao"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Revisão
-                  </Label>
-                  <Input
-                    id="revisao"
-                    value={form.revisao || ""}
-                    onChange={(e) => update("revisao", e.target.value)}
-                    placeholder="Ex.: 007"
-                    className="mt-1 bg-white"
-                  />
-                </div>
-                <div>
-                  <Label
-                    htmlFor="codigo_versao"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Código/Versão
-                  </Label>
-                  <Input
-                    id="codigo_versao"
-                    value={form.codigo_versao || ""}
-                    onChange={(e) => update("codigo_versao", e.target.value)}
-                    placeholder="Ex.: NSI-005"
-                    className="mt-1 bg-white"
-                  />
-                </div>
               </div>
             </div>
           </Section>
@@ -599,7 +585,7 @@ export function ProcessoFormDialog({
                     </span>
                   ) : (
                     <span className="italic text-slate-400">
-                      Defina o "Período" na Identificação
+                      Defina a "Data da Versão" na Identificação
                     </span>
                   )}
                 </div>
@@ -642,6 +628,90 @@ export function ProcessoFormDialog({
                 />
               </div>
             </div>
+          </Section>
+
+          <Section
+            icon={<ShieldCheck className="h-4 w-4" />}
+            title="Apreciação em Instâncias Colegiadas"
+          >
+            <p className="text-xs text-slate-500 mb-2">
+              Este processo passa por apreciação em instâncias colegiadas
+              (comitês)?
+            </p>
+            <div className="flex gap-2 mb-3">
+              {[
+                { label: "Sim", val: true },
+                { label: "Não", val: false },
+              ].map(({ label, val }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    setApreciacaoSim(val);
+                    if (!val) update("apreciacao", []);
+                  }}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+                    apreciacaoSim === val
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {apreciacaoSim && (
+              <div className="space-y-2">
+                {(form.apreciacao || []).length <
+                  Object.keys(COMITES_APROVACAO).length && (
+                  <Select
+                    value=""
+                    onValueChange={(sigla) => {
+                      const atual = form.apreciacao || [];
+                      if (!atual.includes(sigla))
+                        update("apreciacao", [...atual, sigla]);
+                    }}
+                  >
+                    <SelectTrigger className="h-10 bg-white max-w-md">
+                      <SelectValue placeholder="Selecionar comitê" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(COMITES_APROVACAO)
+                        .filter(([s]) => !(form.apreciacao || []).includes(s))
+                        .map(([sigla, nome]) => (
+                          <SelectItem key={sigla} value={sigla}>
+                            {sigla} — {nome}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {(form.apreciacao || []).map((sigla) => (
+                    <span
+                      key={sigla}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                    >
+                      {sigla}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          update(
+                            "apreciacao",
+                            (form.apreciacao || []).filter((c) => c !== sigla),
+                          )
+                        }
+                        className="text-blue-400 hover:text-blue-700"
+                        aria-label={`Remover ${sigla}`}
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </Section>
         </div>
 
