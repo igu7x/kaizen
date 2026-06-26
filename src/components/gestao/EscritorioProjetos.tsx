@@ -311,6 +311,10 @@ export function EscritorioProjetos() {
     // Base conforme aba selecionada
     let result = activeTab === "meus" ? meusProjetos : projetos;
 
+    // Exceção (ajuste de produção): projetos do "Plano de Transformação Digital" — cujos
+    // nomes iniciam com "PTD" — nunca são exibidos no Escritório de Projetos.
+    result = result.filter((p) => !ehProjetoPtd(p.nome));
+
     // Filter by unidade
     if (selectedUnidade !== "all") {
       const unidade = unidades.find((u) => u.id === parseInt(selectedUnidade));
