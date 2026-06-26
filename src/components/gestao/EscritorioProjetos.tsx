@@ -51,16 +51,13 @@ import {
 // no Escritório de Projetos. Regra restrita a esta tela.
 const PLANO_OCULTO_NOME = "Plano de Transformação Digital";
 
-function pertenceAoPlanoOculto(p: Projeto): boolean {
-  if (p.instrumentos?.length) {
-    return p.instrumentos.some(
-      (i) => i.instrumento_nome?.trim() === PLANO_OCULTO_NOME,
-    );
-  }
-  return (p.instrumentos_nomes || "")
-    .split(",")
-    .map((s) => s.trim())
-    .includes(PLANO_OCULTO_NOME);
+// Comparação tolerante a acento/caixa/espaços: o nome gravado pode diferir do literal
+// por acentuação combinada ou espaços. localeCompare com sensitivity "base" ignora ambos.
+function ehPlanoOculto(nome: string | null | undefined): boolean {
+  const a = (nome || "").replace(/\s+/g, " ").trim();
+  return (
+    a.localeCompare(PLANO_OCULTO_NOME, "pt-BR", { sensitivity: "base" }) === 0
+  );
 }
 
 const statusLabels: Record<string, string> = {
@@ -254,9 +251,21 @@ export function EscritorioProjetos() {
         } else {
           projs = await cadastrosProjetosApi.getProjetos(dirFiltro);
         }
-        setProjetos(
-          projs.filter((p) => p.ativo !== false && !pertenceAoPlanoOculto(p)),
-        );
+
+        // Exceção: remover projetos do "Plano de Transformação Digital". A listagem geral
+        // não traz o vínculo de instrumento, então buscamos os IDs desse plano e excluímos.
+        const planoOculto = instrumentos.find((i) => ehPlanoOculto(i.nome));
+        if (planoOculto) {
+          const ocultos =
+            await cadastrosProjetosApi.getProjetosByInstrumentoId(
+              planoOculto.id,
+              dirFiltro,
+            );
+          const idsOcultos = new Set(ocultos.map((o) => o.id));
+          projs = projs.filter((p) => !idsOcultos.has(p.id));
+        }
+
+        setProjetos(projs.filter((p) => p.ativo !== false));
       } catch (err) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       } finally {
@@ -264,7 +273,7 @@ export function EscritorioProjetos() {
       }
     };
     load();
-  }, [selectedDirectorate, selectedInstrumento]);
+  }, [selectedDirectorate, selectedInstrumento, instrumentos]);
 
   // Unique gestors
   const gestores = useMemo(() => {
@@ -545,7 +554,7 @@ export function EscritorioProjetos() {
             <SelectContent>
               <SelectItem value="all">Todos os Planos</SelectItem>
               {instrumentos
-                .filter((inst) => inst.nome?.trim() !== PLANO_OCULTO_NOME)
+                .filter((inst) => !ehPlanoOculto(inst.nome))
                 .map((inst) => (
                   <SelectItem key={inst.id} value={String(inst.id)}>
                     {inst.nome}
