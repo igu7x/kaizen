@@ -233,6 +233,63 @@ public class ProcessosNegocioController {
         return ResponseEntity.ok(updated);
     }
 
+    // PUT /api/processos-negocio/:id/aprovacao — anexa o PDF de aprovação (superadmin)
+    @Operation(summary = "Anexar PDF de aprovação (Modelo K1)", description = "Restrito a superadmin. O PDF de aprovação + status validado_final tornam o processo um Modelo K1.")
+    @ApiResponses({ @ApiResponse(responseCode = "200", description = "Aprovação anexada"),
+            @ApiResponse(responseCode = "403", description = "Não é superadmin"),
+            @ApiResponse(responseCode = "413", description = "PDF > 6MB") })
+    @PutMapping("/{id:\\d+}/aprovacao")
+    public ResponseEntity<?> setAprovacao(@PathVariable long id, @RequestBody Map<String, Object> body) {
+        Long userId = getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> user = lookupUser(userId);
+        if (user == null || !Boolean.TRUE.equals(user.get("is_superadmin"))) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode anexar o PDF de aprovação."));
+        }
+        try {
+            Map<String, Object> updated = service.addAprovacao(id, str(body.get("aprovacao_comite")),
+                    str(body.get("aprovacao_data")), str(body.get("aprovacao_filename")),
+                    str(body.get("aprovacao_mime")), str(body.get("aprovacao_em")), userId);
+            if (updated == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+            }
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            ResponseEntity<?> tooLarge = mapTooLarge(e);
+            if (tooLarge != null) {
+                return tooLarge;
+            }
+            if ("APROVACAO_REQUIRED".equals(e.getMessage())) {
+                return ResponseEntity.status(400).body(Map.of("error", "PDF de aprovação é obrigatório."));
+            }
+            if ("COMITE_REQUIRED".equals(e.getMessage())) {
+                return ResponseEntity.status(400).body(Map.of("error", "Comitê é obrigatório."));
+            }
+            throw e;
+        }
+    }
+
+    // DELETE /api/processos-negocio/:id/aprovacao?comite=CGTIC — remove a aprovação de um comitê (superadmin)
+    @DeleteMapping("/{id:\\d+}/aprovacao")
+    public ResponseEntity<?> removeAprovacao(@PathVariable long id,
+                                             @RequestParam(value = "comite", required = false) String comite) {
+        Long userId = getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> user = lookupUser(userId);
+        if (user == null || !Boolean.TRUE.equals(user.get("is_superadmin"))) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode remover o PDF de aprovação."));
+        }
+        Map<String, Object> updated = service.removeAprovacao(id, comite, userId);
+        if (updated == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        return ResponseEntity.ok(updated);
+    }
+
     // GET /api/processos-negocio/:id/versoes
     @GetMapping("/{id:\\d+}/versoes")
     public List<Map<String, Object>> versoes(@PathVariable long id) {
@@ -274,6 +331,9 @@ public class ProcessosNegocioController {
         }
         if ("DOCUMENTOS_TOO_LARGE".equals(e.getMessage())) {
             return ResponseEntity.status(413).body(Map.of("error", "Total de documentos anexados muito grande. Limite: 20MB."));
+        }
+        if ("APROVACAO_TOO_LARGE".equals(e.getMessage())) {
+            return ResponseEntity.status(413).body(Map.of("error", "PDF de aprovação muito grande. Tamanho máximo: 6MB."));
         }
         return null;
     }
