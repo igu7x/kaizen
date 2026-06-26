@@ -1021,7 +1021,7 @@ export default function EscritorioProcessos() {
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         ID
                       </th>
-                      <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Processo
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
