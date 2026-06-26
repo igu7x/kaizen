@@ -588,42 +588,52 @@ function drawRodapeInstitucional(
   pageNum: number,
   totalPages: number,
 ) {
-  // 4 colunas no rodapé: MODELO (esq), ID (centro-esq), VERSÃO (centro-dir), DATA (dir).
-  const ID_X = 75;
-  const VERSAO_X = 135;
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...MUTED_GRAY);
-  doc.text("MODELO:", MARGIN_LEFT, FOOTER_Y);
-  doc.text("ID:", ID_X, FOOTER_Y, { align: "center" });
-  doc.text("VERSÃO:", VERSAO_X, FOOTER_Y, { align: "center" });
-  doc.text("DATA DA PROPOSTA:", PAGE_WIDTH - MARGIN_RIGHT, FOOTER_Y, {
-    align: "right",
-  });
-
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...TEXT_DARK);
-  // Modelo vigente: K1 quando aprovado/homologado; senão Doc. Primário; senão "—".
+  // 4 campos inline ("LABEL: valor" na mesma linha): MODELO (esq), ID (centro-esq),
+  // VERSÃO (centro-dir), DATA (dir). Label em cinza, valor em negrito escuro.
   const modeloLabel = isK1(processo)
     ? "K1"
     : temDocumentoPrimario(processo)
       ? "Doc. Primário"
       : "—";
-  doc.text(modeloLabel, MARGIN_LEFT, FOOTER_Y + 4, { maxWidth: 55 });
-  // ID: código institucional (PN_{macroArea}_{diretoria}_{seq}), gerado no 1º Modelo K1.
-  doc.text(processo.codigo || "—", ID_X, FOOTER_Y + 4, { align: "center" });
-  doc.text(
+
+  const drawInline = (
+    label: string,
+    value: string,
+    anchorX: number,
+    align: "left" | "center" | "right",
+  ) => {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    const labelText = `${label} `;
+    const labelW = doc.getTextWidth(labelText);
+    doc.setFont("helvetica", "bold");
+    const valueW = doc.getTextWidth(value);
+    const total = labelW + valueW;
+    let startX = anchorX;
+    if (align === "center") startX = anchorX - total / 2;
+    else if (align === "right") startX = anchorX - total;
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...MUTED_GRAY);
+    doc.text(labelText, startX, FOOTER_Y + 2);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(value, startX + labelW, FOOTER_Y + 2);
+  };
+
+  drawInline("MODELO:", modeloLabel, MARGIN_LEFT, "left");
+  drawInline("ID:", processo.codigo || "—", PAGE_WIDTH * 0.42, "center");
+  drawInline(
+    "VERSÃO:",
     (processo.versao || "1").replace(/\.0$/, ""),
-    VERSAO_X,
-    FOOTER_Y + 4,
-    { align: "center" },
+    PAGE_WIDTH * 0.66,
+    "center",
   );
-  doc.text(
+  drawInline(
+    "DATA DA PROPOSTA:",
     formatDate(processo.updated_at),
     PAGE_WIDTH - MARGIN_RIGHT,
-    FOOTER_Y + 4,
-    { align: "right" },
+    "right",
   );
 
   // Linha discreta com paginação
@@ -993,10 +1003,10 @@ export function generateProcessoNegocioPDF(
   y += revRowH + 6;
 
   // 10. Rito de Aprovação
-  y = checkPageBreak(doc, y, 62);
-  y = drawNumberedSectionHeader(doc, 10, "Rito de Aprovação", y);
-  const histRowH = 9;
   const histLabelW = 60;
+  const histFontSize = 9;
+  const histValueW = CONTENT_WIDTH - histLabelW;
+  const exigidos = processo.apreciacao || [];
   const histLinhas = [
     {
       label: "Responsável",
@@ -1019,11 +1029,43 @@ export function generateProcessoNegocioPDF(
           ? `${processo.validado_final_nome} — ${formatDateTime(processo.validado_final_em)}`
           : "Pendente",
     },
+    // Uma linha por comitê exigido (Modelo K1). Sem comitês, nenhuma linha é adicionada.
+    ...exigidos.map((comite) => {
+      const aprov = aprovacaoDoComite(processo, comite);
+      const nome = COMITES_APROVACAO[comite] || comite;
+      return {
+        label: `Aprovado por (${comite}):`,
+        valor: aprov
+          ? `${nome}${aprov.em ? ` — ${formatDate(aprov.em)}` : ""}`
+          : `${nome} — Pendente`,
+      };
+    }),
   ];
+
+  // Altura uniforme para TODAS as linhas da seção: calcula quantas linhas cada célula
+  // (label e valor) ocupa após o wrap e usa a maior necessidade — evita linhas desiguais
+  // e o texto longo vazando da box quando precisa de 2 linhas.
+  const histLineH = lineHeightFor(histFontSize);
+  let histRowH = 9;
+  for (const linha of histLinhas) {
+    doc.setFontSize(histFontSize);
+    doc.setFont("helvetica", "bold");
+    const labelLines = countVisualLines(
+      splitParagraphs(doc, linha.label, histLabelW - 6),
+    );
+    doc.setFont("helvetica", "normal");
+    const valueLines = countVisualLines(
+      splitParagraphs(doc, linha.valor, histValueW - 6),
+    );
+    histRowH = Math.max(histRowH, Math.max(labelLines, valueLines) * histLineH + 4);
+  }
+
+  y = checkPageBreak(doc, y, histLinhas.length * histRowH + 12);
+  y = drawNumberedSectionHeader(doc, 10, "Rito de Aprovação", y);
   for (const linha of histLinhas) {
     drawTextCell(doc, linha.label, MARGIN_LEFT, y, histLabelW, histRowH, {
       bold: true,
-      fontSize: 9,
+      fontSize: histFontSize,
       bg: [248, 250, 252],
     });
     drawTextCell(
@@ -1031,39 +1073,9 @@ export function generateProcessoNegocioPDF(
       linha.valor,
       MARGIN_LEFT + histLabelW,
       y,
-      CONTENT_WIDTH - histLabelW,
+      histValueW,
       histRowH,
-      { fontSize: 9 },
-    );
-    y += histRowH;
-  }
-
-  // Linhas "Aprovado por (comitê):" — uma por comitê da apreciação (Modelo K1).
-  // Quando o processo não passa por comitê, nenhuma linha é exibida.
-  const exigidos = processo.apreciacao || [];
-  for (const comite of exigidos) {
-    const aprov = aprovacaoDoComite(processo, comite);
-    const nome = COMITES_APROVACAO[comite] || comite;
-    const valor = aprov
-      ? `${nome}${aprov.em ? ` — ${formatDate(aprov.em)}` : ""}`
-      : `${nome} — Pendente`;
-    drawTextCell(
-      doc,
-      `Aprovado por (${comite}):`,
-      MARGIN_LEFT,
-      y,
-      histLabelW,
-      histRowH,
-      { bold: true, fontSize: 9, bg: [248, 250, 252] },
-    );
-    drawTextCell(
-      doc,
-      valor,
-      MARGIN_LEFT + histLabelW,
-      y,
-      CONTENT_WIDTH - histLabelW,
-      histRowH,
-      { fontSize: 9 },
+      { fontSize: histFontSize },
     );
     y += histRowH;
   }
