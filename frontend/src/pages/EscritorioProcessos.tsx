@@ -977,7 +977,7 @@ export default function EscritorioProcessos() {
             onClick={() => setFiltroArtefato("all")}
           />
           <StatCard
-            title="Instrução de Trabalho"
+            title="Instruções de Trabalho"
             value={stats.it}
             hint={`${stats.total > 0 ? Math.round((stats.it / stats.total) * 100) : 0}% dos processos`}
             icon={<ClipboardList className="h-6 w-6" />}
