@@ -47,31 +47,6 @@ import {
 // CONSTANTS & HELPERS
 // ============================================================
 
-// Exceção (ajuste de produção): o plano/programa "Plano de Transformação Digital" e seus
-// projetos NÃO são exibidos no Escritório de Projetos. Regra restrita a esta tela.
-
-// Normaliza removendo acentos, colapsando espaços e ignorando caixa — robusto a diferenças
-// de acentuação/espaço no dado gravado.
-function semAcento(s: string | null | undefined): string {
-  return (s || "")
-    .normalize("NFD")
-    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-// Plano oculto: nome contém "transformação digital" (tolerante a acento/caixa/espaços).
-function ehPlanoOculto(nome: string | null | undefined): boolean {
-  return semAcento(nome).includes("transformacao digital");
-}
-
-// Projeto do plano oculto: todos os projetos do PTD têm o nome iniciando com "PTD".
-// Sinal independente do vínculo de instrumento (que não vem na listagem geral).
-function ehProjetoPtd(nome: string | null | undefined): boolean {
-  return /^ptd\b/.test(semAcento(nome));
-}
-
 const statusLabels: Record<string, string> = {
   planejado: "Planejado",
   em_execucao: "Em Execução",
@@ -263,28 +238,6 @@ export function EscritorioProjetos() {
         } else {
           projs = await cadastrosProjetosApi.getProjetos(dirFiltro);
         }
-
-        // Exceção: remover projetos do "Plano de Transformação Digital". A listagem geral
-        // não traz o vínculo de instrumento — usamos dois sinais: (1) nome iniciando com
-        // "PTD" e (2) IDs do plano oculto (quando o instrumento é identificável).
-        let idsOcultos = new Set<number>();
-        const planoOculto = instrumentos.find((i) => ehPlanoOculto(i.nome));
-        if (planoOculto) {
-          try {
-            const ocultos =
-              await cadastrosProjetosApi.getProjetosByInstrumentoId(
-                planoOculto.id,
-                dirFiltro,
-              );
-            idsOcultos = new Set(ocultos.map((o) => o.id));
-          } catch {
-            /* mantém apenas o filtro por nome */
-          }
-        }
-        projs = projs.filter(
-          (p) => !ehProjetoPtd(p.nome) && !idsOcultos.has(p.id),
-        );
-
         setProjetos(projs.filter((p) => p.ativo !== false));
       } catch (err) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
@@ -293,7 +246,7 @@ export function EscritorioProjetos() {
       }
     };
     load();
-  }, [selectedDirectorate, selectedInstrumento, instrumentos]);
+  }, [selectedDirectorate, selectedInstrumento]);
 
   // Unique gestors
   const gestores = useMemo(() => {
@@ -310,10 +263,6 @@ export function EscritorioProjetos() {
   const filteredProjetos = useMemo(() => {
     // Base conforme aba selecionada
     let result = activeTab === "meus" ? meusProjetos : projetos;
-
-    // Exceção (ajuste de produção): projetos do "Plano de Transformação Digital" — cujos
-    // nomes iniciam com "PTD" — nunca são exibidos no Escritório de Projetos.
-    result = result.filter((p) => !ehProjetoPtd(p.nome));
 
     // Filter by unidade
     if (selectedUnidade !== "all") {
@@ -577,13 +526,11 @@ export function EscritorioProjetos() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Planos</SelectItem>
-              {instrumentos
-                .filter((inst) => !ehPlanoOculto(inst.nome))
-                .map((inst) => (
-                  <SelectItem key={inst.id} value={String(inst.id)}>
-                    {inst.nome}
-                  </SelectItem>
-                ))}
+              {instrumentos.map((inst) => (
+                <SelectItem key={inst.id} value={String(inst.id)}>
+                  {inst.nome}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
