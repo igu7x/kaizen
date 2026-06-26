@@ -269,6 +269,12 @@ public class ProcessosNegocioService {
         if (calcDocsTotalBytes(data.get("documentos_anexados")) > DOCUMENTOS_TOTAL_MAX_BYTES) {
             throw new RuntimeException("DOCUMENTOS_TOO_LARGE");
         }
+        // Versão inicial: manual quando há documento primário anexado (pode já estar na 9ª, etc.);
+        // senão começa em "1" e é gerida automaticamente pelo ciclo de homologação.
+        String versaoInicial = str(data.get("versao"));
+        if (versaoInicial == null || versaoInicial.isBlank()) {
+            versaoInicial = "1";
+        }
         return jdbc.queryForMap(
                 "INSERT INTO processos_negocio ( " +
                         "  macroprocesso, diretoria, periodo, revisao, codigo_versao, nome_processo, " +
@@ -279,7 +285,7 @@ public class ProcessosNegocioService {
                         "  fluxograma_data, fluxograma_filename, fluxograma_mime, " +
                         "  documentos_anexados, apreciacao, " +
                         "  periodicidade_revisao, " +
-                        "  numero_proad, observacoes_gerais, indicadores, " +
+                        "  numero_proad, observacoes_gerais, indicadores, versao, " +
                         "  status, created_by, updated_by " +
                         ") VALUES ( " +
                         "  ?, ?, ?, ?, ?, ?, " +
@@ -290,7 +296,7 @@ public class ProcessosNegocioService {
                         "  ?, ?, ?, " +
                         "  ?::jsonb, ?::jsonb, " +
                         "  ?, " +
-                        "  ?, ?, ?, " +
+                        "  ?, ?, ?, ?, " +
                         "  'em_elaboracao', ?, ? " +
                         ") RETURNING *",
                 str(data.get("macroprocesso")), str(data.get("diretoria")), orNull(data.get("periodo")),
@@ -302,7 +308,7 @@ public class ProcessosNegocioService {
                 orNull(data.get("fluxograma_data")), orNull(data.get("fluxograma_filename")), orNull(data.get("fluxograma_mime")),
                 toJsonArray(data.get("documentos_anexados")), toJsonArray(data.get("apreciacao")),
                 orNull(data.get("periodicidade_revisao")),
-                orNull(data.get("numero_proad")), orNull(data.get("observacoes_gerais")), orNull(data.get("indicadores")),
+                orNull(data.get("numero_proad")), orNull(data.get("observacoes_gerais")), orNull(data.get("indicadores")), versaoInicial,
                 userId, userId);
     }
 
@@ -342,6 +348,9 @@ public class ProcessosNegocioService {
         pushScalar(data, fields, values, "periodicidade_revisao");
         pushScalar(data, fields, values, "numero_proad");
         pushScalar(data, fields, values, "observacoes_gerais");
+        // Só atualiza a versão quando o front envia o campo (processos com documento primário).
+        // Sem a chave, a versão gerida pelo ciclo de homologação é preservada.
+        pushScalar(data, fields, values, "versao");
 
         if (fields.isEmpty()) {
             return findById(id);
@@ -408,16 +417,16 @@ public class ProcessosNegocioService {
         if (current.isEmpty()) {
             return null;
         }
-        String versaoAtual = current.get(0).get("versao") != null ? str(current.get(0).get("versao")) : "1.0";
+        String versaoAtual = current.get(0).get("versao") != null ? str(current.get(0).get("versao")) : "1";
         int ciclos = current.get(0).get("ciclos_homologados") != null
                 ? ((Number) current.get(0).get("ciclos_homologados")).intValue() : 0;
 
+        // A versão é um inteiro e incrementa de 1 em 1 a cada nova homologação (1 → 2 → ... → 9 → 10).
+        // O parse do split aceita versões legadas no formato "1.0" (usa apenas a parte inteira).
         String novaVersao = versaoAtual;
         if (ciclos >= 1) {
-            String[] partes = versaoAtual.split("\\.");
-            int maior = parseIntSafe(partes.length > 0 ? partes[0] : null, 1);
-            int menor = parseIntSafe(partes.length > 1 ? partes[1] : null, 0);
-            novaVersao = menor >= 9 ? (maior + 1) + ".0" : maior + "." + (menor + 1);
+            int atual = parseIntSafe(versaoAtual.split("\\.")[0], 1);
+            novaVersao = String.valueOf(atual + 1);
         }
 
         List<Map<String, Object>> rows = jdbc.queryForList(
