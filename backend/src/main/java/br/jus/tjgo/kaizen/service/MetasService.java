@@ -110,10 +110,10 @@ public class MetasService {
         if (diretoria != null) {
             var domain = domainService.getDomainForDiretoria(diretoria);
             rows = jdbc.queryForList(
-                    sql + " AND a.sigla = ANY(?::text[]) ORDER BY m.titulo",
+                    sql + " AND a.sigla = ANY(?::text[]) ORDER BY m.id",
                     textArray(domain.diretoriasInDomain()));
         } else {
-            rows = jdbc.queryForList(sql + " ORDER BY m.titulo");
+            rows = jdbc.queryForList(sql + " ORDER BY m.id");
         }
         return rows.stream().map(m -> {
             String status = m.get("status") != null ? (String) m.get("status") : "NAO_INICIADO";
