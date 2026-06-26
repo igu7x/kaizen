@@ -1145,41 +1145,41 @@ export function ProcessoDetalhe({
                   reenvio pós-recusa)
                 - Data da atualização: timestamp de updated_at do processo */}
             <div className="grid grid-cols-4 gap-4 px-4 pt-4 mt-2 text-center text-xs text-slate-600">
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Modelo:
-                </div>
-                <div className="mt-1 font-bold text-slate-700 leading-tight">
+              <div className="whitespace-nowrap">
+                <span className="uppercase tracking-wide text-slate-500">
+                  Modelo:{" "}
+                </span>
+                <span className="font-bold text-slate-700">
                   {isK1(processo)
                     ? "K1"
                     : temDocumentoPrimario(processo)
                       ? "Doc. Primário"
                       : "—"}
-                </div>
+                </span>
               </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  ID:
-                </div>
-                <div className="mt-1 font-bold text-slate-700 leading-tight tabular-nums">
+              <div className="whitespace-nowrap">
+                <span className="uppercase tracking-wide text-slate-500">
+                  ID:{" "}
+                </span>
+                <span className="font-bold text-slate-700 tabular-nums">
                   {processo.codigo || "—"}
-                </div>
+                </span>
               </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Versão:
-                </div>
-                <div className="mt-1 font-bold text-slate-700">
+              <div className="whitespace-nowrap">
+                <span className="uppercase tracking-wide text-slate-500">
+                  Versão:{" "}
+                </span>
+                <span className="font-bold text-slate-700">
                   {processo.versao || "1"}
-                </div>
+                </span>
               </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Data da proposta:
-                </div>
-                <div className="mt-1 font-bold text-slate-700">
+              <div className="whitespace-nowrap">
+                <span className="uppercase tracking-wide text-slate-500">
+                  Data da proposta:{" "}
+                </span>
+                <span className="font-bold text-slate-700">
                   {new Date(processo.updated_at).toLocaleDateString("pt-BR")}
-                </div>
+                </span>
               </div>
             </div>
           </div>
