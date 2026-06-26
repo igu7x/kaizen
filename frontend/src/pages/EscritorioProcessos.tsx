@@ -16,7 +16,7 @@ import {
   FileText,
   Layers,
   ListChecks,
-  GitBranch,
+  ClipboardList,
   ChevronRight,
   Search,
   Briefcase,
@@ -535,7 +535,7 @@ export default function EscritorioProcessos() {
   const [filtroDiretoria, setFiltroDiretoria] = useState<string>("all");
   // Filtro disparado pelos cards de topo
   const [filtroArtefato, setFiltroArtefato] = useState<
-    "all" | "mps" | "pop" | "flux"
+    "all" | "mps" | "pop" | "it"
   >("all");
   // Busca por processo/macroprocesso/área — afeta apenas a tabela
   const [buscaProcesso, setBuscaProcesso] = useState("");
@@ -625,7 +625,8 @@ export default function EscritorioProcessos() {
         return false;
       if (filtroArtefato === "pop" && !docs.some((d) => d.tipo === "POP"))
         return false;
-      if (filtroArtefato === "flux" && !temFluxograma(p)) return false;
+      if (filtroArtefato === "it" && !docs.some((d) => d.tipo === "IT"))
+        return false;
       return true;
     });
   }, [filteredBase, filtroArtefato]);
@@ -637,14 +638,14 @@ export default function EscritorioProcessos() {
     const total = filtered.length;
     let mps = 0,
       pop = 0,
-      flux = 0;
+      it = 0;
     filtered.forEach((p) => {
       const docs = p.documentos_anexados || [];
       if (docs.some((d) => d.tipo === "MPS")) mps++;
       if (docs.some((d) => d.tipo === "POP")) pop++;
-      if (temFluxograma(p)) flux++;
+      if (docs.some((d) => d.tipo === "IT")) it++;
     });
-    return { total, mps, pop, flux };
+    return { total, mps, pop, it };
   }, [filtered]);
 
   const tabWord = aba === "vigentes" ? "vigentes" : "em revisão";
@@ -976,17 +977,17 @@ export default function EscritorioProcessos() {
             onClick={() => setFiltroArtefato("all")}
           />
           <StatCard
-            title="Fluxogramas"
-            value={stats.flux}
-            hint={`${stats.total > 0 ? Math.round((stats.flux / stats.total) * 100) : 0}% dos processos`}
-            icon={<GitBranch className="h-6 w-6" />}
+            title="Instrução de Trabalho"
+            value={stats.it}
+            hint={`${stats.total > 0 ? Math.round((stats.it / stats.total) * 100) : 0}% dos processos`}
+            icon={<ClipboardList className="h-6 w-6" />}
             iconBg="bg-pink-100"
             iconColor="text-pink-600"
             borderColor="border-pink-200"
             activeRing="ring-pink-400"
-            active={filtroArtefato === "flux"}
+            active={filtroArtefato === "it"}
             onClick={() =>
-              setFiltroArtefato(filtroArtefato === "flux" ? "all" : "flux")
+              setFiltroArtefato(filtroArtefato === "it" ? "all" : "it")
             }
           />
           <StatCard

@@ -12,7 +12,13 @@ export type ProcessoStatus =
   | "validado_final"
   | "recusado";
 
-export type TipoDocumentoAnexado = "MPS" | "POP" | "AUX" | "PRI" | "FLUXOGRAMA";
+export type TipoDocumentoAnexado =
+  | "MPS"
+  | "POP"
+  | "AUX"
+  | "PRI"
+  | "FLUXOGRAMA"
+  | "IT";
 
 export interface DocumentoAnexado {
   tipo: TipoDocumentoAnexado;
@@ -44,6 +50,7 @@ export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoAnexado, string> = {
   AUX: "Docs Auxiliares",
   PRI: "Documento Primário",
   FLUXOGRAMA: "Fluxograma",
+  IT: "Instrução de Trabalho",
 };
 
 export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
@@ -52,6 +59,7 @@ export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
   AUX: "bg-slate-100 text-slate-700 border-slate-200",
   PRI: "bg-violet-100 text-violet-700 border-violet-200",
   FLUXOGRAMA: "bg-pink-100 text-pink-700 border-pink-200",
+  IT: "bg-pink-100 text-pink-700 border-pink-200",
 };
 
 /**

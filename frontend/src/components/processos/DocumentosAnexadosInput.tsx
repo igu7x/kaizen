@@ -144,6 +144,7 @@ export function DocumentosAnexadosInput({
               <SelectItem value="FLUXOGRAMA">
                 {TIPO_DOCUMENTO_LABEL.FLUXOGRAMA}
               </SelectItem>
+              <SelectItem value="IT">{TIPO_DOCUMENTO_LABEL.IT}</SelectItem>
             </SelectContent>
           </Select>
         </div>
