@@ -62,6 +62,22 @@ import {
   FolderKanban,
   RefreshCw,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LabelList
+} from "recharts";
 
 function formatMesAno(mesVal: string): string {
   if (!mesVal) return "";
@@ -89,6 +105,41 @@ function formatMesAno(mesVal: string): string {
   };
   return mesesMap[mesVal] || mesVal;
 }
+
+// Helpers para normalizar valores do backend
+export function normalizePriority(val?: string) {
+  if (!val) return "";
+  const v = val.toUpperCase();
+  if (v === "ALTO" || v === "1") return "Alto";
+  if (v === "MEDIO" || v === "MÉDIO" || v === "2") return "Médio";
+  if (v === "BAIXO" || v === "3") return "Baixo";
+  return val;
+}
+
+export function normalizeStep(val?: string) {
+  if (!val) return "";
+  const v = val.toUpperCase();
+  if (v === "PLANEJAMENTO_DA_CONTRATACAO" || v === "PLANEJAMENTO DA CONTRATAÇÃO") return "Planejamento da Contratação";
+  if (v === "SELECAO_DE_FORNECEDOR" || v === "SELEÇÃO DE FORNECEDOR") return "Seleção de Fornecedor";
+  if (v === "GESTAO_DO_CONTRATO" || v === "GESTÃO DO CONTRATO") return "Gestão do Contrato";
+  return val;
+}
+
+export function normalizeResourceType(val?: string) {
+  if (!val) return "";
+  const v = val.toUpperCase();
+  if (v === "CUSTEIO") return "Custeio";
+  if (v === "INVESTIMENTO") return "Investimento";
+  return val;
+}
+
+export const STEP_COLORS: Record<string, string> = {
+  "Não Iniciada": "#9CA3AF",
+  "Planejamento da Contratação": "#2563EB",
+  "Seleção de Fornecedor": "#F59E0B",
+  "Gestão do Contrato": "#16A34A",
+  "Concluído": "#8B5CF6",
+};
 
 interface EsteiraContratacoesProps {
   anoSelecionado: number;
@@ -144,6 +195,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   // Listas para comboboxes de área demandante e responsável
   const [areasList, setAreasList] = useState<Area[]>([]);
   const [unidadesList, setUnidadesList] = useState<Unidade[]>([]);
+  const [diretoriasList, setDiretoriasList] = useState<Area[]>([]);
   const [pessoasList, setPessoasList] = useState<Pessoa[]>([]);
 
   // Estados dos comboboxes de busca
@@ -156,16 +208,27 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   // Carregar dados ao montar ou mudar o ano
   useEffect(() => {
     loadData();
-    // Carregar áreas e pessoas para os selects (apenas uma vez)
     areasApi
-      .getAllUnidades()
-      .then(setUnidadesList)
+      .getAll()
+      .then(setDiretoriasList)
       .catch(() => { });
     pessoasApi
       .getAll(selectedDirectorate || undefined)
       .then(setPessoasList)
       .catch(() => { });
   }, [anoSelecionado, selectedDirectorate]);
+
+  // Carregar unidades dependendo da diretoria selecionada no formulário
+  useEffect(() => {
+    if (formData.id_diretoria) {
+      areasApi
+        .getUnidades(formData.id_diretoria)
+        .then(setUnidadesList)
+        .catch(() => setUnidadesList([]));
+    } else {
+      setUnidadesList([]);
+    }
+  }, [formData.id_diretoria]);
 
   async function loadData() {
     try {
@@ -232,6 +295,93 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     filterMes,
   ]);
 
+  // --- Gráficos Data Calculations ---
+  const chartDataDemandas = useMemo(() => {
+    let sumEstimado = 0;
+    let sumFormalizado = 0;
+    filteredItems.forEach(item => {
+      sumEstimado += Number(item.valor_estimado) || 0;
+      sumFormalizado += Number(item.valor_formalizado) || 0;
+    });
+    return [
+      { name: "Soma de Valor Total (R$)", valor: sumEstimado, fill: "#2563EB" },
+      { name: "Soma de Valor Ano Referência (R$)", valor: sumFormalizado, fill: "#16A34A" }
+    ];
+  }, [filteredItems]);
+
+  const chartDataValoresPorTipo = useMemo(() => {
+    let sumRenovacaoEst = 0;
+    let sumRenovacaoForm = 0;
+    let sumNovaEst = 0;
+    let sumNovaForm = 0;
+
+    filteredItems.forEach(item => {
+      const isRenovacao = item.tipo === "Renovação" || item.contract_type === "Renovação";
+      const est = Number(item.valor_estimado) || 0;
+      const form = Number(item.valor_formalizado) || 0;
+      if (isRenovacao) {
+        sumRenovacaoEst += est;
+        sumRenovacaoForm += form;
+      } else {
+        sumNovaEst += est;
+        sumNovaForm += form;
+      }
+    });
+
+    return [
+      { tipo: "RENOVAÇÃO", estimado: sumRenovacaoEst, formalizado: sumRenovacaoForm },
+      { tipo: "NOVA CONTRATAÇÃO", estimado: sumNovaEst, formalizado: sumNovaForm }
+    ];
+  }, [filteredItems]);
+
+  const chartDataDatasPorTipo = useMemo(() => {
+    const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+    const counts = months.map(m => ({ name: m, "NOVA CONTRATAÇÃO": 0, "RENOVAÇÃO": 0 }));
+
+    filteredItems.forEach(item => {
+      const dataFormatada = formatMesAno(item.data_estimada_contratacao || item.estimated_date || "");
+      if (dataFormatada) {
+        const parts = dataFormatada.split("/");
+        if (parts.length >= 2) {
+          const monthIndex = parseInt(parts[0], 10) - 1;
+          if (monthIndex >= 0 && monthIndex < 12) {
+            const isRenovacao = item.tipo === "Renovação" || item.contract_type === "Renovação";
+            if (isRenovacao) {
+              counts[monthIndex]["RENOVAÇÃO"] += 1;
+            } else {
+              counts[monthIndex]["NOVA CONTRATAÇÃO"] += 1;
+            }
+          }
+        }
+      }
+    });
+
+    return counts;
+  }, [filteredItems]);
+
+  const chartDataFaseAtual = useMemo(() => {
+    const faseCounts: Record<string, number> = {};
+    filteredItems.forEach(item => {
+      let rawFase = item.step || item.status || "Não Iniciada";
+      if (item.status === "Concluída") rawFase = "Concluído";
+      
+      const fase = normalizeStep(rawFase) || rawFase;
+      faseCounts[fase] = (faseCounts[fase] || 0) + 1;
+    });
+
+    const fallbackColors = ["#EF4444", "#3B82F6", "#F472B6", "#14B8A6"];
+    let fallbackIndex = 0;
+
+    return Object.entries(faseCounts).map(([name, value]) => {
+      let fill = STEP_COLORS[name];
+      if (!fill) {
+        fill = fallbackColors[fallbackIndex % fallbackColors.length];
+        fallbackIndex++;
+      }
+      return { name, value, fill };
+    }).sort((a, b) => b.value - a.value);
+  }, [filteredItems]);
+
   // Limpar filtros
   function clearFilters() {
     setSearchTerm("");
@@ -296,11 +446,15 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     setFormData((prev) => ({ ...prev, [field]: numericValue }));
   };
 
-  const formatValueBRL = (val?: number) => {
-    if (!val) return "";
-    return val.toLocaleString("pt-BR", {
+  const formatValueBRL = (val?: number | string) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = Number(val);
+    if (isNaN(num)) return "";
+    return num.toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
   };
 
@@ -328,9 +482,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       process: item.process || "",
       description: item.description || "",
       justification: item.justification || "",
-      financial_resource_type: item.financial_resource_type || "",
-      priority: item.priority || "",
-      step: item.step || "",
+      financial_resource_type: normalizeResourceType(item.financial_resource_type) || "",
+      priority: normalizePriority(item.priority) || "",
+      step: normalizeStep(item.step) || "",
     });
     setFormErrors([]);
     setIsEditModalOpen(true);
@@ -665,6 +819,187 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
         </div>
       )}
 
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5 2xl:gap-6">
+        
+        {/* Gráfico 1: Estimativa de valores das demandas */}
+        <Card className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
+          <CardHeader className="pb-2 pt-4 px-4 text-center">
+            <CardTitle className="text-sm font-semibold text-gray-800">Estimativa de valores das demandas</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex-1">
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartDataDemandas}
+                  layout="vertical"
+                  margin={{ top: 10, right: 90, left: 0, bottom: 20 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" hide />
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    cursor={{fill: 'transparent'}}
+                  />
+                  <Bar dataKey="valor" radius={[0, 4, 4, 0]} barSize={24}>
+                    <LabelList 
+                      dataKey="valor" 
+                      position="right" 
+                      formatter={(val: number) => formatCurrency(val)}
+                      style={{ fontSize: '10px', fontWeight: 500, fill: '#374151' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4 mt-2 text-[10px] text-gray-500 font-medium">
+              <div className="flex items-center gap-1"><div className="w-2 h-2 bg-[#2563EB]" />Soma de Valor Total (R$)</div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 bg-[#16A34A]" />Soma de Valor Ano Referência (R$)</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Gráfico 2: Estimativa de valores por Tipo */}
+        <Card className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
+          <CardHeader className="pb-2 pt-4 px-4 text-center">
+            <CardTitle className="text-sm font-semibold text-gray-800">Estimativa de valores por Tipo</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex-1">
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartDataValoresPorTipo}
+                  layout="vertical"
+                  margin={{ top: 10, right: 90, left: 30, bottom: 20 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="tipo" 
+                    type="category" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 500 }} 
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    cursor={{fill: 'transparent'}}
+                  />
+                  <Bar dataKey="estimado" name="Soma de Valor Total (R$)" fill="#2563EB" radius={[0, 4, 4, 0]} barSize={16}>
+                     <LabelList 
+                      dataKey="estimado" 
+                      position="right" 
+                      formatter={(val: number) => formatCurrency(val)}
+                      style={{ fontSize: '9px', fontWeight: 500, fill: '#374151' }}
+                    />
+                  </Bar>
+                  <Bar dataKey="formalizado" name="Soma de Valor Ano Referência (R$)" fill="#16A34A" radius={[0, 4, 4, 0]} barSize={16}>
+                     <LabelList 
+                      dataKey="formalizado" 
+                      position="right" 
+                      formatter={(val: number) => formatCurrency(val)}
+                      style={{ fontSize: '9px', fontWeight: 500, fill: '#374151' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4 mt-2 text-[10px] text-gray-500 font-medium">
+              <div className="flex items-center gap-1"><div className="w-2 h-2 bg-[#2563EB]" />Soma de Valor Total (R$)</div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 bg-[#16A34A]" />Soma de Valor Ano Referência (R$)</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Gráfico 3: Estimativa de datas por Tipo */}
+        <Card className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden flex flex-col lg:col-span-2 xl:col-span-1">
+          <CardHeader className="pb-2 pt-4 px-4 text-center">
+            <CardTitle className="text-sm font-semibold text-gray-800">Estimativa de datas por Tipo</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex-1">
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={chartDataDatasPorTipo}
+                  margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
+                >
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 500 }} 
+                  />
+                  <YAxis hide />
+                  <Tooltip />
+                  <Legend 
+                    iconType="plainline" 
+                    wrapperStyle={{ fontSize: '10px', fontWeight: 500, color: '#6B7280', paddingTop: '10px' }}
+                  />
+                  <Line 
+                    type="linear" 
+                    dataKey="NOVA CONTRATAÇÃO" 
+                    stroke="#2563EB" 
+                    strokeWidth={2}
+                    activeDot={{ r: 6 }}
+                    dot={{ r: 4, strokeWidth: 2 }}
+                  >
+                    <LabelList dataKey="NOVA CONTRATAÇÃO" position="top" style={{ fontSize: '10px', fontWeight: 600, fill: '#111827' }} />
+                  </Line>
+                  <Line 
+                    type="linear" 
+                    dataKey="RENOVAÇÃO" 
+                    stroke="#F59E0B" 
+                    strokeWidth={2}
+                    activeDot={{ r: 6 }}
+                    dot={{ r: 4, strokeWidth: 2 }}
+                  >
+                    <LabelList dataKey="RENOVAÇÃO" position="top" style={{ fontSize: '10px', fontWeight: 600, fill: '#111827' }} />
+                  </Line>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Gráfico 4: Fase Atual */}
+        <Card className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden flex flex-col lg:col-span-2 xl:col-span-1">
+          <CardHeader className="pb-2 pt-4 px-4 text-center">
+            <CardTitle className="text-sm font-semibold text-gray-800">Fase Atual</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex-1 flex flex-col items-center">
+            <div className="flex-1 w-full h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                  <Pie
+                    data={chartDataFaseAtual}
+                    cx="35%"
+                    cy="50%"
+                    innerRadius={35}
+                    outerRadius={55}
+                    paddingAngle={2}
+                    dataKey="value"
+                    labelLine={false}
+                  >
+                    {chartDataFaseAtual.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                    <LabelList dataKey="value" position="inside" style={{ fill: '#FFF', fontSize: '9px', fontWeight: 600 }} />
+                  </Pie>
+                  <Tooltip />
+                  <Legend 
+                    layout="vertical" 
+                    verticalAlign="middle" 
+                    align="right"
+                    iconType="square"
+                    wrapperStyle={{ fontSize: '9px', fontWeight: 500, color: '#4B5563', right: '0' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+      </div>
+
       {/* Tabela de Itens */}
       <div className="bg-gray-300 rounded-2xl border border-gray-400 overflow-hidden shadow-sm">
         {/* Header da Tabela */}
@@ -696,8 +1031,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             </div>
             <div className="hidden lg:flex items-center text-sm font-bold text-gray-800">
               <Select value={filterArea} onValueChange={setFilterArea}>
-                <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                  <span>Área Demandante</span>
+                <SelectTrigger className="w-40 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                  <span className="whitespace-nowrap">Área Demandante</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
@@ -708,9 +1043,10 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   ))}
                 </SelectContent>
               </Select>
-              <span className="w-36 text-center">Valor Estimado</span>
+              <span className="w-32 text-center">Valor Estimado</span>
+              <span className="w-32 text-center">Valor Ano Ref.</span>
               <Select value={filterMes} onValueChange={setFilterMes}>
-                <SelectTrigger className="w-44 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Prazo Estimado</span>
                 </SelectTrigger>
                 <SelectContent>
@@ -722,8 +1058,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   ))}
                 </SelectContent>
               </Select>
+              <span className="w-40 text-center">Fase Atual</span>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-36 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <SelectTrigger className="w-28 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Status</span>
                 </SelectTrigger>
                 <SelectContent>
@@ -735,8 +1072,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   ))}
                 </SelectContent>
               </Select>
-              <span className="w-24 text-center">Ações</span>
-              <span className="w-10"></span>
+              <span className="w-20 text-center">Ações</span>
+              <span className="w-8"></span>
             </div>
           </div>
         </div>
@@ -802,7 +1139,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                       </h4>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      {item.objeto}
+                      {item.description || item.objeto}
                     </p>
                   </div>
                 </div>
@@ -810,34 +1147,58 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 {/* Colunas da tabela (desktop) */}
                 <div className="hidden lg:flex items-center">
                   {/* Área Demandante */}
-                  <div className="w-32 text-center">
+                  <div className="w-40 text-center">
                     <span className="text-sm text-gray-700 font-medium">
                       {item.area_demandante}
                     </span>
                   </div>
 
                   {/* Valor Estimado */}
-                  <div className="w-36 text-center">
+                  <div className="w-32 text-center">
                     <span className="text-sm text-emerald-700 font-bold">
                       {formatCurrency(item.valor_estimado)}
                     </span>
                   </div>
 
+                  {/* Valor Ano Referência */}
+                  <div className="w-32 text-center">
+                    <span className="text-sm text-gray-700 font-bold">
+                      {formatCurrency(item.valor_formalizado)}
+                    </span>
+                  </div>
+
                   {/* Prazo Estimado */}
-                  <div className="w-44 text-center">
+                  <div className="w-32 text-center">
                     <span className="text-sm text-gray-700 font-bold">
                       {formatMesAno(item.data_estimada_contratacao)}
                     </span>
                   </div>
 
+                  {/* Fase Atual */}
+                  <div className="w-40 flex items-center justify-center gap-2">
+                    <div 
+                      className="w-2 h-2 rounded-full flex-shrink-0" 
+                      style={{ backgroundColor: STEP_COLORS[normalizeStep(item.step) || "Não Iniciada"] || "#9CA3AF" }} 
+                    />
+                    <span className="text-[11px] text-gray-700 font-medium whitespace-pre-line leading-tight max-w-[120px]" title={normalizeStep(item.step) || "Não Iniciada"}>
+                      {normalizeStep(item.step) === "Planejamento da Contratação" 
+                        ? "Planejamento\nda Contratação" 
+                        : normalizeStep(item.step) === "Seleção de Fornecedor"
+                        ? "Seleção de\nFornecedor"
+                        : normalizeStep(item.step) === "Gestão do Contrato"
+                        ? "Gestão\ndo Contrato"
+                        : (normalizeStep(item.step) || "Não Iniciada")}
+                    </span>
+                  </div>
+
                   {/* Status */}
-                  <div className="w-36 flex justify-center">
+                  <div className="w-28 flex justify-center">
                     {renderStatusBadge(item.status)}
                   </div>
 
                   {/* Ações */}
                   <div
-                    className="w-24 flex justify-center gap-1"
+                    className="w-20 flex justify-center gap-1"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {canEdit && (
@@ -863,8 +1224,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   </div>
 
                   {/* Chevron */}
-                  <div className="w-10 flex justify-center">
-                    <ChevronRight className="h-6 w-6 text-gray-300 group-hover:text-slate-500 group-hover:translate-x-1 transition-all" />
+                  <div className="w-8 flex justify-center">
+                    <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-slate-500 group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
 
@@ -979,7 +1340,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 value={formData.id_diretoria ? String(formData.id_diretoria) : undefined}
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
-                  const unidade = unidadesList.find(u => u.id === dirId);
+                  const unidade = diretoriasList.find(d => d.id === dirId);
                   setFormData({ 
                     ...formData, 
                     id_diretoria: dirId, 
@@ -992,9 +1353,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   <SelectValue placeholder="Selecione a Diretoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {unidadesList.map(u => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.nome}
+                  {diretoriasList.map(dir => (
+                    <SelectItem key={dir.id} value={String(dir.id)}>
+                      {dir.sigla ? `${dir.sigla} - ${dir.nome}` : dir.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1015,11 +1376,15 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   <SelectValue placeholder="Selecionar área responsável..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {unidadesList
-                    .filter(u => u.id === formData.id_diretoria || u.unidade_superior_id === formData.id_diretoria)
-                    .map(u => (
-                      <SelectItem key={u.id} value={String(u.id)}>{u.nome}</SelectItem>
-                  ))}
+                  {unidadesList.map(u => {
+                      const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
+                      const sigla = dir?.sigla || dir?.nome;
+                      return (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.nome} {sigla ? `(${sigla})` : ""}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>
@@ -1301,7 +1666,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 value={formData.id_diretoria ? String(formData.id_diretoria) : undefined}
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
-                  const unidade = unidadesList.find(u => u.id === dirId);
+                  const unidade = diretoriasList.find(d => d.id === dirId);
                   setFormData({ 
                     ...formData, 
                     id_diretoria: dirId, 
@@ -1314,9 +1679,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   <SelectValue placeholder="Selecione a Diretoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {unidadesList.map(u => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.nome}
+                  {diretoriasList.map(dir => (
+                    <SelectItem key={dir.id} value={String(dir.id)}>
+                      {dir.sigla ? `${dir.sigla} - ${dir.nome}` : dir.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1337,11 +1702,15 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   <SelectValue placeholder="Selecionar área responsável..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {unidadesList
-                    .filter(u => u.id === formData.id_diretoria || u.unidade_superior_id === formData.id_diretoria)
-                    .map(u => (
-                      <SelectItem key={u.id} value={String(u.id)}>{u.nome}</SelectItem>
-                  ))}
+                  {unidadesList.map(u => {
+                      const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
+                      const sigla = dir?.sigla || dir?.nome;
+                      return (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.nome} {sigla ? `(${sigla})` : ""}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>

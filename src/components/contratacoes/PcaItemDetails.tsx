@@ -994,8 +994,8 @@ export function PcaItemDetailsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label className="text-gray-500 text-xs uppercase">Objeto</Label>
-            <p className="mt-1">{pcaItem.objeto}</p>
+            <Label className="text-gray-500 text-xs uppercase">Descrição / Demanda da Unidade</Label>
+            <p className="mt-1 whitespace-pre-wrap text-gray-700">{pcaItem.description || pcaItem.objeto}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
