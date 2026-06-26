@@ -1036,17 +1036,27 @@ export function generateProcessoNegocioPDF(
     y += histRowH;
   }
 
-  // Linhas "Aprovado por (comitê):" — uma por comitê da apreciação (Modelo K1)
+  // Linhas "Aprovado por (comitê):" — uma por comitê da apreciação (Modelo K1).
+  // Quando o processo não passa por comitê, nenhuma linha é exibida.
   const exigidos = processo.apreciacao || [];
-  if (exigidos.length === 0) {
-    drawTextCell(doc, "Aprovado por:", MARGIN_LEFT, y, histLabelW, histRowH, {
-      bold: true,
-      fontSize: 9,
-      bg: [248, 250, 252],
-    });
+  for (const comite of exigidos) {
+    const aprov = aprovacaoDoComite(processo, comite);
+    const nome = COMITES_APROVACAO[comite] || comite;
+    const valor = aprov
+      ? `${nome}${aprov.em ? ` — ${formatDate(aprov.em)}` : ""}`
+      : `${nome} — Pendente`;
     drawTextCell(
       doc,
-      "Não requer aprovação de comitê",
+      `Aprovado por (${comite}):`,
+      MARGIN_LEFT,
+      y,
+      histLabelW,
+      histRowH,
+      { bold: true, fontSize: 9, bg: [248, 250, 252] },
+    );
+    drawTextCell(
+      doc,
+      valor,
       MARGIN_LEFT + histLabelW,
       y,
       CONTENT_WIDTH - histLabelW,
@@ -1054,33 +1064,6 @@ export function generateProcessoNegocioPDF(
       { fontSize: 9 },
     );
     y += histRowH;
-  } else {
-    for (const comite of exigidos) {
-      const aprov = aprovacaoDoComite(processo, comite);
-      const nome = COMITES_APROVACAO[comite] || comite;
-      const valor = aprov
-        ? `${nome}${aprov.em ? ` — ${formatDate(aprov.em)}` : ""}`
-        : `${nome} — Pendente`;
-      drawTextCell(
-        doc,
-        `Aprovado por (${comite}):`,
-        MARGIN_LEFT,
-        y,
-        histLabelW,
-        histRowH,
-        { bold: true, fontSize: 9, bg: [248, 250, 252] },
-      );
-      drawTextCell(
-        doc,
-        valor,
-        MARGIN_LEFT + histLabelW,
-        y,
-        CONTENT_WIDTH - histLabelW,
-        histRowH,
-        { fontSize: 9 },
-      );
-      y += histRowH;
-    }
   }
 
   // Rodapé em todas as páginas

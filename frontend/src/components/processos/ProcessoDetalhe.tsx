@@ -1164,7 +1164,7 @@ export function ProcessoDetalhe({
                   Versão:
                 </div>
                 <div className="mt-1 font-bold text-slate-700">
-                  {processo.versao || "1.0"}
+                  {processo.versao || "1"}
                 </div>
               </div>
               <div>

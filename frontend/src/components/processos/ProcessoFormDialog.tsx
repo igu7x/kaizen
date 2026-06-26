@@ -35,6 +35,7 @@ import {
   getFluxograma,
   COMITES_APROVACAO,
   camposObrigatoriosFaltantes,
+  temDocumentoPrimario,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { ListInput } from "./ListInput";
@@ -78,6 +79,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   periodicidade_revisao: "",
   numero_proad: "",
   observacoes_gerais: "",
+  versao: "",
 };
 
 /**
@@ -186,6 +188,7 @@ export function ProcessoFormDialog({
         periodicidade_revisao: processo.periodicidade_revisao || "",
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
+        versao: processo.versao || "",
       });
       setApreciacaoSim((processo.apreciacao || []).length > 0);
     } else {
@@ -205,6 +208,8 @@ export function ProcessoFormDialog({
     if (!form.nome_processo?.trim()) return "O nome do processo é obrigatório.";
     if (!form.macroprocesso?.trim()) return "O macroprocesso é obrigatório.";
     if (!form.diretoria?.trim()) return "A diretoria é obrigatória.";
+    if (temDocumentoPrimario(form) && !String(form.versao ?? "").trim())
+      return "Com documento primário anexado, informe a versão do processo.";
     return null;
   };
 
@@ -225,11 +230,17 @@ export function ProcessoFormDialog({
     }
     setSaving(true);
     try {
+      // A versão só é enviada quando há documento primário (entrada manual). Sem ele,
+      // omitimos o campo para o backend preservar a versão gerida pelo ciclo de homologação.
+      const payload: CreateProcessoNegocioDto = { ...form };
+      if (!temDocumentoPrimario(form)) {
+        delete payload.versao;
+      }
       let saved: ProcessoNegocio;
       if (currentId != null) {
-        saved = await processosNegocioApi.update(currentId, form);
+        saved = await processosNegocioApi.update(currentId, payload);
       } else {
-        saved = await processosNegocioApi.create(form);
+        saved = await processosNegocioApi.create(payload);
         setCurrentId(saved.id);
       }
       if (enviarApos) {
@@ -357,6 +368,30 @@ export function ProcessoFormDialog({
                   No PDF será exibido apenas o mês e o ano.
                 </p>
               </div>
+              {temDocumentoPrimario(form) && (
+                <div>
+                  <Label
+                    htmlFor="versao"
+                    className="text-xs font-semibold text-slate-700"
+                  >
+                    Versão <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="versao"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.versao ?? ""}
+                    onChange={(e) => update("versao", e.target.value)}
+                    placeholder="Ex.: 9"
+                    className="mt-1 bg-white"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Documento primário anexado: informe a versão atual do
+                    processo.
+                  </p>
+                </div>
+              )}
             </div>
           </Section>
 

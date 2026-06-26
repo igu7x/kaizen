@@ -316,6 +316,12 @@ export interface CreateProcessoNegocioDto {
   periodicidade_revisao?: string | null;
   numero_proad?: string | null;
   observacoes_gerais?: string | null;
+  /**
+   * Versão (inteiro). Enviada manualmente apenas quando há documento primário anexado
+   * (o processo pode já estar na 9ª versão, p.ex.). Sem documento primário, a versão é
+   * gerida automaticamente pelo backend (inicia em 1 e incrementa a cada homologação).
+   */
+  versao?: string | null;
 }
 
 export type UpdateProcessoNegocioDto = Partial<CreateProcessoNegocioDto>;
