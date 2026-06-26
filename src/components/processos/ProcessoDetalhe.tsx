@@ -1254,7 +1254,7 @@ export function ProcessoDetalhe({
                   ) : (
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                   )}
-                  Validar (Autor)
+                  Validar
                 </Button>
               )}
               {podeValidarDiretoria && (
@@ -1269,7 +1269,7 @@ export function ProcessoDetalhe({
                   ) : (
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                   )}
-                  Validar (Diretoria)
+                  Validar
                 </Button>
               )}
               {podeValidarFinal && (
@@ -1284,7 +1284,7 @@ export function ProcessoDetalhe({
                   ) : (
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                   )}
-                  Validação Final
+                  Validar
                 </Button>
               )}
             </div>
