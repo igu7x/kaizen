@@ -46,6 +46,7 @@ import {
   temDocumentoPrimario,
   aprovacaoDoComite,
   camposObrigatoriosFaltantes,
+  validarComiteParaEnvio,
   COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
@@ -470,6 +471,11 @@ export function ProcessoDetalhe({
       toast.error(
         `Para enviar à validação, preencha os campos: ${faltam.join(", ")}.`,
       );
+      return;
+    }
+    const erroComite = validarComiteParaEnvio(processo);
+    if (erroComite) {
+      toast.error(erroComite);
       return;
     }
     handleAcao("Envio para validação", () =>
