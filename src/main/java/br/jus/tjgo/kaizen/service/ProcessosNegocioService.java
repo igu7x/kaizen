@@ -120,11 +120,6 @@ public class ProcessosNegocioService {
     }
 
     /**
-     * Anexa/atualiza o PDF de aprovação (restrito a superadmin no controller). É o artefato que,
-     * junto com as 3 camadas de validação concluídas (status = validado_final), torna o processo
-     * um "Modelo K1". Não mexe no status — o K1 é derivado no front a partir destes dois fatos.
-     */
-    /**
      * Anexa/atualiza a aprovação de UM comitê (CGTIC/CGovTIC) na lista {@code aprovacoes}.
      * Cada comitê tem no máximo uma entrada (re-anexar substitui). Restrito a superadmin no controller.
      */
@@ -156,7 +151,10 @@ public class ProcessosNegocioService {
                 "UPDATE processos_negocio SET aprovacoes = ?::jsonb, updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE RETURNING *",
                 toJson(aprovacoes), userId, id);
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        return stampK1IfFirst(id);
     }
 
     /** Remove a aprovação de um comitê específico da lista {@code aprovacoes}. */
@@ -190,6 +188,62 @@ public class ProcessosNegocioService {
             log.warn("[processosNegocio] falha ao parsear aprovacoes: {}", e.getMessage());
             return new ArrayList<>();
         }
+    }
+
+    private List<String> parseStringList(Object raw) {
+        if (raw == null) {
+            return new ArrayList<>();
+        }
+        String json = String.valueOf(raw);
+        if (json.isBlank() || "null".equals(json)) {
+            return new ArrayList<>();
+        }
+        try {
+            List<String> list = objectMapper.readValue(json, new TypeReference<>() {});
+            return list == null ? new ArrayList<>() : list;
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * É Modelo K1 (visão do backend): validado_final + todos os comitês da apreciação aprovados.
+     * Os campos obrigatórios já são garantidos pela trava de envio à validação.
+     */
+    private boolean isK1Server(Map<String, Object> proc) {
+        if (!"validado_final".equals(String.valueOf(proc.get("status")))) {
+            return false;
+        }
+        List<String> apreciacao = parseStringList(proc.get("apreciacao"));
+        List<Map<String, Object>> aprovacoes = parseAprovacoes(proc.get("aprovacoes"));
+        for (String comite : apreciacao) {
+            boolean ok = aprovacoes.stream()
+                    .anyMatch(a -> comite.equals(String.valueOf(a.get("comite"))));
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Ao gerar o PRIMEIRO Modelo K1, carimba periodo (Data da Versão) e k1_gerado_em com a data
+     * de hoje. Idempotente: só carimba se ainda não foi gerado. Retorna a linha (atualizada ou não).
+     */
+    private Map<String, Object> stampK1IfFirst(long id) {
+        Map<String, Object> proc = findById(id);
+        if (proc == null) {
+            return null;
+        }
+        if (proc.get("k1_gerado_em") == null && isK1Server(proc)) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "UPDATE processos_negocio SET periodo = CURRENT_DATE, k1_gerado_em = CURRENT_DATE, " +
+                            "updated_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE RETURNING *", id);
+            if (!rows.isEmpty()) {
+                return rows.get(0);
+            }
+        }
+        return proc;
     }
 
     public Map<String, Object> create(Map<String, Object> data, long userId) {
@@ -376,7 +430,8 @@ public class ProcessosNegocioService {
             log.warn("[processosNegocio] falha ao gravar snapshot histórico: {}", err.getMessage());
         }
 
-        return processo;
+        // Se este foi o evento que gerou o 1º Modelo K1, carimba a Data da Versão.
+        return stampK1IfFirst(id);
     }
 
     public List<Map<String, Object>> listVersoes(long id) {
