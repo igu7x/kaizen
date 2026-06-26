@@ -79,17 +79,17 @@ const DIRETORIA_COLORS = [
   "#ec4899",
 ];
 
-// Baldes do gráfico "Próximas revisões por período".
+// Baldes do gráfico "Próximas revisões por período" (Vencidos primeiro).
 const PERIODO_BUCKETS = [
-  "Até 30 dias",
-  "31 – 90 dias",
+  "Vencidos",
+  "Até 90 dias",
   "91 – 180 dias",
   "+ de 180 dias",
 ] as const;
 type PeriodoBucket = (typeof PERIODO_BUCKETS)[number];
 const PERIODO_COLORS: Record<PeriodoBucket, string> = {
-  "Até 30 dias": "#10b981",
-  "31 – 90 dias": "#3b82f6",
+  Vencidos: "#ef4444",
+  "Até 90 dias": "#10b981",
   "91 – 180 dias": "#7c3aed",
   "+ de 180 dias": "#f59e0b",
 };
@@ -114,14 +114,13 @@ function maturidadeOf(p: ProcessoNegocio): 1 | 2 | 3 {
   return 1;
 }
 
-/** Balde da próxima revisão. Só revisões futuras entram; vencidas/sem período → null. */
+/** Balde da próxima revisão. Sem período → null (não conta); vencidas entram em "Vencidos". */
 function periodoRevisaoOf(p: ProcessoNegocio): PeriodoBucket | null {
   const next = proximaRevisao(p);
   if (!next) return null;
   const dias = Math.ceil((next.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-  if (dias < 0) return null;
-  if (dias <= 30) return "Até 30 dias";
-  if (dias <= 90) return "31 – 90 dias";
+  if (dias < 0) return "Vencidos";
+  if (dias <= 90) return "Até 90 dias";
   if (dias <= 180) return "91 – 180 dias";
   return "+ de 180 dias";
 }
@@ -678,12 +677,9 @@ export default function EscritorioProcessos() {
   }, [filtered]);
 
   const revisaoPeriodoData = useMemo(() => {
-    const counts: Record<PeriodoBucket, number> = {
-      "Até 30 dias": 0,
-      "31 – 90 dias": 0,
-      "91 – 180 dias": 0,
-      "+ de 180 dias": 0,
-    };
+    const counts = Object.fromEntries(
+      PERIODO_BUCKETS.map((b) => [b, 0]),
+    ) as Record<PeriodoBucket, number>;
     filtered.forEach((p) => {
       const b = periodoRevisaoOf(p);
       if (b) counts[b]++;
