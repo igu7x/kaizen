@@ -47,6 +47,22 @@ import {
 // CONSTANTS & HELPERS
 // ============================================================
 
+// Exceção (ajuste de produção): projetos vinculados a este plano/programa NÃO são exibidos
+// no Escritório de Projetos. Regra restrita a esta tela.
+const PLANO_OCULTO_NOME = "Plano de Transformação Digital";
+
+function pertenceAoPlanoOculto(p: Projeto): boolean {
+  if (p.instrumentos?.length) {
+    return p.instrumentos.some(
+      (i) => i.instrumento_nome?.trim() === PLANO_OCULTO_NOME,
+    );
+  }
+  return (p.instrumentos_nomes || "")
+    .split(",")
+    .map((s) => s.trim())
+    .includes(PLANO_OCULTO_NOME);
+}
+
 const statusLabels: Record<string, string> = {
   planejado: "Planejado",
   em_execucao: "Em Execução",
@@ -238,7 +254,9 @@ export function EscritorioProjetos() {
         } else {
           projs = await cadastrosProjetosApi.getProjetos(dirFiltro);
         }
-        setProjetos(projs.filter((p) => p.ativo !== false));
+        setProjetos(
+          projs.filter((p) => p.ativo !== false && !pertenceAoPlanoOculto(p)),
+        );
       } catch (err) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       } finally {
@@ -526,11 +544,13 @@ export function EscritorioProjetos() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Planos</SelectItem>
-              {instrumentos.map((inst) => (
-                <SelectItem key={inst.id} value={String(inst.id)}>
-                  {inst.nome}
-                </SelectItem>
-              ))}
+              {instrumentos
+                .filter((inst) => inst.nome?.trim() !== PLANO_OCULTO_NOME)
+                .map((inst) => (
+                  <SelectItem key={inst.id} value={String(inst.id)}>
+                    {inst.nome}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>
