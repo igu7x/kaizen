@@ -914,7 +914,7 @@ export function MonitoramentoOKRs() {
                               )}
                             </td>
                             <td className="p-2 lg:p-4 text-center text-xs lg:text-sm text-gray-700">
-                              {meta.areaNome || meta.areaSigla || "-"}
+                              {meta.areaSigla || meta.areaNome || "-"}
                             </td>
                             <td className="p-2 lg:p-4 text-center text-xs lg:text-sm text-gray-600">
                               {meta.prazo || "-"}

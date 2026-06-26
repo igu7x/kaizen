@@ -773,7 +773,7 @@ export default function OkrsMetas() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center text-sm text-gray-700">
-                    {meta.areaNome || meta.areaSigla || "-"}
+                    {meta.areaSigla || meta.areaNome || "-"}
                   </TableCell>
                   <TableCell className="text-center text-sm text-gray-600">
                     {meta.prazo || "-"}
