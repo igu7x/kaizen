@@ -34,7 +34,12 @@ export default function GestaoEstrategica() {
       };
     }
     if (location.pathname === "/gestao-estrategica/execucao") {
-      return { subtitle: "Escritório de Projetos" };
+      return {
+        subtitle:
+          modelo === "metas"
+            ? "Monitoramento de Iniciativas"
+            : "Escritório de Projetos",
+      };
     }
     if (location.pathname === "/gestao-estrategica/sprint") {
       return { subtitle: "Sprint Atual" };
@@ -76,7 +81,12 @@ export default function GestaoEstrategica() {
       : location.pathname === "/gestao-estrategica/execucao"
         ? [
             { label: "Gestão Estratégica", to: "/gestao-estrategica" },
-            { label: "Escritório de Projetos" },
+            {
+              label:
+                modelo === "metas"
+                  ? "Monitoramento de Iniciativas"
+                  : "Escritório de Projetos",
+            },
           ]
         : location.pathname === "/gestao-estrategica/sprint"
           ? [
