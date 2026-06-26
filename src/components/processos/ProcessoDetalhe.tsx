@@ -1151,7 +1151,7 @@ export function ProcessoDetalhe({
                 </div>
                 <div className="mt-1 font-bold text-slate-700 leading-tight">
                   {isK1(processo)
-                    ? "Modelo K1"
+                    ? "K1"
                     : temDocumentoPrimario(processo)
                       ? "Doc. Primário"
                       : "—"}
