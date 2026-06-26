@@ -47,17 +47,29 @@ import {
 // CONSTANTS & HELPERS
 // ============================================================
 
-// Exceção (ajuste de produção): projetos vinculados a este plano/programa NÃO são exibidos
-// no Escritório de Projetos. Regra restrita a esta tela.
-const PLANO_OCULTO_NOME = "Plano de Transformação Digital";
+// Exceção (ajuste de produção): o plano/programa "Plano de Transformação Digital" e seus
+// projetos NÃO são exibidos no Escritório de Projetos. Regra restrita a esta tela.
 
-// Comparação tolerante a acento/caixa/espaços: o nome gravado pode diferir do literal
-// por acentuação combinada ou espaços. localeCompare com sensitivity "base" ignora ambos.
+// Normaliza removendo acentos, colapsando espaços e ignorando caixa — robusto a diferenças
+// de acentuação/espaço no dado gravado.
+function semAcento(s: string | null | undefined): string {
+  return (s || "")
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+// Plano oculto: nome contém "transformação digital" (tolerante a acento/caixa/espaços).
 function ehPlanoOculto(nome: string | null | undefined): boolean {
-  const a = (nome || "").replace(/\s+/g, " ").trim();
-  return (
-    a.localeCompare(PLANO_OCULTO_NOME, "pt-BR", { sensitivity: "base" }) === 0
-  );
+  return semAcento(nome).includes("transformacao digital");
+}
+
+// Projeto do plano oculto: todos os projetos do PTD têm o nome iniciando com "PTD".
+// Sinal independente do vínculo de instrumento (que não vem na listagem geral).
+function ehProjetoPtd(nome: string | null | undefined): boolean {
+  return /^ptd\b/.test(semAcento(nome));
 }
 
 const statusLabels: Record<string, string> = {
@@ -253,17 +265,25 @@ export function EscritorioProjetos() {
         }
 
         // Exceção: remover projetos do "Plano de Transformação Digital". A listagem geral
-        // não traz o vínculo de instrumento, então buscamos os IDs desse plano e excluímos.
+        // não traz o vínculo de instrumento — usamos dois sinais: (1) nome iniciando com
+        // "PTD" e (2) IDs do plano oculto (quando o instrumento é identificável).
+        let idsOcultos = new Set<number>();
         const planoOculto = instrumentos.find((i) => ehPlanoOculto(i.nome));
         if (planoOculto) {
-          const ocultos =
-            await cadastrosProjetosApi.getProjetosByInstrumentoId(
-              planoOculto.id,
-              dirFiltro,
-            );
-          const idsOcultos = new Set(ocultos.map((o) => o.id));
-          projs = projs.filter((p) => !idsOcultos.has(p.id));
+          try {
+            const ocultos =
+              await cadastrosProjetosApi.getProjetosByInstrumentoId(
+                planoOculto.id,
+                dirFiltro,
+              );
+            idsOcultos = new Set(ocultos.map((o) => o.id));
+          } catch {
+            /* mantém apenas o filtro por nome */
+          }
         }
+        projs = projs.filter(
+          (p) => !ehProjetoPtd(p.nome) && !idsOcultos.has(p.id),
+        );
 
         setProjetos(projs.filter((p) => p.ativo !== false));
       } catch (err) {
