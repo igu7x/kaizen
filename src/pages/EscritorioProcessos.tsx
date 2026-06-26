@@ -713,14 +713,24 @@ export default function EscritorioProcessos() {
   // ============================================================
   const tabelaProcessos = useMemo(() => {
     const q = buscaProcesso.trim().toLowerCase();
-    if (!q) return filtered;
-    return filtered.filter((p) => {
-      const area = (p.areas_responsaveis || []).join(" ");
-      return (
-        (p.nome_processo || "").toLowerCase().includes(q) ||
-        (p.macroprocesso || "").toLowerCase().includes(q) ||
-        area.toLowerCase().includes(q)
-      );
+    const base = q
+      ? filtered.filter((p) => {
+          const area = (p.areas_responsaveis || []).join(" ");
+          return (
+            (p.nome_processo || "").toLowerCase().includes(q) ||
+            (p.macroprocesso || "").toLowerCase().includes(q) ||
+            area.toLowerCase().includes(q)
+          );
+        })
+      : filtered;
+    // Ordena por Próxima Revisão crescente (menor → maior); sem data vai pro fim.
+    return [...base].sort((a, b) => {
+      const da = proximaRevisao(a);
+      const db = proximaRevisao(b);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.getTime() - db.getTime();
     });
   }, [filtered, buscaProcesso]);
 
