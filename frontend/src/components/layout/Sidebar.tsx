@@ -407,6 +407,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     : "Monitoramento de OKRs",
               };
             }
+            if (child.path === "/gestao-estrategica/execucao") {
+              return {
+                ...child,
+                title:
+                  modelo === "metas"
+                    ? "Monitoramento de Iniciativas"
+                    : "Escritório de Projetos",
+              };
+            }
             return child;
           }),
         };
