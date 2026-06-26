@@ -334,7 +334,7 @@ export function ProcessoFormDialog({
                   htmlFor="periodo"
                   className="text-xs font-semibold text-slate-700"
                 >
-                  Período
+                  Data da Versão
                 </Label>
                 <Input
                   id="periodo"
@@ -346,38 +346,6 @@ export function ProcessoFormDialog({
                 <p className="text-xs text-slate-500 mt-1">
                   No PDF será exibido apenas o mês e o ano.
                 </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label
-                    htmlFor="revisao"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Revisão
-                  </Label>
-                  <Input
-                    id="revisao"
-                    value={form.revisao || ""}
-                    onChange={(e) => update("revisao", e.target.value)}
-                    placeholder="Ex.: 007"
-                    className="mt-1 bg-white"
-                  />
-                </div>
-                <div>
-                  <Label
-                    htmlFor="codigo_versao"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Código/Versão
-                  </Label>
-                  <Input
-                    id="codigo_versao"
-                    value={form.codigo_versao || ""}
-                    onChange={(e) => update("codigo_versao", e.target.value)}
-                    placeholder="Ex.: NSI-005"
-                    className="mt-1 bg-white"
-                  />
-                </div>
               </div>
             </div>
           </Section>
@@ -607,7 +575,7 @@ export function ProcessoFormDialog({
                     </span>
                   ) : (
                     <span className="italic text-slate-400">
-                      Defina o "Período" na Identificação
+                      Defina a "Data da Versão" na Identificação
                     </span>
                   )}
                 </div>
