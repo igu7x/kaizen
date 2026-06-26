@@ -34,6 +34,7 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   COMITES_APROVACAO,
+  camposObrigatoriosFaltantes,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { ListInput } from "./ListInput";
@@ -212,6 +213,15 @@ export function ProcessoFormDialog({
     if (err) {
       toast.error(err);
       return;
+    }
+    if (enviarApos) {
+      const faltam = camposObrigatoriosFaltantes(form);
+      if (faltam.length > 0) {
+        toast.error(
+          `Para enviar à validação, preencha os campos: ${faltam.join(", ")}.`,
+        );
+        return;
+      }
     }
     setSaving(true);
     try {
