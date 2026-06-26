@@ -746,7 +746,9 @@ export default function OkrsMetas() {
               <TableRow>
                 <TableHead>Título / Descrição</TableHead>
                 <TableHead className="w-32 text-center">Status</TableHead>
-                <TableHead className="w-32 text-center">Situação</TableHead>
+                <TableHead className="w-40 text-center">
+                  Área Responsável
+                </TableHead>
                 <TableHead className="w-32 text-center">Prazo</TableHead>
                 <TableHead className="w-20">Ações</TableHead>
               </TableRow>
@@ -770,12 +772,8 @@ export default function OkrsMetas() {
                         "Não Iniciado"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Badge
-                      className={`text-xs ${meta.situacao === "FINALIZADO" ? "bg-green-500 text-white" : meta.situacao === "EM_ATRASO" ? "bg-red-500 text-white" : "bg-blue-500 text-white"}`}
-                    >
-                      {SITUATION_LABELS[meta.situacao] || "No Prazo"}
-                    </Badge>
+                  <TableCell className="text-center text-sm text-gray-700">
+                    {meta.areaNome || meta.areaSigla || "-"}
                   </TableCell>
                   <TableCell className="text-center text-sm text-gray-600">
                     {meta.prazo || "-"}
