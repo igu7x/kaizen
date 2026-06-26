@@ -189,7 +189,9 @@ export function ProcessoFormDialog({
         periodicidade_revisao: processo.periodicidade_revisao || "",
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
-        versao: processo.versao || "",
+        versao: processo.versao
+          ? String(parseInt(String(processo.versao), 10) || "")
+          : "",
       });
       setApreciacaoSim((processo.apreciacao || []).length > 0);
     } else {
@@ -384,11 +386,12 @@ export function ProcessoFormDialog({
                   </Label>
                   <Input
                     id="versao"
-                    type="number"
-                    min={1}
-                    step={1}
+                    type="text"
+                    inputMode="numeric"
                     value={form.versao ?? ""}
-                    onChange={(e) => update("versao", e.target.value)}
+                    onChange={(e) =>
+                      update("versao", e.target.value.replace(/\D/g, ""))
+                    }
                     placeholder="Ex.: 9"
                     className="mt-1 bg-white"
                   />
