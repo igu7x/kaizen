@@ -132,6 +132,13 @@ function formatDateShort(d: string | null | undefined | Date) {
   return date.toLocaleDateString("pt-BR");
 }
 
+/** Formata a Data da Versão (periodo, "YYYY-MM-DD") como DD/MM/AAAA sem deslocar fuso. */
+function formatDataVersao(periodo: string | null | undefined) {
+  if (!periodo) return "—";
+  const m = periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : periodo;
+}
+
 // ============================================================
 // HOOK DE ANIMAÇÃO — sweep horário + fade + scale (mesmo padrão usado em GraficoRosca).
 // O `key` permite reanimar quando os dados mudam (re-render do filtro).
@@ -1018,7 +1025,7 @@ export default function EscritorioProcessos() {
                         Modelo Vigente
                       </th>
                       <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Última Atualização
+                        Data da Versão
                       </th>
                       <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Próxima Revisão
@@ -1066,7 +1073,7 @@ export default function EscritorioProcessos() {
                             )}
                           </td>
                           <td className="px-5 py-3 text-slate-700 tabular-nums">
-                            {formatDateShort(p.updated_at)}
+                            {formatDataVersao(p.periodo)}
                           </td>
                           <td
                             className={`px-5 py-3 tabular-nums font-medium ${overdue ? "text-red-600" : "text-slate-700"}`}
