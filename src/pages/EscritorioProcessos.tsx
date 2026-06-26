@@ -36,6 +36,8 @@ import {
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
+import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
+import { areasApi, Area } from "@/services/areasApi";
 import { toast } from "sonner";
 import {
   PieChart,
@@ -544,6 +546,8 @@ export default function EscritorioProcessos() {
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [selecionado, setSelecionado] = useState<ProcessoNegocio | null>(null);
   const [detalheLoading, setDetalheLoading] = useState(false);
+  // Áreas (sigla → nome) para o rodapé do PDF do Modelo K1.
+  const [areas, setAreas] = useState<Area[]>([]);
 
   const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
@@ -563,6 +567,12 @@ export default function EscritorioProcessos() {
 
   useEffect(() => {
     carregar();
+    areasApi
+      .getAll()
+      .then(setAreas)
+      .catch(() => {
+        /* sem áreas, o PDF cai para a sigla da diretoria */
+      });
   }, []);
 
   useEffect(() => {
@@ -787,6 +797,29 @@ export default function EscritorioProcessos() {
     } catch {
       win?.close();
       toast.error("Não foi possível abrir o documento primário.");
+    }
+  };
+
+  // Abre o PDF institucional gerado do processo (Modelo K1) diretamente, sem abrir o detalhe.
+  // A listagem não traz os bytes (fluxograma/anexos), então busca o processo completo antes.
+  const handleAbrirModeloK1 = async (
+    e: React.MouseEvent,
+    p: ProcessoNegocio,
+  ) => {
+    e.stopPropagation();
+    // Abre a janela já no gesto do clique (evita bloqueio de popup); o PDF navega nela.
+    const win = window.open("", "_blank");
+    try {
+      const full = await processosNegocioApi.getById(p.id);
+      const area = areas.find(
+        (a) =>
+          a.sigla?.trim().toUpperCase() ===
+          full.diretoria?.trim().toUpperCase(),
+      );
+      generateProcessoNegocioPDF(full, area?.nome || full.diretoria || "", win);
+    } catch {
+      win?.close();
+      toast.error("Não foi possível abrir o PDF do processo.");
     }
   };
 
@@ -1102,9 +1135,14 @@ export default function EscritorioProcessos() {
                           </td>
                           <td className="px-5 py-3 text-center">
                             {k1 ? (
-                              <span className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200">
+                              <button
+                                type="button"
+                                onClick={(e) => handleAbrirModeloK1(e, p)}
+                                title="Abrir PDF do processo (Modelo K1)"
+                                className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors"
+                              >
                                 Modelo K1
-                              </span>
+                              </button>
                             ) : docPri ? (
                               <button
                                 type="button"
