@@ -1119,8 +1119,16 @@ export default function EscritorioProcessos() {
                       return (
                         <tr
                           key={p.id}
-                          onClick={() => handleAbrirDetalhe(p)}
-                          className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                          onClick={
+                            aba === "vigentes"
+                              ? undefined
+                              : () => handleAbrirDetalhe(p)
+                          }
+                          className={`transition-colors ${
+                            aba === "vigentes"
+                              ? ""
+                              : "hover:bg-blue-50/50 cursor-pointer"
+                          }`}
                         >
                           <td className="px-5 py-3 text-center text-slate-600 tabular-nums whitespace-nowrap">
                             {p.codigo || "—"}
@@ -1168,7 +1176,9 @@ export default function EscritorioProcessos() {
                             {nextRev ? formatDateShort(nextRev) : "—"}
                           </td>
                           <td className="px-2 py-3 text-slate-400">
-                            <ChevronRight className="h-4 w-4" />
+                            {aba !== "vigentes" && (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
                           </td>
                         </tr>
                       );
