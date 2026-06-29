@@ -92,9 +92,9 @@ const PERIODO_BUCKETS = [
 type PeriodoBucket = (typeof PERIODO_BUCKETS)[number];
 const PERIODO_COLORS: Record<PeriodoBucket, string> = {
   Vencidos: "#ef4444",
-  "Até 90 dias": "#10b981",
+  "Até 90 dias": "#fbbf24",
   "91 – 180 dias": "#7c3aed",
-  "+ de 180 dias": "#f59e0b",
+  "+ de 180 dias": "#10b981",
 };
 
 // ============================================================
