@@ -3,7 +3,7 @@
  * Exibe agenda, reuniões, quadro de controle e informações do comitê
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -182,6 +182,22 @@ export default function ComiteMonitoramento() {
       loadPauta(reuniaoAtiva.id);
     }
   }, [reuniaoAtiva?.id, comite?.id]);
+
+  // Número da reunião exibido = posição cronológica (por data) dentro do ano filtrado.
+  // Assim a numeração acompanha a data, independente do `numero` manualmente cadastrado
+  // (ex.: uma extraordinária criada depois fica na posição certa da sequência).
+  const numeroCronologicoPorId = useMemo(() => {
+    const ordenadas = [...reunioes].sort(
+      (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime(),
+    );
+    const map = new Map<number, number>();
+    ordenadas.forEach((r, i) => map.set(r.id, i + 1));
+    return map;
+  }, [reunioes]);
+
+  // Título da reunião usando o número cronológico (usado no cabeçalho e na ata).
+  const tituloReuniao = (r: ComiteReuniao): string =>
+    `Reunião ${numeroCronologicoPorId.get(r.id) ?? r.numero} - ${r.ano}`;
 
   const loadComite = async () => {
     try {
@@ -664,7 +680,9 @@ export default function ComiteMonitoramento() {
                       >
                         {/* Coluna: Reunião */}
                         <span className="text-xs font-medium whitespace-nowrap flex items-center gap-1">
-                          Reunião {reuniao.numero}
+                          Reunião{" "}
+                          {numeroCronologicoPorId.get(reuniao.id) ??
+                            reuniao.numero}
                           {reuniao.tipo_reuniao === "Extraordinária" && (
                             <span className="bg-orange-500 text-white text-[9px] font-bold px-1 py-0.5 rounded leading-none">
                               EXT
@@ -820,8 +838,7 @@ export default function ComiteMonitoramento() {
                       <div className="flex items-start justify-between">
                         <div>
                           <h2 className="text-xl font-bold text-[#1565C0]">
-                            {reuniaoAtiva.titulo ||
-                              `Reunião ${reuniaoAtiva.numero} - ${reuniaoAtiva.ano}`}
+                            {tituloReuniao(reuniaoAtiva)}
                           </h2>
                           <p className="text-slate-600">
                             Data da Reunião: {formatDate(reuniaoAtiva.data)}
@@ -851,9 +868,7 @@ export default function ComiteMonitoramento() {
                                 setDeleteConfirm({
                                   type: "reuniao",
                                   id: reuniaoAtiva.id,
-                                  title:
-                                    reuniaoAtiva.titulo ||
-                                    `Reunião ${reuniaoAtiva.numero} - ${reuniaoAtiva.ano}`,
+                                  title: tituloReuniao(reuniaoAtiva),
                                 })
                               }
                             >
