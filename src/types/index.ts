@@ -256,6 +256,7 @@ export interface PcaItem {
   updated_at: string;
   created_by: number | null;
   updated_by: number | null;
+  contract_ids?: string;
 
   // Novos campos do domínio Pca.java
   code?: string;

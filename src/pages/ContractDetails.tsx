@@ -220,7 +220,7 @@ export function ContractDetails() {
             </Button>
             <div className="flex flex-col gap-2">
               <div className="text-sm text-slate-500">
-                Início {'>'} Contratações de TI {'>'} <span className="cursor-pointer hover:underline" onClick={() => navigate('/contratos-ti')}>Contratos de TIC</span> {'>'} Detalhes
+                Início {'>'} Contratações de TIC {'>'} <span className="cursor-pointer hover:underline" onClick={() => navigate('/contratos-ti')}>Gestão Contratual</span> {'>'} Detalhes
               </div>
               <h1 className="text-2xl font-bold tracking-tight line-clamp-3" title={contract.objectName || 'Detalhes do Contrato'}>
                 {contract.objectName || 'Detalhes do Contrato'}

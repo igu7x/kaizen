@@ -40,10 +40,12 @@ function getUserHeaders(): Record<string, string> {
 export async function getPcaItems(
   ano?: number,
   diretoria?: string,
+  versionNumber?: number,
 ): Promise<PcaItem[]> {
   const params = new URLSearchParams();
   if (ano) params.set("ano", String(ano));
   if (diretoria) params.set("diretoria", diretoria);
+  if (versionNumber) params.set("versionNumber", String(versionNumber));
   const url = `/api/pca-items${params.toString() ? "?" + params.toString() : ""}`;
   return apiClient.get<PcaItem[]>(url, {
     headers: getUserHeaders(),
@@ -72,10 +74,12 @@ export async function getPcaItemById(id: number): Promise<PcaItem | null> {
 export async function getPcaStats(
   ano?: number,
   diretoria?: string,
+  versionNumber?: number,
 ): Promise<PcaStats> {
   const params = new URLSearchParams();
   if (ano) params.set("ano", String(ano));
   if (diretoria) params.set("diretoria", diretoria);
+  if (versionNumber) params.set("versionNumber", String(versionNumber));
   const url = `/api/pca-items/stats${params.toString() ? "?" + params.toString() : ""}`;
   return apiClient.get<PcaStats>(url, {
     headers: getUserHeaders(),
@@ -87,6 +91,24 @@ export async function getPcaStats(
  */
 export async function getPcaFilters(): Promise<PcaFilters> {
   return apiClient.get<PcaFilters>("/api/pca-items/filters", {
+    headers: getUserHeaders(),
+  });
+}
+
+/**
+ * Buscar versões de um PCA
+ */
+export async function getPcaVersions(ano: number): Promise<number[]> {
+  return apiClient.get<number[]>(`/api/pca-items/versions?ano=${ano}`, {
+    headers: getUserHeaders(),
+  });
+}
+
+/**
+ * Criar snapshot (versão histórica) de um ano PCA
+ */
+export async function createPcaSnapshot(ano: number): Promise<void> {
+  return apiClient.post<void>("/api/pca-items/snapshots", { ano }, {
     headers: getUserHeaders(),
   });
 }
@@ -199,6 +221,8 @@ export const pcaApi = {
   // Estatísticas e Filtros
   getPcaStats,
   getPcaFilters,
+  getPcaVersions,
+  createPcaSnapshot,
 
   // Helpers
   formatCurrency,

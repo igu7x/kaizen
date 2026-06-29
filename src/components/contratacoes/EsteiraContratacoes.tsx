@@ -133,7 +133,7 @@ export function normalizeResourceType(val?: string) {
   return val;
 }
 
-export const STEP_COLORS: Record<string, string> = {
+const STEP_COLORS: Record<string, string> = {
   "Não Iniciada": "#9CA3AF",
   "Planejamento da Contratação": "#2563EB",
   "Seleção de Fornecedor": "#F59E0B",
@@ -159,17 +159,22 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [selectedVersion, setSelectedVersion] = useState<number | undefined>(undefined);
+  const [versionsList, setVersionsList] = useState<number[]>([]);
+
   // Estados de filtros ativos
   const [searchTerm, setSearchTerm] = useState("");
   const [filterArea, setFilterArea] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterTipo, setFilterTipo] = useState<string>("all");
   const [filterMes, setFilterMes] = useState<string>("all");
+  const [filterFase, setFilterFase] = useState<string>("all");
 
   // Estados dos modais
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isCreateVersionDialogOpen, setIsCreateVersionDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PcaItem | null>(null);
 
   // Estados do formulário
@@ -202,8 +207,14 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   const [areaSearch, setAreaSearch] = useState("");
   const [areaDropdownOpen, setAreaDropdownOpen] = useState(false);
 
-  // Verificar se usuário pode editar (MANAGER ou ADMIN)
-  const canEdit = user?.role === "MANAGER" || user?.role === "ADMIN";
+  // Apenas Superadmin pode editar/criar e somente na versão Atual
+  const isSuperAdmin = (user as any)?.is_superadmin === true;
+  const canEdit = isSuperAdmin && selectedVersion === undefined;
+
+  // Resetar versao ao mudar ano
+  useEffect(() => {
+    setSelectedVersion(undefined);
+  }, [anoSelecionado]);
 
   // Carregar dados ao montar ou mudar o ano
   useEffect(() => {
@@ -216,7 +227,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       .getAll(selectedDirectorate || undefined)
       .then(setPessoasList)
       .catch(() => { });
-  }, [anoSelecionado, selectedDirectorate]);
+  }, [anoSelecionado, selectedDirectorate, selectedVersion]);
 
   // Carregar unidades dependendo da diretoria selecionada no formulário
   useEffect(() => {
@@ -250,14 +261,16 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
         }
       }
 
-      const [itemsData, statsData, filtersData] = await Promise.all([
-        pcaApi.getPcaItems(anoSelecionado, selectedDirectorate || undefined),
-        pcaApi.getPcaStats(anoSelecionado, selectedDirectorate || undefined),
+      const [itemsData, statsData, filtersData, versionsData] = await Promise.all([
+        pcaApi.getPcaItems(anoSelecionado, selectedDirectorate || undefined, selectedVersion),
+        pcaApi.getPcaStats(anoSelecionado, selectedDirectorate || undefined, selectedVersion),
         pcaApi.getPcaFilters(),
+        pcaApi.getPcaVersions(anoSelecionado)
       ]);
       setItems(itemsData);
       setStats(statsData);
       setFilters(filtersData);
+      setVersionsList(versionsData);
     } catch (error) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
@@ -284,6 +297,11 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
         return false;
       if (filterMes !== "all" && item.data_estimada_contratacao !== filterMes)
         return false;
+
+      const itemFase = normalizeStep(item.step) || "Não Iniciada";
+      if (filterFase !== "all" && itemFase !== filterFase)
+        return false;
+
       return true;
     });
   }, [
@@ -293,6 +311,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     filterStatus,
     filterTipo,
     filterMes,
+    filterFase,
   ]);
 
   // --- Gráficos Data Calculations ---
@@ -390,6 +409,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
     setFilterTipo("all");
     setFilterMes("all");
+    setFilterFase("all");
   }
 
   // Validar formulário
@@ -457,6 +477,28 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       maximumFractionDigits: 2,
     });
   };
+
+  async function handleCreateSnapshot() {
+    try {
+      setSaving(true);
+      await pcaApi.createPcaSnapshot(anoSelecionado);
+      toast({
+        title: "Versão gerada",
+        description: "A versão histórica foi gerada com sucesso.",
+        duration: 3000,
+      });
+      loadData();
+      setIsCreateVersionDialogOpen(false);
+    } catch (e) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar a versão.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Abrir modal de adicionar
   function openAddModal() {
@@ -690,8 +732,17 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
   // Renderizar status badge
   function renderStatusBadge(status: PcaStatus) {
-    return <Badge className={getStatusBadgeClass(status)}>{status}</Badge>;
+    if (status === "Concluída") return null;
+    const label = status === "Em andamento" ? "Demanda em Andamento" : status;
+    return (
+      <Badge 
+        className={`${getStatusBadgeClass(status)} text-center text-[10px] leading-tight px-1 py-0.5 whitespace-normal break-words max-w-full`}
+      >
+        {label}
+      </Badge>
+    );
   }
+
 
   if (loading) {
     return (
@@ -722,8 +773,36 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               <SelectItem value="2027">2027</SelectItem>
             </SelectContent>
           </Select>
+
+          <Select
+            value={selectedVersion ? String(selectedVersion) : "atual"}
+            onValueChange={(v) => setSelectedVersion(v === "atual" ? undefined : parseInt(v))}
+          >
+            <SelectTrigger className="w-[180px] h-9 font-medium text-sm bg-white text-gray-700 border-gray-300">
+              <SelectValue placeholder="Versão" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="atual">Versão {versionsList.length > 0 ? Math.max(...versionsList) + 1 : 1}</SelectItem>
+              {versionsList.map(v => (
+                <SelectItem key={v} value={String(v)}>Versão {v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {canEdit && selectedVersion === undefined && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCreateVersionDialogOpen(true)}
+              disabled={saving}
+              className="text-gray-600 h-9"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Gerar Nova Versão
+            </Button>
+          )}
         </div>
-        {canEdit && (
+        {canEdit && selectedVersion === undefined && (
           <Button
             onClick={openAddModal}
             className="bg-green-600 hover:bg-green-700"
@@ -841,7 +920,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     formatter={(value: number) => formatCurrency(value)}
                     cursor={{ fill: 'transparent' }}
                   />
-                  <Bar dataKey="valor" radius={[0, 4, 4, 0]} barSize={24}>
+                  <Bar dataKey="valor" radius={[0, 4, 4, 0]} barSize={31}>
                     <LabelList
                       dataKey="valor"
                       position="right"
@@ -884,7 +963,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     formatter={(value: number) => formatCurrency(value)}
                     cursor={{ fill: 'transparent' }}
                   />
-                  <Bar dataKey="estimado" name="Soma de Valor Total (R$)" fill="#2563EB" radius={[0, 4, 4, 0]} barSize={16}>
+                  <Bar dataKey="estimado" name="Soma de Valor Total (R$)" fill="#2563EB" radius={[0, 4, 4, 0]} barSize={21}>
                     <LabelList
                       dataKey="estimado"
                       position="right"
@@ -892,7 +971,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                       style={{ fontSize: '9px', fontWeight: 500, fill: '#374151' }}
                     />
                   </Bar>
-                  <Bar dataKey="formalizado" name="Soma de Valor Ano Referência (R$)" fill="#16A34A" radius={[0, 4, 4, 0]} barSize={16}>
+                  <Bar dataKey="formalizado" name="Soma de Valor Ano Referência (R$)" fill="#16A34A" radius={[0, 4, 4, 0]} barSize={21}>
                     <LabelList
                       dataKey="formalizado"
                       position="right"
@@ -973,7 +1052,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     data={chartDataFaseAtual}
                     cx="35%"
                     cy="50%"
-                    innerRadius={35}
+                    innerRadius={25}
                     outerRadius={55}
                     paddingAngle={2}
                     dataKey="value"
@@ -1043,11 +1122,11 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   ))}
                 </SelectContent>
               </Select>
-              <span className="w-32 text-center">Valor Estimado</span>
+              <span className="w-32 text-center">Valor Global</span>
               <span className="w-32 text-center">Valor Ano Ref.</span>
               <Select value={filterMes} onValueChange={setFilterMes}>
                 <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                  <span>Prazo Estimado</span>
+                  <span>Prazo</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
@@ -1058,21 +1137,33 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   ))}
                 </SelectContent>
               </Select>
-              <span className="w-40 text-center">Fase Atual</span>
+              <Select value={filterFase} onValueChange={setFilterFase}>
+                <SelectTrigger className="w-40 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                  <span>Fase Atual</span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
+                  <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
+                  <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
+                  <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
+                  <SelectItem value="Concluído">Concluído</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-28 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                  <span>Status</span>
+                  <span>Situação</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {filters?.statusOptions.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {status}
+                      {status === "Em andamento" ? "Demanda em Andamento" : status}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <span className="w-20 text-center">Ações</span>
+              {canEdit && <span className="w-20 text-center">Ações</span>}
               <span className="w-8"></span>
             </div>
           </div>
@@ -1167,10 +1258,10 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     </span>
                   </div>
 
-                  {/* Prazo Estimado */}
+                  {/* Prazo */}
                   <div className="w-32 text-center">
                     <span className="text-sm text-gray-700 font-bold">
-                      {formatMesAno(item.data_estimada_contratacao)}
+                      {item.data_estimada_contratacao}
                     </span>
                   </div>
 
@@ -1192,36 +1283,51 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   </div>
 
                   {/* Status */}
-                  <div className="w-28 flex justify-center">
+                  <div className="w-28 flex flex-col justify-center items-center gap-1">
                     {renderStatusBadge(item.status)}
+                    {item.contract_ids && item.contract_ids.split(',').map(idStr => {
+                      const id = idStr.trim();
+                      if (!id) return null;
+                      return (
+                        <Badge
+                          key={id}
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/contratos-ti/${id}`);
+                          }}
+                          className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
+                        >
+                          CT: {id}
+                        </Badge>
+                      );
+                    })}
                   </div>
 
                   {/* Ações */}
-                  <div
-                    className="w-20 flex justify-center gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {canEdit && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-blue-600"
-                          onClick={() => openEditModal(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
-                          onClick={() => openDeleteDialog(item)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                  {canEdit && (
+                    <div
+                      className="w-20 flex justify-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-gray-400 hover:text-blue-600"
+                        onClick={() => openEditModal(item)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
+                        onClick={() => openDeleteDialog(item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Chevron */}
                   <div className="w-8 flex justify-center">
@@ -1231,7 +1337,30 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
                 {/* Mobile: info resumida + chevron */}
                 <div className="flex lg:hidden items-center gap-2">
-                  {renderStatusBadge(item.status)}
+                  <div className="flex flex-col items-end gap-1">
+                    {renderStatusBadge(item.status)}
+                    {item.contract_ids && (
+                      <div className="flex gap-1">
+                        {item.contract_ids.split(',').map(idStr => {
+                          const id = idStr.trim();
+                          if (!id) return null;
+                          return (
+                            <Badge
+                              key={id}
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/contratos-ti/${id}`);
+                              }}
+                              className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
+                            >
+                              CT: {id}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-slate-600" />
                 </div>
               </div>
@@ -1543,8 +1672,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                    <SelectItem value="Em andamento">Em andamento</SelectItem>
-                    <SelectItem value="Concluída">Concluída</SelectItem>
+                    <SelectItem value="Em andamento">Demanda em Andamento</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1869,8 +1997,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                    <SelectItem value="Em andamento">Em andamento</SelectItem>
-                    <SelectItem value="Concluída">Concluída</SelectItem>
+                    <SelectItem value="Em andamento">Demanda em Andamento</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1921,6 +2048,35 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             >
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de Confirmação de Nova Versão */}
+      <AlertDialog
+        open={isCreateVersionDialogOpen}
+        onOpenChange={setIsCreateVersionDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FolderKanban className="h-5 w-5 text-blue-600" />
+              Confirmar Nova Versão
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja gerar nova versão do PCA {anoSelecionado}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCreateSnapshot}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
