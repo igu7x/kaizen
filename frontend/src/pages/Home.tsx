@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Loader2,
   CheckCircle2,
@@ -52,6 +53,11 @@ const PENDENCIA_NUM: Record<string, string> = {
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Seletor de diretoria visível apenas para SGJT (diretoria raiz) e superadmins.
+  const podeSelecionarDiretoria =
+    (user as { is_superadmin?: boolean } | null)?.is_superadmin === true ||
+    user?.diretoria === "SGJT";
   const [resumo, setResumo] = useState<HomeResumo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -159,10 +165,13 @@ export default function Home() {
           }
         `}</style>
 
-        {/* Seletor de diretoria — fixo no canto superior direito (não empurra o banner) */}
-        <div className="absolute -right-2 -top-3 z-20 lg:-right-4 lg:-top-4 xl:-right-6 2xl:-right-8">
-          <DirectorateSelector />
-        </div>
+        {/* Seletor de diretoria — fixo no canto superior direito (não empurra o banner).
+            Visível apenas para SGJT e superadmins. */}
+        {podeSelecionarDiretoria && (
+          <div className="absolute -right-2 -top-3 z-20 lg:-right-4 lg:-top-4 xl:-right-6 2xl:-right-8">
+            <DirectorateSelector />
+          </div>
+        )}
 
         <div className="relative p-6 lg:p-10 max-w-7xl mx-auto space-y-10">
           {/* HERO */}
