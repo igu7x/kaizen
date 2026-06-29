@@ -56,6 +56,18 @@ public class PcaService {
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
+            "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "cadastro_unidades_diretoria.nome as diretoria_nome, " +
+            "cadastro_unidades_area.nome as area_demandante_nome, ";
+
+    private static final String SELECT_COLUMNS_SNAPSHOT =
+            "SELECT p.original_pca_id as id, p.code as item_pca, " +
+            "CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
+            "p.directory_acronym as area_demandante, p.object_name as objeto, " +
+            "p.estimated_value_cents / 100.0 as valor_estimado, " +
+            "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
+            "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
+            "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
             "cadastro_unidades_diretoria.nome as diretoria_nome, " +
             "cadastro_unidades_area.nome as area_demandante_nome, ";
 
@@ -74,14 +86,19 @@ public class PcaService {
         return monthName;
     }
 
-    public List<Map<String, Object>> findAll(Integer ano, Long diretoriaId) {
+    public List<Map<String, Object>> findAll(Integer ano, Long diretoriaId, Integer versionNumber) {
+        String fromTable = versionNumber != null ? "FROM pcas_snapshots p " : "FROM pcas p ";
+        String columns = versionNumber != null ? SELECT_COLUMNS_SNAPSHOT : SELECT_COLUMNS;
+        
         StringBuilder sql = new StringBuilder(
-                SELECT_COLUMNS +
+                columns +
                         MONTH_CASE_SQL + " as data_estimada_contratacao, " +
                         "CASE p.status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
                         "p.priority, p.process, p.description, p.justification, p.financial_resource_type, p.step, " +
                         "CAST(p.year AS INTEGER) as ano, p.is_deleted, p.created_at, p.updated_at " +
-                        FROM_JOINS +
+                        fromTable +
+                        "LEFT JOIN cadastros_unidades cadastro_unidades_diretoria ON cadastro_unidades_diretoria.id = p.id_diretoria " +
+                        "LEFT JOIN cadastros_unidades cadastro_unidades_area ON cadastro_unidades_area.id = p.id_area_demandante " +
                         "WHERE (p.is_deleted = FALSE OR p.is_deleted IS NULL)");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
@@ -91,6 +108,10 @@ public class PcaService {
         if (diretoriaId != null) {
             sql.append(" AND p.id_cadastros_areas = ?");
             params.add(diretoriaId);
+        }
+        if (versionNumber != null) {
+            sql.append(" AND p.snapshot_version = ?");
+            params.add(versionNumber);
         }
         sql.append(ORDER_BY_NUMERO);
         return jdbc.queryForList(sql.toString(), params.toArray());
@@ -312,13 +333,14 @@ public class PcaService {
         return true;
     }
 
-    public Map<String, Object> getStats(Integer ano, Long diretoriaId) {
+    public Map<String, Object> getStats(Integer ano, Long diretoriaId, Integer versionNumber) {
+        String fromTable = versionNumber != null ? "FROM pcas_snapshots p " : "FROM pcas p ";
         StringBuilder sql = new StringBuilder(
                 "SELECT COUNT(*) as total, COALESCE(SUM(estimated_value_cents), 0) as valor_total_cents, " +
                         "COUNT(CASE WHEN status = 'CONCLUIDA' THEN 1 END) as concluidos, " +
                         "COUNT(CASE WHEN status = 'EM_ANDAMENTO' THEN 1 END) as em_andamento, " +
                         "COUNT(CASE WHEN status = 'NAO_INICIADA' THEN 1 END) as nao_iniciados " +
-                        "FROM pcas p WHERE p.is_deleted = FALSE");
+                        fromTable + "WHERE (p.is_deleted = FALSE OR p.is_deleted IS NULL)");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
             sql.append(" AND p.year = ?");
@@ -328,6 +350,10 @@ public class PcaService {
             sql.append(" AND p.id_cadastros_areas = ?");
             params.add(diretoriaId);
         }
+        if (versionNumber != null) {
+            sql.append(" AND p.snapshot_version = ?");
+            params.add(versionNumber);
+        }
         Map<String, Object> row = jdbc.queryForMap(sql.toString(), params.toArray());
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("total", toInt(row.get("total")));
@@ -336,6 +362,29 @@ public class PcaService {
         out.put("emAndamento", toInt(row.get("em_andamento")));
         out.put("naoIniciados", toInt(row.get("nao_iniciados")));
         return out;
+    }
+
+    public List<Integer> getAvailableVersions(Integer ano) {
+        return jdbc.queryForList("SELECT DISTINCT snapshot_version FROM pcas_snapshots WHERE year = ? ORDER BY snapshot_version DESC", Integer.class, String.valueOf(ano));
+    }
+
+    public void createSnapshot(Integer ano, Long userId) {
+        Integer maxVersion = jdbc.queryForObject("SELECT MAX(snapshot_version) FROM pcas_snapshots WHERE year = ?", Integer.class, String.valueOf(ano));
+        int nextVersion = maxVersion == null ? 1 : maxVersion + 1;
+        
+        String insertSql = "INSERT INTO pcas_snapshots (original_pca_id, snapshot_version, snapshot_created_by, " +
+                "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
+                "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
+                "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
+                "created_by, updated_by, deleted_at, deleted_by) " +
+                "SELECT id, ?, ?, " +
+                "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
+                "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
+                "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
+                "created_by, updated_by, deleted_at, deleted_by " +
+                "FROM pcas WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)";
+                
+        jdbc.update(insertSql, nextVersion, userId, String.valueOf(ano));
     }
 
     public List<String> getAreasDemandantes() {
