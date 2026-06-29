@@ -134,6 +134,23 @@ function formatDateShort(d: string | null | undefined | Date) {
   return date.toLocaleDateString("pt-BR");
 }
 
+/**
+ * Cor da faixa de status da lateral esquerda:
+ *  - vermelho: revisão vencida;
+ *  - amarelo: vence em até 90 dias OU ainda não é Modelo K1 (precisa de adequação);
+ *  - verde: já é Modelo K1 e vence em mais de 90 dias.
+ */
+function corFaixaStatus(p: ProcessoNegocio): string {
+  const next = proximaRevisao(p);
+  const now = Date.now();
+  if (next && next.getTime() < now) return "bg-red-500";
+  const dias = next
+    ? Math.ceil((next.getTime() - now) / (24 * 60 * 60 * 1000))
+    : null;
+  if ((dias != null && dias <= 90) || !isK1(p)) return "bg-amber-400";
+  return "bg-emerald-500";
+}
+
 /** Formata a Data da Versão (periodo, "YYYY-MM-DD") como DD/MM/AAAA sem deslocar fuso. */
 function formatDataVersao(periodo: string | null | undefined) {
   if (!periodo) return "—";
@@ -1083,6 +1100,7 @@ export default function EscritorioProcessos() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                     <tr>
+                      <th className="w-1.5 p-0"></th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         ID
                       </th>
@@ -1130,6 +1148,7 @@ export default function EscritorioProcessos() {
                               : "hover:bg-blue-50/50 cursor-pointer"
                           }`}
                         >
+                          <td className={`p-0 ${corFaixaStatus(p)}`}></td>
                           <td className="px-5 py-3 text-center text-slate-600 tabular-nums whitespace-nowrap">
                             {p.codigo || "—"}
                           </td>
