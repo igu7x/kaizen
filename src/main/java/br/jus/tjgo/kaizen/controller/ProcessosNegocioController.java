@@ -39,10 +39,21 @@ public class ProcessosNegocioController {
         return AuthContext.getCurrentUser().map(AuthenticatedUser::id).orElse(null);
     }
 
-    // GET /api/processos-negocio?diretoria=XYZ
+    // GET /api/processos-negocio?diretoria=XYZ — lista com escopo por papel
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(value = "diretoria", required = false) String diretoria) {
-        return service.findAll(diretoria);
+        var opt = AuthContext.getCurrentUser();
+        if (opt.isEmpty()) {
+            return List.of();
+        }
+        AuthenticatedUser u = opt.get();
+        // Gestor do Escritório (superadmin), Compliance Officer e SGJT enxergam tudo;
+        // os demais são restritos aos seus papéis (Responsável / Editor / Revisor).
+        boolean veTudo = u.isSuperadmin()
+                || isComplianceOfficer(u.email())
+                || "SGJT".equals(u.diretoria());
+        Long scopeUserId = veTudo ? null : u.id();
+        return service.findAll(diretoria, scopeUserId);
     }
 
     // GET /api/processos-negocio/:id
