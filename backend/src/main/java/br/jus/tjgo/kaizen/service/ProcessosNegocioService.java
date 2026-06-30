@@ -408,6 +408,44 @@ public class ProcessosNegocioService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * Atribui um editor (usuário com permissão de editar/salvar o conteúdo do processo). Idempotente:
+     * não duplica se o usuário já for editor. Retorna null se o usuário-editor não existir.
+     */
+    public Map<String, Object> addEditor(long id, long editorUserId, long byUserId) {
+        var urows = jdbc.queryForList(
+                "SELECT name, email FROM users WHERE id = ? AND is_deleted = FALSE", editorUserId);
+        if (urows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> u = urows.get(0);
+        Map<String, Object> editor = new java.util.LinkedHashMap<>();
+        editor.put("user_id", editorUserId);
+        editor.put("nome", u.get("name"));
+        editor.put("email", u.get("email"));
+        jdbc.update(
+                "UPDATE processos_negocio " +
+                        "SET editores = COALESCE(editores, '[]'::jsonb) || ?::jsonb, " +
+                        "    updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                        "WHERE id = ? AND is_deleted = FALSE " +
+                        "AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(editores, '[]'::jsonb)) e " +
+                        "  WHERE (e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?)",
+                toJson(editor), byUserId, id, editorUserId);
+        return findById(id);
+    }
+
+    /** Remove um editor do processo. */
+    public Map<String, Object> removeEditor(long id, long editorUserId, long byUserId) {
+        jdbc.update(
+                "UPDATE processos_negocio " +
+                        "SET editores = COALESCE((SELECT jsonb_agg(e) FROM jsonb_array_elements(COALESCE(editores, '[]'::jsonb)) e " +
+                        "  WHERE NOT ((e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?)), '[]'::jsonb), " +
+                        "  updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
+                        "WHERE id = ? AND is_deleted = FALSE",
+                editorUserId, byUserId, id);
+        return findById(id);
+    }
+
     public Map<String, Object> validarAutor(long id, long userId, String userName) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "UPDATE processos_negocio " +
