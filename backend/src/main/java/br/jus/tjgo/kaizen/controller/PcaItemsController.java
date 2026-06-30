@@ -83,14 +83,32 @@ public class PcaItemsController {
 
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(value = "ano", required = false) Integer ano,
-            @RequestParam(value = "diretoriaId", required = false) Long diretoriaId) {
-        return pcaService.findAll(ano, diretoriaId);
+            @RequestParam(value = "diretoriaId", required = false) Long diretoriaId,
+            @RequestParam(value = "versionNumber", required = false) Integer versionNumber) {
+        return pcaService.findAll(ano, diretoriaId, versionNumber);
     }
 
     @GetMapping("/stats")
     public Map<String, Object> stats(@RequestParam(value = "ano", required = false) Integer ano,
-            @RequestParam(value = "diretoriaId", required = false) Long diretoriaId) {
-        return pcaService.getStats(ano, diretoriaId);
+            @RequestParam(value = "diretoriaId", required = false) Long diretoriaId,
+            @RequestParam(value = "versionNumber", required = false) Integer versionNumber) {
+        return pcaService.getStats(ano, diretoriaId, versionNumber);
+    }
+
+    @GetMapping("/versions")
+    public List<Integer> versions(@RequestParam(value = "ano", required = true) Integer ano) {
+        return pcaService.getAvailableVersions(ano);
+    }
+
+    @PostMapping("/snapshots")
+    public ResponseEntity<?> createSnapshot(HttpServletRequest req, @RequestBody Map<String, Object> body) {
+        requireGestorOrAdmin(req, body);
+        Integer ano = parseIntJs(body.get("ano"));
+        if (ano == null) {
+            return ResponseEntity.status(400).body(err("Ano é obrigatório para gerar snapshot"));
+        }
+        pcaService.createSnapshot(ano, userId(req, body));
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Snapshot criado com sucesso"));
     }
 
     @GetMapping("/filters")
@@ -112,7 +130,7 @@ public class PcaItemsController {
             // segue
         }
         Map<String, Object> byItemPca = pcaService.findByItemPca(id);
-        Map<String, Object> stats = pcaService.getStats(null, null);
+        Map<String, Object> stats = pcaService.getStats(null, null, null);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("debug", true);
         out.put("id_buscado", id);
