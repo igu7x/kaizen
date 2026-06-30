@@ -55,18 +55,22 @@ public class ProcessosNegocioController {
         return ResponseEntity.ok(processo);
     }
 
-    // POST /api/processos-negocio (ADMIN, MANAGER)
-    @Operation(summary = "Criar processo (rascunho)", description = "Cria com status 'em_elaboracao', versão 1.0, ciclos 0. Exige papel ADMIN ou MANAGER.")
+    // POST /api/processos-negocio — só o Gestor do Escritório de Processos (superadmin) cria do zero
+    @Operation(summary = "Criar processo (rascunho)", description = "Cria com status 'em_elaboracao', versão 1.0, ciclos 0. Apenas o Gestor do Escritório de Processos (users.is_superadmin) pode criar do zero.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Criado"),
+            @ApiResponse(responseCode = "403", description = "Não é Gestor do Escritório (superadmin)"),
             @ApiResponse(responseCode = "413", description = "Fluxograma > 6MB ou documentos > 20MB")
     })
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
-        AuthContext.requireRole(List.of("ADMIN", "MANAGER"));
         Long userId = getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        boolean isSuper = AuthContext.getCurrentUser().map(AuthenticatedUser::isSuperadmin).orElse(false);
+        if (!isSuper) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Gestor do Escritório de Processos pode criar um novo processo."));
         }
         try {
             Map<String, Object> created = service.create(body, userId);
@@ -431,9 +435,9 @@ public class ProcessosNegocioController {
     private static final String COMPLIANCE_OFFICER_EMAIL = "gmpdmaciel@tjgo.jus.br";
 
     /**
-     * Pode editar/salvar o conteúdo do processo: Gestor do Escritório (superadmin), ADMIN/MANAGER
-     * (compatibilidade), Compliance Officer, Responsável do Processo, Editor atribuído ou
-     * Revisor (gestor da diretoria cadastrada).
+     * Pode editar/salvar o conteúdo do processo — estritamente os 5 papéis do Escritório de
+     * Processos: Gestor do Escritório (superadmin), Compliance Officer, Responsável do Processo,
+     * Editor atribuído ou Revisor (gestor da diretoria cadastrada).
      */
     private boolean podeEditarProcesso(Map<String, Object> processo, long id) {
         var opt = AuthContext.getCurrentUser();
@@ -441,7 +445,7 @@ public class ProcessosNegocioController {
             return false;
         }
         AuthenticatedUser u = opt.get();
-        if (u.isSuperadmin() || "ADMIN".equals(u.role()) || "MANAGER".equals(u.role())) {
+        if (u.isSuperadmin()) {
             return true;
         }
         if (isComplianceOfficer(u.email())) {

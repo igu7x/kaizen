@@ -472,7 +472,6 @@ export function ProcessoDetalhe({
 
   if (!processo) return null;
 
-  const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isAuthor =
     user?.id != null && Number(user.id) === Number(processo.created_by);
   const isSuperadmin = (user as any)?.is_superadmin === true;
@@ -731,14 +730,13 @@ export function ProcessoDetalhe({
   const statusEmPreenchimento =
     processo.status === "em_elaboracao" || processo.status === "recusado";
   // Papéis que editam o conteúdo (e podem reabrir um processo vigente ao editar):
-  // Gestor do Escritório (superadmin), Revisor (gestor da diretoria), Responsável,
-  // Compliance Officer e ADMIN/MANAGER (compatibilidade).
+  // Gestor do Escritório (superadmin), Revisor (gestor da diretoria), Responsável e
+  // Compliance Officer. Editor atribuído é tratado à parte (não reabre vigente).
   const podePapelEditor =
     isSuperadmin ||
     isDiretorDaArea ||
     isResponsavel(processo, user?.id) ||
-    isComplianceOfficer ||
-    isAdminOrManager;
+    isComplianceOfficer;
   const podeEditar =
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
