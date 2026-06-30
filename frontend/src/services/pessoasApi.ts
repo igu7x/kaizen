@@ -42,6 +42,7 @@ export interface CreatePessoaDto {
   cargo_efetivo?: string;
   cargo_efetivo_classe?: string;
   linha_organograma?: number;
+  user_id?: number | null;
 }
 
 export interface UpdatePessoaDto {
@@ -57,6 +58,7 @@ export interface UpdatePessoaDto {
   cargo_efetivo_classe?: string;
   linha_organograma?: number;
   subordinacao_id?: number | null;
+  user_id?: number | null;
 }
 
 // ============================================================

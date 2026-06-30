@@ -41,13 +41,21 @@ import { isDomainRoot } from "@/utils/domain";
 import { isProduction } from "@/utils/environment";
 import { useEstrategiaModelo } from "@/contexts/EstrategiaModeloContext";
 
-interface SubMenuItem {
+interface SubSubMenuItem {
   title: string;
-  icon?: LucideIcon;
   path: string;
   permissaoCodigo?: string;
   stagingOnly?: boolean;
+}
+
+interface SubMenuItem {
+  title: string;
+  icon?: LucideIcon;
+  path?: string;
+  permissaoCodigo?: string;
+  stagingOnly?: boolean;
   superAdminOnly?: boolean;
+  children?: SubSubMenuItem[];
 }
 
 interface MenuItem {
@@ -107,7 +115,23 @@ const menuItemsCompleto: MenuItem[] = [
       {
         title: "Orçamento",
         icon: FilePlus,
-        path: "/contratacoes-ti/novas",
+        children: [
+          {
+            title: "PCA",
+            path: "/contratacoes-ti/novas",
+            permissaoCodigo: "contratacoes_novas",
+          },
+          {
+            title: "DFD",
+            path: "/dfd",
+            permissaoCodigo: "contratacoes_novas",
+          }
+        ]
+      },
+      {
+        title: "Planejamento da Contratação",
+        icon: FilePlus,
+        path: "/planejamento-contratacao",
         permissaoCodigo: "contratacoes_novas",
       },
       {
@@ -243,7 +267,13 @@ function MenuItemComponent({
 
   const isChildActive =
     hasChildren &&
-    filteredChildren?.some((child) => location.pathname === child.path);
+    filteredChildren?.some((child) => {
+      if (child.path && location.pathname === child.path) return true;
+      if (child.children) {
+        return child.children.some(sub => location.pathname === sub.path);
+      }
+      return false;
+    });
 
   // Verificar se a rota atual corresponde ao item ou começa com o path do item
   const isActive =
@@ -279,23 +309,67 @@ function MenuItemComponent({
         {!isMinimized && isExpanded && (
           <div className="bg-black/20">
             {filteredChildren?.map((child, idx) => {
-              const isSubActive = location.pathname === child.path;
+              const hasSubChildren = child.children && child.children.length > 0;
+              const isSubActive = child.path ? location.pathname === child.path : (hasSubChildren && child.children?.some(c => location.pathname === c.path));
               return (
-                <Link
-                  key={idx}
-                  to={child.path}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors",
-                    isSubActive &&
-                    "bg-white/15 text-white border-l-2 border-white ml-2",
+                <div key={idx}>
+                  {hasSubChildren ? (
+                    <button
+                      onClick={() => toggleMenu(child.title)}
+                      className={cn(
+                        "w-full flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors",
+                        isSubActive && "bg-white/15 text-white border-l-2 border-white ml-2",
+                      )}
+                    >
+                      {child.icon && (
+                        <child.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                      )}
+                      <span className="flex-1 text-left">{child.title}</span>
+                      {/* <ChevronDown
+                        className={cn(
+                          "h-3 w-3 transition-transform duration-200",
+                          expandedMenus.includes(child.title) && "rotate-180",
+                        )}
+                      /> */}
+                    </button>
+                  ) : (
+                    <Link
+                      to={child.path || "#"}
+                      onClick={(e) => {
+                        if (onNavigate) onNavigate();
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors",
+                        isSubActive && "bg-white/15 text-white border-l-2 border-white ml-2",
+                      )}
+                    >
+                      {child.icon && (
+                        <child.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                      )}
+                      <span>{child.title}</span>
+                    </Link>
                   )}
-                >
-                  {child.icon && (
-                    <child.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                  {hasSubChildren && expandedMenus.includes(child.title) && (
+                    <div className="pl-6">
+                      {child.children?.map((subChild, subIdx) => {
+                        const isSubSubActive = location.pathname === subChild.path;
+                        return (
+                          <Link
+                            key={`sub-${idx}-${subIdx}`}
+                            to={subChild.path}
+                            // onClick={onNavigate} Removido para não fechar a navbar ao clicar
+                            className={cn(
+                              "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors",
+                              isSubSubActive && "text-white font-medium",
+                            )}
+                          >
+                            <span>{subChild.title}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   )}
-                  <span>{child.title}</span>
-                </Link>
+                </div>
               );
             })}
           </div>
@@ -324,20 +398,45 @@ function MenuItemComponent({
                   {item.title}
                 </div>
                 {filteredChildren?.map((child, idx) => {
-                  const isSubActive = location.pathname === child.path;
+                  const hasSubChildren = child.children && child.children.length > 0;
+                  const isSubActive = child.path ? location.pathname === child.path : false;
                   return (
-                    <Link
-                      key={idx}
-                      to={child.path}
-                      onClick={onNavigate}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors",
-                        isSubActive && "bg-white/15 text-white",
+                    <div key={idx}>
+                      <Link
+                        to={child.path || "#"}
+                        onClick={(e) => {
+                          if (hasSubChildren) e.preventDefault();
+                          else if (onNavigate) onNavigate();
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors",
+                          isSubActive && "bg-white/15 text-white",
+                        )}
+                      >
+                        {child.icon && <child.icon className="h-3.5 w-3.5" />}
+                        <span className={hasSubChildren ? "font-semibold" : ""}>{child.title}</span>
+                      </Link>
+                      {hasSubChildren && (
+                        <div className="pl-4 pb-1">
+                          {child.children?.map((subChild, subIdx) => {
+                            const isSubSubActive = location.pathname === subChild.path;
+                            return (
+                              <Link
+                                key={`sub-${idx}-${subIdx}`}
+                                to={subChild.path}
+                                // onClick={onNavigate}
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-1.5 text-xs text-white/70 hover:text-white transition-colors",
+                                  isSubSubActive && "text-white font-medium"
+                                )}
+                              >
+                                <span>{subChild.title}</span>
+                              </Link>
+                            )
+                          })}
+                        </div>
                       )}
-                    >
-                      {child.icon && <child.icon className="h-3.5 w-3.5" />}
-                      <span>{child.title}</span>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
@@ -434,13 +533,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const expanded: string[] = [];
 
     menuItemsCompleto.forEach((item) => {
-      if (
-        item.children?.some(
-          (child) =>
-            currentPath === child.path ||
-            currentPath.startsWith(child.path + "/"),
-        )
-      ) {
+      let isItemExpanded = false;
+
+      item.children?.forEach((child) => {
+        const isChildActive = child.path && (currentPath === child.path || currentPath.startsWith(child.path + "/"));
+        const isSubChildActive = child.children?.some(
+          (sub) => sub.path && (currentPath === sub.path || currentPath.startsWith(sub.path + "/"))
+        );
+
+        if (isChildActive || isSubChildActive) {
+          isItemExpanded = true;
+        }
+
+        if (isSubChildActive) {
+          expanded.push(child.title);
+        }
+      });
+
+      if (isItemExpanded) {
         expanded.push(item.title);
       }
     });
@@ -535,16 +645,29 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const currentPath = location.pathname;
 
     menuItemsCompleto.forEach((item) => {
-      if (
-        item.children?.some(
-          (child) =>
-            currentPath === child.path ||
-            currentPath.startsWith(child.path + "/"),
-        )
-      ) {
-        if (!expandedMenus.includes(item.title)) {
-          setExpandedMenus((prev) => [...prev, item.title]);
+      let shouldExpandItem = false;
+
+      item.children?.forEach((child) => {
+        const isChildActive = child.path && (currentPath === child.path || currentPath.startsWith(child.path + "/"));
+        const isSubChildActive = child.children?.some(
+          (sub) => sub.path && (currentPath === sub.path || currentPath.startsWith(sub.path + "/"))
+        );
+
+        if (isChildActive || isSubChildActive) {
+          shouldExpandItem = true;
         }
+
+        if (isSubChildActive) {
+          setExpandedMenus((prev) => 
+            prev.includes(child.title) ? prev : [...prev, child.title]
+          );
+        }
+      });
+
+      if (shouldExpandItem) {
+        setExpandedMenus((prev) => 
+          prev.includes(item.title) ? prev : [...prev, item.title]
+        );
       }
     });
   }, [location.pathname]);
