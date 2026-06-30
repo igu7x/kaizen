@@ -4227,50 +4227,6 @@ export default function Cadastros() {
                         </Select>
                       </div>
                       <div>
-                        <Label
-                          className={
-                            isTapFieldMissing("abrangencia")
-                              ? "text-red-600"
-                              : ""
-                          }
-                        >
-                          Abrangência Organizacional
-                        </Label>
-                        <Select
-                          value={formData.abrangencia}
-                          onValueChange={(v) => {
-                            setFormData({ ...formData, abrangencia: v });
-                            setTapMissingFields((prev) =>
-                              prev.filter(
-                                (f) => tapFieldMap[f] !== "abrangencia",
-                              ),
-                            );
-                          }}
-                          disabled={modalMode === "view"}
-                        >
-                          <SelectTrigger
-                            className={
-                              isTapFieldMissing("abrangencia")
-                                ? "border-red-500"
-                                : ""
-                            }
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="uma_unidade">
-                              Uma Unidade
-                            </SelectItem>
-                            <SelectItem value="multiplas_unidades">
-                              Múltiplas Unidades
-                            </SelectItem>
-                            <SelectItem value="transversal">
-                              Transversal
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
                         <Label>Haverá Contratação?</Label>
                         <div className="flex items-center gap-4 mt-2">
                           <label className="flex items-center gap-2 cursor-pointer">
@@ -4289,7 +4245,7 @@ export default function Cadastros() {
                           {formData.havera_contratacao && (
                             <Input
                               type="number"
-                              placeholder="Valor estimado (R$)"
+                              placeholder="Item do PCA"
                               value={formData.valor_estimado_contratacao || ""}
                               onChange={(e) =>
                                 setFormData({
