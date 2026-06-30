@@ -258,10 +258,9 @@ public class ColaboradoresController {
 
     @PostMapping
     public ResponseEntity<?> create(HttpServletRequest req, @RequestBody Map<String, Object> body) {
-        if (isBlank(body.get("colaborador")) || isBlank(body.get("unidade_lotacao"))
-                || isBlank(body.get("situacao_funcional")) || isBlank(body.get("diretoria"))) {
+        if (isBlank(body.get("colaborador")) || isBlank(body.get("situacao_funcional")) || isBlank(body.get("diretoria"))) {
             return ResponseEntity.status(400).body(Map.of("error",
-                    "Campos obrigatórios: colaborador, unidade_lotacao, situacao_funcional, diretoria"));
+                    "Campos obrigatórios: colaborador, situacao_funcional, diretoria"));
         }
         try {
             return ResponseEntity.status(201).body(service.createColaborador(body, getCurrentUserId(req)));

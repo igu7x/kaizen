@@ -50,15 +50,21 @@ public class ColaboradoresService {
         List<Map<String, Object>> rows;
         if (diretoria != null && !diretoria.isBlank()) {
             rows = jdbc.queryForList(
-                    "SELECT * FROM pessoas_colaboradores WHERE is_deleted = FALSE AND diretoria = ? ORDER BY " + safeOrder,
+                    "SELECT id, name as colaborador, '' as unidade_lotacao, situacao_funcional, nome_cc_fc, classe_cc_fc, " +
+                    "cargo_efetivo, classe_efetivo, diretoria, created_at, updated_at " +
+                    "FROM users WHERE is_deleted = FALSE AND diretoria = ? ORDER BY " + safeOrder,
                     diretoria);
         } else if (domainDiretorias != null && !domainDiretorias.isEmpty()) {
             rows = jdbc.queryForList(
-                    "SELECT * FROM pessoas_colaboradores WHERE is_deleted = FALSE AND diretoria = ANY(?::text[]) ORDER BY " + safeOrder,
+                    "SELECT id, name as colaborador, '' as unidade_lotacao, situacao_funcional, nome_cc_fc, classe_cc_fc, " +
+                    "cargo_efetivo, classe_efetivo, diretoria, created_at, updated_at " +
+                    "FROM users WHERE is_deleted = FALSE AND diretoria = ANY(?::text[]) ORDER BY " + safeOrder,
                     diretoriasArray(domainDiretorias));
         } else {
             rows = jdbc.queryForList(
-                    "SELECT * FROM pessoas_colaboradores WHERE is_deleted = FALSE ORDER BY " + safeOrder);
+                    "SELECT id, name as colaborador, '' as unidade_lotacao, situacao_funcional, nome_cc_fc, classe_cc_fc, " +
+                    "cargo_efetivo, classe_efetivo, diretoria, created_at, updated_at " +
+                    "FROM users WHERE is_deleted = FALSE ORDER BY " + safeOrder);
         }
         List<Map<String, Object>> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
@@ -68,7 +74,10 @@ public class ColaboradoresService {
     }
 
     public Map<String, Object> findColaboradorById(long id) {
-        var rows = jdbc.queryForList("SELECT * FROM pessoas_colaboradores WHERE id = ? AND is_deleted = FALSE", id);
+        var rows = jdbc.queryForList(
+                "SELECT id, name as colaborador, '' as unidade_lotacao, situacao_funcional, nome_cc_fc, classe_cc_fc, " +
+                "cargo_efetivo, classe_efetivo, diretoria, created_at, updated_at " +
+                "FROM users WHERE id = ? AND is_deleted = FALSE", id);
         return rows.isEmpty() ? null : toResponseDto(rows.get(0));
     }
 
@@ -81,18 +90,20 @@ public class ColaboradoresService {
         if (!domainService.isValidDiretoria(diretoria)) {
             throw new ApiException(-1, "DIRETORIA_INVALIDA");
         }
+        String emailFake = "colaborador_" + System.currentTimeMillis() + "@tjgo.jus.br";
         Map<String, Object> created = jdbc.queryForMap(
-                "INSERT INTO pessoas_colaboradores (colaborador, unidade_lotacao, situacao_funcional, " +
-                        "nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, diretoria) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
-                str(data.get("colaborador")), str(data.get("unidade_lotacao")), situacao,
+                "INSERT INTO users (name, situacao_funcional, " +
+                        "nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, diretoria, email, password_hash, role, status) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, md5(random()::text), 'VIEWER', 'INACTIVE') RETURNING id, name as colaborador, '' as unidade_lotacao, situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, diretoria, created_at, updated_at",
+                str(data.get("colaborador")), situacao,
                 orNull(data.get("nome_cc_fc")), orNull(data.get("classe_cc_fc")),
-                orNull(data.get("cargo_efetivo")), orNull(data.get("classe_efetivo")), diretoria);
+                orNull(data.get("cargo_efetivo")), orNull(data.get("classe_efetivo")), diretoria, emailFake);
         return toResponseDto(created);
     }
 
     public Map<String, Object> updateColaborador(long id, Map<String, Object> data, Long userId) {
-        var existingRows = jdbc.queryForList("SELECT * FROM pessoas_colaboradores WHERE id = ? AND is_deleted = FALSE", id);
+        var existingRows = jdbc.queryForList(
+                "SELECT id, name as colaborador FROM users WHERE id = ? AND is_deleted = FALSE", id);
         if (existingRows.isEmpty()) {
             return null;
         }
@@ -104,8 +115,11 @@ public class ColaboradoresService {
         }
         List<String> updates = new ArrayList<>();
         List<Object> values = new ArrayList<>();
-        addCol(data, "colaborador", updates, values, false);
-        addCol(data, "unidade_lotacao", updates, values, false);
+        if (data.containsKey("colaborador")) {
+            updates.add("name = ?");
+            values.add(data.get("colaborador"));
+        }
+        // addCol(data, "unidade_lotacao", updates, values, false); // Ignorado
         addCol(data, "situacao_funcional", updates, values, false);
         addCol(data, "nome_cc_fc", updates, values, true);
         addCol(data, "classe_cc_fc", updates, values, true);
@@ -118,49 +132,51 @@ public class ColaboradoresService {
         updates.add("updated_at = NOW()");
         values.add(id);
         var rows = jdbc.queryForList(
-                "UPDATE pessoas_colaboradores SET " + String.join(", ", updates) +
-                        " WHERE id = ? AND is_deleted = FALSE RETURNING *",
+                "UPDATE users SET " + String.join(", ", updates) +
+                        " WHERE id = ? AND is_deleted = FALSE RETURNING id, name as colaborador, '' as unidade_lotacao, situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, diretoria, created_at, updated_at",
                 values.toArray());
         return rows.isEmpty() ? null : toResponseDto(rows.get(0));
     }
 
     public boolean deleteColaborador(long id, Long userId) {
         return jdbc.update(
-                "UPDATE pessoas_colaboradores SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? " +
+                "UPDATE users SET is_deleted = TRUE, status = 'INACTIVE' " +
                         "WHERE id = ? AND is_deleted = FALSE",
-                userId, id) > 0;
+                id) > 0;
     }
 
     public List<String> getUnidadesLotacao() {
         return jdbc.queryForList(
-                "SELECT DISTINCT unidade_lotacao FROM pessoas_colaboradores WHERE is_deleted = FALSE ORDER BY unidade_lotacao",
+                "SELECT cu.nome as unidade_lotacao FROM cadastros_unidades cu WHERE cu.status = 'ACTIVE' ORDER BY cu.nome",
                 String.class);
     }
 
     // ---------- estatísticas (view pessoas_estatisticas) ----------
 
     private static final String STATS_AGG =
-            "SELECT SUM(total_colaboradores)::INTEGER AS total_colaboradores, " +
-                    "SUM(total_estatutarios)::INTEGER AS total_estatutarios, " +
-                    "SUM(total_cedidos)::INTEGER AS total_cedidos, " +
-                    "SUM(total_comissionados)::INTEGER AS total_comissionados, " +
-                    "SUM(total_terceirizados)::INTEGER AS total_terceirizados, " +
-                    "SUM(total_residentes)::INTEGER AS total_residentes, " +
-                    "SUM(total_estagiarios)::INTEGER AS total_estagiarios, " +
-                    "ROUND((SUM(total_estatutarios)::DECIMAL / NULLIF(SUM(total_colaboradores), 0)) * 100, 0) AS percentual_estatutarios, " +
-                    "ROUND((SUM(total_cedidos)::DECIMAL / NULLIF(SUM(total_colaboradores), 0)) * 100, 0) AS percentual_cedidos, " +
-                    "ROUND((SUM(total_comissionados)::DECIMAL / NULLIF(SUM(total_colaboradores), 0)) * 100, 0) AS percentual_comissionados, " +
-                    "ROUND((SUM(total_terceirizados)::DECIMAL / NULLIF(SUM(total_colaboradores), 0)) * 100, 0) AS percentual_terceirizados, " +
-                    "ROUND((SUM(total_residentes)::DECIMAL / NULLIF(SUM(total_colaboradores), 0)) * 100, 0) AS percentual_residentes, " +
-                    "ROUND((SUM(total_estagiarios)::DECIMAL / NULLIF(SUM(total_colaboradores), 0)) * 100, 0) AS percentual_estagiarios " +
-                    "FROM pessoas_estatisticas";
+            "SELECT COUNT(u.id)::INTEGER AS total_colaboradores, " +
+                    "COUNT(CASE WHEN u.situacao_funcional = 'ESTATUTÁRIO' THEN 1 END)::INTEGER AS total_estatutarios, " +
+                    "COUNT(CASE WHEN u.situacao_funcional = 'CEDIDO' THEN 1 END)::INTEGER AS total_cedidos, " +
+                    "COUNT(CASE WHEN u.situacao_funcional = 'NOMEADO EM COMISSÃO - INSS' THEN 1 END)::INTEGER AS total_comissionados, " +
+                    "COUNT(CASE WHEN u.situacao_funcional = 'TERCEIRIZADO' THEN 1 END)::INTEGER AS total_terceirizados, " +
+                    "COUNT(CASE WHEN u.situacao_funcional = 'RESIDENTE' THEN 1 END)::INTEGER AS total_residentes, " +
+                    "COUNT(CASE WHEN u.situacao_funcional = 'ESTAGIÁRIO' THEN 1 END)::INTEGER AS total_estagiarios, " +
+                    "ROUND((COUNT(CASE WHEN u.situacao_funcional = 'ESTATUTÁRIO' THEN 1 END)::DECIMAL / NULLIF(COUNT(u.id), 0)) * 100, 0) AS percentual_estatutarios, " +
+                    "ROUND((COUNT(CASE WHEN u.situacao_funcional = 'CEDIDO' THEN 1 END)::DECIMAL / NULLIF(COUNT(u.id), 0)) * 100, 0) AS percentual_cedidos, " +
+                    "ROUND((COUNT(CASE WHEN u.situacao_funcional = 'NOMEADO EM COMISSÃO - INSS' THEN 1 END)::DECIMAL / NULLIF(COUNT(u.id), 0)) * 100, 0) AS percentual_comissionados, " +
+                    "ROUND((COUNT(CASE WHEN u.situacao_funcional = 'TERCEIRIZADO' THEN 1 END)::DECIMAL / NULLIF(COUNT(u.id), 0)) * 100, 0) AS percentual_terceirizados, " +
+                    "ROUND((COUNT(CASE WHEN u.situacao_funcional = 'RESIDENTE' THEN 1 END)::DECIMAL / NULLIF(COUNT(u.id), 0)) * 100, 0) AS percentual_residentes, " +
+                    "ROUND((COUNT(CASE WHEN u.situacao_funcional = 'ESTAGIÁRIO' THEN 1 END)::DECIMAL / NULLIF(COUNT(u.id), 0)) * 100, 0) AS percentual_estagiarios " +
+                    "FROM cadastros_pessoas cp JOIN users u ON cp.user_id = u.id " +
+                    "JOIN cadastros_areas a ON cp.area_id = a.id " +
+                    "WHERE cp.ativo = TRUE AND u.is_deleted = FALSE";
 
     public Map<String, Object> getEstatisticas(String diretoria, List<String> domainDiretorias) {
         List<Map<String, Object>> rows;
         if (diretoria != null && !diretoria.isBlank()) {
-            rows = jdbc.queryForList("SELECT * FROM pessoas_estatisticas WHERE diretoria = ?", diretoria);
+            rows = jdbc.queryForList(STATS_AGG + " AND a.sigla = ?", diretoria);
         } else if (domainDiretorias != null && !domainDiretorias.isEmpty()) {
-            rows = jdbc.queryForList(STATS_AGG + " WHERE diretoria = ANY(?::text[])", diretoriasArray(domainDiretorias));
+            rows = jdbc.queryForList(STATS_AGG + " AND a.sigla = ANY(?::text[])", diretoriasArray(domainDiretorias));
         } else {
             rows = jdbc.queryForList(STATS_AGG);
         }
@@ -195,9 +211,24 @@ public class ColaboradoresService {
 
     public List<Map<String, Object>> getOrganograma(String diretoria, List<String> domainDiretorias) {
         boolean has = hasNomeExibicaoColumn();
-        String sql = "SELECT id, nome_area, " + (has ? "nome_exibicao," : "NULL as nome_exibicao,") +
-                " nome_gestor, nome_cargo, foto_gestor, linha_organograma, subordinacao_id, cor_barra, diretoria, " +
-                "ordem_exibicao, caminho, caminho_texto, profundidade FROM pessoas_organograma_hierarquia";
+        String cte = "WITH RECURSIVE hierarquia AS ( " +
+                "SELECT o.id, o.nome_area, " + (has ? "o.nome_exibicao," : "NULL as nome_exibicao,") +
+                " o.gestor_user_id, COALESCE(u.name, o.nome_gestor) as nome_gestor, o.nome_cargo, " +
+                "COALESCE(u.foto_perfil, o.foto_gestor) as foto_gestor, o.linha_organograma, o.subordinacao_id, " +
+                "o.cor_barra, o.diretoria, o.ordem_exibicao, ARRAY[o.id] as caminho, o.nome_area::text as caminho_texto, 1 as profundidade " +
+                "FROM pessoas_organograma_gestores o " +
+                "LEFT JOIN users u ON o.gestor_user_id = u.id " +
+                "WHERE o.subordinacao_id IS NULL AND o.ativo = TRUE " +
+                "UNION ALL " +
+                "SELECT o.id, o.nome_area, " + (has ? "o.nome_exibicao," : "NULL as nome_exibicao,") +
+                " o.gestor_user_id, COALESCE(u.name, o.nome_gestor) as nome_gestor, o.nome_cargo, " +
+                "COALESCE(u.foto_perfil, o.foto_gestor) as foto_gestor, o.linha_organograma, o.subordinacao_id, " +
+                "o.cor_barra, o.diretoria, o.ordem_exibicao, h.caminho || o.id, h.caminho_texto || ' > ' || o.nome_area::text, h.profundidade + 1 " +
+                "FROM pessoas_organograma_gestores o " +
+                "LEFT JOIN users u ON o.gestor_user_id = u.id " +
+                "INNER JOIN hierarquia h ON o.subordinacao_id = h.id " +
+                "WHERE o.ativo = TRUE) ";
+        String sql = cte + "SELECT * FROM hierarquia";
         if (diretoria != null && !diretoria.isBlank() && !"Todas".equals(diretoria)) {
             return jdbc.queryForList(sql + " WHERE diretoria = ? ORDER BY caminho, ordem_exibicao", diretoria);
         } else if (domainDiretorias != null && !domainDiretorias.isEmpty()) {
@@ -209,15 +240,20 @@ public class ColaboradoresService {
 
     public List<Map<String, Object>> getSubordinados(long gestorId) {
         return jdbc.queryForList(
-                "SELECT id, nome_area, nome_gestor, nome_cargo, foto_gestor, linha_organograma, subordinacao_id, " +
-                        "cor_barra, ordem_exibicao FROM pessoas_organograma_gestores " +
-                        "WHERE subordinacao_id = ? AND ativo = TRUE ORDER BY ordem_exibicao",
+                "SELECT o.id, o.nome_area, o.gestor_user_id, COALESCE(u.name, o.nome_gestor) as nome_gestor, o.nome_cargo, " +
+                        "COALESCE(u.foto_perfil, o.foto_gestor) as foto_gestor, o.linha_organograma, o.subordinacao_id, " +
+                        "o.cor_barra, o.ordem_exibicao FROM pessoas_organograma_gestores o " +
+                        "LEFT JOIN users u ON o.gestor_user_id = u.id " +
+                        "WHERE o.subordinacao_id = ? AND o.ativo = TRUE ORDER BY o.ordem_exibicao",
                 gestorId);
     }
 
     public List<Map<String, Object>> getGestoresPorLinha(int linha, String diretoria, List<String> domainDiretorias) {
-        String sql = "SELECT id, nome_area, nome_gestor, nome_cargo, foto_gestor, linha_organograma, subordinacao_id, " +
-                "cor_barra, ordem_exibicao FROM pessoas_organograma_gestores WHERE linha_organograma = ? AND ativo = TRUE";
+        String sql = "SELECT o.id, o.nome_area, COALESCE(u.name, o.nome_gestor) as nome_gestor, o.nome_cargo, " +
+                "COALESCE(u.foto_perfil, o.foto_gestor) as foto_gestor, o.linha_organograma, o.subordinacao_id, " +
+                "o.cor_barra, o.ordem_exibicao FROM pessoas_organograma_gestores o " +
+                "LEFT JOIN users u ON o.gestor_user_id = u.id " +
+                "WHERE o.linha_organograma = ? AND o.ativo = TRUE";
         if (diretoria != null && !diretoria.isBlank() && !"Todas".equals(diretoria)) {
             return jdbc.queryForList(sql + " AND diretoria = ? ORDER BY ordem_exibicao", linha, diretoria);
         } else if (domainDiretorias != null && !domainDiretorias.isEmpty()) {
@@ -231,8 +267,10 @@ public class ColaboradoresService {
         if (linha <= 1) {
             return List.of();
         }
-        String sql = "SELECT id, nome_area, nome_gestor, nome_cargo, diretoria, linha_organograma " +
-                "FROM pessoas_organograma_gestores WHERE linha_organograma < ? AND ativo = TRUE";
+        String sql = "SELECT o.id, o.nome_area, COALESCE(u.name, o.nome_gestor) as nome_gestor, o.nome_cargo, o.diretoria, o.linha_organograma " +
+                "FROM pessoas_organograma_gestores o " +
+                "LEFT JOIN users u ON o.gestor_user_id = u.id " +
+                "WHERE o.linha_organograma < ? AND o.ativo = TRUE";
         if (diretoria != null && !diretoria.isBlank() && !"Todas".equals(diretoria)) {
             return jdbc.queryForList(sql + " AND diretoria = ? ORDER BY linha_organograma, diretoria, ordem_exibicao",
                     linha, diretoria);
@@ -246,9 +284,12 @@ public class ColaboradoresService {
     public Map<String, Object> getGestorById(long id) {
         boolean has = hasNomeExibicaoColumn();
         var rows = jdbc.queryForList(
-                "SELECT id, nome_area, " + (has ? "nome_exibicao," : "NULL as nome_exibicao,") +
-                        " nome_gestor, nome_cargo, foto_gestor, linha_organograma, subordinacao_id, cor_barra, " +
-                        "diretoria, ordem_exibicao FROM pessoas_organograma_gestores WHERE id = ? AND ativo = TRUE",
+                "SELECT o.id, o.nome_area, " + (has ? "o.nome_exibicao," : "NULL as nome_exibicao,") +
+                        " o.gestor_user_id, COALESCE(u.name, o.nome_gestor) as nome_gestor, o.nome_cargo, " +
+                        "COALESCE(u.foto_perfil, o.foto_gestor) as foto_gestor, o.linha_organograma, o.subordinacao_id, o.cor_barra, " +
+                        "o.diretoria, o.ordem_exibicao FROM pessoas_organograma_gestores o " +
+                        "LEFT JOIN users u ON o.gestor_user_id = u.id " +
+                        "WHERE o.id = ? AND o.ativo = TRUE",
                 id);
         return rows.isEmpty() ? null : rows.get(0);
     }
@@ -276,19 +317,19 @@ public class ColaboradoresService {
         boolean has = hasNomeExibicaoColumn();
         if (has) {
             return jdbc.queryForMap(
-                    "INSERT INTO pessoas_organograma_gestores (nome_area, nome_exibicao, nome_gestor, nome_cargo, " +
+                    "INSERT INTO pessoas_organograma_gestores (nome_area, nome_exibicao, gestor_user_id, nome_cargo, " +
                             "foto_gestor, linha_organograma, subordinacao_id, cor_barra, diretoria, ordem_exibicao, " +
                             "created_by, updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
-                    orNull(data.get("nome_area")), orNull(data.get("nome_exibicao")), orNull(data.get("nome_gestor")),
+                    orNull(data.get("nome_area")), orNull(data.get("nome_exibicao")), data.get("gestor_user_id"),
                     orNull(data.get("nome_cargo")), orNull(data.get("foto_gestor")), linha,
                     orNull(subordinacaoId), orNull(data.get("cor_barra")), diretoriaFinal,
                     orNull(data.get("ordem_exibicao")), userId, userId);
         }
         return jdbc.queryForMap(
-                "INSERT INTO pessoas_organograma_gestores (nome_area, nome_gestor, nome_cargo, foto_gestor, " +
+                "INSERT INTO pessoas_organograma_gestores (nome_area, gestor_user_id, nome_cargo, foto_gestor, " +
                         "linha_organograma, subordinacao_id, cor_barra, diretoria, ordem_exibicao, created_by, updated_by) " +
                         "VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
-                orNull(data.get("nome_area")), orNull(data.get("nome_gestor")), orNull(data.get("nome_cargo")),
+                orNull(data.get("nome_area")), data.get("gestor_user_id"), orNull(data.get("nome_cargo")),
                 orNull(data.get("foto_gestor")), linha, orNull(subordinacaoId), orNull(data.get("cor_barra")),
                 diretoriaFinal, orNull(data.get("ordem_exibicao")), userId);
     }
@@ -309,23 +350,23 @@ public class ColaboradoresService {
         if (has) {
             rows = jdbc.queryForList(
                     "UPDATE pessoas_organograma_gestores SET nome_area = COALESCE(?, nome_area), nome_exibicao = ?, " +
-                            "nome_gestor = COALESCE(?, nome_gestor), nome_cargo = COALESCE(?, nome_cargo), foto_gestor = ?, " +
+                            "gestor_user_id = COALESCE(?, gestor_user_id), nome_cargo = COALESCE(?, nome_cargo), foto_gestor = ?, " +
                             "linha_organograma = COALESCE(?, linha_organograma), subordinacao_id = COALESCE(?, subordinacao_id), " +
                             "cor_barra = COALESCE(?, cor_barra), diretoria = COALESCE(?, diretoria), " +
                             "ordem_exibicao = COALESCE(?, ordem_exibicao), updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ? AND ativo = TRUE RETURNING *",
-                    orNull(data.get("nome_area")), orNull(data.get("nome_exibicao")), orNull(data.get("nome_gestor")),
+                    orNull(data.get("nome_area")), orNull(data.get("nome_exibicao")), data.get("gestor_user_id"),
                     orNull(data.get("nome_cargo")), fotoFinal, linha, data.get("subordinacao_id"),
                     data.get("cor_barra"), data.get("diretoria"), data.get("ordem_exibicao"), userId, id);
         } else {
             rows = jdbc.queryForList(
                     "UPDATE pessoas_organograma_gestores SET nome_area = COALESCE(?, nome_area), " +
-                            "nome_gestor = COALESCE(?, nome_gestor), nome_cargo = COALESCE(?, nome_cargo), foto_gestor = ?, " +
+                            "gestor_user_id = COALESCE(?, gestor_user_id), nome_cargo = COALESCE(?, nome_cargo), foto_gestor = ?, " +
                             "linha_organograma = COALESCE(?, linha_organograma), subordinacao_id = COALESCE(?, subordinacao_id), " +
                             "cor_barra = COALESCE(?, cor_barra), diretoria = COALESCE(?, diretoria), " +
                             "ordem_exibicao = COALESCE(?, ordem_exibicao), updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ? AND ativo = TRUE RETURNING *",
-                    orNull(data.get("nome_area")), orNull(data.get("nome_gestor")), orNull(data.get("nome_cargo")),
+                    orNull(data.get("nome_area")), data.get("gestor_user_id"), orNull(data.get("nome_cargo")),
                     fotoFinal, linha, data.get("subordinacao_id"), data.get("cor_barra"), data.get("diretoria"),
                     data.get("ordem_exibicao"), userId, id);
         }
@@ -389,10 +430,10 @@ public class ColaboradoresService {
         return sb.append("}").toString();
     }
 
-    private void addCol(Map<String, Object> data, String key, List<String> updates, List<Object> values, boolean blankToNull) {
-        if (data.containsKey(key)) {
-            updates.add(key + " = ?");
-            values.add(blankToNull ? orNull(data.get(key)) : data.get(key));
+    private void addCol(Map<String, Object> data, String jsonKey, List<String> updates, List<Object> values, boolean blankToNull) {
+        if (data.containsKey(jsonKey)) {
+            updates.add(jsonKey + " = ?");
+            values.add(blankToNull ? orNull(data.get(jsonKey)) : data.get(jsonKey));
         }
     }
 
