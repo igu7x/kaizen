@@ -521,12 +521,21 @@ public class ProcessosNegocioController {
 
     /** True quando o usuário é responsável vinculado de uma unidade no campo "Responsável" (proprietarios JSONB). */
     private boolean isResponsavelProcesso(long id, long userId) {
+        // Resolve o responsável de forma robusta: pelo responsavel_user_id gravado na entrada
+        // (snapshot) OU pela unidade do cadastro (por unidade_id ou pelo nome), refletindo o
+        // cadastro atual mesmo em processos antigos sem o snapshot.
         var rows = jdbc.queryForList(
                 "SELECT 1 FROM processos_negocio p, " +
                         "jsonb_array_elements(COALESCE(p.proprietarios, '[]'::jsonb)) e " +
-                        "WHERE p.id = ? AND (e->>'responsavel_user_id') ~ '^[0-9]+$' " +
-                        "AND (e->>'responsavel_user_id')::int = ?",
-                id, userId);
+                        "LEFT JOIN cadastros_unidades u ON (" +
+                        "  ((e->>'unidade_id') ~ '^[0-9]+$' AND u.id = (e->>'unidade_id')::int) " +
+                        "  OR LOWER(TRIM(u.nome)) = LOWER(TRIM(e->>'area'))" +
+                        ") " +
+                        "WHERE p.id = ? AND (" +
+                        "  ((e->>'responsavel_user_id') ~ '^[0-9]+$' AND (e->>'responsavel_user_id')::int = ?) " +
+                        "  OR u.responsavel_user_id = ?" +
+                        ")",
+                id, userId, userId);
         return !rows.isEmpty();
     }
 

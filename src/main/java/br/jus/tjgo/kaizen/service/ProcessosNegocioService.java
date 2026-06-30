@@ -69,8 +69,14 @@ public class ProcessosNegocioService {
         }
         List<String> orClauses = new ArrayList<>();
         if (scopeUserId != null) {
+            // Responsável: snapshot (responsavel_user_id) OU unidade do cadastro (por id ou nome).
             orClauses.add("EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(proprietarios, '[]'::jsonb)) e "
-                    + "WHERE (e->>'responsavel_user_id') ~ '^[0-9]+$' AND (e->>'responsavel_user_id')::int = ?)");
+                    + "LEFT JOIN cadastros_unidades u ON ("
+                    + "  ((e->>'unidade_id') ~ '^[0-9]+$' AND u.id = (e->>'unidade_id')::int) "
+                    + "  OR LOWER(TRIM(u.nome)) = LOWER(TRIM(e->>'area'))) "
+                    + "WHERE ((e->>'responsavel_user_id') ~ '^[0-9]+$' AND (e->>'responsavel_user_id')::int = ?) "
+                    + "OR u.responsavel_user_id = ?)");
+            params.add(scopeUserId);
             params.add(scopeUserId);
             orClauses.add("EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(editores, '[]'::jsonb)) e "
                     + "WHERE (e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?)");
