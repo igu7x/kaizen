@@ -991,7 +991,7 @@ export default function EscritorioProcessos() {
               </DropdownMenu>
             )}
 
-            {isAdminOrManager && aba === "revisao" && (
+            {isSuperadmin && aba === "revisao" && (
               <Button
                 onClick={handleNovoProcesso}
                 className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
