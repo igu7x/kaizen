@@ -586,6 +586,12 @@ export default function EscritorioProcessos() {
   // (superadmin), Compliance Officer e SGJT. Os demais recebem a lista já restrita por papel.
   const podeFiltrarDiretoria =
     isSuperadmin || isComplianceOfficer || user?.diretoria === "SGJT";
+  // Visualizador (perfil VIEWER) sem outro privilégio: só enxerga "Processos Vigentes".
+  const soVisualizador =
+    user?.role === "VIEWER" &&
+    !isSuperadmin &&
+    !isComplianceOfficer &&
+    user?.diretoria !== "SGJT";
 
   const carregar = async () => {
     setLoading(true);
@@ -1016,18 +1022,20 @@ export default function EscritorioProcessos() {
             <Briefcase className="h-4 w-4" />
             Processos Vigentes
           </button>
-          <button
-            type="button"
-            onClick={() => trocarAba("revisao")}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-              aba === "revisao"
-                ? "border-blue-600 text-blue-700"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <History className="h-4 w-4" />
-            Processos em Revisão ou Novos
-          </button>
+          {!soVisualizador && (
+            <button
+              type="button"
+              onClick={() => trocarAba("revisao")}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                aba === "revisao"
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <History className="h-4 w-4" />
+              Processos em Revisão ou Novos
+            </button>
+          )}
         </div>
 
         {/* FILTROS — Diretoria + Área */}
