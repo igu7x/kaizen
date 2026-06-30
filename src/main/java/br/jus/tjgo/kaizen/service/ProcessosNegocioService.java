@@ -387,6 +387,27 @@ public class ProcessosNegocioService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * Inicia uma revisão antecipada de um processo vigente (Modelo K1): volta o status para
+     * 'em_elaboracao' para que o responsável possa editar e reenviar antes do prazo. Limpa as
+     * marcas de validação/recusa para reiniciar o ciclo de forma limpa; o histórico de versões
+     * permanece intacto. Só atua sobre processos em 'validado_final'.
+     */
+    public Map<String, Object> iniciarRevisao(long id, long userId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "UPDATE processos_negocio " +
+                        "SET status = 'em_elaboracao', updated_at = CURRENT_TIMESTAMP, updated_by = ?, " +
+                        "    recusado_em = NULL, recusado_por_user_id = NULL, recusado_por_nome = NULL, " +
+                        "    recusado_camada = NULL, recusa_motivo = NULL, " +
+                        "    validado_autor_user_id = NULL, validado_autor_nome = NULL, validado_autor_em = NULL, " +
+                        "    validado_diretoria_user_id = NULL, validado_diretoria_nome = NULL, validado_diretoria_em = NULL, " +
+                        "    validado_final_user_id = NULL, validado_final_nome = NULL, validado_final_em = NULL " +
+                        "WHERE id = ? AND is_deleted = FALSE AND status = 'validado_final' " +
+                        "RETURNING *",
+                userId, id);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
     public Map<String, Object> validarAutor(long id, long userId, String userName) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "UPDATE processos_negocio " +

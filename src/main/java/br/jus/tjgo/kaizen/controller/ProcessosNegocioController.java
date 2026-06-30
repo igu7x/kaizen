@@ -119,6 +119,33 @@ public class ProcessosNegocioController {
         return ResponseEntity.ok(updated);
     }
 
+    // PATCH /api/processos-negocio/:id/iniciar-revisao — reabre processo vigente p/ revisão antecipada
+    @Operation(summary = "Iniciar revisão antecipada", description = "Reabre um processo vigente (status 'validado_final') voltando-o para 'em_elaboracao', para o responsável revisar antes do prazo. Permitido ao Responsável do Processo (responsavel_user_id de unidade no campo Responsável) ou a superadmin.")
+    @ApiResponses({ @ApiResponse(responseCode = "200", description = "em_elaboracao"),
+            @ApiResponse(responseCode = "403", description = "Não é responsável nem superadmin"),
+            @ApiResponse(responseCode = "400", description = "Processo não está vigente (validado_final)") })
+    @PatchMapping("/{id:\\d+}/iniciar-revisao")
+    public ResponseEntity<?> iniciarRevisao(@PathVariable long id) {
+        Long userId = getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> processo = service.findById(id);
+        if (processo == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        Map<String, Object> user = lookupUser(userId);
+        boolean isSuper = user != null && Boolean.TRUE.equals(user.get("is_superadmin"));
+        if (!isSuper && !isResponsavelProcesso(id, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o responsável do processo ou um gestor do Escritório de Processos pode iniciar a revisão."));
+        }
+        Map<String, Object> updated = service.iniciarRevisao(id, userId);
+        if (updated == null) {
+            return ResponseEntity.status(400).body(Map.of("error", "A revisão só pode ser iniciada para um processo vigente (Modelo K1)."));
+        }
+        return ResponseEntity.ok(updated);
+    }
+
     // PATCH /api/processos-negocio/:id/validar-autor — camada 1: APENAS o autor (created_by)
     @Operation(summary = "Validar camada 1 (autor)", description = "Apenas o autor (created_by == userId). Exige status 'enviado'.")
     @ApiResponses({ @ApiResponse(responseCode = "200", description = "validado_autor"),
@@ -342,6 +369,17 @@ public class ProcessosNegocioController {
         var rows = jdbc.queryForList(
                 "SELECT name, is_superadmin FROM users WHERE id = ? AND is_deleted = FALSE", userId);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** True quando o usuário é responsável vinculado de uma unidade no campo "Responsável" (proprietarios JSONB). */
+    private boolean isResponsavelProcesso(long id, long userId) {
+        var rows = jdbc.queryForList(
+                "SELECT 1 FROM processos_negocio p, " +
+                        "jsonb_array_elements(COALESCE(p.proprietarios, '[]'::jsonb)) e " +
+                        "WHERE p.id = ? AND (e->>'responsavel_user_id') ~ '^[0-9]+$' " +
+                        "AND (e->>'responsavel_user_id')::int = ?",
+                id, userId);
+        return !rows.isEmpty();
     }
 
     private Object lookupGestorUserId(String diretoria) {
