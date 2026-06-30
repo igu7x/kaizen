@@ -45,6 +45,7 @@ import {
   TIPO_DOCUMENTO_BADGE,
   normalizeResponsavel,
   isResponsavel,
+  isEditor,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   isK1,
@@ -723,11 +724,26 @@ export function ProcessoDetalhe({
   //   e salva, o backend reseta o status pra 'em_elaboracao' (homologação fica
   //   invalidada), e aí o "Enviar para Validação" passa a aparecer.
   // - 'em_elaboracao' / 'recusado': tanto "Editar" quanto "Enviar" aparecem.
+  const isComplianceOfficer =
+    (user?.email || "").trim().toLowerCase() === "gmpdmaciel@tjgo.jus.br";
+  const isEditorAtribuido = isEditor(processo, user?.id);
+  // Status em que o conteúdo está "em preenchimento".
+  const statusEmPreenchimento =
+    processo.status === "em_elaboracao" || processo.status === "recusado";
+  // Papéis que editam o conteúdo (e podem reabrir um processo vigente ao editar):
+  // Gestor do Escritório (superadmin), Revisor (gestor da diretoria), Responsável,
+  // Compliance Officer e ADMIN/MANAGER (compatibilidade).
+  const podePapelEditor =
+    isSuperadmin ||
+    isDiretorDaArea ||
+    isResponsavel(processo, user?.id) ||
+    isComplianceOfficer ||
+    isAdminOrManager;
   const podeEditar =
-    isAdminOrManager &&
-    (processo.status === "em_elaboracao" ||
-      processo.status === "recusado" ||
-      processo.status === "validado_final");
+    (podePapelEditor &&
+      (statusEmPreenchimento || processo.status === "validado_final")) ||
+    // Editor atribuído: apenas preenche/salva em elaboração ou recusado (não reabre vigente).
+    (isEditorAtribuido && statusEmPreenchimento);
   const podeEnviar =
     isAuthor &&
     (processo.status === "em_elaboracao" || processo.status === "recusado");
