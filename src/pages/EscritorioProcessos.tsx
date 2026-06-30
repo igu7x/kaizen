@@ -21,6 +21,7 @@ import {
   Search,
   Briefcase,
   History,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -31,9 +32,19 @@ import {
   isK1,
   isVigente,
   isRevisaoOuNovo,
+  revisaoVencida,
+  isResponsavel,
   proximaRevisao,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -563,6 +574,8 @@ export default function EscritorioProcessos() {
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [selecionado, setSelecionado] = useState<ProcessoNegocio | null>(null);
   const [detalheLoading, setDetalheLoading] = useState(false);
+  // Processo cuja revisão antecipada está sendo iniciada (trava o item da lista).
+  const [revisando, setRevisando] = useState<number | null>(null);
   // Áreas (sigla → nome) para o rodapé do PDF do Modelo K1.
   const [areas, setAreas] = useState<Area[]>([]);
 
@@ -647,6 +660,21 @@ export default function EscritorioProcessos() {
       return true;
     });
   }, [filteredBase, filtroArtefato]);
+
+  // Processos vigentes e no prazo (Modelo K1, revisão não vencida) em que o usuário logado é
+  // Responsável — não apareceriam em "Em Revisão ou Novos". Base do botão "Revisar Processo".
+  const processosParaRevisar = useMemo(() => {
+    if (!user?.id) return [];
+    return processos
+      .filter(
+        (p) => isK1(p) && !revisaoVencida(p) && isResponsavel(p, user.id),
+      )
+      .sort((a, b) => {
+        const da = proximaRevisao(a)?.getTime() ?? Infinity;
+        const db = proximaRevisao(b)?.getTime() ?? Infinity;
+        return da - db;
+      });
+  }, [processos, user?.id]);
 
   // ============================================================
   // ESTATÍSTICAS / DADOS DOS GRÁFICOS
@@ -765,6 +793,23 @@ export default function EscritorioProcessos() {
   const handleNovoProcesso = () => {
     setEditing(null);
     setFormOpen(true);
+  };
+
+  // Reabre um processo vigente para revisão antecipada: muda o status (backend), recarrega,
+  // leva o responsável para a aba "Em Revisão ou Novos" e abre o detalhe para ele revisar.
+  const handleIniciarRevisao = async (p: ProcessoNegocio) => {
+    setRevisando(p.id);
+    try {
+      const atualizado = await processosNegocioApi.iniciarRevisao(p.id);
+      toast.success(`Revisão iniciada para "${p.nome_processo}".`);
+      await carregar();
+      trocarAba("revisao");
+      handleAbrirDetalhe(atualizado);
+    } catch {
+      toast.error("Não foi possível iniciar a revisão deste processo.");
+    } finally {
+      setRevisando(null);
+    }
   };
   const handleEditar = (p: ProcessoNegocio) => {
     setDetalheOpen(false);
@@ -896,15 +941,66 @@ export default function EscritorioProcessos() {
             </div>
           </div>
 
-          {isAdminOrManager && aba === "revisao" && (
-            <Button
-              onClick={handleNovoProcesso}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Processo
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {processosParaRevisar.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    {revisando != null ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Revisar Processo
+                    <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+                      {processosParaRevisar.length}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel className="text-xs font-normal text-slate-500">
+                    Processos vigentes no prazo sob sua responsabilidade —
+                    clique para revisar antecipadamente.
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {processosParaRevisar.map((p) => {
+                    const next = proximaRevisao(p);
+                    return (
+                      <DropdownMenuItem
+                        key={p.id}
+                        disabled={revisando != null}
+                        onSelect={() => handleIniciarRevisao(p)}
+                        className="flex flex-col items-start gap-0.5"
+                      >
+                        <span className="font-medium text-slate-800 line-clamp-1">
+                          {p.nome_processo}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {p.diretoria}
+                          {next
+                            ? ` · próx. revisão ${next.toLocaleDateString("pt-BR")}`
+                            : ""}
+                        </span>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {isAdminOrManager && aba === "revisao" && (
+              <Button
+                onClick={handleNovoProcesso}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Processo
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* ABAS */}

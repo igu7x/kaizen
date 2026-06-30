@@ -229,6 +229,10 @@ export function isRevisaoOuNovo(p: ProcessoNegocio): boolean {
 export interface ResponsavelEntry {
   area: string;
   cargo: string;
+  /** Id da unidade do cadastro, preenchido quando a área é escolhida da lista (não digitada). */
+  unidade_id?: number | null;
+  /** Usuário responsável pela unidade — base do papel "Responsável do Processo". */
+  responsavel_user_id?: number | null;
 }
 
 /** Normaliza uma entrada de responsável, tolerando dado legado (string = cargo). */
@@ -236,9 +240,40 @@ export function normalizeResponsavel(raw: unknown): ResponsavelEntry {
   if (typeof raw === "string") return { area: "", cargo: raw };
   if (raw && typeof raw === "object") {
     const r = raw as Record<string, unknown>;
-    return { area: String(r.area ?? ""), cargo: String(r.cargo ?? "") };
+    const toId = (v: unknown): number | null =>
+      v == null || v === "" ? null : Number(v) || null;
+    return {
+      area: String(r.area ?? ""),
+      cargo: String(r.cargo ?? ""),
+      unidade_id: toId(r.unidade_id),
+      responsavel_user_id: toId(r.responsavel_user_id),
+    };
   }
   return { area: "", cargo: "" };
+}
+
+/**
+ * user_ids dos responsáveis vinculados (entradas escolhidas da lista de unidades) de um processo.
+ * Entradas digitadas livremente, sem unidade do cadastro, não entram aqui.
+ */
+export function responsaveisUserIds(
+  p: Pick<ProcessoNegocio, "proprietarios">,
+): number[] {
+  const ids = (p.proprietarios || [])
+    .map((r) => normalizeResponsavel(r).responsavel_user_id)
+    .filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
+  return Array.from(new Set(ids));
+}
+
+/** True quando o usuário é Responsável do Processo (via unidade vinculada no campo Responsável). */
+export function isResponsavel(
+  p: Pick<ProcessoNegocio, "proprietarios">,
+  userId?: number | string | null,
+): boolean {
+  if (userId == null) return false;
+  const uid = Number(userId);
+  if (Number.isNaN(uid)) return false;
+  return responsaveisUserIds(p).includes(uid);
 }
 
 /** Política de revisão exibida na coluna "Periodicidade" da seção Revisão. */
@@ -386,6 +421,11 @@ export const processosNegocioApi = {
 
   enviar(id: number): Promise<ProcessoNegocio> {
     return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/enviar`);
+  },
+
+  /** Reabre um processo vigente (K1) para revisão antecipada (volta para 'em_elaboracao'). */
+  iniciarRevisao(id: number): Promise<ProcessoNegocio> {
+    return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/iniciar-revisao`);
   },
 
   validarAutor(id: number): Promise<ProcessoNegocio> {

@@ -31,6 +31,10 @@ export function ResponsavelInput({
   const [area, setArea] = useState("");
   const [showList, setShowList] = useState(false);
   const [cargo, setCargo] = useState("");
+  // Unidade escolhida na lista (link). Texto digitado livremente mantém isto nulo.
+  const [pendingUnidade, setPendingUnidade] = useState<UnidadeComArea | null>(
+    null,
+  );
 
   // Carrega o cadastro geral de unidades uma vez no mount.
   useEffect(() => {
@@ -68,9 +72,17 @@ export function ResponsavelInput({
     const a = area.trim();
     const c = cargo.trim();
     if (!a || !c) return;
-    onChange([...value, { area: a, cargo: c }]);
+    // Só linka quando o texto bate com a unidade escolhida da lista; senão é texto livre.
+    const linked = pendingUnidade && pendingUnidade.nome === a ? pendingUnidade : null;
+    const entry: ResponsavelEntry = { area: a, cargo: c };
+    if (linked) {
+      entry.unidade_id = linked.id;
+      entry.responsavel_user_id = linked.responsavel_user_id ?? null;
+    }
+    onChange([...value, entry]);
     setArea("");
     setCargo("");
+    setPendingUnidade(null);
     setShowList(false);
   };
 
@@ -88,6 +100,7 @@ export function ResponsavelInput({
             value={area}
             onChange={(e) => {
               setArea(e.target.value);
+              setPendingUnidade(null);
               setShowList(true);
             }}
             onFocus={() => setShowList(true)}
@@ -110,6 +123,7 @@ export function ResponsavelInput({
                     className="cursor-pointer px-3 py-2 text-sm hover:bg-slate-50"
                     onMouseDown={() => {
                       setArea(u.nome);
+                      setPendingUnidade(u);
                       setShowList(false);
                     }}
                   >
