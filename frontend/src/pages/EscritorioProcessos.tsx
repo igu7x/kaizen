@@ -982,7 +982,7 @@ export default function EscritorioProcessos() {
           </div>
 
           <div className="flex items-center gap-2">
-            {processosParaRevisar.length > 0 && (
+            {aba === "revisao" && processosParaRevisar.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
