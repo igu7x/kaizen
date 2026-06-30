@@ -146,6 +146,57 @@ public class ProcessosNegocioController {
         return ResponseEntity.ok(updated);
     }
 
+    // POST /api/processos-negocio/:id/editores — atribui um editor (Gestor do Escritório, Responsável ou Revisor)
+    @Operation(summary = "Atribuir editor", description = "Body: { user_id }. Associa um usuário com permissão de editar/salvar o conteúdo do processo. Permitido a superadmin (Gestor do Escritório), Responsável do Processo ou Revisor (gestor da diretoria).")
+    @ApiResponses({ @ApiResponse(responseCode = "200", description = "Editor adicionado"),
+            @ApiResponse(responseCode = "403", description = "Sem permissão para gerenciar editores"),
+            @ApiResponse(responseCode = "404", description = "Processo ou usuário não encontrado") })
+    @PostMapping("/{id:\\d+}/editores")
+    public ResponseEntity<?> addEditor(@PathVariable long id, @RequestBody Map<String, Object> body) {
+        Long userId = getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> processo = service.findById(id);
+        if (processo == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        if (!podeGerenciarEditores(processo, id, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Gestor do Escritório, o Responsável ou o Revisor do processo podem atribuir editores."));
+        }
+        Long editorUserId = parseLong(body == null ? null : body.get("user_id"));
+        if (editorUserId == null) {
+            return ResponseEntity.status(400).body(Map.of("error", "user_id é obrigatório."));
+        }
+        Map<String, Object> updated = service.addEditor(id, editorUserId, userId);
+        if (updated == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Usuário não encontrado."));
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    // DELETE /api/processos-negocio/:id/editores/:editorUserId — remove um editor
+    @Operation(summary = "Remover editor", description = "Remove um editor do processo. Mesmas regras de quem pode atribuir.")
+    @DeleteMapping("/{id:\\d+}/editores/{editorUserId:\\d+}")
+    public ResponseEntity<?> removeEditor(@PathVariable long id, @PathVariable long editorUserId) {
+        Long userId = getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> processo = service.findById(id);
+        if (processo == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        if (!podeGerenciarEditores(processo, id, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Gestor do Escritório, o Responsável ou o Revisor do processo podem remover editores."));
+        }
+        Map<String, Object> updated = service.removeEditor(id, editorUserId, userId);
+        if (updated == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        return ResponseEntity.ok(updated);
+    }
+
     // PATCH /api/processos-negocio/:id/validar-autor — camada 1: APENAS o autor (created_by)
     @Operation(summary = "Validar camada 1 (autor)", description = "Apenas o autor (created_by == userId). Exige status 'enviado'.")
     @ApiResponses({ @ApiResponse(responseCode = "200", description = "validado_autor"),
@@ -369,6 +420,33 @@ public class ProcessosNegocioController {
         var rows = jdbc.queryForList(
                 "SELECT name, is_superadmin FROM users WHERE id = ? AND is_deleted = FALSE", userId);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Pode gerenciar editores: superadmin (Gestor do Escritório), Responsável do Processo ou Revisor (gestor da diretoria). */
+    private boolean podeGerenciarEditores(Map<String, Object> processo, long id, long userId) {
+        Map<String, Object> user = lookupUser(userId);
+        if (user != null && Boolean.TRUE.equals(user.get("is_superadmin"))) {
+            return true;
+        }
+        if (isResponsavelProcesso(id, userId)) {
+            return true;
+        }
+        Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
+        return gestorUserId != null && eqId(gestorUserId, userId);
+    }
+
+    private static Long parseLong(Object v) {
+        if (v instanceof Number n) {
+            return n.longValue();
+        }
+        if (v != null) {
+            try {
+                return Long.parseLong(String.valueOf(v).trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /** True quando o usuário é responsável vinculado de uma unidade no campo "Responsável" (proprietarios JSONB). */
