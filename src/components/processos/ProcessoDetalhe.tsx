@@ -472,8 +472,6 @@ export function ProcessoDetalhe({
 
   if (!processo) return null;
 
-  const isAuthor =
-    user?.id != null && Number(user.id) === Number(processo.created_by);
   const isSuperadmin = (user as any)?.is_superadmin === true;
 
   // Pode atribuir/remover editores: Gestor do Escritório (superadmin), Revisor (gestor da
@@ -732,34 +730,32 @@ export function ProcessoDetalhe({
   // Papéis que editam o conteúdo (e podem reabrir um processo vigente ao editar):
   // Gestor do Escritório (superadmin), Revisor (gestor da diretoria), Responsável e
   // Compliance Officer. Editor atribuído é tratado à parte (não reabre vigente).
+  const ehResponsavel = isResponsavel(processo, user?.id);
   const podePapelEditor =
-    isSuperadmin ||
-    isDiretorDaArea ||
-    isResponsavel(processo, user?.id) ||
-    isComplianceOfficer;
+    isSuperadmin || isDiretorDaArea || ehResponsavel || isComplianceOfficer;
   const podeEditar =
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
     // Editor atribuído: apenas preenche/salva em elaboração ou recusado (não reabre vigente).
     (isEditorAtribuido && statusEmPreenchimento);
   const podeEnviar =
-    isAuthor &&
+    ehResponsavel &&
     (processo.status === "em_elaboracao" || processo.status === "recusado");
   // Regras de validação por camada:
-  // - Camada 1 (Autor): quem preencheu o formulário valida
-  // - Camada 2 (Diretoria): diretor da diretoria cadastrada no processo valida
-  // - Camada 3 (Final): superadmin valida
-  const podeValidarAutor = isAuthor && processo.status === "enviado";
+  // - Camada 1 (Responsável): o Responsável do Processo valida o que preencheu
+  // - Camada 2 (Revisor): o gestor da diretoria cadastrada valida
+  // - Camada 3 (Compliance Officer): gmpdmaciel@tjgo.jus.br valida
+  const podeValidarAutor = ehResponsavel && processo.status === "enviado";
   const podeValidarDiretoria =
     isDiretorDaArea && processo.status === "validado_autor";
   const podeValidarFinal =
-    isSuperadmin && processo.status === "validado_diretoria";
+    isComplianceOfficer && processo.status === "validado_diretoria";
 
   // Recusar: quem pode validar a camada atual também pode recusar
   const podeRecusar =
-    (processo.status === "enviado" && isAuthor) ||
+    (processo.status === "enviado" && ehResponsavel) ||
     (processo.status === "validado_autor" && isDiretorDaArea) ||
-    (processo.status === "validado_diretoria" && isSuperadmin);
+    (processo.status === "validado_diretoria" && isComplianceOfficer);
 
   const podeExcluir = user?.role === "ADMIN";
 
