@@ -18,11 +18,11 @@ import java.util.Map;
 
 /**
  * Porte fiel de processosNegocio.ts. Montado em /api/processos-negocio (com authenticate).
- * Autorização identity-based em 3 camadas decidida aqui (igual ao Node, no route layer):
- *  - validar-autor: created_by == userId
- *  - validar-diretoria: gestor_user_id da cadastros_areas com sigla = processo.diretoria (trim+lower)
- *  - validar-final: users.is_superadmin
- * As mesmas regras valem para recusar a respectiva camada.
+ * Autorização identity-based em 3 camadas (papéis do Escritório de Processos), decidida aqui:
+ *  - camada 1 (enviar / validar-autor): Responsável do Processo (responsavel_user_id de unidade no campo Responsável)
+ *  - camada 2 (validar-diretoria): Revisor = gestor_user_id da cadastros_areas com sigla = processo.diretoria (trim+lower)
+ *  - camada 3 (validar-final): Compliance Officer (e-mail gmpdmaciel@tjgo.jus.br)
+ * Um Revisor que também seja Responsável valida nas camadas 1 e 2. As mesmas regras valem para recusar a respectiva camada.
  * getUserId retorna null sem auth → 401 (Categoria B).
  */
 @Tag(name = "Processos de Negócio", description = "Cadastro e validação de processos em 3 camadas identity-based (autor → diretoria → superadmin), com versionamento e snapshots históricos.")
@@ -113,13 +113,19 @@ public class ProcessosNegocioController {
         }
     }
 
-    // PATCH /api/processos-negocio/:id/enviar (ADMIN, MANAGER)
+    // PATCH /api/processos-negocio/:id/enviar — camada 1: o Responsável do Processo valida ao enviar
     @PatchMapping("/{id:\\d+}/enviar")
     public ResponseEntity<?> enviar(@PathVariable long id) {
-        AuthContext.requireRole(List.of("ADMIN", "MANAGER"));
         Long userId = getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> processo = service.findById(id);
+        if (processo == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        if (!isResponsavelProcesso(id, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Responsável do Processo pode enviar para validação (camada 1)."));
         }
         Map<String, Object> user = lookupUser(userId);
         Map<String, Object> updated = service.enviarParaValidacao(id, userId, userName(user, "Responsável"));
@@ -207,10 +213,10 @@ public class ProcessosNegocioController {
         return ResponseEntity.ok(updated);
     }
 
-    // PATCH /api/processos-negocio/:id/validar-autor — camada 1: APENAS o autor (created_by)
-    @Operation(summary = "Validar camada 1 (autor)", description = "Apenas o autor (created_by == userId). Exige status 'enviado'.")
+    // PATCH /api/processos-negocio/:id/validar-autor — camada 1: APENAS o Responsável do Processo
+    @Operation(summary = "Validar camada 1 (Responsável)", description = "Apenas o Responsável do Processo (responsavel_user_id de unidade no campo Responsável). Exige status 'enviado'.")
     @ApiResponses({ @ApiResponse(responseCode = "200", description = "validado_autor"),
-            @ApiResponse(responseCode = "403", description = "Não é o autor"),
+            @ApiResponse(responseCode = "403", description = "Não é o Responsável"),
             @ApiResponse(responseCode = "400", description = "Status inválido") })
     @PatchMapping("/{id:\\d+}/validar-autor")
     public ResponseEntity<?> validarAutor(@PathVariable long id) {
@@ -222,11 +228,11 @@ public class ProcessosNegocioController {
         if (processo == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
         }
-        if (!eqId(processo.get("created_by"), userId)) {
-            return ResponseEntity.status(403).body(Map.of("error", "Apenas o autor do processo pode validar nesta camada."));
+        if (!isResponsavelProcesso(id, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Responsável do Processo pode validar nesta camada."));
         }
         Map<String, Object> user = lookupUser(userId);
-        Map<String, Object> updated = service.validarAutor(id, userId, userName(user, "Autor"));
+        Map<String, Object> updated = service.validarAutor(id, userId, userName(user, "Responsável"));
         if (updated == null) {
             return ResponseEntity.status(400).body(Map.of("error", "Validação do autor só é permitida quando o processo está enviado"));
         }
@@ -259,10 +265,10 @@ public class ProcessosNegocioController {
         return ResponseEntity.ok(updated);
     }
 
-    // PATCH /api/processos-negocio/:id/validar-final — camada 3: APENAS superadmin
-    @Operation(summary = "Validar camada 3 (final)", description = "Apenas users.is_superadmin. Exige 'validado_diretoria'. Faz bump de versão (a partir do 2º ciclo) e grava snapshot histórico.")
+    // PATCH /api/processos-negocio/:id/validar-final — camada 3: APENAS o Compliance Officer
+    @Operation(summary = "Validar camada 3 (Compliance Officer)", description = "Apenas o Compliance Officer (e-mail gmpdmaciel@tjgo.jus.br). Exige 'validado_diretoria'. Faz bump de versão (a partir do 2º ciclo) e grava snapshot histórico.")
     @ApiResponses({ @ApiResponse(responseCode = "200", description = "validado_final"),
-            @ApiResponse(responseCode = "403", description = "Não é superadmin") })
+            @ApiResponse(responseCode = "403", description = "Não é o Compliance Officer") })
     @PatchMapping("/{id:\\d+}/validar-final")
     public ResponseEntity<?> validarFinal(@PathVariable long id) {
         Long userId = getUserId();
@@ -270,8 +276,8 @@ public class ProcessosNegocioController {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
         }
         Map<String, Object> user = lookupUser(userId);
-        if (user == null || !Boolean.TRUE.equals(user.get("is_superadmin"))) {
-            return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode realizar a validação final."));
+        if (user == null || !isComplianceOfficer(str(user.get("email")))) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Compliance Officer pode realizar a validação final."));
         }
         Map<String, Object> updated = service.validarFinal(id, userId, userName(user, "Validador Final"));
         if (updated == null) {
@@ -300,8 +306,8 @@ public class ProcessosNegocioController {
         Map<String, Object> user = lookupUser(userId);
 
         if ("autor".equals(camada)) {
-            if (!eqId(processo.get("created_by"), userId)) {
-                return ResponseEntity.status(403).body(Map.of("error", "Apenas o autor do processo pode recusar nesta camada."));
+            if (!isResponsavelProcesso(id, userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Apenas o Responsável do Processo pode recusar nesta camada."));
             }
         } else if ("diretoria".equals(camada)) {
             Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
@@ -309,8 +315,8 @@ public class ProcessosNegocioController {
                 return ResponseEntity.status(403).body(Map.of("error", "Apenas o diretor da diretoria cadastrada pode recusar nesta camada."));
             }
         } else { // final
-            if (user == null || !Boolean.TRUE.equals(user.get("is_superadmin"))) {
-                return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode recusar na camada final."));
+            if (user == null || !isComplianceOfficer(str(user.get("email")))) {
+                return ResponseEntity.status(403).body(Map.of("error", "Apenas o Compliance Officer pode recusar na camada final."));
             }
         }
 
@@ -428,7 +434,7 @@ public class ProcessosNegocioController {
 
     private Map<String, Object> lookupUser(long userId) {
         var rows = jdbc.queryForList(
-                "SELECT name, is_superadmin FROM users WHERE id = ? AND is_deleted = FALSE", userId);
+                "SELECT name, email, is_superadmin FROM users WHERE id = ? AND is_deleted = FALSE", userId);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
