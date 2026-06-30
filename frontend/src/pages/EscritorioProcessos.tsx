@@ -588,12 +588,10 @@ export default function EscritorioProcessos() {
   // (superadmin), Compliance Officer e SGJT. Os demais recebem a lista já restrita por papel.
   const podeFiltrarDiretoria =
     isSuperadmin || isComplianceOfficer || user?.diretoria === "SGJT";
-  // Visualizador (perfil VIEWER) sem outro privilégio: só enxerga "Processos Vigentes".
+  // Visualizador (perfil VIEWER): só enxerga "Processos Vigentes", independente da diretoria.
+  // Superadmin (Gestor do Escritório) e Compliance Officer não são restritos.
   const soVisualizador =
-    user?.role === "VIEWER" &&
-    !isSuperadmin &&
-    !isComplianceOfficer &&
-    user?.diretoria !== "SGJT";
+    user?.role === "VIEWER" && !isSuperadmin && !isComplianceOfficer;
 
   const carregar = async () => {
     setLoading(true);
