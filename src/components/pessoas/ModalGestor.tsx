@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { colaboradoresApi } from "@/services/colaboradoresApi";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/services/apiClient";
+import { User } from "@/types";
+import { getUsers } from "@/services/api";
 
 interface ModalGestorProps {
   isOpen: boolean;
@@ -51,11 +53,13 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
   const [formData, setFormData] = useState({
     nome_area: "",
     nome_exibicao: "",
-    nome_gestor: "",
+    gestor_user_id: null as number | null,
     nome_cargo: "",
     linha_organograma: 1,
     subordinacao_id: null as number | null,
   });
+
+  const [usuarios, setUsuarios] = useState<User[]>([]);
 
   const [semGestor, setSemGestor] = useState(false);
 
@@ -102,6 +106,11 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setIsInitialized(false);
+    } else {
+      // Load users when opening
+      getUsers().then(data => {
+        setUsuarios(data.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+      }).catch(err => console.warn("Erro ao carregar usuários:", err));
     }
   }, [isOpen]);
 
@@ -120,17 +129,18 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
         setFormData({
           nome_area: gestorEditar.nome_area || "",
           nome_exibicao: gestorEditar.nome_exibicao || "",
-          nome_gestor: gestorEditar.nome_gestor || "",
+          gestor_user_id: gestorEditar.gestor_user_id || null,
           nome_cargo: gestorEditar.nome_cargo || "",
           linha_organograma: gestorEditar.linha_organograma || 1,
           subordinacao_id: gestorEditar.subordinacao_id || null,
         });
 
-        // Verificar se é "sem gestor" (nome_gestor vazio ou igual a "Sem gestor")
+        // Verificar se é "sem gestor" (gestor_user_id vazio e sem nome text)
         const isSemGestor =
-          !gestorEditar.nome_gestor ||
+          !gestorEditar.gestor_user_id &&
+          (!gestorEditar.nome_gestor ||
           gestorEditar.nome_gestor.trim() === "" ||
-          gestorEditar.nome_gestor === "Sem gestor";
+          gestorEditar.nome_gestor === "Sem gestor");
         setSemGestor(isSemGestor);
 
         // Carregar preview da foto existente
@@ -151,7 +161,7 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
         setFormData({
           nome_area: "",
           nome_exibicao: "",
-          nome_gestor: "",
+          gestor_user_id: null,
           nome_cargo: "",
           linha_organograma: 1,
           subordinacao_id: null,
@@ -223,10 +233,10 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
     if (!formData.nome_area.trim()) {
       newErrors.nome_area = "Nome da área é obrigatório";
     }
-    // Só validar nome_gestor e nome_cargo se NÃO for "sem gestor"
+    // Só validar gestor e cargo se NÃO for "sem gestor"
     if (!semGestor) {
-      if (!formData.nome_gestor.trim()) {
-        newErrors.nome_gestor = "Nome do gestor é obrigatório";
+      if (!formData.gestor_user_id) {
+        newErrors.gestor_user_id = "Selecione o usuário gestor";
       }
       if (!formData.nome_cargo.trim()) {
         newErrors.nome_cargo = "Nome do cargo é obrigatório";
@@ -260,11 +270,12 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
       if (formData.nome_exibicao?.trim()) {
         formDataToSend.append("nome_exibicao", formData.nome_exibicao.trim());
       }
-      // Se "sem gestor", enviar valores vazios
-      formDataToSend.append(
-        "nome_gestor",
-        semGestor ? "" : formData.nome_gestor,
-      );
+      // Se "sem gestor", enviar valores vazios. Do contrário, envia o id do usuário gestor.
+      if (!semGestor && formData.gestor_user_id) {
+        formDataToSend.append("gestor_user_id", formData.gestor_user_id.toString());
+      } else {
+        formDataToSend.append("gestor_user_id", "");
+      }
       formDataToSend.append("nome_cargo", semGestor ? "" : formData.nome_cargo);
       formDataToSend.append(
         "linha_organograma",
@@ -314,7 +325,7 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
     setFormData({
       nome_area: "",
       nome_exibicao: "",
-      nome_gestor: "",
+      gestor_user_id: null,
       nome_cargo: "",
       linha_organograma: 1,
       subordinacao_id: null,
@@ -550,7 +561,7 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
                     // Limpar campos do gestor quando marcar "Sem gestor"
                     setFormData((prev) => ({
                       ...prev,
-                      nome_gestor: "",
+                      gestor_user_id: null,
                       nome_cargo: "",
                     }));
                     setFotoFile(null);
@@ -571,20 +582,26 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
             {!semGestor && (
               <>
                 <div>
-                  <Label htmlFor="nome_gestor">Nome do Gestor *</Label>
-                  <Input
-                    id="nome_gestor"
-                    value={formData.nome_gestor}
-                    onChange={(e) =>
-                      setFormData({ ...formData, nome_gestor: e.target.value })
-                    }
-                    placeholder="Ex: João Silva"
-                    className={errors.nome_gestor ? "border-red-500" : ""}
-                  />
-                  {errors.nome_gestor && (
+                  <Label htmlFor="gestor_user_id">Usuário do Gestor *</Label>
+                  <Select
+                    value={formData.gestor_user_id ? formData.gestor_user_id.toString() : ""}
+                    onValueChange={(val) => setFormData({ ...formData, gestor_user_id: parseInt(val) })}
+                  >
+                    <SelectTrigger className={errors.gestor_user_id ? "border-red-500" : ""}>
+                      <SelectValue placeholder="Selecione um usuário..." />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4} className="z-[10001] max-h-[250px]">
+                      {usuarios.map(u => (
+                        <SelectItem key={u.id} value={u.id.toString()}>
+                          {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.gestor_user_id && (
                     <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
                       <AlertCircle className="w-4 h-4" />
-                      {errors.nome_gestor}
+                      {errors.gestor_user_id}
                     </p>
                   )}
                 </div>
@@ -640,8 +657,8 @@ export const ModalGestor: React.FC<ModalGestorProps> = ({
                       ) : (
                         <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center border-4 border-white shadow-lg">
                           <span className="text-white text-3xl font-bold">
-                            {formData.nome_gestor
-                              ? formData.nome_gestor.charAt(0).toUpperCase()
+                            {formData.gestor_user_id
+                              ? usuarios.find(u => u.id === formData.gestor_user_id.toString())?.name.charAt(0).toUpperCase()
                               : "?"}
                           </span>
                         </div>

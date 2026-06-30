@@ -179,6 +179,12 @@ export default function Administracao() {
       diretoria: canSelectDiretoria
         ? (formData.get("diretoria") as Diretoria) || adminDiretoria
         : adminDiretoria,
+      situacao_funcional: formData.get("situacao_funcional") as string,
+      unidade_lotacao: formData.get("unidade_lotacao") as string,
+      cargo_efetivo: formData.get("cargo_efetivo") as string,
+      classe_efetivo: formData.get("classe_efetivo") as string,
+      nome_cc_fc: formData.get("nome_cc_fc") as string,
+      classe_cc_fc: formData.get("classe_cc_fc") as string,
     };
 
     // Adicionar senha se foi fornecida
@@ -458,7 +464,7 @@ export default function Administracao() {
 
         {/* Dialog para Usuário */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSaveUser}>
               <DialogHeader>
                 <DialogTitle>
@@ -568,6 +574,20 @@ export default function Administracao() {
                     />
                   </div>
                 )}
+
+                {/* Lotação (Apenas exibição) */}
+                <div>
+                  <Label>Unidade</Label>
+                  <Input
+                    name="unidade_lotacao"
+                    value={(editingUser as any)?.unidade_lotacao || ""}
+                    readOnly
+                    disabled
+                    className="bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Este dado vem do vínculo de lotação em Pessoas/Áreas.</p>
+                </div>
+
                 <div>
                   <Label htmlFor="status">Status</Label>
                   <Select
@@ -584,6 +604,55 @@ export default function Administracao() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Campos de RH */}
+                <div>
+                  <Label htmlFor="situacao_funcional">Situação Funcional</Label>
+                  <Input
+                    name="situacao_funcional"
+                    defaultValue={(editingUser as any)?.situacao_funcional || ""}
+                    placeholder="Ex: ESTATUTÁRIO, CEDIDO..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="cargo_efetivo">Cargo Efetivo</Label>
+                    <Input
+                      name="cargo_efetivo"
+                      defaultValue={(editingUser as any)?.cargo_efetivo || ""}
+                      placeholder="Ex: TÉCNICO JUDICIÁRIO"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="classe_efetivo">Classe Efetivo</Label>
+                    <Input
+                      name="classe_efetivo"
+                      defaultValue={(editingUser as any)?.classe_efetivo || ""}
+                      placeholder="Ex: A, B, C..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="nome_cc_fc">Cargo Comissionado/Função</Label>
+                    <Input
+                      name="nome_cc_fc"
+                      defaultValue={(editingUser as any)?.nome_cc_fc || ""}
+                      placeholder="Ex: ASSISTENTE TÉCNICO"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="classe_cc_fc">Código CC/FC</Label>
+                    <Input
+                      name="classe_cc_fc"
+                      defaultValue={(editingUser as any)?.classe_cc_fc || ""}
+                      placeholder="Ex: FC-1, CJ-1..."
+                    />
+                  </div>
+                </div>
+
               </div>
               <DialogFooter>
                 <Button

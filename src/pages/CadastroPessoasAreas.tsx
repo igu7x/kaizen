@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { VoltarCadastros } from "@/components/ui/VoltarCadastros";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { api } from "@/services/api";
+import { User as UserType } from "@/types";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -28,7 +30,22 @@ import {
 } from "@/components/ui/dialog";
 
 // Icons
-import { Plus, Edit, Trash2, Users, ArrowLeft, Building2 } from "lucide-react";
+import { Plus, Edit, Trash2, Users, ArrowLeft, Building2, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Command as CommandPrimitive } from "cmdk";
 
 export default function Pessoas() {
   const { user } = useAuth();
@@ -49,14 +66,31 @@ export default function Pessoas() {
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editingPessoa, setEditingPessoa] = useState<Pessoa | null>(null);
   const [modalConfirmDeleteOpen, setModalConfirmDeleteOpen] = useState(false);
+  const [openUserSelect, setOpenUserSelect] = useState(false);
   const [itemParaDeletar, setItemParaDeletar] = useState<{
     id: number;
     nome: string;
   } | null>(null);
 
+  // Click outside ref para o Combobox customizado
+  const userSelectRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userSelectRef.current && !userSelectRef.current.contains(event.target as Node)) {
+        setOpenUserSelect(false);
+      }
+    };
+    if (openUserSelect) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openUserSelect]);
+
   // Estado para unidades da área
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [loadingUnidades, setLoadingUnidades] = useState(false);
+  const [usuarios, setUsuarios] = useState<UserType[]>([]);
+  const [userSearch, setUserSearch] = useState("");
 
   // Form data
   const [formData, setFormData] = useState<CreatePessoaDto>({
@@ -70,6 +104,7 @@ export default function Pessoas() {
     cc_fc_classe: "",
     cargo_efetivo: "",
     cargo_efetivo_classe: "",
+    user_id: null,
   });
 
   // Drag and drop states (para áreas)
@@ -99,6 +134,10 @@ export default function Pessoas() {
         ? await areasApi.getByDominio(devEnvironment)
         : await areasApi.getAll();
       setAreas(allAreas);
+
+      const dominio = devEnvironment || (user as any)?.dominio || undefined;
+      const allUsers = await api.getUsers(dominio);
+      setUsuarios(allUsers.filter(u => u.status === "ACTIVE"));
     } catch (error) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
@@ -214,6 +253,7 @@ export default function Pessoas() {
         cc_fc_classe: pessoa.cc_fc_classe || "",
         cargo_efetivo: pessoa.cargo_efetivo || "",
         cargo_efetivo_classe: pessoa.cargo_efetivo_classe || "",
+        user_id: pessoa.user_id || null,
       });
     } else {
       setEditingPessoa(null);
@@ -228,6 +268,7 @@ export default function Pessoas() {
         cc_fc_classe: "",
         cargo_efetivo: "",
         cargo_efetivo_classe: "",
+        user_id: null,
       });
     }
     setModalOpen(true);
@@ -248,6 +289,7 @@ export default function Pessoas() {
       cc_fc_classe: "",
       cargo_efetivo: "",
       cargo_efetivo_classe: "",
+      user_id: null,
     });
   };
 
@@ -639,16 +681,78 @@ export default function Pessoas() {
           <div className="space-y-4 py-4">
             {/* Nome */}
             <div>
-              <Label htmlFor="nome">Colaborador(a) *</Label>
-              <Input
-                id="nome"
-                value={formData.nome}
-                onChange={(e) =>
-                  setFormData({ ...formData, nome: e.target.value })
-                }
-                placeholder="Nome completo"
-                className="mt-1"
-              />
+              <Label>Colaborador(a) *</Label>
+              <div className="relative w-full" ref={userSelectRef}>
+                <Command className="overflow-visible bg-transparent">
+                  <div 
+                    className={cn(
+                      "flex items-center border rounded-md px-3 bg-white h-9 mt-1",
+                      modalMode === "edit" ? "bg-gray-100 cursor-not-allowed opacity-50" : "focus-within:ring-1 focus-within:ring-ring"
+                    )}
+                    onClick={() => {
+                      if (modalMode !== "edit") {
+                        setOpenUserSelect(true);
+                      }
+                    }}
+                  >
+                    <CommandPrimitive.Input 
+                      value={userSearch}
+                      onValueChange={(val) => {
+                        setUserSearch(val);
+                        if (!openUserSelect) setOpenUserSelect(true);
+                      }}
+                      onFocus={() => {
+                        if (modalMode !== "edit") setOpenUserSelect(true);
+                      }}
+                      disabled={modalMode === "edit"}
+                      placeholder={
+                        formData.user_id 
+                          ? (usuarios.find((u) => u.id === formData.user_id)?.name || formData.nome)
+                          : "Buscar usuário por nome..."
+                      }
+                      className="border-none focus:ring-0 w-full h-full bg-transparent px-0 disabled:cursor-not-allowed"
+                    />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </div>
+                  {openUserSelect && (
+                    <div className="absolute top-full left-0 z-50 mt-1 w-[400px] rounded-md border bg-popover shadow-md outline-none animate-in fade-in-0 zoom-in-95">
+                      <CommandList>
+                        <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {usuarios.map((u) => (
+                            <CommandItem
+                              key={u.id}
+                              value={u.name}
+                              onSelect={() => {
+                                setFormData({
+                                  ...formData,
+                                  user_id: u.id,
+                                  nome: u.name,
+                                  email: u.email,
+                                  situacao: u.situacao_funcional || "ESTATUTÁRIO",
+                                  cc_fc: u.nome_cc_fc || "",
+                                  cc_fc_classe: u.classe_cc_fc || "",
+                                  cargo_efetivo: u.cargo_efetivo || "",
+                                  cargo_efetivo_classe: u.classe_efetivo || "",
+                                });
+                                setOpenUserSelect(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.user_id === u.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {u.name} ({u.dominio})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </div>
+                  )}
+                </Command>
+              </div>
             </div>
 
             {/* Unidade (seleção das unidades da área) */}
@@ -689,33 +793,18 @@ export default function Pessoas() {
               )}
             </div>
 
-            {/* Usuário e Email (não aparecem na tabela, apenas são salvos) */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="usuario">Usuário</Label>
-                <Input
-                  id="usuario"
-                  value={formData.usuario || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, usuario: e.target.value })
-                  }
-                  placeholder="Nome de usuário"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  placeholder="email@exemplo.com"
-                  className="mt-1"
-                />
-              </div>
+            {/* Email (não aparece na tabela, apenas é salvo) */}
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email || ""}
+                readOnly
+                disabled
+                placeholder="email@exemplo.com"
+                className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
+              />
             </div>
 
             {/* Situação Funcional */}
@@ -724,11 +813,10 @@ export default function Pessoas() {
               <Input
                 id="situacao"
                 value={formData.situacao}
-                onChange={(e) =>
-                  setFormData({ ...formData, situacao: e.target.value })
-                }
+                readOnly
+                disabled
                 placeholder="Ex: Ativo, Cedido, Licença..."
-                className="mt-1"
+                className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
               />
             </div>
 
@@ -739,11 +827,10 @@ export default function Pessoas() {
                 <Input
                   id="cc_fc"
                   value={formData.cc_fc}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cc_fc: e.target.value })
-                  }
+                  readOnly
+                  disabled
                   placeholder="Cargo Comissionado / Função"
-                  className="mt-1"
+                  className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
                 />
               </div>
 
@@ -753,11 +840,10 @@ export default function Pessoas() {
                 <Input
                   id="cc_fc_classe"
                   value={formData.cc_fc_classe}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cc_fc_classe: e.target.value })
-                  }
+                  readOnly
+                  disabled
                   placeholder="Ex: A, B, C..."
-                  className="mt-1"
+                  className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -769,11 +855,10 @@ export default function Pessoas() {
                 <Input
                   id="cargo_efetivo"
                   value={formData.cargo_efetivo}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cargo_efetivo: e.target.value })
-                  }
+                  readOnly
+                  disabled
                   placeholder="Cargo efetivo"
-                  className="mt-1"
+                  className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
                 />
               </div>
 
@@ -785,14 +870,10 @@ export default function Pessoas() {
                 <Input
                   id="cargo_efetivo_classe"
                   value={formData.cargo_efetivo_classe}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      cargo_efetivo_classe: e.target.value,
-                    })
-                  }
+                  readOnly
+                  disabled
                   placeholder="Ex: I, II, III..."
-                  className="mt-1"
+                  className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
                 />
               </div>
             </div>
