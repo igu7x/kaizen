@@ -276,6 +276,24 @@ export function isResponsavel(
   return responsaveisUserIds(p).includes(uid);
 }
 
+/** Editor atribuído ao processo: usuário com permissão de editar/salvar o conteúdo. */
+export interface Editor {
+  user_id: number;
+  nome?: string | null;
+  email?: string | null;
+}
+
+/** True quando o usuário é um editor atribuído ao processo. */
+export function isEditor(
+  p: Pick<ProcessoNegocio, "editores">,
+  userId?: number | string | null,
+): boolean {
+  if (userId == null) return false;
+  const uid = Number(userId);
+  if (Number.isNaN(uid)) return false;
+  return (p.editores || []).some((e) => Number(e.user_id) === uid);
+}
+
 /** Política de revisão exibida na coluna "Periodicidade" da seção Revisão. */
 export const REVISAO_POLITICA_TEXTO =
   "A revisão do processo deverá ocorrer de forma ordinária, anualmente, ou de forma extraordinária, sempre que houver necessidade de atualização.";
@@ -302,6 +320,8 @@ export interface ProcessoNegocio {
   indicadores: string | null;
   /** Responsáveis (área + cargo). Coluna JSONB historicamente chamada `proprietarios`. */
   proprietarios: ResponsavelEntry[];
+  /** Editores atribuídos: usuários com permissão de editar/salvar o conteúdo do processo. */
+  editores: Editor[];
   atores: string[];
   areas_responsaveis: string[];
   entradas: string[];
@@ -426,6 +446,18 @@ export const processosNegocioApi = {
   /** Reabre um processo vigente (K1) para revisão antecipada (volta para 'em_elaboracao'). */
   iniciarRevisao(id: number): Promise<ProcessoNegocio> {
     return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/iniciar-revisao`);
+  },
+
+  /** Atribui um editor (usuário com permissão de editar/salvar o conteúdo do processo). */
+  adicionarEditor(id: number, userId: number): Promise<ProcessoNegocio> {
+    return apiClient.post<ProcessoNegocio>(`${BASE}/${id}/editores`, {
+      user_id: userId,
+    });
+  },
+
+  /** Remove um editor do processo. */
+  removerEditor(id: number, userId: number): Promise<ProcessoNegocio> {
+    return apiClient.delete<ProcessoNegocio>(`${BASE}/${id}/editores/${userId}`);
   },
 
   validarAutor(id: number): Promise<ProcessoNegocio> {

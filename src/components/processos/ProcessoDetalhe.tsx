@@ -28,9 +28,13 @@ import {
   BarChart3,
   ShieldCheck,
   Upload,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { Input } from "@/components/ui/input";
+import { getUsers } from "@/services/api";
+import type { User } from "@/types";
 import {
   processosNegocioApi,
   ProcessoNegocio,
@@ -40,6 +44,7 @@ import {
   TIPO_DOCUMENTO_LABEL,
   TIPO_DOCUMENTO_BADGE,
   normalizeResponsavel,
+  isResponsavel,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   isK1,
@@ -396,6 +401,27 @@ export function ProcessoDetalhe({
   const [aprovacaoEmInputs, setAprovacaoEmInputs] = useState<
     Record<string, string>
   >({});
+  // Diálogo "Adicionar Editor"
+  const [editoresOpen, setEditoresOpen] = useState(false);
+  const [usuarios, setUsuarios] = useState<User[]>([]);
+  const [buscaEditor, setBuscaEditor] = useState("");
+  const [editorBusy, setEditorBusy] = useState(false);
+
+  // Carrega usuários ao abrir o diálogo de editores.
+  useEffect(() => {
+    if (!editoresOpen) return;
+    let cancelled = false;
+    getUsers()
+      .then((data) => {
+        if (!cancelled) setUsuarios(data);
+      })
+      .catch(() => {
+        /* erro já tratado pelo apiClient */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editoresOpen]);
 
   // Carrega áreas uma vez ao abrir o detalhe — usado pra resolver
   // sigla da diretoria → nome completo no rodapé institucional.
@@ -449,6 +475,57 @@ export function ProcessoDetalhe({
   const isAuthor =
     user?.id != null && Number(user.id) === Number(processo.created_by);
   const isSuperadmin = (user as any)?.is_superadmin === true;
+
+  // Pode atribuir/remover editores: Gestor do Escritório (superadmin), Revisor (gestor da
+  // diretoria) ou Responsável do Processo (unidade vinculada no campo Responsável).
+  const podeGerenciarEditores =
+    isSuperadmin || isDiretorDaArea || isResponsavel(processo, user?.id);
+
+  const editorIds = new Set(
+    (processo.editores || []).map((e) => Number(e.user_id)),
+  );
+  const buscaEditorQ = buscaEditor.toLowerCase().trim();
+  const usuariosFiltrados = usuarios
+    .filter((u) => !editorIds.has(Number(u.id)))
+    .filter(
+      (u) =>
+        !buscaEditorQ ||
+        u.name?.toLowerCase().includes(buscaEditorQ) ||
+        u.email?.toLowerCase().includes(buscaEditorQ),
+    )
+    .slice(0, 50);
+
+  const handleAddEditor = async (u: User) => {
+    setEditorBusy(true);
+    try {
+      const next = await processosNegocioApi.adicionarEditor(
+        processo.id,
+        Number(u.id),
+      );
+      onChanged(next);
+      setBuscaEditor("");
+      toast.success(`${u.name} adicionado como editor.`);
+    } catch {
+      toast.error("Não foi possível adicionar o editor.");
+    } finally {
+      setEditorBusy(false);
+    }
+  };
+
+  const handleRemoveEditor = async (editorUserId: number) => {
+    setEditorBusy(true);
+    try {
+      const next = await processosNegocioApi.removerEditor(
+        processo.id,
+        editorUserId,
+      );
+      onChanged(next);
+    } catch {
+      toast.error("Não foi possível remover o editor.");
+    } finally {
+      setEditorBusy(false);
+    }
+  };
 
   const handleAcao = async (
     label: string,
@@ -1217,6 +1294,22 @@ export function ProcessoDetalhe({
                 <History className="h-4 w-4 mr-2" />
                 Histórico de Versões
               </Button>
+              {podeGerenciarEditores && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditoresOpen(true)}
+                  disabled={!!busy}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Adicionar Editor
+                  {(processo.editores?.length ?? 0) > 0 && (
+                    <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+                      {processo.editores.length}
+                    </span>
+                  )}
+                </Button>
+              )}
             </div>
 
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1458,6 +1551,103 @@ export function ProcessoDetalhe({
               >
                 Fechar
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Adicionar Editor */}
+      <Dialog open={editoresOpen} onOpenChange={setEditoresOpen}>
+        <DialogContent className="max-w-lg">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-800">
+                Editores do processo
+              </h3>
+              <p className="text-sm text-slate-500">
+                Usuários que podem editar e salvar o conteúdo deste processo (sem
+                iniciar revisão nem validar).
+              </p>
+            </div>
+
+            {/* Editores atuais */}
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-slate-500">
+                Editores atuais
+              </Label>
+              {(processo.editores?.length ?? 0) === 0 ? (
+                <p className="text-xs italic text-slate-400">
+                  Nenhum editor atribuído.
+                </p>
+              ) : (
+                processo.editores.map((e) => (
+                  <div
+                    key={e.user_id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                  >
+                    <span className="flex flex-col">
+                      <span className="font-medium text-slate-700">
+                        {e.nome || `Usuário ${e.user_id}`}
+                      </span>
+                      {e.email && (
+                        <span className="text-[11px] text-slate-400">
+                          {e.email}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEditor(e.user_id)}
+                      disabled={editorBusy}
+                      className="text-slate-400 transition-colors hover:text-red-500 disabled:opacity-50"
+                      title="Remover editor"
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Adicionar usuário */}
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-slate-500">
+                Adicionar usuário
+              </Label>
+              <Input
+                value={buscaEditor}
+                onChange={(ev) => setBuscaEditor(ev.target.value)}
+                placeholder="Buscar por nome ou e-mail..."
+              />
+              <div className="max-h-52 overflow-y-auto rounded-md border border-slate-200">
+                {usuariosFiltrados.length === 0 ? (
+                  <div className="px-3 py-2 text-sm italic text-slate-500">
+                    {buscaEditorQ
+                      ? "Nenhum usuário encontrado."
+                      : "Comece a digitar para buscar..."}
+                  </div>
+                ) : (
+                  usuariosFiltrados.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      disabled={editorBusy}
+                      onClick={() => handleAddEditor(u)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      <span className="flex flex-col">
+                        <span className="text-slate-800">{u.name}</span>
+                        {u.email && (
+                          <span className="text-[11px] text-slate-400">
+                            {u.email}
+                          </span>
+                        )}
+                      </span>
+                      <UserPlus className="h-4 w-4 flex-shrink-0 text-blue-500" />
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </DialogContent>
