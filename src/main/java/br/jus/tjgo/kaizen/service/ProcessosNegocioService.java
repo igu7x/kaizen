@@ -45,34 +45,47 @@ public class ProcessosNegocioService {
      * (findById) continua retornando o processo completo para preview/download/PDF.
      */
     public List<Map<String, Object>> findAll(String diretoria) {
-        return findAll(diretoria, null);
+        return findAll(diretoria, null, false);
+    }
+
+    public List<Map<String, Object>> findAll(String diretoria, Long scopeUserId) {
+        return findAll(diretoria, scopeUserId, false);
     }
 
     /**
-     * Listagem com escopo por papel. {@code scopeUserId == null} retorna tudo (Gestor do Escritório,
-     * Compliance, SGJT). Caso contrário restringe aos processos do usuário enquanto Responsável
-     * (proprietarios), Editor atribuído (editores) ou Revisor (gestor da diretoria cadastrada).
+     * Listagem com escopo por papel. Quando {@code scopeUserId == null} e {@code incluirVigentes}
+     * é falso, retorna tudo (Gestor do Escritório, Compliance, SGJT). Senão restringe à UNIÃO de:
+     *  - processos do usuário como Responsável (proprietarios), Editor (editores) ou Revisor
+     *    (gestor da diretoria cadastrada), quando {@code scopeUserId != null};
+     *  - processos "vigentes" (Modelo K1 = validado_final, ou com documento primário anexado),
+     *    quando {@code incluirVigentes} (papel Visualizador).
      */
-    public List<Map<String, Object>> findAll(String diretoria, Long scopeUserId) {
+    public List<Map<String, Object>> findAll(String diretoria, Long scopeUserId, boolean incluirVigentes) {
         List<Object> params = new ArrayList<>();
         StringBuilder where = new StringBuilder("is_deleted = FALSE");
         if (diretoria != null) {
             params.add(diretoria);
             where.append(" AND diretoria = ?");
         }
+        List<String> orClauses = new ArrayList<>();
         if (scopeUserId != null) {
-            where.append(" AND (")
-                    .append("EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(proprietarios, '[]'::jsonb)) e ")
-                    .append("WHERE (e->>'responsavel_user_id') ~ '^[0-9]+$' AND (e->>'responsavel_user_id')::int = ?)")
-                    .append(" OR EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(editores, '[]'::jsonb)) e ")
-                    .append("WHERE (e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?)")
-                    .append(" OR EXISTS (SELECT 1 FROM cadastros_areas a ")
-                    .append("WHERE LOWER(TRIM(a.sigla)) = LOWER(TRIM(processos_negocio.diretoria)) ")
-                    .append("AND a.gestor_user_id = ? AND COALESCE(a.ativo, TRUE) = TRUE)")
-                    .append(")");
+            orClauses.add("EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(proprietarios, '[]'::jsonb)) e "
+                    + "WHERE (e->>'responsavel_user_id') ~ '^[0-9]+$' AND (e->>'responsavel_user_id')::int = ?)");
             params.add(scopeUserId);
+            orClauses.add("EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(editores, '[]'::jsonb)) e "
+                    + "WHERE (e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?)");
             params.add(scopeUserId);
+            orClauses.add("EXISTS (SELECT 1 FROM cadastros_areas a "
+                    + "WHERE LOWER(TRIM(a.sigla)) = LOWER(TRIM(processos_negocio.diretoria)) "
+                    + "AND a.gestor_user_id = ? AND COALESCE(a.ativo, TRUE) = TRUE)");
             params.add(scopeUserId);
+        }
+        if (incluirVigentes) {
+            orClauses.add("(status = 'validado_final' OR EXISTS (SELECT 1 FROM "
+                    + "jsonb_array_elements(COALESCE(documentos_anexados, '[]'::jsonb)) d WHERE d->>'tipo' = 'PRI'))");
+        }
+        if (!orClauses.isEmpty()) {
+            where.append(" AND (").append(String.join(" OR ", orClauses)).append(")");
         }
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT * FROM processos_negocio WHERE " + where + " ORDER BY updated_at DESC",

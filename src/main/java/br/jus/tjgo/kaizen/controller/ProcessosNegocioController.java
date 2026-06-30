@@ -48,12 +48,14 @@ public class ProcessosNegocioController {
         }
         AuthenticatedUser u = opt.get();
         // Gestor do Escritório (superadmin), Compliance Officer e SGJT enxergam tudo;
-        // os demais são restritos aos seus papéis (Responsável / Editor / Revisor).
+        // Visualizador (role VIEWER) enxerga os processos vigentes; os demais são restritos
+        // aos seus papéis (Responsável / Editor / Revisor).
         boolean veTudo = u.isSuperadmin()
                 || isComplianceOfficer(u.email())
                 || "SGJT".equals(u.diretoria());
         Long scopeUserId = veTudo ? null : u.id();
-        return service.findAll(diretoria, scopeUserId);
+        boolean incluirVigentes = !veTudo && "VIEWER".equals(u.role());
+        return service.findAll(diretoria, scopeUserId, incluirVigentes);
     }
 
     // GET /api/processos-negocio/:id
