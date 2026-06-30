@@ -3,6 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDirectorate } from "@/contexts/DirectorateContext";
 import { areasApi, Area, Unidade } from "@/services/areasApi";
 import { pessoasApi, Pessoa, CreatePessoaDto } from "@/services/pessoasApi";
+import { api } from "@/services/api";
+import { User as UserType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Command as CommandPrimitive } from "cmdk";
 import {
   Plus,
   Check,
@@ -44,7 +55,9 @@ const SITUACOES_FUNCIONAIS = [
 ];
 
 interface FormData {
+  user_id: number | null;
   nome: string;
+  email: string;
   nome_exibicao: string;
   unidade_id: number | null;
   situacao: string;
@@ -56,7 +69,9 @@ interface FormData {
 }
 
 const initialFormData: FormData = {
+  user_id: null,
   nome: "",
+  email: "",
   nome_exibicao: "",
   unidade_id: null,
   situacao: "ESTATUTÁRIO",
@@ -81,8 +96,11 @@ export function PainelColaboradores() {
   const [loading, setLoading] = useState(true);
   const [loadingPessoas, setLoadingPessoas] = useState(false);
   const [loadingUnidades, setLoadingUnidades] = useState(false);
+  const [usuarios, setUsuarios] = useState<UserType[]>([]);
+  const [userSearch, setUserSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [editandoId, setEditandoId] = useState<number | "novo" | null>(null);
+  const [openUserSelect, setOpenUserSelect] = useState(false);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +115,19 @@ export function PainelColaboradores() {
 
   const formRowRef = useRef<HTMLTableRowElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const userSelectRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userSelectRef.current && !userSelectRef.current.contains(event.target as Node)) {
+        setOpenUserSelect(false);
+      }
+    };
+    if (openUserSelect) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openUserSelect]);
 
   const isAdmin = user?.role === "ADMIN";
   const isManager = user?.role === "MANAGER";
@@ -147,6 +178,12 @@ export function PainelColaboradores() {
         ? await areasApi.getByDominio(devEnvironment)
         : await areasApi.getAll();
       setAreas(allAreas);
+      
+      // Carregar todos os usuários do domínio (para o dropdown)
+      const dominio = devEnvironment || (user as any)?.dominio || undefined;
+      const allUsers = await api.getUsers(dominio);
+      setUsuarios(allUsers.filter(u => u.status === "ACTIVE"));
+      
       // Selecionar primeira área automaticamente
       if (allAreas.length > 0 && !selectedAreaId) {
         setSelectedAreaId(allAreas[0].id);
@@ -331,7 +368,7 @@ export function PainelColaboradores() {
 
   const handleAdicionar = () => {
     setEditandoId("novo");
-    setFormData({ ...initialFormData, unidade_id: null, linha_organograma: 4 });
+    setFormData({ ...initialFormData, unidade_id: null, linha_organograma: 4, user_id: null, email: "" });
     setTimeout(() => {
       formRowRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -344,6 +381,7 @@ export function PainelColaboradores() {
     setEditandoId(pessoa.id);
     setFormData({
       nome: pessoa.nome,
+      email: pessoa.email || "",
       nome_exibicao: pessoa.nome_exibicao || "",
       unidade_id: pessoa.unidade_id || null,
       situacao: pessoa.situacao || "ESTATUTÁRIO",
@@ -352,6 +390,7 @@ export function PainelColaboradores() {
       cargo_efetivo: pessoa.cargo_efetivo || "",
       cargo_efetivo_classe: pessoa.cargo_efetivo_classe || "",
       linha_organograma: pessoa.linha_organograma || 4,
+      user_id: pessoa.user_id || null,
     });
   };
 
@@ -422,6 +461,8 @@ export function PainelColaboradores() {
         cargo_efetivo: formData.cargo_efetivo.trim() || undefined,
         cargo_efetivo_classe: formData.cargo_efetivo_classe.trim() || undefined,
         linha_organograma: formData.linha_organograma,
+        user_id: formData.user_id,
+        email: formData.email,
       };
 
       if (editandoId === "novo") {
@@ -437,6 +478,8 @@ export function PainelColaboradores() {
           cargo_efetivo: data.cargo_efetivo,
           cargo_efetivo_classe: data.cargo_efetivo_classe,
           linha_organograma: data.linha_organograma,
+          user_id: data.user_id,
+          email: data.email,
         });
       }
 
@@ -760,72 +803,115 @@ export function PainelColaboradores() {
                 {editandoId !== null && (
                   <tr ref={formRowRef} className="bg-blue-50/80">
                     <td className="px-5 py-3">
-                      <Input
-                        type="text"
-                        value={formData.nome}
-                        onChange={(e) =>
-                          setFormData({ ...formData, nome: e.target.value })
-                        }
-                        placeholder="Nome completo"
-                        className="h-9 bg-white border-blue-300 focus:border-blue-500"
-                      />
+                      <div className="relative w-full" ref={userSelectRef}>
+                        <Command className="overflow-visible bg-transparent">
+                          <div 
+                            className={cn(
+                              "flex items-center border rounded-md px-3 bg-white h-9",
+                              editandoId !== "novo" ? "bg-gray-100 cursor-not-allowed border-gray-200 opacity-50" : "border-blue-300 focus-within:ring-1 focus-within:ring-ring"
+                            )}
+                            onClick={() => {
+                              if (editandoId === "novo") {
+                                setOpenUserSelect(true);
+                              }
+                            }}
+                          >
+                            <CommandPrimitive.Input 
+                              value={userSearch}
+                              onValueChange={(val) => {
+                                setUserSearch(val);
+                                if (!openUserSelect) setOpenUserSelect(true);
+                              }}
+                              onFocus={() => {
+                                if (editandoId === "novo") setOpenUserSelect(true);
+                              }}
+                              disabled={editandoId !== "novo"}
+                              placeholder={
+                                formData.user_id 
+                                  ? (usuarios.find((u) => u.id === formData.user_id)?.name || formData.nome)
+                                  : "Buscar usuário..."
+                              }
+                              className="border-none focus:ring-0 w-full h-full bg-transparent px-0 disabled:cursor-not-allowed text-sm"
+                            />
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </div>
+                          {openUserSelect && (
+                            <div className="absolute top-full left-0 z-50 mt-1 w-[300px] rounded-md border bg-popover shadow-md outline-none animate-in fade-in-0 zoom-in-95">
+                              <CommandList>
+                                <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {usuarios.map((u) => (
+                                    <CommandItem
+                                      key={u.id}
+                                      value={u.name}
+                                      onSelect={() => {
+                                        setFormData({
+                                          ...formData,
+                                          user_id: u.id,
+                                          nome: u.name,
+                                          email: u.email,
+                                          situacao: u.situacao_funcional || "ESTATUTÁRIO",
+                                          cc_fc: u.nome_cc_fc || "",
+                                          cc_fc_classe: u.classe_cc_fc || "",
+                                          cargo_efetivo: u.cargo_efetivo || "",
+                                          cargo_efetivo_classe: u.classe_efetivo || "",
+                                        });
+                                        setOpenUserSelect(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          formData.user_id === u.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                              {u.name} ({u.dominio})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </div>
+                  )}
+                </Command>
+              </div>
                     </td>
                     <td className="px-5 py-3">
-                      <Select
+                      <Input
+                        type="text"
                         value={formData.situacao}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, situacao: value })
-                        }
-                      >
-                        <SelectTrigger className="h-9 bg-white border-blue-300">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SITUACOES_FUNCIONAIS.map((sit) => (
-                            <SelectItem key={sit} value={sit}>
-                              {sit}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        readOnly
+                        disabled
+                        className="h-9 bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed"
+                      />
                     </td>
                     <td className="px-5 py-3">
                       <Input
                         type="text"
                         value={formData.cc_fc}
-                        onChange={(e) =>
-                          setFormData({ ...formData, cc_fc: e.target.value })
-                        }
+                        readOnly
+                        disabled
                         placeholder="Opcional"
-                        className="h-9 bg-white border-blue-300"
+                        className="h-9 bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed"
                       />
                     </td>
                     <td className="px-5 py-3">
                       <Input
                         type="text"
                         value={formData.cc_fc_classe}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            cc_fc_classe: e.target.value,
-                          })
-                        }
+                        readOnly
+                        disabled
                         placeholder="Opcional"
-                        className="h-9 bg-white border-blue-300"
+                        className="h-9 bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed"
                       />
                     </td>
                     <td className="px-5 py-3">
                       <Input
                         type="text"
                         value={formData.cargo_efetivo}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            cargo_efetivo: e.target.value,
-                          })
-                        }
+                        readOnly
+                        disabled
                         placeholder="Opcional"
-                        className="h-9 bg-white border-blue-300"
+                        className="h-9 bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed"
                       />
                     </td>
                     <td className="px-5 py-3">
@@ -833,14 +919,10 @@ export function PainelColaboradores() {
                         <Input
                           type="text"
                           value={formData.cargo_efetivo_classe}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              cargo_efetivo_classe: e.target.value,
-                            })
-                          }
+                          readOnly
+                          disabled
                           placeholder="Opcional"
-                          className="h-9 bg-white border-blue-300 flex-1"
+                          className="h-9 bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed flex-1"
                         />
                         <button
                           onClick={handleSalvar}

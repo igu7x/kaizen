@@ -188,7 +188,7 @@ export function ContratosTI() {
     <Layout>
       <div className="flex flex-col w-full h-full">
         <div className="text-sm text-slate-500 mb-2">
-          Início {'>'} Contratações de TI {'>'} Contratos de TIC
+          Início {'>'} Contratações de TIC {'>'} Gestão Contratual
         </div>
 
         <div className="flex justify-between items-start mb-6">

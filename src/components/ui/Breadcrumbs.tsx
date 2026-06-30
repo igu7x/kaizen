@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ChevronRight, Home } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -41,7 +41,7 @@ export function Breadcrumbs({
             to="/"
             className="inline-flex items-center gap-1 hover:text-gray-800 transition-colors"
           >
-            <Home className="h-3.5 w-3.5" />
+            Início
           </Link>
           <ChevronRight className="h-3.5 w-3.5 mx-1.5 text-gray-400 flex-shrink-0" />
         </>
