@@ -33,7 +33,7 @@ import {
   isVigente,
   isRevisaoOuNovo,
   revisaoVencida,
-  isResponsavel,
+  normalizeResponsavel,
   proximaRevisao,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -48,7 +48,7 @@ import {
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
-import { areasApi, Area } from "@/services/areasApi";
+import { areasApi, Area, Unidade } from "@/services/areasApi";
 import { toast } from "sonner";
 import {
   PieChart,
@@ -578,6 +578,8 @@ export default function EscritorioProcessos() {
   const [revisando, setRevisando] = useState<number | null>(null);
   // Áreas (sigla → nome) para o rodapé do PDF do Modelo K1.
   const [areas, setAreas] = useState<Area[]>([]);
+  // Unidades do cadastro — usadas para resolver o responsável (responsavel_user_id) dinamicamente.
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
 
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const isComplianceOfficer =
@@ -612,6 +614,12 @@ export default function EscritorioProcessos() {
       .then(setAreas)
       .catch(() => {
         /* sem áreas, o PDF cai para a sigla da diretoria */
+      });
+    areasApi
+      .getAllUnidades()
+      .then(setUnidades)
+      .catch(() => {
+        /* sem unidades, o responsável cai só no snapshot do processo */
       });
   }, []);
 
@@ -666,20 +674,47 @@ export default function EscritorioProcessos() {
     });
   }, [filteredBase, filtroArtefato]);
 
-  // Processos vigentes e no prazo (Modelo K1, revisão não vencida) em que o usuário logado é
-  // Responsável — não apareceriam em "Em Revisão ou Novos". Base do botão "Revisar Processo".
+  // Resolve se o usuário logado é Responsável do processo. Robusto: usa o responsavel_user_id
+  // gravado na entrada (snapshot) E resolve dinamicamente pela unidade do cadastro (por
+  // unidade_id ou pelo nome), refletindo o cadastro atual mesmo em processos antigos.
+  const ehResponsavelDoProcesso = useMemo(() => {
+    return (p: ProcessoNegocio): boolean => {
+      const uid = Number(user?.id);
+      if (!uid || Number.isNaN(uid)) return false;
+      return (p.proprietarios || []).some((raw) => {
+        const r = normalizeResponsavel(raw);
+        if (Number(r.responsavel_user_id) === uid) return true;
+        let u =
+          r.unidade_id != null
+            ? unidades.find((x) => x.id === r.unidade_id)
+            : undefined;
+        if (!u && r.area) {
+          const alvo = r.area.trim().toLowerCase();
+          u = unidades.find((x) => (x.nome || "").trim().toLowerCase() === alvo);
+        }
+        return u?.responsavel_user_id != null && Number(u.responsavel_user_id) === uid;
+      });
+    };
+  }, [unidades, user?.id]);
+
+  // Processos vigentes e no prazo (Modelo K1, revisão não vencida) que o usuário pode revisar
+  // antecipadamente: o Responsável vê os seus; o Gestor do Escritório (superadmin) vê todos —
+  // ambos autorizados no endpoint iniciar-revisao. Não apareceriam em "Em Revisão ou Novos".
   const processosParaRevisar = useMemo(() => {
     if (!user?.id) return [];
     return processos
       .filter(
-        (p) => isK1(p) && !revisaoVencida(p) && isResponsavel(p, user.id),
+        (p) =>
+          isK1(p) &&
+          !revisaoVencida(p) &&
+          (isSuperadmin || ehResponsavelDoProcesso(p)),
       )
       .sort((a, b) => {
         const da = proximaRevisao(a)?.getTime() ?? Infinity;
         const db = proximaRevisao(b)?.getTime() ?? Infinity;
         return da - db;
       });
-  }, [processos, user?.id]);
+  }, [processos, user?.id, isSuperadmin, ehResponsavelDoProcesso]);
 
   // ============================================================
   // ESTATÍSTICAS / DADOS DOS GRÁFICOS
