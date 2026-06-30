@@ -83,10 +83,16 @@ public class ProcessosNegocioController {
     // PUT /api/processos-negocio/:id (ADMIN, MANAGER)
     @PutMapping("/{id:\\d+}")
     public ResponseEntity<?> update(@PathVariable long id, @RequestBody Map<String, Object> body) {
-        AuthContext.requireRole(List.of("ADMIN", "MANAGER"));
         Long userId = getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> processo = service.findById(id);
+        if (processo == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        if (!podeEditarProcesso(processo, id)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Você não tem permissão para editar este processo."));
         }
         try {
             Map<String, Object> updated = service.update(id, body, userId);
@@ -420,6 +426,47 @@ public class ProcessosNegocioController {
         var rows = jdbc.queryForList(
                 "SELECT name, is_superadmin FROM users WHERE id = ? AND is_deleted = FALSE", userId);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private static final String COMPLIANCE_OFFICER_EMAIL = "gmpdmaciel@tjgo.jus.br";
+
+    /**
+     * Pode editar/salvar o conteúdo do processo: Gestor do Escritório (superadmin), ADMIN/MANAGER
+     * (compatibilidade), Compliance Officer, Responsável do Processo, Editor atribuído ou
+     * Revisor (gestor da diretoria cadastrada).
+     */
+    private boolean podeEditarProcesso(Map<String, Object> processo, long id) {
+        var opt = AuthContext.getCurrentUser();
+        if (opt.isEmpty()) {
+            return false;
+        }
+        AuthenticatedUser u = opt.get();
+        if (u.isSuperadmin() || "ADMIN".equals(u.role()) || "MANAGER".equals(u.role())) {
+            return true;
+        }
+        if (isComplianceOfficer(u.email())) {
+            return true;
+        }
+        long userId = u.id();
+        if (isResponsavelProcesso(id, userId) || isEditorProcesso(id, userId)) {
+            return true;
+        }
+        Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
+        return gestorUserId != null && eqId(gestorUserId, userId);
+    }
+
+    private static boolean isComplianceOfficer(String email) {
+        return email != null && COMPLIANCE_OFFICER_EMAIL.equalsIgnoreCase(email.trim());
+    }
+
+    /** True quando o usuário é editor atribuído ao processo (editores JSONB). */
+    private boolean isEditorProcesso(long id, long userId) {
+        var rows = jdbc.queryForList(
+                "SELECT 1 FROM processos_negocio p, " +
+                        "jsonb_array_elements(COALESCE(p.editores, '[]'::jsonb)) e " +
+                        "WHERE p.id = ? AND (e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?",
+                id, userId);
+        return !rows.isEmpty();
     }
 
     /** Pode gerenciar editores: superadmin (Gestor do Escritório), Responsável do Processo ou Revisor (gestor da diretoria). */
