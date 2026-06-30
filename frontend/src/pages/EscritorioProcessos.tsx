@@ -579,9 +579,13 @@ export default function EscritorioProcessos() {
   // Áreas (sigla → nome) para o rodapé do PDF do Modelo K1.
   const [areas, setAreas] = useState<Area[]>([]);
 
-  const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
-  const podeFiltrarDiretoria = isSuperadmin || user?.diretoria === "SGJT";
+  const isComplianceOfficer =
+    (user?.email || "").trim().toLowerCase() === "gmpdmaciel@tjgo.jus.br";
+  // Quem enxerga todas as diretorias (alinhado ao escopo do backend): Gestor do Escritório
+  // (superadmin), Compliance Officer e SGJT. Os demais recebem a lista já restrita por papel.
+  const podeFiltrarDiretoria =
+    isSuperadmin || isComplianceOfficer || user?.diretoria === "SGJT";
 
   const carregar = async () => {
     setLoading(true);
@@ -605,11 +609,6 @@ export default function EscritorioProcessos() {
       });
   }, []);
 
-  useEffect(() => {
-    if (!podeFiltrarDiretoria && user?.diretoria) {
-      setFiltroDiretoria(user.diretoria);
-    }
-  }, [podeFiltrarDiretoria, user?.diretoria]);
 
   // ============================================================
   // OPÇÕES DOS FILTROS
