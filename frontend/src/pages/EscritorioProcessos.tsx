@@ -34,6 +34,7 @@ import {
   isRevisaoOuNovo,
   revisaoVencida,
   normalizeResponsavel,
+  isComplianceOfficerEmail,
   proximaRevisao,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -582,8 +583,7 @@ export default function EscritorioProcessos() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
 
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
-  const isComplianceOfficer =
-    (user?.email || "").trim().toLowerCase() === "gmpdmaciel@tjgo.jus.br";
+  const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
   // Quem enxerga todas as diretorias (alinhado ao escopo do backend): Gestor do Escritório
   // (superadmin), Compliance Officer e SGJT. Os demais recebem a lista já restrita por papel.
   const podeFiltrarDiretoria =

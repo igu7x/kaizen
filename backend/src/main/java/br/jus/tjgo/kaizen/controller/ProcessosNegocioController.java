@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.ProcessosNegocioService;
+import br.jus.tjgo.kaizen.util.Validadores;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -21,7 +22,7 @@ import java.util.Map;
  * Autorização identity-based em 3 camadas (papéis do Escritório de Processos), decidida aqui:
  *  - camada 1 (enviar / validar-autor): Responsável do Processo (responsavel_user_id de unidade no campo Responsável)
  *  - camada 2 (validar-diretoria): Revisor = gestor_user_id da cadastros_areas com sigla = processo.diretoria (trim+lower)
- *  - camada 3 (validar-final): Compliance Officer (e-mail gmpdmaciel@tjgo.jus.br)
+ *  - camada 3 (validar-final): Compliance Officer (validadores finais — ver Validadores.FINAIS)
  * Um Revisor que também seja Responsável valida nas camadas 1 e 2. As mesmas regras valem para recusar a respectiva camada.
  * getUserId retorna null sem auth → 401 (Categoria B).
  */
@@ -279,7 +280,7 @@ public class ProcessosNegocioController {
     }
 
     // PATCH /api/processos-negocio/:id/validar-final — camada 3: APENAS o Compliance Officer
-    @Operation(summary = "Validar camada 3 (Compliance Officer)", description = "Apenas o Compliance Officer (e-mail gmpdmaciel@tjgo.jus.br). Exige 'validado_diretoria'. Faz bump de versão (a partir do 2º ciclo) e grava snapshot histórico.")
+    @Operation(summary = "Validar camada 3 (Compliance Officer)", description = "Apenas os validadores finais (Compliance Officer — ver Validadores.FINAIS). Exige 'validado_diretoria'. Faz bump de versão (a partir do 2º ciclo) e grava snapshot histórico.")
     @ApiResponses({ @ApiResponse(responseCode = "200", description = "validado_final"),
             @ApiResponse(responseCode = "403", description = "Não é o Compliance Officer") })
     @PatchMapping("/{id:\\d+}/validar-final")
@@ -451,8 +452,6 @@ public class ProcessosNegocioController {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    private static final String COMPLIANCE_OFFICER_EMAIL = "gmpdmaciel@tjgo.jus.br";
-
     /**
      * Pode editar/salvar o conteúdo do processo — estritamente os 5 papéis do Escritório de
      * Processos: Gestor do Escritório (superadmin), Compliance Officer, Responsável do Processo,
@@ -478,8 +477,9 @@ public class ProcessosNegocioController {
         return gestorUserId != null && eqId(gestorUserId, userId);
     }
 
+    /** Compliance Officer (camada 3) = um dos validadores finais cadastrados em {@link Validadores}. */
     private static boolean isComplianceOfficer(String email) {
-        return email != null && COMPLIANCE_OFFICER_EMAIL.equalsIgnoreCase(email.trim());
+        return Validadores.isFinal(email);
     }
 
     /** True quando o usuário é editor atribuído ao processo (editores JSONB). */

@@ -46,6 +46,7 @@ import {
   normalizeResponsavel,
   isResponsavel,
   isEditor,
+  isComplianceOfficerEmail,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   isK1,
@@ -721,8 +722,7 @@ export function ProcessoDetalhe({
   //   e salva, o backend reseta o status pra 'em_elaboracao' (homologação fica
   //   invalidada), e aí o "Enviar para Validação" passa a aparecer.
   // - 'em_elaboracao' / 'recusado': tanto "Editar" quanto "Enviar" aparecem.
-  const isComplianceOfficer =
-    (user?.email || "").trim().toLowerCase() === "gmpdmaciel@tjgo.jus.br";
+  const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
   const isEditorAtribuido = isEditor(processo, user?.id);
   // Status em que o conteúdo está "em preenchimento".
   const statusEmPreenchimento =
@@ -744,7 +744,7 @@ export function ProcessoDetalhe({
   // Regras de validação por camada:
   // - Camada 1 (Responsável): o Responsável do Processo valida o que preencheu
   // - Camada 2 (Revisor): o gestor da diretoria cadastrada valida
-  // - Camada 3 (Compliance Officer): gmpdmaciel@tjgo.jus.br valida
+  // - Camada 3 (Compliance Officer): validadores finais (ver COMPLIANCE_OFFICER_EMAILS)
   const podeValidarAutor = ehResponsavel && processo.status === "enviado";
   const podeValidarDiretoria =
     isDiretorDaArea && processo.status === "validado_autor";
