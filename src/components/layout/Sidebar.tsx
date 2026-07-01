@@ -130,6 +130,11 @@ const menuItemsCompleto: MenuItem[] = [
             title: "DFD",
             path: "/dfd",
             permissaoCodigo: "contratacoes_novas",
+          },
+          {
+            title: "DFD-Consulta",
+            path: "/dfd-consulta",
+            permissaoCodigo: "contratacoes_novas",
           }
         ]
       },

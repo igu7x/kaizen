@@ -43,6 +43,7 @@ export function Layout({ children }: LayoutProps) {
   const isCicloOrcamentarioPage = location.pathname.startsWith(
     "/ciclo-orcamentario",
   );
+  const isDfdConsultaPage = location.pathname.startsWith("/dfd-consulta");
 
   // Páginas com fundo branco (Home, OKRs, Execução, Sprints, Comitês, Contratações, Competências,
   // Painel de Pessoas, Perfil e módulos de administração)
@@ -63,7 +64,8 @@ export function Layout({ children }: LayoutProps) {
     isCadastrosPage ||
     isContratosPage ||
     isGerenciamentoPage ||
-    isCicloOrcamentarioPage;
+    isCicloOrcamentarioPage ||
+    isDfdConsultaPage;
   // Páginas sem padding (apenas comitês)
   const isNoPaddingPage = isComitesPage || isComiteDetalhe;
 
