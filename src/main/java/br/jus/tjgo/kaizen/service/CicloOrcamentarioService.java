@@ -24,6 +24,7 @@ import java.util.Map;
 public class CicloOrcamentarioService {
 
     private final JdbcTemplate jdbc;
+    private final PcaService pcaService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aberto_aguardando_proad";
     private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
@@ -165,9 +166,14 @@ public class CicloOrcamentarioService {
         if (rows.isEmpty()) {
             throw new ApiException(400, "Ciclo não encontrado ou já publicado");
         }
-        // TODO (evolução): na publicação pela DG, gravar a próxima versão no PCA-TIC (snapshot) e
-        // converter IFO -> código oficial de Item de PCA (RF-41/75). Integrar com PcaService.createSnapshot.
-        return toDto(rows.get(0));
+        CicloDto ciclo = toDto(rows.get(0));
+        // RF-41/75 — a publicação pela DG grava a próxima versão do PCA-TIC (snapshot imutável)
+        // do ano do ciclo (Formação = Versão 1 do ano seguinte; Revisão = próxima versão do vigente).
+        if (ciclo.ano() != null) {
+            pcaService.createSnapshot(ciclo.ano(), userId);
+        }
+        // TODO (evolução): converter IFO -> código oficial de Item de PCA na publicação (RF-49).
+        return ciclo;
     }
 
     // ---------- mapper ----------
