@@ -28,6 +28,18 @@ public class CicloOrcamentarioService {
 
     private static final String ESTADO_FORMACAO_INICIAL = "aberto_aguardando_proad";
     private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
+    private static final String ESTADO_PUBLICADO = "publicado";
+
+    /** RNF-07 — esteira determinística da Formação (11 estados, RF-19..41). */
+    private static final List<String> ESTADOS_FORMACAO = List.of(
+            "aberto_aguardando_proad", "em_consulta", "retorno_areas", "consolidacao_cca",
+            "validacao_gejut", "apreciacao_sgjt", "em_comites", "autorizado",
+            "ajuste_pre_publicacao", "remessa_dg", "publicado");
+
+    /** RNF-07 — esteira determinística da Revisão (rito ágil, RF-60..75). */
+    private static final List<String> ESTADOS_REVISAO = List.of(
+            "janela_aberta", "em_rito_validacao", "consolidacao_cca", "em_comites",
+            "remessa_dg", "publicado");
 
     /** RF-76 — janelas ordinárias (início, fim, versão gerada). A 1ª abre pelo evento de publicação. */
     private record Janela(int ordem, int versao, MonthDay inicio, MonthDay fim) {}
@@ -155,6 +167,47 @@ public class CicloOrcamentarioService {
             throw new ApiException(404, "Ciclo não encontrado");
         }
         return toDto(rows.get(0));
+    }
+
+    /**
+     * RNF-07 — encaminha o ciclo ao próximo ator da esteira (transição adjacente determinística).
+     * O último passo (→ publicado) é delegado a {@link #publicar} para gravar o snapshot do PCA-TIC.
+     */
+    @Transactional
+    public CicloDto avancar(long id, Long userId) {
+        CicloDto ciclo = getCiclo(id);
+        List<String> esteira = esteiraDe(ciclo.finalidade());
+        int idx = esteira.indexOf(ciclo.estado());
+        if (idx < 0) {
+            throw new ApiException(409, "Estado atual fora da esteira: " + ciclo.estado());
+        }
+        if (idx >= esteira.size() - 1) {
+            throw new ApiException(409, "Ciclo já está no estado final");
+        }
+        String proximo = esteira.get(idx + 1);
+        if (ESTADO_PUBLICADO.equals(proximo)) {
+            return publicar(id, userId);
+        }
+        return atualizarEstado(id, proximo, userId);
+    }
+
+    /** Retorna o ciclo ao ator anterior (correção). Não retrocede a partir de publicado. */
+    @Transactional
+    public CicloDto retroceder(long id, Long userId) {
+        CicloDto ciclo = getCiclo(id);
+        if (ESTADO_PUBLICADO.equals(ciclo.estado())) {
+            throw new ApiException(409, "Ciclo publicado não pode retroceder");
+        }
+        List<String> esteira = esteiraDe(ciclo.finalidade());
+        int idx = esteira.indexOf(ciclo.estado());
+        if (idx <= 0) {
+            throw new ApiException(409, "Ciclo já está no estado inicial");
+        }
+        return atualizarEstado(id, esteira.get(idx - 1), userId);
+    }
+
+    private static List<String> esteiraDe(String finalidade) {
+        return "revisao".equals(finalidade) ? ESTADOS_REVISAO : ESTADOS_FORMACAO;
     }
 
     @Transactional

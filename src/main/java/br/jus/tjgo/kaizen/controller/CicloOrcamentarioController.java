@@ -67,6 +67,20 @@ public class CicloOrcamentarioController {
         return service.atualizarEstado(id, str(body.get("estado")), userId);
     }
 
+    // POST /api/ciclo-orcamentario/:id/avancar — encaminha ao próximo ator da esteira (RNF-07)
+    @PostMapping("/{id:\\d+}/avancar")
+    public CicloDto avancar(@PathVariable long id,
+                            @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.avancar(id, userId);
+    }
+
+    // POST /api/ciclo-orcamentario/:id/retroceder — retorna ao ator anterior (correção)
+    @PostMapping("/{id:\\d+}/retroceder")
+    public CicloDto retroceder(@PathVariable long id,
+                               @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.retroceder(id, userId);
+    }
+
     // POST /api/ciclo-orcamentario/:id/publicar — publicação pela DG (RF-41/75)
     @PostMapping("/{id:\\d+}/publicar")
     public CicloDto publicar(@PathVariable long id,
