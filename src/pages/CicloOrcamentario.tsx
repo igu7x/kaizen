@@ -8,6 +8,7 @@ import {
   Plus,
   RefreshCw,
   ArrowRight,
+  ArrowLeft,
   CalendarClock,
   Info,
   Loader2,
@@ -79,6 +80,70 @@ const ESTADO_LABEL: Record<string, string> = {
 
 function estadoLabel(e?: string | null): string {
   return e ? ESTADO_LABEL[e] ?? e : "";
+}
+
+/** RNF-04/07 — ator responsável em cada estado da esteira (quem age agora). */
+const ATOR_ESTADO: Record<string, string> = {
+  aberto_aguardando_proad: "CCA",
+  em_consulta: "Demandantes",
+  retorno_areas: "Demandantes",
+  consolidacao_cca: "CCA",
+  validacao_gejut: "GEJUT",
+  apreciacao_sgjt: "SGJT",
+  em_comites: "Comitês",
+  autorizado: "CCA",
+  ajuste_pre_publicacao: "CCA",
+  remessa_dg: "DG",
+  janela_aberta: "Demandantes",
+  em_rito_validacao: "Validação",
+  publicado: "—",
+};
+
+/**
+ * Controles da esteira (RNF-07): mostra o ator responsável pelo estado atual e permite encaminhar
+ * ao próximo ator ou retornar ao anterior. O último passo (→ publicado) grava a versão no PCA-TIC.
+ */
+function EsteiraControls({
+  ciclo,
+  onAvancar,
+  onRetroceder,
+  disabled,
+}: {
+  ciclo: Ciclo;
+  onAvancar: () => void;
+  onRetroceder: () => void;
+  disabled: boolean;
+}) {
+  if (ciclo.estado === "publicado") {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        Ciclo publicado — versão gravada no PCA-TIC.
+      </div>
+    );
+  }
+  const proximaPublicacao = ciclo.estado === "remessa_dg";
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <span className="text-xs text-slate-500">
+        Aguardando: <b className="text-slate-700">{ATOR_ESTADO[ciclo.estado] ?? "—"}</b>
+      </span>
+      <div className="ml-auto flex gap-2">
+        <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          Retornar
+        </Button>
+        <Button
+          size="sm"
+          onClick={onAvancar}
+          disabled={disabled}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <ArrowRight className="h-4 w-4 mr-1.5" />
+          {proximaPublicacao ? "Publicar (DG)" : "Encaminhar ao próximo ator"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export default function CicloOrcamentario() {
@@ -155,6 +220,36 @@ export default function CicloOrcamentario() {
       toast.success("PROAD registrado. Ciclo instruído.");
     } catch {
       toast.error("Não foi possível registrar o PROAD.");
+    } finally {
+      setAcaoEmCurso(false);
+    }
+  };
+
+  const avancarEsteira = async () => {
+    if (!ciclo) return;
+    setAcaoEmCurso(true);
+    try {
+      const c = await cicloOrcamentarioApi.avancar(ciclo.id);
+      setCiclo(c);
+      toast.success(
+        c.estado === "publicado" ? "Publicado. Versão gravada no PCA-TIC." : "Encaminhado ao próximo ator.",
+      );
+    } catch {
+      toast.error("Não foi possível encaminhar (verifique o estado atual).");
+    } finally {
+      setAcaoEmCurso(false);
+    }
+  };
+
+  const retrocederEsteira = async () => {
+    if (!ciclo) return;
+    setAcaoEmCurso(true);
+    try {
+      const c = await cicloOrcamentarioApi.retroceder(ciclo.id);
+      setCiclo(c);
+      toast.success("Retornado ao ator anterior.");
+    } catch {
+      toast.error("Não foi possível retroceder.");
     } finally {
       setAcaoEmCurso(false);
     }
@@ -310,6 +405,14 @@ export default function CicloOrcamentario() {
               11 fases, de 31/01 a 31/05 (RF-42). A publicação pela DG é o marco
               de virada que grava a Versão 1 no PCA-TIC.
             </p>
+            {ciclo?.finalidade === "formacao" && (
+              <EsteiraControls
+                ciclo={ciclo}
+                onAvancar={avancarEsteira}
+                onRetroceder={retrocederEsteira}
+                disabled={acaoEmCurso}
+              />
+            )}
           </section>
         )}
 
@@ -341,6 +444,14 @@ export default function CicloOrcamentario() {
                 <p className="text-xs text-slate-400">
                   Rito ágil: dias 07 → 15 → 20 do mês de apuração (RF-70/RF-78).
                 </p>
+                {ciclo?.finalidade === "revisao" && (
+                  <EsteiraControls
+                    ciclo={ciclo}
+                    onAvancar={avancarEsteira}
+                    onRetroceder={retrocederEsteira}
+                    disabled={acaoEmCurso}
+                  />
+                )}
               </>
             ) : (
               <div className="rounded-xl border border-slate-200 bg-white">

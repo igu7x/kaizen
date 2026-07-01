@@ -177,6 +177,16 @@ export const cicloOrcamentarioApi = {
     return apiClient.patch<Ciclo>(`${BASE}/${cicloId}/estado`, { estado });
   },
 
+  /** RNF-07 — encaminha o ciclo ao próximo ator da esteira (transição adjacente determinística). */
+  avancar(cicloId: number): Promise<Ciclo> {
+    return apiClient.post<Ciclo>(`${BASE}/${cicloId}/avancar`);
+  },
+
+  /** Retorna o ciclo ao ator anterior (correção). */
+  retroceder(cicloId: number): Promise<Ciclo> {
+    return apiClient.post<Ciclo>(`${BASE}/${cicloId}/retroceder`);
+  },
+
   /** RF-60 — abre/obtém a revisão ordinária vigente (resolvida por data no backend). */
   getOuAbrirRevisao(ano: number): Promise<Ciclo> {
     return apiClient.post<Ciclo>(`${BASE}/revisao`, { ano });
