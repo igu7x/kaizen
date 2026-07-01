@@ -91,6 +91,14 @@ public class Contract {
         }
     }
 
+    /**
+     * Natureza do contrato para o Orçamento de TIC (DFD-Consulta): "continuada" | "pontual".
+     * Contratos de natureza continuada são pré-carregados nos blocos 1–3 do DFD; pontuais não
+     * (RF-01/02/04/17 da Especificação de Requisitos do Orçamento). Nulo = não classificado.
+     */
+    @Column(name = "situation", length = 20)
+    private String situation;
+
     @Column(name = "additive_term_type")
     private Integer additiveTermType;
 

@@ -40,7 +40,8 @@ public class ContractsController {
                 contract.getLimitDate() != null ? contract.getLimitDate().toString() : null,
                 contract.getEffectiveAdditiveTerm(),
                 contract.getDescription(),
-                contract.getYearValue()
+                contract.getYearValue(),
+                contract.getSituation()
         );
     }
 

@@ -84,6 +84,7 @@ public class ContractService {
         contract.setEffectiveDate(req.effectiveDate() != null && !req.effectiveDate().isBlank() ? LocalDate.parse(req.effectiveDate()) : null);
         contract.setLimitDate(req.limitDate() != null && !req.limitDate().isBlank() ? LocalDate.parse(req.limitDate()) : null);
         contract.setContractType(req.contractType());
+        contract.setSituation(req.situation());
         contract.setAdditiveTermType(req.additiveTermType());
         contract.setObjectName(req.objectName());
         contract.setDescription(req.description());
@@ -119,6 +120,7 @@ public class ContractService {
         if (req.effectiveDate() != null && !req.effectiveDate().isBlank()) contract.setEffectiveDate(LocalDate.parse(req.effectiveDate()));
         if (req.limitDate() != null && !req.limitDate().isBlank()) contract.setLimitDate(LocalDate.parse(req.limitDate()));
         if (req.contractType() != null) contract.setContractType(req.contractType());
+        if (req.situation() != null) contract.setSituation(req.situation());
         if (req.additiveTermType() != null) contract.setAdditiveTermType(req.additiveTermType());
         if (req.objectName() != null) contract.setObjectName(req.objectName());
         if (req.description() != null) contract.setDescription(req.description());

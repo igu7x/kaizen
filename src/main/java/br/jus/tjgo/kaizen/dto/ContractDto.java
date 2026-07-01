@@ -21,5 +21,6 @@ public record ContractDto(
         String limitDate,
         Integer effectiveAdditiveTerm,
         String description,
-        Long yearValue
+        Long yearValue,
+        String situation
 ) {}

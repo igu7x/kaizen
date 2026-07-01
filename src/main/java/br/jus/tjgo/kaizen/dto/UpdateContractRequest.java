@@ -13,6 +13,7 @@ public record UpdateContractRequest(
         String effectiveDate,
         String limitDate,
         br.jus.tjgo.kaizen.domain.Contract.ContractTypeEnum contractType,
+        String situation,
         Integer additiveTermType,
         String objectName,
         String description,
