@@ -31,6 +31,7 @@ import {
   Tep,
 } from "@/services/cadastrosProjetosApi";
 import { generateTEPPdf } from "@/utils/generateTEP";
+import { areasApi, Area } from "@/services/areasApi";
 
 interface TepDialogProps {
   open: boolean;
@@ -75,6 +76,8 @@ export function TepDialog({
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [entregas, setEntregas] = useState<Entrega[]>(entregasProp || []);
   const [tepExistente, setTepExistente] = useState<Tep | null>(null);
+  // Diretorias (cadastro) para resolver a camada 2 = diretor da diretoria indicada no projeto.
+  const [diretorias, setDiretorias] = useState<Area[]>([]);
   const [validandoCamada, setValidandoCamada] = useState<number | null>(null);
   // Edit mode: por padrão TEP existente é read-only mesmo para superadmin.
   // Superadmin clica "Atualizar TEP" para destravar a edição.
@@ -97,6 +100,36 @@ export function TepDialog({
   >([]);
   const [loadingVersoes, setLoadingVersoes] = useState(false);
   const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
+
+  // Carrega as diretorias do cadastro ao abrir (para resolver o diretor da camada 2).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    areasApi
+      .getAll()
+      .then((data) => {
+        if (!cancelled) setDiretorias(data);
+      })
+      .catch(() => {
+        /* sem áreas, a camada 2 cai na diretoria de domínio */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // Camada 2 (Diretor) = diretor da 1ª diretoria indicada na Governança do projeto
+  // (areas_vinculadas_ids), resolvida pelo cadastro de diretorias. Fallback: diretoria de domínio.
+  const camada2Area = (() => {
+    const ids = (projeto as { areas_vinculadas_ids?: number[] } | null)
+      ?.areas_vinculadas_ids;
+    const firstId = ids && ids.length > 0 ? ids[0] : null;
+    return firstId ? diretorias.find((d) => d.id === firstId) ?? null : null;
+  })();
+  const camada2DiretorUserId =
+    camada2Area?.gestor_user_id ??
+    (projeto as { diretor_user_id?: number } | null)?.diretor_user_id;
+  const camada2DiretoriaLabel = camada2Area?.sigla || projeto?.diretoria || "-";
 
   const handleAbrirVersoes = async () => {
     setVersoesDialogOpen(true);
@@ -454,7 +487,7 @@ export function TepDialog({
                       Camada 2 — Diretor
                     </p>
                     <p className="text-xs font-medium truncate">
-                      {projeto.diretoria || "-"}
+                      {camada2DiretoriaLabel}
                     </p>
                     {tepExistente.tep_validado_diretor_em ? (
                       <div className="mt-1">
@@ -467,9 +500,8 @@ export function TepDialog({
                       </div>
                     ) : tepExistente.tep_validado_gestor_em &&
                       currentUserId &&
-                      (projeto as any).diretor_user_id &&
-                      Number((projeto as any).diretor_user_id) ===
-                        currentUserId ? (
+                      camada2DiretorUserId &&
+                      Number(camada2DiretorUserId) === currentUserId ? (
                       <div className="mt-1 space-y-1">
                         <Button
                           size="sm"
