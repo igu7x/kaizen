@@ -122,6 +122,11 @@ const menuItemsCompleto: MenuItem[] = [
             permissaoCodigo: "contratacoes_novas",
           },
           {
+            title: "Ciclo Orçamentário",
+            path: "/ciclo-orcamentario",
+            permissaoCodigo: "contratacoes_novas",
+          },
+          {
             title: "DFD",
             path: "/dfd",
             permissaoCodigo: "contratacoes_novas",

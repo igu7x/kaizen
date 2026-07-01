@@ -36,6 +36,7 @@ import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import Dfd from "./pages/Dfd";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
+import CicloOrcamentario from "./pages/CicloOrcamentario";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
 import { FormFiller } from "./components/pessoas/FormFiller";
 import { FormResponses } from "./components/pessoas/FormResponses";
@@ -165,6 +166,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <PlanejamentoContratacao />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ciclo-orcamentario"
+                    element={
+                      <ProtectedRoute>
+                        <CicloOrcamentario />
                       </ProtectedRoute>
                     }
                   />
