@@ -504,6 +504,15 @@ function PainelIfos({
                     {ifo.contratos.length} contrato(s) · {formatBRL(ifo.valorEstimado)}
                   </p>
                 </div>
+                {ifo.codigoOficial && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-mono bg-green-100 text-green-700 border-green-200"
+                    title="Código oficial de Item de PCA (convertido na publicação)"
+                  >
+                    PCA {ifo.codigoOficial}
+                  </Badge>
+                )}
                 <Badge
                   variant="outline"
                   className={cn("text-xs", ESTADO_IFO_BADGE[ifo.estado] ?? ESTADO_IFO_BADGE.rascunho)}

@@ -71,6 +71,8 @@ export interface Ifo {
   estado: EstadoIfo;
   valorEstimado: number | null;
   interesseRenovacao: boolean | null;
+  /** Código oficial de Item de PCA atribuído na publicação (RF-49); null antes disso. */
+  codigoOficial: string | null;
   contratos: number[];
 }
 
