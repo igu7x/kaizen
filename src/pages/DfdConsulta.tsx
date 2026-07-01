@@ -21,6 +21,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { areasApi, type Unidade } from "@/services/areasApi";
 import {
@@ -193,6 +201,29 @@ export default function DfdConsulta() {
     }
   };
 
+  // RF-07 — interesse na renovação
+  const [reclassificando, setReclassificando] = useState<Ifo | null>(null);
+  const [motivo, setMotivo] = useState("");
+
+  const marcarInteresse = async (ifo: Ifo, interesse: boolean, motivoTexto?: string) => {
+    try {
+      await ifoApi.definirInteresseRenovacao(ifo.id, interesse, motivoTexto);
+      toast.success(
+        interesse ? "Interesse na renovação confirmado." : `${ifo.codigo} reclassificado para Encerramento.`,
+      );
+      carregarIfos();
+    } catch {
+      toast.error("Não foi possível atualizar o interesse na renovação.");
+    }
+  };
+
+  const confirmarReclassificacao = async () => {
+    if (!reclassificando) return;
+    await marcarInteresse(reclassificando, false, motivo);
+    setReclassificando(null);
+    setMotivo("");
+  };
+
   const totalGeral = useMemo(() => {
     if (!data) return 0;
     const soma = (arr: DfdItem[]) => arr.reduce((s, i) => s + (i.valorTotal || 0), 0);
@@ -312,9 +343,45 @@ export default function DfdConsulta() {
           />
           <BlocoNovaContratacao itens={data.novaContratacao} />
 
-          <PainelIfos ifos={ifos} onEnviarCca={enviarCca} onExcluir={excluirIfo} />
+          <PainelIfos
+            ifos={ifos}
+            onEnviarCca={enviarCca}
+            onExcluir={excluirIfo}
+            onRenovarSim={(ifo) => marcarInteresse(ifo, true)}
+            onRenovarNao={(ifo) => {
+              setMotivo("");
+              setReclassificando(ifo);
+            }}
+          />
         </>
       ) : null}
+
+      <Dialog open={reclassificando != null} onOpenChange={(o) => !o && setReclassificando(null)}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-gray-800">
+              Sem interesse na renovação — {reclassificando?.codigo}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-500">
+            O item será reclassificado automaticamente para <strong>Encerramento</strong> (RF-07). Informe o
+            motivo (registrado em metadado).
+          </p>
+          <Input
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Motivo da não renovação"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReclassificando(null)}>
+              Cancelar
+            </Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmarReclassificacao}>
+              Reclassificar para Encerramento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -464,10 +531,14 @@ function PainelIfos({
   ifos,
   onEnviarCca,
   onExcluir,
+  onRenovarSim,
+  onRenovarNao,
 }: {
   ifos: Ifo[];
   onEnviarCca: (ifo: Ifo) => void;
   onExcluir: (ifo: Ifo) => void;
+  onRenovarSim: (ifo: Ifo) => void;
+  onRenovarNao: (ifo: Ifo) => void;
 }) {
   return (
     <Card className="border-gray-200">
@@ -503,7 +574,33 @@ function PainelIfos({
                   <p className="text-xs text-gray-500">
                     {ifo.contratos.length} contrato(s) · {formatBRL(ifo.valorEstimado)}
                   </p>
+                  {ifo.motivoReclassificacao && (
+                    <p className="text-[11px] text-red-500">
+                      Reclassificado (RF-07): {ifo.motivoReclassificacao}
+                    </p>
+                  )}
                 </div>
+                {ifo.bloco === "renovacao" && ifo.estado === "rascunho" && (
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <span>Renovar?</span>
+                    <Button
+                      size="sm"
+                      variant={ifo.interesseRenovacao ? "default" : "outline"}
+                      className={cn("h-7 px-2", ifo.interesseRenovacao && "bg-green-600 hover:bg-green-700")}
+                      onClick={() => onRenovarSim(ifo)}
+                    >
+                      Sim
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => onRenovarNao(ifo)}
+                    >
+                      Não
+                    </Button>
+                  </div>
+                )}
                 {ifo.codigoOficial && (
                   <Badge
                     variant="outline"

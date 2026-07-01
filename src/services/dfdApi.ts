@@ -71,6 +71,8 @@ export interface Ifo {
   estado: EstadoIfo;
   valorEstimado: number | null;
   interesseRenovacao: boolean | null;
+  /** RF-07 — motivo quando reclassificado (Renovação→Encerramento). */
+  motivoReclassificacao: string | null;
   /** Código oficial de Item de PCA atribuído na publicação (RF-49); null antes disso. */
   codigoOficial: string | null;
   contratos: number[];
@@ -105,6 +107,11 @@ export const ifoApi = {
   /** RF-26 — envia o IFO à CCA. */
   enviarCca(id: number): Promise<Ifo> {
     return apiClient.post<Ifo>(`/api/ifo/${id}/enviar-cca`);
+  },
+
+  /** RF-07 — interesse na renovação; "Não" reclassifica o IFO para Encerramento (com motivo). */
+  definirInteresseRenovacao(id: number, interesse: boolean, motivo?: string): Promise<Ifo> {
+    return apiClient.patch<Ifo>(`/api/ifo/${id}/interesse-renovacao`, { interesse, motivo });
   },
 
   /** Remove um IFO em rascunho. */
