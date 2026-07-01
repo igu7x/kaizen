@@ -94,6 +94,35 @@ public class IfoService {
         return ifos.size();
     }
 
+    /**
+     * RF-07 — define o interesse na renovação de um IFO do bloco Renovação. "Não" reclassifica
+     * automaticamente para Encerramento, registrando o motivo em metadado; "Sim" mantém em Renovação.
+     * Só atua sobre IFO em rascunho.
+     */
+    @Transactional
+    public IfoDto definirInteresseRenovacao(long id, boolean interesse, String motivo, Long userId) {
+        IfoDto ifo = get(id);
+        if (!"rascunho".equals(ifo.estado())) {
+            throw new ApiException(400, "IFO já enviado à CCA não pode ser reclassificado");
+        }
+        if (!"renovacao".equals(ifo.bloco()) && !"encerramento".equals(ifo.bloco())) {
+            throw new ApiException(400, "Interesse na renovação só se aplica ao bloco Renovação");
+        }
+        if (interesse) {
+            jdbc.update(
+                    "UPDATE ifo SET interesse_renovacao = TRUE, bloco = 'renovacao', motivo_reclassificacao = NULL, " +
+                            "updated_at = NOW(), updated_by = ? WHERE id = ?",
+                    userId, id);
+        } else {
+            String m = (motivo == null || motivo.isBlank()) ? "Sem interesse na renovação" : motivo.trim();
+            jdbc.update(
+                    "UPDATE ifo SET interesse_renovacao = FALSE, bloco = 'encerramento', motivo_reclassificacao = ?, " +
+                            "updated_at = NOW(), updated_by = ? WHERE id = ?",
+                    m, userId, id);
+        }
+        return get(id);
+    }
+
     @Transactional
     public void excluir(long id) {
         int n = jdbc.update("DELETE FROM ifo WHERE id = ? AND estado = 'rascunho'", id);
@@ -157,6 +186,7 @@ public class IfoService {
                 str(r.get("estado")),
                 cents == null ? null : cents / 100.0,
                 (Boolean) r.get("interesse_renovacao"),
+                str(r.get("motivo_reclassificacao")),
                 str(r.get("codigo_oficial")),
                 contratosDoIfo(id));
     }

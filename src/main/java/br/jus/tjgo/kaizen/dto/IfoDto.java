@@ -20,6 +20,8 @@ public record IfoDto(
         String estado,
         Double valorEstimado,
         Boolean interesseRenovacao,
+        /** RF-07 — motivo registrado quando o item foi reclassificado (Renovação→Encerramento). */
+        String motivoReclassificacao,
         /** Código oficial de Item de PCA atribuído na publicação (RF-49); null antes disso. */
         String codigoOficial,
         List<Long> contratos

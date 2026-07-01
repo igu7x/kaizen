@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * IFO (Item de Formação do Orçamento) — Orçamento de TIC, Cap. 1. Cria/consulta as bandas-envelope
@@ -39,6 +40,16 @@ public class IfoController {
     public ResponseEntity<IfoDto> criar(@RequestBody CriarIfoRequest req,
                                         @RequestHeader(value = "x-user-id", required = false) Long userId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(req, userId));
+    }
+
+    // PATCH /api/ifo/:id/interesse-renovacao { interesse, motivo } — RF-07 (Não → reclassifica p/ Encerramento)
+    @PatchMapping("/{id:\\d+}/interesse-renovacao")
+    public IfoDto interesseRenovacao(@PathVariable long id, @RequestBody Map<String, Object> body,
+                                     @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        boolean interesse = Boolean.TRUE.equals(body.get("interesse"))
+                || "true".equalsIgnoreCase(String.valueOf(body.get("interesse")));
+        String motivo = body.get("motivo") == null ? null : String.valueOf(body.get("motivo"));
+        return service.definirInteresseRenovacao(id, interesse, motivo, userId);
     }
 
     // POST /api/ifo/:id/enviar-cca — envia o IFO à CCA (RF-26)
