@@ -12,6 +12,7 @@ import {
   MESES_ORDENADOS,
 } from "@/types";
 import { pcaApi, formatCurrency, getStatusBadgeClass } from "@/services/pcaApi";
+import { ComparacaoVersoesDialog } from "@/components/contratacoes/ComparacaoVersoesDialog";
 import { areasApi } from "@/services/areasApi";
 import { pessoasApi, type Pessoa } from "@/services/pessoasApi";
 import type { Area, Unidade } from "@/services/areasApi";
@@ -61,6 +62,7 @@ import {
   ChevronRight,
   FolderKanban,
   RefreshCw,
+  GitCompare,
 } from "lucide-react";
 import {
   BarChart,
@@ -175,6 +177,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCreateVersionDialogOpen, setIsCreateVersionDialogOpen] = useState(false);
+  const [isCompareDialogOpen, setIsCompareDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PcaItem | null>(null);
 
   // Estados do formulário
@@ -799,6 +802,18 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             >
               <Plus className="h-4 w-4 mr-2" />
               Gerar Nova Versão
+            </Button>
+          )}
+
+          {versionsList.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCompareDialogOpen(true)}
+              className="text-gray-600 h-9"
+            >
+              <GitCompare className="h-4 w-4 mr-2" />
+              Comparar versões
             </Button>
           )}
         </div>
@@ -2054,6 +2069,13 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       </AlertDialog>
 
       {/* Dialog de Confirmação de Nova Versão */}
+      <ComparacaoVersoesDialog
+        open={isCompareDialogOpen}
+        onOpenChange={setIsCompareDialogOpen}
+        ano={anoSelecionado}
+        versionsList={versionsList}
+      />
+
       <AlertDialog
         open={isCreateVersionDialogOpen}
         onOpenChange={setIsCreateVersionDialogOpen}

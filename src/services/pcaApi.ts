@@ -105,6 +105,50 @@ export async function getPcaVersions(ano: number): Promise<number[]> {
 }
 
 /**
+ * RF-54 — comparação entre duas versões do PCA-TIC.
+ */
+export interface PcaMudancaCampo {
+  campo: string;
+  de: unknown;
+  para: unknown;
+}
+
+export interface PcaItemAlterado {
+  item_pca: string;
+  objeto: string;
+  area_demandante: string;
+  mudancas: PcaMudancaCampo[];
+}
+
+export interface PcaComparacao {
+  ano: number;
+  versaoNova: number | null;
+  versaoAntiga: number | null;
+  incluidos: PcaItem[];
+  excluidos: PcaItem[];
+  alterados: PcaItemAlterado[];
+  totalNova: number;
+  totalAntiga: number;
+}
+
+/**
+ * Compara duas versões do PCA de um ano. Passe `undefined` para representar a versão viva/atual.
+ */
+export async function getPcaComparison(
+  ano: number,
+  versaoNova?: number,
+  versaoAntiga?: number,
+): Promise<PcaComparacao> {
+  const params = new URLSearchParams();
+  params.set("ano", String(ano));
+  if (versaoNova != null) params.set("versaoNova", String(versaoNova));
+  if (versaoAntiga != null) params.set("versaoAntiga", String(versaoAntiga));
+  return apiClient.get<PcaComparacao>(`/api/pca-items/compare?${params.toString()}`, {
+    headers: getUserHeaders(),
+  });
+}
+
+/**
  * Criar snapshot (versão histórica) de um ano PCA
  */
 export async function createPcaSnapshot(ano: number): Promise<void> {
