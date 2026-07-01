@@ -1,5 +1,7 @@
 package br.jus.tjgo.kaizen.service;
 
+import br.jus.tjgo.kaizen.auth.AuthContext;
+import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.dto.CicloDto;
 import br.jus.tjgo.kaizen.dto.EntradaCicloDto;
 import br.jus.tjgo.kaizen.exception.ApiException;
@@ -176,6 +178,7 @@ public class CicloOrcamentarioService {
     @Transactional
     public CicloDto avancar(long id, Long userId) {
         CicloDto ciclo = getCiclo(id);
+        exigirAtor(ciclo.estado());
         List<String> esteira = esteiraDe(ciclo.finalidade());
         int idx = esteira.indexOf(ciclo.estado());
         if (idx < 0) {
@@ -198,6 +201,7 @@ public class CicloOrcamentarioService {
         if (ESTADO_PUBLICADO.equals(ciclo.estado())) {
             throw new ApiException(409, "Ciclo publicado não pode retroceder");
         }
+        exigirAtor(ciclo.estado());
         List<String> esteira = esteiraDe(ciclo.finalidade());
         int idx = esteira.indexOf(ciclo.estado());
         if (idx <= 0) {
@@ -208,6 +212,71 @@ public class CicloOrcamentarioService {
 
     private static List<String> esteiraDe(String finalidade) {
         return "revisao".equals(finalidade) ? ESTADOS_REVISAO : ESTADOS_FORMACAO;
+    }
+
+    // ---------- gating por papel (RNF-04/07) ----------
+
+    /** Papel-chave responsável por cada estado da esteira (quem age agora). */
+    private static final Map<String, String> PAPEL_DO_ESTADO = Map.ofEntries(
+            Map.entry("aberto_aguardando_proad", "cca"),
+            Map.entry("em_consulta", "demandante"),
+            Map.entry("retorno_areas", "demandante"),
+            Map.entry("consolidacao_cca", "cca"),
+            Map.entry("validacao_gejut", "gejut"),
+            Map.entry("apreciacao_sgjt", "sgjt"),
+            Map.entry("em_comites", "comite"),
+            Map.entry("autorizado", "cca"),
+            Map.entry("ajuste_pre_publicacao", "cca"),
+            Map.entry("remessa_dg", "dg"),
+            Map.entry("janela_aberta", "demandante"),
+            Map.entry("em_rito_validacao", "demandante"));
+
+    private static final Map<String, String> ATOR_LABEL = Map.ofEntries(
+            Map.entry("cca", "CCA"),
+            Map.entry("demandante", "Demandantes"),
+            Map.entry("gejut", "GEJUT"),
+            Map.entry("sgjt", "SGJT"),
+            Map.entry("comite", "Comitês"),
+            Map.entry("dg", "DG"));
+
+    /**
+     * Resolve o papel do usuário no ciclo a partir do contexto de autenticação. Gestor/superadmin
+     * (ou role ADMIN/MANAGER) conduzem o ciclo (papel "gestor", override). Os demais papéis derivam
+     * da diretoria do usuário; sem diretoria específica, é "demandante".
+     */
+    private static String papelDoUsuario(AuthenticatedUser u) {
+        if (u.isSuperadmin()) return "gestor";
+        String role = u.role() == null ? "" : u.role().toUpperCase();
+        if (role.equals("ADMIN") || role.equals("MANAGER")) return "gestor";
+        String dir = u.diretoria() == null ? "" : u.diretoria().trim().toUpperCase();
+        return switch (dir) {
+            case "SGJT" -> "sgjt";
+            case "GEJUT" -> "gejut";
+            case "CCA" -> "cca";
+            case "DG" -> "dg";
+            default -> "demandante";
+        };
+    }
+
+    /**
+     * Exige que o usuário atual seja o ator responsável pelo estado (ou gestor). Se não há contexto
+     * de autenticação (módulo novo, auth ainda parcial), não bloqueia — o gating é best-effort e só
+     * atua quando o usuário está identificado.
+     */
+    private void exigirAtor(String estado) {
+        var opt = AuthContext.getCurrentUser();
+        if (opt.isEmpty()) return;
+        String papel = papelDoUsuario(opt.get());
+        if (papel.equals("gestor")) return;
+        String requerido = PAPEL_DO_ESTADO.getOrDefault(estado, "cca");
+        if (requerido.equals("comite")) {
+            // Resolução de comitê (CGTIC/CGovTIC) a evoluir — por ora só gestor age nesta fase.
+            throw new ApiException(403, "Apenas o Gestor/CCA pode encaminhar durante a apreciação dos comitês.");
+        }
+        if (!papel.equals(requerido)) {
+            throw new ApiException(403, "Apenas o ator responsável (" + ATOR_LABEL.getOrDefault(requerido, requerido) +
+                    ") pode agir neste estado.");
+        }
     }
 
     /** Estados da Revisão em que o demandante ainda pode editar seus itens (dentro da janela). */
@@ -234,6 +303,7 @@ public class CicloOrcamentarioService {
         if (revisao == null || !ESTADOS_REVISAO_EDITAVEL.contains(revisao.estado())) {
             throw new ApiException(409, "Nenhuma revisão aberta para edição neste exercício");
         }
+        exigirAtor(revisao.estado());
         Map<String, Object> filtrado = new java.util.LinkedHashMap<>();
         for (Map.Entry<String, Object> e : campos.entrySet()) {
             if (CAMPOS_REVISAVEIS.contains(e.getKey())) {
