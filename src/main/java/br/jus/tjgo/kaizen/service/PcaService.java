@@ -57,6 +57,7 @@ public class PcaService {
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
             "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_unidades_diretoria.nome as diretoria_nome, " +
             "cadastro_unidades_area.nome as area_demandante_nome, ";
 
@@ -68,6 +69,7 @@ public class PcaService {
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
             "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_unidades_diretoria.nome as diretoria_nome, " +
             "cadastro_unidades_area.nome as area_demandante_nome, ";
 
@@ -449,20 +451,33 @@ public class PcaService {
     public void createSnapshot(Integer ano, Long userId) {
         Integer maxVersion = jdbc.queryForObject("SELECT MAX(snapshot_version) FROM pcas_snapshots WHERE year = ?", Integer.class, String.valueOf(ano));
         int nextVersion = maxVersion == null ? 1 : maxVersion + 1;
-        
+
         String insertSql = "INSERT INTO pcas_snapshots (original_pca_id, snapshot_version, snapshot_created_by, " +
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
                 "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
                 "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
-                "created_by, updated_by, deleted_at, deleted_by) " +
+                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade) " +
                 "SELECT id, ?, ?, " +
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
                 "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
                 "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
-                "created_by, updated_by, deleted_at, deleted_by " +
+                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade " +
                 "FROM pcas WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)";
-                
+
         jdbc.update(insertSql, nextVersion, userId, String.valueOf(ano));
+    }
+
+    /**
+     * RF-55 — carimba a origem (ciclo, PROAD, finalidade) nos itens vivos do ano. Chamado na
+     * publicação, ANTES do snapshot, para que a versão imutável já preserve a rastreabilidade.
+     */
+    public void stampOrigem(Integer ano, Long cicloId, String proad, String finalidade, Long userId) {
+        if (ano == null) return;
+        jdbc.update(
+                "UPDATE pcas SET origem_ciclo_id = ?, origem_proad = ?, origem_finalidade = ?, " +
+                        "updated_by = COALESCE(?, updated_by) " +
+                        "WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)",
+                cicloId, proad, finalidade, userId, String.valueOf(ano));
     }
 
     public List<String> getAreasDemandantes() {

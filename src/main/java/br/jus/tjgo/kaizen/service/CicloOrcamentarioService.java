@@ -223,6 +223,9 @@ public class CicloOrcamentarioService {
         // RF-41/75 — a publicação pela DG grava a próxima versão do PCA-TIC (snapshot imutável)
         // do ano do ciclo (Formação = Versão 1 do ano seguinte; Revisão = próxima versão do vigente).
         if (ciclo.ano() != null) {
+            // RF-55 — carimba a origem (ciclo/PROAD/finalidade) nos itens ANTES do snapshot,
+            // para que a versão imutável preserve a rastreabilidade.
+            pcaService.stampOrigem(ciclo.ano(), ciclo.id(), ciclo.proad(), ciclo.finalidade(), userId);
             pcaService.createSnapshot(ciclo.ano(), userId);
         }
         // TODO (evolução): converter IFO -> código oficial de Item de PCA na publicação (RF-49).
