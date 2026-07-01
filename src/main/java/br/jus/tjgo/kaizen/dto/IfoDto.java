@@ -20,5 +20,7 @@ public record IfoDto(
         String estado,
         Double valorEstimado,
         Boolean interesseRenovacao,
+        /** Código oficial de Item de PCA atribuído na publicação (RF-49); null antes disso. */
+        String codigoOficial,
         List<Long> contratos
 ) {}

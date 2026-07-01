@@ -68,6 +68,32 @@ public class IfoService {
         return get(id);
     }
 
+    /**
+     * RF-41/49/75 — na publicação, converte 1:1 cada IFO não publicado do ano em código oficial de
+     * Item de PCA (numeração sequencial após o maior código já existente no PCA-TIC do ano) e marca
+     * o IFO como publicado. Retorna quantos IFOs foram convertidos.
+     */
+    @Transactional
+    public int converterNaPublicacao(Integer ano, Long userId) {
+        if (ano == null) return 0;
+        List<Map<String, Object>> ifos = jdbc.queryForList(
+                "SELECT id FROM ifo WHERE ano = ? AND estado <> 'publicado' ORDER BY codigo", ano);
+        if (ifos.isEmpty()) return 0;
+        Integer base = jdbc.queryForObject(
+                "SELECT COALESCE(MAX(CAST(NULLIF(regexp_replace(code, '[^0-9]', '', 'g'), '') AS INTEGER)), 0) " +
+                        "FROM pcas WHERE year = ?",
+                Integer.class, String.valueOf(ano));
+        int prox = (base == null ? 0 : base) + 1;
+        for (Map<String, Object> row : ifos) {
+            Long id = asLong(row.get("id"));
+            jdbc.update(
+                    "UPDATE ifo SET codigo_oficial = ?, estado = 'publicado', updated_at = NOW(), updated_by = ? WHERE id = ?",
+                    String.valueOf(prox), userId, id);
+            prox++;
+        }
+        return ifos.size();
+    }
+
     @Transactional
     public void excluir(long id) {
         int n = jdbc.update("DELETE FROM ifo WHERE id = ? AND estado = 'rascunho'", id);
@@ -131,6 +157,7 @@ public class IfoService {
                 str(r.get("estado")),
                 cents == null ? null : cents / 100.0,
                 (Boolean) r.get("interesse_renovacao"),
+                str(r.get("codigo_oficial")),
                 contratosDoIfo(id));
     }
 

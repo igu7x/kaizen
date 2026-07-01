@@ -27,6 +27,7 @@ public class CicloOrcamentarioService {
 
     private final JdbcTemplate jdbc;
     private final PcaService pcaService;
+    private final IfoService ifoService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aberto_aguardando_proad";
     private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
@@ -216,18 +217,23 @@ public class CicloOrcamentarioService {
 
     // ---------- gating por papel (RNF-04/07) ----------
 
-    /** Papel-chave responsável por cada estado da esteira (quem age agora). */
+    /**
+     * Papel-chave que dispara a transição de cada estado (autoritativo: Especificação v2, tabela 8.8).
+     * Notas: `remessa_dg` → publicado é o "Registrar publicação" do Gestor CCA (a DG publica no PROAD,
+     * ato EXTERNO; o Kaizen apenas reflete). Em `em_comites`, o ato no Kaizen (juntar atas / autorizar)
+     * é do escopo SGJT — os comitês deliberam no PROAD, fora do Kaizen.
+     */
     private static final Map<String, String> PAPEL_DO_ESTADO = Map.ofEntries(
-            Map.entry("aberto_aguardando_proad", "cca"),
-            Map.entry("em_consulta", "demandante"),
+            Map.entry("aberto_aguardando_proad", "cca"),   // registrar PROAD / encaminhar DFD-Consulta
+            Map.entry("em_consulta", "demandante"),         // unidades preenchem/validam/remetem
             Map.entry("retorno_areas", "demandante"),
-            Map.entry("consolidacao_cca", "cca"),
-            Map.entry("validacao_gejut", "gejut"),
-            Map.entry("apreciacao_sgjt", "sgjt"),
-            Map.entry("em_comites", "comite"),
-            Map.entry("autorizado", "cca"),
+            Map.entry("consolidacao_cca", "cca"),           // consolidar pós-demandantes → GEJUT
+            Map.entry("validacao_gejut", "gejut"),          // conferir → encaminhar à SGJT
+            Map.entry("apreciacao_sgjt", "sgjt"),           // emitir produto / pautar / autorizar
+            Map.entry("em_comites", "sgjt"),                // juntar atas (Editor SGJT) / autorizar
+            Map.entry("autorizado", "cca"),                 // gerar produto final + instruir
             Map.entry("ajuste_pre_publicacao", "cca"),
-            Map.entry("remessa_dg", "dg"),
+            Map.entry("remessa_dg", "cca"),                 // registrar publicação (reflete a DG externa)
             Map.entry("janela_aberta", "demandante"),
             Map.entry("em_rito_validacao", "demandante"));
 
@@ -235,9 +241,7 @@ public class CicloOrcamentarioService {
             Map.entry("cca", "CCA"),
             Map.entry("demandante", "Demandantes"),
             Map.entry("gejut", "GEJUT"),
-            Map.entry("sgjt", "SGJT"),
-            Map.entry("comite", "Comitês"),
-            Map.entry("dg", "DG"));
+            Map.entry("sgjt", "SGJT"));
 
     /**
      * Resolve o papel do usuário no ciclo a partir do contexto de autenticação. Gestor/superadmin
@@ -269,10 +273,6 @@ public class CicloOrcamentarioService {
         String papel = papelDoUsuario(opt.get());
         if (papel.equals("gestor")) return;
         String requerido = PAPEL_DO_ESTADO.getOrDefault(estado, "cca");
-        if (requerido.equals("comite")) {
-            // Resolução de comitê (CGTIC/CGovTIC) a evoluir — por ora só gestor age nesta fase.
-            throw new ApiException(403, "Apenas o Gestor/CCA pode encaminhar durante a apreciação dos comitês.");
-        }
         if (!papel.equals(requerido)) {
             throw new ApiException(403, "Apenas o ator responsável (" + ATOR_LABEL.getOrDefault(requerido, requerido) +
                     ") pode agir neste estado.");
@@ -342,8 +342,9 @@ public class CicloOrcamentarioService {
             pcaService.stampOrigem(ciclo.ano(), ciclo.id(), ciclo.proad(), ciclo.finalidade(), userId);
             // RF-45/46 — a numeração da versão só avança aqui (publicação), com proveniência do ciclo.
             pcaService.createSnapshot(ciclo.ano(), userId, ciclo.id(), ciclo.finalidade());
+            // RF-41/49/75 — cada IFO do ano é convertido 1:1 em código oficial de Item de PCA.
+            ifoService.converterNaPublicacao(ciclo.ano(), userId);
         }
-        // TODO (evolução): converter IFO -> código oficial de Item de PCA na publicação (RF-49).
         return ciclo;
     }
 
