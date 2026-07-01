@@ -1,8 +1,17 @@
 import { apiClient } from "./apiClient";
+import type { PcaItem } from "@/types";
 import {
   CALENDARIO_REVISOES,
   type CalendarioRevisao,
 } from "@/components/contratacoes/ciclo/cicloConstants";
+
+/** Campos editáveis de um item do PCA-TIC durante a Revisão (RF-62/63). */
+export interface EdicaoItemRevisao {
+  objeto?: string;
+  valor_estimado?: number;
+  status?: string;
+  data_estimada_contratacao?: string;
+}
 
 /**
  * Contrato de API do Ciclo Orçamentário (Orçamento de TIC).
@@ -185,6 +194,11 @@ export const cicloOrcamentarioApi = {
   /** Retorna o ciclo ao ator anterior (correção). */
   retroceder(cicloId: number): Promise<Ciclo> {
     return apiClient.post<Ciclo>(`${BASE}/${cicloId}/retroceder`);
+  },
+
+  /** RF-62..69 — edita campos revisáveis de um item do PCA-TIC (só com revisão aberta). */
+  editarItemRevisao(itemId: number, campos: EdicaoItemRevisao): Promise<PcaItem> {
+    return apiClient.patch<PcaItem>(`${BASE}/revisao/item/${itemId}`, campos);
   },
 
   /** RF-60 — abre/obtém a revisão ordinária vigente (resolvida por data no backend). */

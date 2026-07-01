@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CicloTimeline } from "@/components/contratacoes/ciclo/CicloTimeline";
+import { RevisaoItens } from "@/components/contratacoes/ciclo/RevisaoItens";
 import {
   NOS_FORMACAO,
   nosRevisao,
@@ -452,6 +453,14 @@ export default function CicloOrcamentario() {
                     disabled={acaoEmCurso}
                   />
                 )}
+                <RevisaoItens
+                  anoVigente={anoVigente}
+                  editavel={
+                    ciclo?.finalidade === "revisao" &&
+                    (ciclo.estado === "janela_aberta" ||
+                      ciclo.estado === "em_rito_validacao")
+                  }
+                />
               </>
             ) : (
               <div className="rounded-xl border border-slate-200 bg-white">
