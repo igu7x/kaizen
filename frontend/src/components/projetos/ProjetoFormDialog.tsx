@@ -181,6 +181,20 @@ export function ProjetoFormDialog({
 
   // Form state
   const [selectedProjeto, setSelectedProjeto] = useState<Projeto | null>(null);
+
+  // Camada 2 (Diretor) = diretor da 1ª diretoria indicada na Governança do projeto
+  // (areas_vinculadas_ids), resolvida pelo cadastro de diretorias. Fallback: diretoria de domínio.
+  const camada2Area = (() => {
+    const ids = (selectedProjeto as { areas_vinculadas_ids?: number[] } | null)
+      ?.areas_vinculadas_ids;
+    const firstId = ids && ids.length > 0 ? ids[0] : null;
+    return firstId ? diretorias.find((d) => d.id === firstId) ?? null : null;
+  })();
+  const camada2DiretorUserId =
+    camada2Area?.gestor_user_id ??
+    (selectedProjeto as { diretor_user_id?: number } | null)?.diretor_user_id;
+  const camada2DiretoriaLabel =
+    camada2Area?.sigla || selectedProjeto?.diretoria || "-";
   const [formData, setFormData] = useState<CreateProjetoDto>({
     codigo: "",
     nome: "",
@@ -1022,7 +1036,7 @@ export function ProjetoFormDialog({
                       Camada 2 — Diretor
                     </p>
                     <p className="text-xs font-medium truncate">
-                      {selectedProjeto.diretoria || "-"}
+                      {camada2DiretoriaLabel}
                     </p>
                     {selectedProjeto.tap_validado_diretor_em ? (
                       <div className="mt-1">
@@ -1037,9 +1051,8 @@ export function ProjetoFormDialog({
                       </div>
                     ) : selectedProjeto.tap_validado_gestor_em &&
                       currentUserId &&
-                      (selectedProjeto as any).diretor_user_id &&
-                      Number((selectedProjeto as any).diretor_user_id) ===
-                        currentUserId ? (
+                      camada2DiretorUserId &&
+                      Number(camada2DiretorUserId) === currentUserId ? (
                       <div className="mt-1 space-y-1">
                         <Button
                           size="sm"
