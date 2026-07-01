@@ -86,14 +86,20 @@ export interface JanelaRevisaoResumo {
   proximaAberturaEm: string | null;
 }
 
-/** Payload da tela de entrada do Ciclo Orçamentário (RF-59/60). */
+/** Payload da tela de entrada do Ciclo Orçamentário (RF-59/60), espelha EntradaCicloDto do backend. */
 export interface EntradaCiclo {
   /** Botão "Formação PCA – [anoFormacao]" gera a Versão 1 de anoFormacao. */
   anoFormacao: number;
-  formacao: Pick<Ciclo, "estado" | "proad" | "versaoGerada"> | null;
+  /** Ciclo de formação persistido do anoFormacao (null se ainda não aberto). */
+  formacao: Ciclo | null;
   /** Botão "Revisão PCA – [anoVigente]". */
   anoVigente: number;
-  revisao: JanelaRevisaoResumo | null;
+  /** Ordem (1–3) da janela ordinária ativa na data corrente, resolvida no backend; null se nenhuma. */
+  revisaoOrdemAtiva: number | null;
+  /** Versão que a janela ativa gera (2–4); null se nenhuma. */
+  revisaoVersaoAtiva: number | null;
+  /** Ciclo de revisão persistido do ano vigente (null se nenhum). */
+  revisao: Ciclo | null;
 }
 
 // ============================================================
@@ -166,9 +172,9 @@ export const cicloOrcamentarioApi = {
     return apiClient.patch<Ciclo>(`${BASE}/${cicloId}/proad`, { proad });
   },
 
-  /** RF-26/32/35/37 — encaminha o ciclo ao próximo ator (encaminhar = autorizar). */
-  encaminhar(cicloId: number, destino: PapelCiclo): Promise<Ciclo> {
-    return apiClient.post<Ciclo>(`${BASE}/${cicloId}/encaminhar`, { destino });
+  /** RF-26/32/35/37 — transição da esteira (encaminhar ao próximo ator = mudar o estado). */
+  atualizarEstado(cicloId: number, estado: string): Promise<Ciclo> {
+    return apiClient.patch<Ciclo>(`${BASE}/${cicloId}/estado`, { estado });
   },
 
   /** RF-60 — abre/obtém a revisão ordinária vigente (resolvida por data no backend). */
