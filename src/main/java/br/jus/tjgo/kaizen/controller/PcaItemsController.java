@@ -100,6 +100,12 @@ public class PcaItemsController {
         return pcaService.getAvailableVersions(ano);
     }
 
+    // RF-46/57 — proveniência das versões publicadas (versão → finalidade/ciclo/data)
+    @GetMapping("/versoes-info")
+    public List<Map<String, Object>> versoesInfo(@RequestParam(value = "ano", required = true) Integer ano) {
+        return pcaService.getVersoesInfo(ano);
+    }
+
     // RF-54 — comparação entre duas versões do PCA-TIC. versaoNova/versaoAntiga nulos = versão viva (atual).
     @GetMapping("/compare")
     public Map<String, Object> compare(@RequestParam(value = "ano", required = true) Integer ano,

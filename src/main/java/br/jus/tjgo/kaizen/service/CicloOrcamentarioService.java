@@ -270,7 +270,8 @@ public class CicloOrcamentarioService {
             // RF-55 — carimba a origem (ciclo/PROAD/finalidade) nos itens ANTES do snapshot,
             // para que a versão imutável preserve a rastreabilidade.
             pcaService.stampOrigem(ciclo.ano(), ciclo.id(), ciclo.proad(), ciclo.finalidade(), userId);
-            pcaService.createSnapshot(ciclo.ano(), userId);
+            // RF-45/46 — a numeração da versão só avança aqui (publicação), com proveniência do ciclo.
+            pcaService.createSnapshot(ciclo.ano(), userId, ciclo.id(), ciclo.finalidade());
         }
         // TODO (evolução): converter IFO -> código oficial de Item de PCA na publicação (RF-49).
         return ciclo;

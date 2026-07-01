@@ -448,7 +448,17 @@ public class PcaService {
         return jdbc.queryForList("SELECT DISTINCT snapshot_version FROM pcas_snapshots WHERE year = ? ORDER BY snapshot_version DESC", Integer.class, String.valueOf(ano));
     }
 
-    public void createSnapshot(Integer ano, Long userId) {
+    /** Snapshot manual (fallback de superadmin) — registra proveniência como 'manual'. */
+    public int createSnapshot(Integer ano, Long userId) {
+        return createSnapshot(ano, userId, null, "manual");
+    }
+
+    /**
+     * RF-45/46 — grava a próxima versão imutável do PCA-TIC e registra sua proveniência
+     * (ciclo de origem + finalidade) em `pca_versoes`. A numeração só avança aqui, na publicação.
+     * Retorna o número da versão gerada.
+     */
+    public int createSnapshot(Integer ano, Long userId, Long cicloId, String finalidade) {
         Integer maxVersion = jdbc.queryForObject("SELECT MAX(snapshot_version) FROM pcas_snapshots WHERE year = ?", Integer.class, String.valueOf(ano));
         int nextVersion = maxVersion == null ? 1 : maxVersion + 1;
 
@@ -465,6 +475,21 @@ public class PcaService {
                 "FROM pcas WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)";
 
         jdbc.update(insertSql, nextVersion, userId, String.valueOf(ano));
+
+        // RF-45/46 — registra a proveniência da versão (idempotente por (ano, versão)).
+        jdbc.update(
+                "INSERT INTO pca_versoes (ano, versao, ciclo_id, finalidade, publicado_por) VALUES (?, ?, ?, ?, ?) " +
+                        "ON CONFLICT (ano, versao) DO NOTHING",
+                ano, nextVersion, cicloId, finalidade == null ? "manual" : finalidade, userId);
+        return nextVersion;
+    }
+
+    /** RF-46/57 — proveniência das versões publicadas de um ano (versão → finalidade/ciclo/data). */
+    public List<Map<String, Object>> getVersoesInfo(Integer ano) {
+        return jdbc.queryForList(
+                "SELECT versao, finalidade, ciclo_id, publicado_em, publicado_por " +
+                        "FROM pca_versoes WHERE ano = ? ORDER BY versao DESC",
+                ano);
     }
 
     /**
