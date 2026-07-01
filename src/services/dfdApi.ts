@@ -50,3 +50,63 @@ export const dfdApi = {
     return apiClient.get<DfdConsulta>(`/api/dfd/consulta?${params.toString()}`);
   },
 };
+
+// ============================================================
+// IFO (Item de Formação do Orçamento) — banda-envelope (RF-10/24/49)
+// ============================================================
+
+export type BlocoIfo = BlocoDfd | "nova_contratacao";
+export type EstadoIfo = "rascunho" | "enviado_cca" | "consolidado" | "publicado";
+
+export interface Ifo {
+  id: number;
+  codigo: string;
+  ano: number;
+  cicloId: number | null;
+  bloco: BlocoIfo;
+  natureza: string | null;
+  objeto: string | null;
+  areaDemandante: string | null;
+  unidadeId: number | null;
+  estado: EstadoIfo;
+  valorEstimado: number | null;
+  interesseRenovacao: boolean | null;
+  contratos: number[];
+}
+
+export interface CriarIfoRequest {
+  ano: number;
+  cicloId?: number | null;
+  bloco: BlocoIfo;
+  natureza?: string | null;
+  objeto?: string | null;
+  areaDemandante?: string | null;
+  unidadeId?: number | null;
+  valorEstimado?: number | null;
+  interesseRenovacao?: boolean | null;
+  contratos: number[];
+}
+
+export const ifoApi = {
+  /** Lista os IFOs de um ano (e opcionalmente de um ciclo). */
+  listar(ano: number, cicloId?: number): Promise<Ifo[]> {
+    const params = new URLSearchParams({ ano: String(ano) });
+    if (cicloId != null) params.set("cicloId", String(cicloId));
+    return apiClient.get<Ifo[]>(`/api/ifo?${params.toString()}`);
+  },
+
+  /** RF-24 — cria um IFO agrupando contratos da DFD-Consulta. */
+  criar(req: CriarIfoRequest): Promise<Ifo> {
+    return apiClient.post<Ifo>("/api/ifo", req);
+  },
+
+  /** RF-26 — envia o IFO à CCA. */
+  enviarCca(id: number): Promise<Ifo> {
+    return apiClient.post<Ifo>(`/api/ifo/${id}/enviar-cca`);
+  },
+
+  /** Remove um IFO em rascunho. */
+  excluir(id: number): Promise<void> {
+    return apiClient.delete<void>(`/api/ifo/${id}`);
+  },
+};

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   FileSearch,
   XCircle,
   RefreshCcw,
   CalendarClock,
   PlusCircle,
+  Layers,
+  Send,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -15,13 +19,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { areasApi, type Unidade } from "@/services/areasApi";
 import {
   dfdApi,
+  ifoApi,
   type DfdConsulta as DfdConsultaData,
   type DfdItem,
   type DfdPcaItem,
+  type BlocoDfd,
+  type Ifo,
 } from "@/services/dfdApi";
 import { cn } from "@/lib/utils";
 
@@ -39,18 +48,45 @@ function formatData(iso: string | null): string {
   return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : iso;
 }
 
+const BLOCO_LABEL: Record<string, string> = {
+  encerramento: "Encerramento",
+  renovacao: "Renovação",
+  plurianual: "Plurianual",
+  nova_contratacao: "Nova Contratação",
+};
+
+const ESTADO_IFO_BADGE: Record<string, string> = {
+  rascunho: "bg-gray-100 text-gray-600 border-gray-200",
+  enviado_cca: "bg-blue-100 text-blue-700 border-blue-200",
+  consolidado: "bg-purple-100 text-purple-700 border-purple-200",
+  publicado: "bg-green-100 text-green-700 border-green-200",
+};
+
+const ESTADO_IFO_LABEL: Record<string, string> = {
+  rascunho: "Rascunho",
+  enviado_cca: "Enviado à CCA",
+  consolidado: "Consolidado",
+  publicado: "Publicado",
+};
+
 /**
  * DFD-Consulta (Orçamento de TIC, Cap. 1) — instrumento de captura da Formação. Mostra os 4 blocos
- * canônicos derivados dos contratos continuada da unidade + itens do PCA-TIC corrente (RF-01..05).
- * Somente leitura nesta etapa; a atribuição de IFO (banda-envelope) e o envio à CCA virão a seguir.
+ * canônicos derivados dos contratos continuada da unidade + itens do PCA-TIC corrente (RF-01..05),
+ * permite agrupar contratos em IFOs (banda-envelope, RF-10/24) e enviá-los à CCA (RF-26).
  */
 export default function DfdConsulta() {
   const [ano, setAno] = useState<number>(2026);
   const [unidadeId, setUnidadeId] = useState<number | undefined>(undefined);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [data, setData] = useState<DfdConsultaData | null>(null);
+  const [ifos, setIfos] = useState<Ifo[]>([]);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  // Seleção para agrupar em IFO — escopada a um único bloco por vez.
+  const [selBloco, setSelBloco] = useState<BlocoDfd | null>(null);
+  const [selIds, setSelIds] = useState<Set<number>>(new Set());
+  const [criandoIfo, setCriandoIfo] = useState(false);
 
   useEffect(() => {
     areasApi
@@ -62,6 +98,8 @@ export default function DfdConsulta() {
   const carregar = useCallback(async () => {
     setLoading(true);
     setErro(null);
+    setSelBloco(null);
+    setSelIds(new Set());
     try {
       setData(await dfdApi.getConsulta(ano, unidadeId));
     } catch {
@@ -72,9 +110,88 @@ export default function DfdConsulta() {
     }
   }, [ano, unidadeId]);
 
+  const carregarIfos = useCallback(async () => {
+    try {
+      setIfos(await ifoApi.listar(ano));
+    } catch {
+      setIfos([]);
+    }
+  }, [ano]);
+
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    carregarIfos();
+  }, [carregarIfos]);
+
+  const toggleItem = (bloco: BlocoDfd, id: number) => {
+    if (selBloco !== bloco) {
+      // Trocar de bloco reinicia a seleção (IFO agrupa contratos de um único bloco).
+      setSelBloco(bloco);
+      setSelIds(new Set([id]));
+      return;
+    }
+    setSelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const criarIfo = async (bloco: BlocoDfd, itens: DfdItem[]) => {
+    const selecionados = itens.filter((i) => selIds.has(i.contractId));
+    if (selecionados.length === 0) return;
+    setCriandoIfo(true);
+    try {
+      const valor = selecionados.reduce((s, i) => s + (i.valorTotal || 0), 0);
+      const objeto =
+        selecionados.length === 1
+          ? selecionados[0].objeto || "Item de formação"
+          : `Banda-envelope (${selecionados.length} contratos)`;
+      await ifoApi.criar({
+        ano,
+        bloco,
+        natureza: "continuada",
+        objeto,
+        areaDemandante: selecionados[0].unidade,
+        unidadeId: unidadeId ?? null,
+        valorEstimado: valor,
+        interesseRenovacao: bloco === "renovacao" ? true : null,
+        contratos: selecionados.map((i) => i.contractId),
+      });
+      toast.success("IFO criado.");
+      setSelBloco(null);
+      setSelIds(new Set());
+      carregarIfos();
+    } catch {
+      toast.error("Não foi possível criar o IFO.");
+    } finally {
+      setCriandoIfo(false);
+    }
+  };
+
+  const enviarCca = async (ifo: Ifo) => {
+    try {
+      await ifoApi.enviarCca(ifo.id);
+      toast.success(`${ifo.codigo} enviado à CCA.`);
+      carregarIfos();
+    } catch {
+      toast.error("Não foi possível enviar à CCA.");
+    }
+  };
+
+  const excluirIfo = async (ifo: Ifo) => {
+    try {
+      await ifoApi.excluir(ifo.id);
+      toast.success(`${ifo.codigo} removido.`);
+      carregarIfos();
+    } catch {
+      toast.error("Não foi possível remover o IFO.");
+    }
+  };
 
   const totalGeral = useMemo(() => {
     if (!data) return 0;
@@ -86,6 +203,8 @@ export default function DfdConsulta() {
       data.novaContratacao.reduce((s, i) => s + (i.valorEstimado || 0), 0)
     );
   }, [data]);
+
+  const selCount = (bloco: BlocoDfd) => (selBloco === bloco ? selIds.size : 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -155,30 +274,52 @@ export default function DfdConsulta() {
           <BlocoContratos
             titulo="1 · Encerramento"
             descricao="Continuada que encerra no exercício sem prazo de prorrogação — exige nova contratação."
+            bloco="encerramento"
             icone={<XCircle className="h-5 w-5" />}
             cor="red"
             itens={data.encerramento}
+            selecionadosIds={selBloco === "encerramento" ? selIds : EMPTY}
+            onToggle={toggleItem}
+            onCriarIfo={criarIfo}
+            criandoIfo={criandoIfo}
+            selCount={selCount("encerramento")}
           />
           <BlocoContratos
             titulo="2 · Renovação"
             descricao="Continuada que encerra no exercício com prazo de prorrogação — sujeita a interesse na renovação."
+            bloco="renovacao"
             icone={<RefreshCcw className="h-5 w-5" />}
             cor="amber"
             itens={data.renovacao}
+            selecionadosIds={selBloco === "renovacao" ? selIds : EMPTY}
+            onToggle={toggleItem}
+            onCriarIfo={criarIfo}
+            criandoIfo={criandoIfo}
+            selCount={selCount("renovacao")}
           />
           <BlocoContratos
             titulo="3 · Plurianual"
             descricao="Continuada cuja vigência ultrapassa o exercício — segue vigente, sem ação nesta formação."
+            bloco="plurianual"
             icone={<CalendarClock className="h-5 w-5" />}
             cor="blue"
             itens={data.plurianual}
+            selecionadosIds={selBloco === "plurianual" ? selIds : EMPTY}
+            onToggle={toggleItem}
+            onCriarIfo={criarIfo}
+            criandoIfo={criandoIfo}
+            selCount={selCount("plurianual")}
           />
           <BlocoNovaContratacao itens={data.novaContratacao} />
+
+          <PainelIfos ifos={ifos} onEnviarCca={enviarCca} onExcluir={excluirIfo} />
         </>
       ) : null}
     </div>
   );
 }
+
+const EMPTY: Set<number> = new Set();
 
 const CORES: Record<string, { header: string; ring: string; badge: string }> = {
   red: { header: "text-red-700", ring: "border-red-200", badge: "bg-red-100 text-red-700 border-red-200" },
@@ -190,15 +331,27 @@ const CORES: Record<string, { header: string; ring: string; badge: string }> = {
 function BlocoContratos({
   titulo,
   descricao,
+  bloco,
   icone,
   cor,
   itens,
+  selecionadosIds,
+  onToggle,
+  onCriarIfo,
+  criandoIfo,
+  selCount,
 }: {
   titulo: string;
   descricao: string;
+  bloco: BlocoDfd;
   icone: React.ReactNode;
   cor: "red" | "amber" | "blue";
   itens: DfdItem[];
+  selecionadosIds: Set<number>;
+  onToggle: (bloco: BlocoDfd, id: number) => void;
+  onCriarIfo: (bloco: BlocoDfd, itens: DfdItem[]) => void;
+  criandoIfo: boolean;
+  selCount: number;
 }) {
   const c = CORES[cor];
   const total = itens.reduce((s, i) => s + (i.valorTotal || 0), 0);
@@ -211,6 +364,17 @@ function BlocoContratos({
             {itens.length}
           </Badge>
           <span className="ml-auto text-sm font-normal text-gray-500">{formatBRL(total)}</span>
+          {selCount > 0 && (
+            <Button
+              size="sm"
+              className="ml-3 h-8 bg-blue-600 hover:bg-blue-700"
+              disabled={criandoIfo}
+              onClick={() => onCriarIfo(bloco, itens)}
+            >
+              <Layers className="h-4 w-4 mr-1.5" />
+              Criar IFO ({selCount})
+            </Button>
+          )}
         </CardTitle>
         <p className="text-xs text-gray-500">{descricao}</p>
       </CardHeader>
@@ -222,9 +386,15 @@ function BlocoContratos({
             {itens.map((i) => (
               <div
                 key={i.contractId}
-                className="grid grid-cols-1 gap-1 rounded-md border border-gray-100 bg-gray-50 px-3 py-2 md:grid-cols-[1fr_auto]"
+                className="flex items-start gap-3 rounded-md border border-gray-100 bg-gray-50 px-3 py-2"
               >
-                <div className="min-w-0">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={selecionadosIds.has(i.contractId)}
+                  onCheckedChange={() => onToggle(bloco, i.contractId)}
+                  aria-label={`Selecionar contrato ${i.contractId}`}
+                />
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-800 truncate">{i.objeto || "—"}</p>
                   <p className="text-xs text-gray-500 truncate">
                     {i.supplier || "Fornecedor não informado"}
@@ -232,7 +402,7 @@ function BlocoContratos({
                     {i.unidade ? ` · ${i.unidade}` : ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-gray-600 md:justify-end">
+                <div className="flex items-center gap-4 text-xs text-gray-600">
                   <span>Vigência até {formatData(i.endDate)}</span>
                   {i.limitDate && <span>Limite {formatData(i.limitDate)}</span>}
                   <span className="font-semibold text-gray-800">{formatBRL(i.valorTotal)}</span>
@@ -281,6 +451,87 @@ function BlocoNovaContratacao({ itens }: { itens: DfdPcaItem[] }) {
                   <p className="text-xs text-gray-500">{i.areaDemandante || "—"}</p>
                 </div>
                 <span className="text-xs font-semibold text-gray-800">{formatBRL(i.valorEstimado)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PainelIfos({
+  ifos,
+  onEnviarCca,
+  onExcluir,
+}: {
+  ifos: Ifo[];
+  onEnviarCca: (ifo: Ifo) => void;
+  onExcluir: (ifo: Ifo) => void;
+}) {
+  return (
+    <Card className="border-gray-200">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base text-gray-800">
+          <Layers className="h-5 w-5 text-blue-600" /> IFOs do exercício
+          <Badge variant="outline" className="ml-1 bg-gray-100 text-gray-600 border-gray-200">
+            {ifos.length}
+          </Badge>
+        </CardTitle>
+        <p className="text-xs text-gray-500">
+          Bandas-envelope (IFO-{"{"}ano{"}"}-NNNN) geradas a partir da DFD-Consulta. Na publicação viram código oficial de PCA.
+        </p>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {ifos.length === 0 ? (
+          <p className="text-sm text-gray-400 py-2">
+            Nenhum IFO criado. Selecione contratos em um bloco e use "Criar IFO".
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {ifos.map((ifo) => (
+              <div
+                key={ifo.id}
+                className="flex flex-wrap items-center gap-3 rounded-md border border-gray-100 bg-gray-50 px-3 py-2"
+              >
+                <Badge variant="outline" className="font-mono text-xs bg-white border-gray-300 text-gray-700">
+                  {ifo.codigo}
+                </Badge>
+                <span className="text-xs text-gray-500">{BLOCO_LABEL[ifo.bloco] ?? ifo.bloco}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-800 truncate">{ifo.objeto || "—"}</p>
+                  <p className="text-xs text-gray-500">
+                    {ifo.contratos.length} contrato(s) · {formatBRL(ifo.valorEstimado)}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={cn("text-xs", ESTADO_IFO_BADGE[ifo.estado] ?? ESTADO_IFO_BADGE.rascunho)}
+                >
+                  {ESTADO_IFO_LABEL[ifo.estado] ?? ifo.estado}
+                </Badge>
+                {ifo.estado === "rascunho" && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-blue-700 border-blue-200 hover:bg-blue-50"
+                      onClick={() => onEnviarCca(ifo)}
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      Enviar à CCA
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                      onClick={() => onExcluir(ifo)}
+                      aria-label="Remover IFO"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
