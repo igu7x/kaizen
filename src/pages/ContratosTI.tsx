@@ -324,6 +324,22 @@ export function ContratosTI() {
             </div>
 
             <div className="space-y-2">
+              <Label>Natureza (Orçamento de TIC)</Label>
+              <Select
+                value={formData.situation || ""}
+                onValueChange={(v) => handleInputChange("situation", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a natureza..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="continuada">Continuada</SelectItem>
+                  <SelectItem value="pontual">Pontual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Diretoria / Unidade</Label>
               <div className="relative">
                 <Input
