@@ -59,6 +59,12 @@ function formatCampo(campo: string, valor: unknown): string {
   return String(valor);
 }
 
+function rotuloFinalidade(f: string | null | undefined): string {
+  if (f === "formacao") return "Formação";
+  if (f === "revisao") return "Revisão";
+  return f || "ciclo";
+}
+
 /**
  * RF-54 — Comparação entre duas versões do PCA-TIC. Escolhe-se a versão "nova" e a "anterior";
  * o backend casa os itens pelo código e devolve incluídos / excluídos / alterados (com de→para).
@@ -254,6 +260,12 @@ function SecaoItens({
               <p className="text-xs text-gray-500">
                 {item.area_demandante} · {formatCurrency(Number(item.valor_estimado) || 0)}
               </p>
+              {(item.origem_finalidade || item.origem_proad) && (
+                <p className="text-[11px] text-gray-400">
+                  Origem: {rotuloFinalidade(item.origem_finalidade)}
+                  {item.origem_proad ? ` · PROAD ${item.origem_proad}` : ""}
+                </p>
+              )}
             </div>
           </div>
         ))}

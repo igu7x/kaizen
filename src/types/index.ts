@@ -278,6 +278,11 @@ export interface PcaItem {
   id_area_demandante?: number;
   diretoria_sigla?: string;
   diretoria_nome?: string;
+
+  // RF-55 — rastreabilidade ao ciclo de origem (Formação/Revisão) e ao PROAD de instrução.
+  origem_ciclo_id?: number | null;
+  origem_proad?: string | null;
+  origem_finalidade?: string | null;
 }
 
 export interface CreatePcaItemDto {
