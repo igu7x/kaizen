@@ -127,6 +127,84 @@ public class PcaService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * RF-54 — comparação entre duas versões do PCA-TIC de um mesmo ano. Cada versão pode ser um
+     * snapshot imutável (número da versão) ou a versão viva/atual (null). Casa os itens pelo código
+     * (item_pca) e classifica em incluídos (só na nova), excluídos (só na antiga) e alterados
+     * (presentes em ambas, com mudança em campo relevante — com "de"/"para" por campo).
+     */
+    public Map<String, Object> compareVersions(Integer ano, Integer versaoNova, Integer versaoAntiga) {
+        Map<String, Map<String, Object>> nova = indexarPorItemPca(findAll(ano, null, versaoNova));
+        Map<String, Map<String, Object>> antiga = indexarPorItemPca(findAll(ano, null, versaoAntiga));
+
+        List<Map<String, Object>> incluidos = new java.util.ArrayList<>();
+        List<Map<String, Object>> alterados = new java.util.ArrayList<>();
+        List<Map<String, Object>> excluidos = new java.util.ArrayList<>();
+
+        for (var e : nova.entrySet()) {
+            Map<String, Object> antigoItem = antiga.get(e.getKey());
+            if (antigoItem == null) {
+                incluidos.add(e.getValue());
+            } else {
+                List<Map<String, Object>> mudancas = diffCampos(antigoItem, e.getValue());
+                if (!mudancas.isEmpty()) {
+                    Map<String, Object> alt = new java.util.LinkedHashMap<>();
+                    alt.put("item_pca", e.getKey());
+                    alt.put("objeto", e.getValue().get("objeto"));
+                    alt.put("area_demandante", e.getValue().get("area_demandante"));
+                    alt.put("mudancas", mudancas);
+                    alterados.add(alt);
+                }
+            }
+        }
+        for (var e : antiga.entrySet()) {
+            if (!nova.containsKey(e.getKey())) {
+                excluidos.add(e.getValue());
+            }
+        }
+
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("ano", ano);
+        out.put("versaoNova", versaoNova);
+        out.put("versaoAntiga", versaoAntiga);
+        out.put("incluidos", incluidos);
+        out.put("alterados", alterados);
+        out.put("excluidos", excluidos);
+        out.put("totalNova", nova.size());
+        out.put("totalAntiga", antiga.size());
+        return out;
+    }
+
+    private static final String[] CAMPOS_COMPARAVEIS =
+            {"objeto", "valor_estimado", "status", "area_demandante", "tipo", "data_estimada_contratacao"};
+
+    private static List<Map<String, Object>> diffCampos(Map<String, Object> antigo, Map<String, Object> novo) {
+        List<Map<String, Object>> mudancas = new java.util.ArrayList<>();
+        for (String campo : CAMPOS_COMPARAVEIS) {
+            Object de = antigo.get(campo);
+            Object para = novo.get(campo);
+            if (!java.util.Objects.equals(String.valueOf(de), String.valueOf(para))) {
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("campo", campo);
+                m.put("de", de);
+                m.put("para", para);
+                mudancas.add(m);
+            }
+        }
+        return mudancas;
+    }
+
+    private static Map<String, Map<String, Object>> indexarPorItemPca(List<Map<String, Object>> itens) {
+        Map<String, Map<String, Object>> idx = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> it : itens) {
+            Object code = it.get("item_pca");
+            if (code != null) {
+                idx.put(String.valueOf(code), it);
+            }
+        }
+        return idx;
+    }
+
     public Map<String, Object> findByItemPca(String itemPca) {
         var rows = jdbc.queryForList(SELECT_COLUMNS +
                 MONTH_CASE_SQL + " as data_estimada_contratacao, " +

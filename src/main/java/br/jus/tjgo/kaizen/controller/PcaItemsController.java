@@ -100,6 +100,14 @@ public class PcaItemsController {
         return pcaService.getAvailableVersions(ano);
     }
 
+    // RF-54 — comparação entre duas versões do PCA-TIC. versaoNova/versaoAntiga nulos = versão viva (atual).
+    @GetMapping("/compare")
+    public Map<String, Object> compare(@RequestParam(value = "ano", required = true) Integer ano,
+            @RequestParam(value = "versaoNova", required = false) Integer versaoNova,
+            @RequestParam(value = "versaoAntiga", required = false) Integer versaoAntiga) {
+        return pcaService.compareVersions(ano, versaoNova, versaoAntiga);
+    }
+
     @PostMapping("/snapshots")
     public ResponseEntity<?> createSnapshot(HttpServletRequest req, @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req, body);
