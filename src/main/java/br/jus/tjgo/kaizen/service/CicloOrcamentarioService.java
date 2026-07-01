@@ -210,6 +210,50 @@ public class CicloOrcamentarioService {
         return "revisao".equals(finalidade) ? ESTADOS_REVISAO : ESTADOS_FORMACAO;
     }
 
+    /** Estados da Revisão em que o demandante ainda pode editar seus itens (dentro da janela). */
+    private static final java.util.Set<String> ESTADOS_REVISAO_EDITAVEL =
+            java.util.Set.of("janela_aberta", "em_rito_validacao");
+
+    /** Campos do item do PCA-TIC editáveis durante a Revisão (RF-62/63). */
+    private static final java.util.Set<String> CAMPOS_REVISAVEIS =
+            java.util.Set.of("objeto", "valor_estimado", "status", "data_estimada_contratacao");
+
+    /**
+     * RF-62..69 — edita os campos revisáveis de um item do PCA-TIC durante uma Revisão aberta.
+     * Só permite quando há um ciclo de revisão do exercício do item em estado editável (dentro da
+     * janela). Ignora campos fora da whitelist (o demandante não altera código/área/diretoria).
+     */
+    @Transactional
+    public Map<String, Object> editarItemRevisao(long itemId, Map<String, Object> campos, Long userId) {
+        Map<String, Object> item = pcaService.findById(itemId);
+        if (item == null) {
+            throw new ApiException(404, "Item PCA não encontrado");
+        }
+        Integer ano = item.get("ano") == null ? null : ((Number) item.get("ano")).intValue();
+        CicloDto revisao = ano == null ? null : revisaoEditavelDoAno(ano);
+        if (revisao == null || !ESTADOS_REVISAO_EDITAVEL.contains(revisao.estado())) {
+            throw new ApiException(409, "Nenhuma revisão aberta para edição neste exercício");
+        }
+        Map<String, Object> filtrado = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, Object> e : campos.entrySet()) {
+            if (CAMPOS_REVISAVEIS.contains(e.getKey())) {
+                filtrado.put(e.getKey(), e.getValue());
+            }
+        }
+        if (filtrado.isEmpty()) {
+            throw new ApiException(400, "Nenhum campo revisável informado");
+        }
+        return pcaService.update(itemId, filtrado, userId);
+    }
+
+    private CicloDto revisaoEditavelDoAno(int ano) {
+        var rows = jdbc.queryForList(
+                "SELECT * FROM ciclo_orcamentario WHERE ano = ? AND finalidade = 'revisao' AND estado <> 'publicado' " +
+                        "ORDER BY id DESC LIMIT 1",
+                ano);
+        return rows.isEmpty() ? null : toDto(rows.get(0));
+    }
+
     @Transactional
     public CicloDto publicar(long id, Long userId) {
         var rows = jdbc.queryForList(

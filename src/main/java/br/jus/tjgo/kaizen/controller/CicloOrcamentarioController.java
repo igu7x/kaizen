@@ -67,6 +67,14 @@ public class CicloOrcamentarioController {
         return service.atualizarEstado(id, str(body.get("estado")), userId);
     }
 
+    // PATCH /api/ciclo-orcamentario/revisao/item/:itemId — edita campos revisáveis de um item (RF-62..69)
+    @PatchMapping("/revisao/item/{itemId:\\d+}")
+    public Map<String, Object> editarItemRevisao(@PathVariable long itemId,
+                                                 @RequestBody Map<String, Object> body,
+                                                 @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.editarItemRevisao(itemId, body, userId);
+    }
+
     // POST /api/ciclo-orcamentario/:id/avancar — encaminha ao próximo ator da esteira (RNF-07)
     @PostMapping("/{id:\\d+}/avancar")
     public CicloDto avancar(@PathVariable long id,
