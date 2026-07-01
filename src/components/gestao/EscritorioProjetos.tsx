@@ -2882,6 +2882,43 @@ export function EscritorioProjetos() {
     return <span className={config.className}>{config.label}</span>;
   };
 
+  // Altera manualmente o status de uma entrega na tabela de Entregas do detalhe.
+  const handleAlterarStatusEntrega = async (
+    entregaId: number,
+    novoStatus: string,
+  ) => {
+    try {
+      await cadastrosProjetosApi.updateEntrega(entregaId, {
+        status: novoStatus,
+      });
+      setProjetoDetalhes((prev) =>
+        prev
+          ? {
+              ...prev,
+              entregas: (prev.entregas || []).map((e) =>
+                e.id === entregaId ? { ...e, status: novoStatus } : e,
+              ),
+            }
+          : prev,
+      );
+      toast({
+        title: "Status atualizado",
+        description: `Entrega marcada como ${
+          novoStatus === "concluida"
+            ? "Concluída"
+            : novoStatus === "em_andamento"
+              ? "Em Andamento"
+              : "Não Iniciada"
+        }`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar o status da entrega.",
+      });
+    }
+  };
+
   // ============================================================
   // RENDER - TELA DE DETALHES DO PROJETO
   // ============================================================
@@ -3382,31 +3419,48 @@ export function EscritorioProjetos() {
                               <td className="py-3 px-6 text-gray-900 text-sm text-center">
                                 {formatDatePtBr(entrega.prazo_estimado)}
                               </td>
-                              <td className="py-3 px-6">
+                              <td
+                                className="py-3 px-6"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <div
-                                  className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50"
+                                  className="w-[160px]"
                                   style={{
                                     marginLeft: "60%",
                                     transform: "translateX(-50%)",
                                   }}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className={`w-2 h-2 rounded-full ${entrega.status === "concluida"
-                                          ? "bg-green-500"
-                                          : entrega.status === "em_andamento"
-                                            ? "bg-orange-500"
-                                            : "bg-gray-400"
-                                        }`}
-                                    />
-                                    <span>
-                                      {entrega.status === "nao_iniciada"
-                                        ? "Não Iniciada"
-                                        : entrega.status === "em_andamento"
-                                          ? "Em Andamento"
-                                          : "Concluída"}
-                                    </span>
-                                  </div>
+                                  <Select
+                                    value={entrega.status || "nao_iniciada"}
+                                    onValueChange={(v) =>
+                                      handleAlterarStatusEntrega(entrega.id, v)
+                                    }
+                                  >
+                                    <SelectTrigger className="h-8 w-[160px] bg-white text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`w-2 h-2 rounded-full flex-shrink-0 ${entrega.status === "concluida"
+                                              ? "bg-green-500"
+                                              : entrega.status === "em_andamento"
+                                                ? "bg-orange-500"
+                                                : "bg-gray-400"
+                                            }`}
+                                        />
+                                        <SelectValue />
+                                      </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="nao_iniciada">
+                                        Não Iniciada
+                                      </SelectItem>
+                                      <SelectItem value="em_andamento">
+                                        Em Andamento
+                                      </SelectItem>
+                                      <SelectItem value="concluida">
+                                        Concluída
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               </td>
                               <td
