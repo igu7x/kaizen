@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { MonitoramentoOKRs } from "@/components/gestao/MonitoramentoOKRs";
-import { ControleExecucaoNovo } from "@/components/gestao/ControleExecucaoNovo";
 import { EscritorioProjetos } from "@/components/gestao/EscritorioProjetos";
 import { SprintAtualNovo } from "@/components/gestao/SprintAtualNovo";
 import { useDirectorate } from "@/contexts/DirectorateContext";
@@ -62,7 +61,7 @@ export default function GestaoEstrategica() {
       return <MonitoramentoOKRs key={location.key} />;
     }
     if (location.pathname === "/gestao-estrategica/execucao") {
-      return <ControleExecucaoNovo key={selectedDirectorate} />;
+      return <EscritorioProjetos key={selectedDirectorate} />;
     }
     if (location.pathname === "/gestao-estrategica/sprint") {
       return <SprintAtualNovo />;
