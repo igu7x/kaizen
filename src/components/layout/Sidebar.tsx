@@ -117,7 +117,7 @@ const menuItemsCompleto: MenuItem[] = [
         icon: FilePlus,
         children: [
           {
-            title: "PCA",
+            title: "PCA-TIC",
             path: "/contratacoes-ti/novas",
             permissaoCodigo: "contratacoes_novas",
           },
