@@ -14,7 +14,6 @@ import {
 import {
   X as XIcon,
   Loader2,
-  Send,
   FileText,
   Users,
   Info,
@@ -53,6 +52,12 @@ interface ProcessoFormDialogProps {
   diretoriaPadrao?: string;
   /** Callback após salvar com sucesso */
   onSaved: (processo: ProcessoNegocio) => void;
+  /**
+   * Validação disponível para o usuário na camada atual do processo. Quando presente, o form
+   * mostra o botão "Validar" (salva e valida a camada do usuário — Responsável/Revisor/Compliance).
+   * Ausente = usuário não pode validar (ex.: Editor) → sem botão de validar.
+   */
+  validacao?: { exec: (id: number) => Promise<ProcessoNegocio> } | null;
 }
 
 const emptyForm: CreateProcessoNegocioDto = {
@@ -129,6 +134,7 @@ export function ProcessoFormDialog({
   processo,
   diretoriaPadrao,
   onSaved,
+  validacao = null,
 }: ProcessoFormDialogProps) {
   const isEdit = !!processo;
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
@@ -216,17 +222,17 @@ export function ProcessoFormDialog({
     return null;
   };
 
-  const handleSave = async (enviarApos: boolean) => {
+  const handleSave = async (validarApos: boolean) => {
     const err = validate();
     if (err) {
       toast.error(err);
       return;
     }
-    if (enviarApos) {
+    if (validarApos) {
       const faltam = camposObrigatoriosFaltantes(form);
       if (faltam.length > 0) {
         toast.error(
-          `Para enviar à validação, preencha os campos: ${faltam.join(", ")}.`,
+          `Para validar, preencha os campos: ${faltam.join(", ")}.`,
         );
         return;
       }
@@ -251,8 +257,10 @@ export function ProcessoFormDialog({
         saved = await processosNegocioApi.create(payload);
         setCurrentId(saved.id);
       }
-      if (enviarApos) {
-        saved = await processosNegocioApi.enviar(saved.id);
+      if (validarApos && validacao) {
+        // Salva e valida a camada do usuário (Responsável/Revisor/Compliance) — sem reiniciar
+        // as camadas já validadas.
+        saved = await validacao.exec(saved.id);
         onSaved(saved);
         onOpenChange(false);
       } else {
@@ -782,19 +790,21 @@ export function ProcessoFormDialog({
             )}
             Salvar Alterações
           </Button>
-          <Button
-            type="button"
-            onClick={() => handleSave(true)}
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4 mr-2" />
-            )}
-            Enviar para Validação
-          </Button>
+          {validacao && (
+            <Button
+              type="button"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 mr-2" />
+              )}
+              Validar
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

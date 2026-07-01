@@ -737,7 +737,11 @@ export function ProcessoDetalhe({
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
     // Editor atribuído: apenas preenche/salva em elaboração ou recusado (não reabre vigente).
-    (isEditorAtribuido && statusEmPreenchimento);
+    (isEditorAtribuido && statusEmPreenchimento) ||
+    // Revisor edita no aguardo da camada 2; Compliance no aguardo da camada 3 — para corrigir
+    // e validar a própria camada sem devolver ao Responsável.
+    (isDiretorDaArea && processo.status === "validado_autor") ||
+    (isComplianceOfficer && processo.status === "validado_diretoria");
   const podeEnviar =
     ehResponsavel &&
     (processo.status === "em_elaboracao" || processo.status === "recusado");

@@ -714,6 +714,35 @@ export default function EscritorioProcessos() {
       });
   }, [processos, user?.id, isSuperadmin, ehResponsavelDoProcesso]);
 
+  // Validação disponível para o usuário no processo em edição (camada atual). Alimenta o botão
+  // "Validar" do form: Responsável valida a camada 1 (enviar), Revisor a 2, Compliance a 3.
+  // Ausente = usuário não valida (ex.: Editor/Gestor) → o form mostra só "Salvar Alterações".
+  const validacaoDoEditing = useMemo(() => {
+    const p = editing;
+    if (!p || !user?.id) return null;
+    const uid = Number(user.id);
+    const st = p.status;
+    const area = areas.find(
+      (a) =>
+        a.sigla?.trim().toUpperCase() === p.diretoria?.trim().toUpperCase(),
+    );
+    const ehRevisor =
+      area?.gestor_user_id != null && Number(area.gestor_user_id) === uid;
+    if (
+      (st === "em_elaboracao" || st === "recusado") &&
+      ehResponsavelDoProcesso(p)
+    ) {
+      return { exec: (id: number) => processosNegocioApi.enviar(id) };
+    }
+    if (st === "validado_autor" && ehRevisor) {
+      return { exec: (id: number) => processosNegocioApi.validarDiretoria(id) };
+    }
+    if (st === "validado_diretoria" && isComplianceOfficer) {
+      return { exec: (id: number) => processosNegocioApi.validarFinal(id) };
+    }
+    return null;
+  }, [editing, user?.id, areas, ehResponsavelDoProcesso, isComplianceOfficer]);
+
   // ============================================================
   // ESTATÍSTICAS / DADOS DOS GRÁFICOS
   // ============================================================
@@ -980,12 +1009,20 @@ export default function EscritorioProcessos() {
           </div>
 
           <div className="flex items-center gap-2">
-            {aba === "revisao" && processosParaRevisar.length > 0 && (
+            {aba === "revisao" && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50"
+                    disabled={
+                      processosParaRevisar.length === 0 || revisando != null
+                    }
+                    className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      processosParaRevisar.length === 0
+                        ? "Nenhum processo vigente no prazo sob sua responsabilidade para revisar"
+                        : undefined
+                    }
                   >
                     {revisando != null ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -993,9 +1030,11 @@ export default function EscritorioProcessos() {
                       <RefreshCw className="h-4 w-4 mr-2" />
                     )}
                     Revisar Processo
-                    <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
-                      {processosParaRevisar.length}
-                    </span>
+                    {processosParaRevisar.length > 0 && (
+                      <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+                        {processosParaRevisar.length}
+                      </span>
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
@@ -1364,6 +1403,7 @@ export default function EscritorioProcessos() {
         processo={editing}
         diretoriaPadrao={user?.diretoria || undefined}
         onSaved={handleSaved}
+        validacao={validacaoDoEditing}
       />
       <ProcessoDetalhe
         open={detalheOpen}
