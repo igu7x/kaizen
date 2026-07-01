@@ -19,8 +19,10 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   formatCurrency,
   getPcaComparison,
+  getPcaVersoesInfo,
   type PcaComparacao,
   type PcaItemAlterado,
+  type PcaVersaoInfo,
 } from "@/services/pcaApi";
 import type { PcaItem } from "@/types";
 import { cn } from "@/lib/utils";
@@ -45,12 +47,17 @@ const CAMPO_LABEL: Record<string, string> = {
   data_estimada_contratacao: "Data estimada",
 };
 
-function rotuloVersao(v: number | undefined, versionsList: number[]): string {
+function rotuloVersao(
+  v: number | undefined,
+  versionsList: number[],
+  finalidade?: string,
+): string {
   if (v === undefined) {
     const atual = versionsList.length > 0 ? Math.max(...versionsList) + 1 : 1;
     return `Versão ${atual} (atual)`;
   }
-  return `Versão ${v}`;
+  const suf = finalidade && finalidade !== "manual" ? ` · ${rotuloFinalidade(finalidade)}` : "";
+  return `Versão ${v}${suf}`;
 }
 
 function formatCampo(campo: string, valor: unknown): string {
@@ -82,6 +89,22 @@ export function ComparacaoVersoesDialog({
   const [data, setData] = useState<PcaComparacao | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [versoesInfo, setVersoesInfo] = useState<PcaVersaoInfo[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    getPcaVersoesInfo(ano)
+      .then(setVersoesInfo)
+      .catch(() => setVersoesInfo([]));
+  }, [open, ano]);
+
+  const finalidadePorVersao = useMemo(() => {
+    const m: Record<number, string> = {};
+    versoesInfo.forEach((v) => {
+      m[v.versao] = v.finalidade;
+    });
+    return m;
+  }, [versoesInfo]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -139,11 +162,14 @@ export function ComparacaoVersoesDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {opcoes.map((o) => (
-                  <SelectItem key={`a-${o}`} value={o}>
-                    {rotuloVersao(parse(o), versionsList)}
-                  </SelectItem>
-                ))}
+                {opcoes.map((o) => {
+                  const pv = parse(o);
+                  return (
+                    <SelectItem key={`a-${o}`} value={o}>
+                      {rotuloVersao(pv, versionsList, pv != null ? finalidadePorVersao[pv] : undefined)}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -160,11 +186,14 @@ export function ComparacaoVersoesDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {opcoes.map((o) => (
-                  <SelectItem key={`n-${o}`} value={o}>
-                    {rotuloVersao(parse(o), versionsList)}
-                  </SelectItem>
-                ))}
+                {opcoes.map((o) => {
+                  const pv = parse(o);
+                  return (
+                    <SelectItem key={`n-${o}`} value={o}>
+                      {rotuloVersao(pv, versionsList, pv != null ? finalidadePorVersao[pv] : undefined)}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

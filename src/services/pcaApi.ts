@@ -105,6 +105,23 @@ export async function getPcaVersions(ano: number): Promise<number[]> {
 }
 
 /**
+ * RF-46/57 — proveniência das versões publicadas (versão → finalidade/ciclo/data).
+ */
+export interface PcaVersaoInfo {
+  versao: number;
+  finalidade: "formacao" | "revisao" | "manual";
+  ciclo_id: number | null;
+  publicado_em: string | null;
+  publicado_por: number | null;
+}
+
+export async function getPcaVersoesInfo(ano: number): Promise<PcaVersaoInfo[]> {
+  return apiClient.get<PcaVersaoInfo[]>(`/api/pca-items/versoes-info?ano=${ano}`, {
+    headers: getUserHeaders(),
+  });
+}
+
+/**
  * RF-54 — comparação entre duas versões do PCA-TIC.
  */
 export interface PcaMudancaCampo {
