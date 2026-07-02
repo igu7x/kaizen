@@ -1342,12 +1342,15 @@ export function EscritorioProjetos() {
       }));
       setTarefasEntrega(tarefas);
 
-      // Recalcular o status baseado nas tarefas carregadas
-      const statusCorreto = calcularStatusEntrega(tarefas);
-      if (entrega.status !== statusCorreto) {
-        setEntregaSelecionada((prev) =>
-          prev ? { ...prev, status: statusCorreto as any } : prev,
-        );
+      // Recalcular o status a partir das tarefas SOMENTE quando há tarefas. Sem tarefas, o status
+      // da entrega é manual (dropdown da tabela) e não deve ser sobrescrito.
+      if (tarefas.length > 0) {
+        const statusCorreto = calcularStatusEntrega(tarefas);
+        if (entrega.status !== statusCorreto) {
+          setEntregaSelecionada((prev) =>
+            prev ? { ...prev, status: statusCorreto as any } : prev,
+          );
+        }
       }
     } catch (error) {
       // Em caso de erro, manter o estado vazio
@@ -1398,6 +1401,8 @@ export function EscritorioProjetos() {
 
     // Usar tarefasPorEntrega como fonte de verdade
     const tarefasParaCalculo = tarefasPorEntrega[entregaSelecionada.id] || [];
+    // Sem tarefas, o status da entrega é manual — não recalcular/sobrescrever.
+    if (tarefasParaCalculo.length === 0) return;
     const novoStatus = calcularStatusEntrega(tarefasParaCalculo);
 
     if (entregaSelecionada.status !== novoStatus) {
