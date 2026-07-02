@@ -43,6 +43,7 @@ import {
   type Ifo,
 } from "@/services/dfdApi";
 import { cicloOrcamentarioApi } from "@/services/cicloOrcamentarioApi";
+import { Layout } from "@/components/layout/Layout";
 import { cn } from "@/lib/utils";
 
 const ANOS = [2025, 2026, 2027];
@@ -315,7 +316,8 @@ export default function DfdConsulta() {
   const selCount = (bloco: BlocoDfd) => (selBloco === bloco ? selIds.size : 0);
 
   return (
-    <div className="space-y-6 p-6">
+    <Layout>
+      <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
@@ -463,7 +465,8 @@ export default function DfdConsulta() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </Layout>
   );
 }
 
