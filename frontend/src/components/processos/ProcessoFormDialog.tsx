@@ -33,6 +33,7 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   COMITES_APROVACAO,
+  exigeComiteAprovacao,
   camposObrigatoriosFaltantes,
   temDocumentoPrimario,
   validarComiteParaEnvio,
@@ -140,8 +141,6 @@ export function ProcessoFormDialog({
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [areas, setAreas] = useState<Area[]>([]);
-  // "Passa por apreciação em instâncias colegiadas?" (Sim/Não). Controla a lista de comitês.
-  const [apreciacaoSim, setApreciacaoSim] = useState(false);
   // Id do processo sendo editado. Em "Salvar Alterações" num processo novo,
   // passamos a editar o mesmo registro (evita recriar a cada clique).
   const [currentId, setCurrentId] = useState<number | null>(
@@ -191,7 +190,7 @@ export function ProcessoFormDialog({
         fluxograma_filename: processo.fluxograma_filename || null,
         fluxograma_mime: processo.fluxograma_mime || null,
         documentos_anexados: processo.documentos_anexados || [],
-        apreciacao: processo.apreciacao || [],
+        apreciacao: exigeComiteAprovacao(processo.diretoria) ? ["CGTIC"] : [],
         periodicidade_revisao: processo.periodicidade_revisao || "",
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
@@ -199,10 +198,12 @@ export function ProcessoFormDialog({
           ? String(parseInt(String(processo.versao), 10) || "")
           : "",
       });
-      setApreciacaoSim((processo.apreciacao || []).length > 0);
     } else {
-      setForm({ ...emptyForm, diretoria: diretoriaPadrao || "" });
-      setApreciacaoSim(false);
+      setForm({
+        ...emptyForm,
+        diretoria: diretoriaPadrao || "",
+        apreciacao: exigeComiteAprovacao(diretoriaPadrao) ? ["CGTIC"] : [],
+      });
     }
   }, [open, processo, diretoriaPadrao]);
 
@@ -268,7 +269,7 @@ export function ProcessoFormDialog({
         toast.success("Alterações salvas.");
         onSaved(saved);
       }
-    } catch (err: any) {
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
@@ -344,7 +345,10 @@ export function ProcessoFormDialog({
                 </Label>
                 <Select
                   value={form.diretoria || undefined}
-                  onValueChange={(v) => update("diretoria", v)}
+                  onValueChange={(v) => {
+                    update("diretoria", v);
+                    update("apreciacao", exigeComiteAprovacao(v) ? ["CGTIC"] : []);
+                  }}
                 >
                   <SelectTrigger id="diretoria" className="mt-1 bg-white">
                     <SelectValue placeholder="Selecione a área responsável" />
@@ -686,83 +690,27 @@ export function ProcessoFormDialog({
             icon={<ShieldCheck className="h-4 w-4" />}
             title="Apreciação em Instâncias Colegiadas"
           >
-            <p className="text-xs text-slate-500 mb-2">
-              Este processo passa por apreciação em instâncias colegiadas
-              (comitês)?
-            </p>
-            <div className="flex gap-2 mb-3">
-              {[
-                { label: "Sim", val: true },
-                { label: "Não", val: false },
-              ].map(({ label, val }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => {
-                    setApreciacaoSim(val);
-                    if (!val) update("apreciacao", []);
-                  }}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-                    apreciacaoSim === val
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {apreciacaoSim && (
-              <div className="space-y-2">
-                {(form.apreciacao || []).length <
-                  Object.keys(COMITES_APROVACAO).length && (
-                  <Select
-                    value=""
-                    onValueChange={(sigla) => {
-                      const atual = form.apreciacao || [];
-                      if (!atual.includes(sigla))
-                        update("apreciacao", [...atual, sigla]);
-                    }}
-                  >
-                    <SelectTrigger className="h-10 bg-white max-w-md">
-                      <SelectValue placeholder="Selecionar comitê" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(COMITES_APROVACAO)
-                        .filter(([s]) => !(form.apreciacao || []).includes(s))
-                        .map(([sigla, nome]) => (
-                          <SelectItem key={sigla} value={sigla}>
-                            {sigla} — {nome}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {(form.apreciacao || []).map((sigla) => (
-                    <span
-                      key={sigla}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
-                    >
-                      {sigla}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          update(
-                            "apreciacao",
-                            (form.apreciacao || []).filter((c) => c !== sigla),
-                          )
-                        }
-                        className="text-blue-400 hover:text-blue-700"
-                        aria-label={`Remover ${sigla}`}
-                      >
-                        <XIcon className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
+            {exigeComiteAprovacao(form.diretoria) ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                <p className="text-sm text-slate-700">
+                  Processos da diretoria <strong>{form.diretoria}</strong> passam
+                  obrigatoriamente por apreciação do comitê abaixo (regra
+                  automática).
+                </p>
+                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-white px-3 py-1 text-xs font-semibold text-blue-700">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  CGTIC — {COMITES_APROVACAO.CGTIC}
+                  <span className="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-700">
+                    obrigatório
+                  </span>
+                </span>
               </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                A área responsável
+                {form.diretoria ? ` (${form.diretoria})` : ""} não requer
+                aprovação de comitê.
+              </p>
             )}
           </Section>
         </div>
