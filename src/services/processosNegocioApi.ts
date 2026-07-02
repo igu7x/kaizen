@@ -180,12 +180,13 @@ export function validarComiteParaEnvio(
 }
 
 /**
- * Modelo K1: status validado_final, todos os campos obrigatórios preenchidos E todos os comitês
- * exigidos na apreciação aprovaram (apreciação vazia ⇒ basta o resto). É derivado — cai sozinho
- * se o processo sair do validado_final (reedição) ou se faltar campo.
+ * Modelo K1: processo já PROMOVIDO (tem `codigo`/ID, gerado no 1º K1 e permanente) com todos os
+ * campos obrigatórios preenchidos E todos os comitês exigidos aprovados (apreciação vazia ⇒ basta o
+ * resto). O status transitório NÃO rebaixa o modelo: uma revisão volta o status a em_elaboracao e
+ * gera nova versão, mas o processo segue sendo Modelo K1 enquanto mantiver ID + campos + aprovações.
  */
 export function isK1(p: ProcessoNegocio): boolean {
-  if (p.status !== "validado_final") return false;
+  if (!p.codigo) return false;
   if (camposObrigatoriosFaltantes(p).length > 0) return false;
   const exigidos = p.apreciacao || [];
   const aprovados = p.aprovacoes || [];
@@ -215,11 +216,12 @@ export function isVigente(p: ProcessoNegocio): boolean {
 }
 
 /**
- * Revisão ou Novo = NÃO é K1 OU revisão vencida. Não é exclusivo de {@link isVigente}:
- * um processo pode aparecer nas duas abas (ex: doc primário sem K1, ou K1 com revisão vencida).
+ * Revisão ou Novo = ainda não finalizado (status ≠ validado_final — ex.: em elaboração/revisão) OU
+ * não é K1 completo OU está com a revisão vencida. Não é exclusivo de {@link isVigente}: um Modelo K1
+ * em revisão aparece nas DUAS abas (vigente como modelo publicado; em revisão como versão em curso).
  */
 export function isRevisaoOuNovo(p: ProcessoNegocio): boolean {
-  return !isK1(p) || revisaoVencida(p);
+  return p.status !== "validado_final" || !isK1(p) || revisaoVencida(p);
 }
 
 /**
