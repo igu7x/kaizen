@@ -614,10 +614,10 @@ export default function EscritorioProcessos() {
 
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
-  // Quem enxerga todas as diretorias (alinhado ao escopo do backend): Gestor do Escritório
-  // (superadmin), Compliance Officer e SGJT. Os demais recebem a lista já restrita por papel.
-  const podeFiltrarDiretoria =
-    isSuperadmin || isComplianceOfficer || user?.diretoria === "SGJT";
+  // Regra (jul/2026): todos os usuários enxergam todos os processos (de todas as diretorias),
+  // então o filtro por diretoria fica habilitado para todos. O Visualizador (VIEWER) segue
+  // restrito aos vigentes (aba única) via `soVisualizador`.
+  const podeFiltrarDiretoria = true;
   // Visualizador (perfil VIEWER): só enxerga "Processos Vigentes", independente da diretoria.
   // Superadmin (Gestor do Escritório) e Compliance Officer não são restritos.
   const soVisualizador =
