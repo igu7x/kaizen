@@ -75,6 +75,29 @@ public class CicloOrcamentarioController {
         return service.editarItemRevisao(itemId, body, userId);
     }
 
+    // GET /api/ciclo-orcamentario/revisao/validacoes?ano=2026 — validação por item da revisão aberta (§8.4)
+    @GetMapping("/revisao/validacoes")
+    public java.util.List<Map<String, Object>> validacoesRevisao(@RequestParam int ano) {
+        return service.validacoesRevisao(ano);
+    }
+
+    // PATCH /api/ciclo-orcamentario/revisao/item/:itemId/validar { camada: 1|2 } — valida a demanda (§8.4)
+    @PatchMapping("/revisao/item/{itemId:\\d+}/validar")
+    public Map<String, Object> validarItemRevisao(@PathVariable long itemId,
+                                                  @RequestBody Map<String, Object> body,
+                                                  @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        int camada = body.get("camada") instanceof Number n ? n.intValue()
+                : Integer.parseInt(String.valueOf(body.getOrDefault("camada", "1")).trim());
+        return service.validarItemRevisao(itemId, camada, userId);
+    }
+
+    // POST /api/ciclo-orcamentario/revisao/item/:itemId/devolver — devolve a demanda à edição (RN-GERAL-07)
+    @PostMapping("/revisao/item/{itemId:\\d+}/devolver")
+    public Map<String, Object> devolverItemRevisao(@PathVariable long itemId,
+                                                   @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.devolverItemRevisao(itemId, userId);
+    }
+
     // POST /api/ciclo-orcamentario/:id/avancar — encaminha ao próximo ator da esteira (RNF-07)
     @PostMapping("/{id:\\d+}/avancar")
     public CicloDto avancar(@PathVariable long id,

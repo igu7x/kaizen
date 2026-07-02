@@ -357,7 +357,90 @@ public class CicloOrcamentarioService {
         if (filtrado.isEmpty()) {
             throw new ApiException(400, "Nenhum campo revisável informado");
         }
-        return pcaService.update(itemId, filtrado, userId);
+        Map<String, Object> atualizado = pcaService.update(itemId, filtrado, userId);
+        // RN-GERAL-07 — editar a demanda (item) derruba as validações da revisão.
+        invalidarValidacaoItem(revisao.id(), itemId);
+        return atualizado;
+    }
+
+    // ---------- validação por demanda dos itens na Revisão (§8.4) ----------
+
+    private void garantirLinhaValidacaoItem(long cicloId, long itemId) {
+        jdbc.update("INSERT INTO revisao_item_validacao (ciclo_id, pca_id) VALUES (?, ?) " +
+                "ON CONFLICT (ciclo_id, pca_id) DO NOTHING", cicloId, itemId);
+    }
+
+    private void invalidarValidacaoItem(long cicloId, long itemId) {
+        garantirLinhaValidacaoItem(cicloId, itemId);
+        jdbc.update("UPDATE revisao_item_validacao SET validacao = 'em_edicao', validado_1a_por = NULL, " +
+                "validado_1a_em = NULL, validado_2a_por = NULL, validado_2a_em = NULL, updated_at = NOW() " +
+                "WHERE ciclo_id = ? AND pca_id = ?", cicloId, itemId);
+    }
+
+    private CicloDto revisaoDoItem(long itemId) {
+        Map<String, Object> item = pcaService.findById(itemId);
+        if (item == null) {
+            throw new ApiException(404, "Item PCA não encontrado");
+        }
+        Integer ano = item.get("ano") == null ? null : ((Number) item.get("ano")).intValue();
+        CicloDto rev = ano == null ? null : revisaoEditavelDoAno(ano);
+        if (rev != null) rev = sincronizarPorData(rev.id(), null);
+        if (rev == null) {
+            throw new ApiException(409, "Nenhuma revisão aberta neste exercício");
+        }
+        return rev;
+    }
+
+    /**
+     * §8.4 — valida a alteração de um item na Revisão em uma das 2 camadas (1ª = Gestor Demandante,
+     * 2ª = Diretor de Área; a 2ª exige a 1ª — RN-GERAL-06). Ato de Autoridade do escopo Demandante.
+     */
+    @Transactional
+    public Map<String, Object> validarItemRevisao(long itemId, int camada, Long userId) {
+        CicloDto rev = revisaoDoItem(itemId);
+        papelService.exigirTransicao("demandante", rev.id());
+        garantirLinhaValidacaoItem(rev.id(), itemId);
+        String atual = jdbc.queryForObject(
+                "SELECT validacao FROM revisao_item_validacao WHERE ciclo_id = ? AND pca_id = ?",
+                String.class, rev.id(), itemId);
+        if (camada == 1) {
+            jdbc.update("UPDATE revisao_item_validacao SET validacao = 'validada_1a', validado_1a_por = ?, " +
+                    "validado_1a_em = NOW(), updated_at = NOW() WHERE ciclo_id = ? AND pca_id = ?",
+                    userId, rev.id(), itemId);
+        } else if (camada == 2) {
+            if (!"validada_1a".equals(atual)) {
+                throw new ApiException(409, "Valide a 1ª camada antes da 2ª (RN-GERAL-06)");
+            }
+            jdbc.update("UPDATE revisao_item_validacao SET validacao = 'validada_2a', validado_2a_por = ?, " +
+                    "validado_2a_em = NOW(), updated_at = NOW() WHERE ciclo_id = ? AND pca_id = ?",
+                    userId, rev.id(), itemId);
+        } else {
+            throw new ApiException(400, "Camada inválida (use 1 ou 2)");
+        }
+        return jdbc.queryForMap(
+                "SELECT pca_id, validacao FROM revisao_item_validacao WHERE ciclo_id = ? AND pca_id = ?",
+                rev.id(), itemId);
+    }
+
+    /** Devolve a alteração do item à edição (Autoridade Demandante), derrubando as validações. */
+    @Transactional
+    public Map<String, Object> devolverItemRevisao(long itemId, Long userId) {
+        CicloDto rev = revisaoDoItem(itemId);
+        papelService.exigirTransicao("demandante", rev.id());
+        invalidarValidacaoItem(rev.id(), itemId);
+        return jdbc.queryForMap(
+                "SELECT pca_id, validacao FROM revisao_item_validacao WHERE ciclo_id = ? AND pca_id = ?",
+                rev.id(), itemId);
+    }
+
+    /** Estado de validação dos itens da revisão aberta do exercício (pca_id → validacao). */
+    public List<Map<String, Object>> validacoesRevisao(Integer ano) {
+        CicloDto rev = ano == null ? null : revisaoEditavelDoAno(ano);
+        if (rev == null) {
+            return List.of();
+        }
+        return jdbc.queryForList(
+                "SELECT pca_id, validacao FROM revisao_item_validacao WHERE ciclo_id = ?", rev.id());
     }
 
     private CicloDto revisaoEditavelDoAno(int ano) {
