@@ -112,6 +112,7 @@ export default function Areas() {
     foto_subdiretor: "",
     gerido_por_unidade_superior: false,
     colaboradores_vinculados: "",
+    codigo_api: "",
   });
 
   // Busca de gestor (usuários do sistema)
@@ -130,6 +131,7 @@ export default function Areas() {
     responsavel: "",
     cargo_responsavel: "",
     unidade_superior_id: null,
+    codigo_api: "",
   });
 
   // Drag and drop states
@@ -250,6 +252,7 @@ export default function Areas() {
         foto_subdiretor: area.foto_subdiretor || "",
         gerido_por_unidade_superior: area.gerido_por_unidade_superior || false,
         colaboradores_vinculados: area.colaboradores_vinculados || "",
+        codigo_api: area.codigo_api || "",
       });
       setGestorSearch(area.gestor || "");
       setSubdiretorSearch(area.subdiretor || "");
@@ -267,6 +270,7 @@ export default function Areas() {
         foto_subdiretor: "",
         gerido_por_unidade_superior: false,
         colaboradores_vinculados: "",
+        codigo_api: "",
       });
       setGestorSearch("");
       setSubdiretorSearch("");
@@ -392,6 +396,7 @@ export default function Areas() {
         responsavel: unidade.responsavel || "",
         cargo_responsavel: unidade.cargo_responsavel || "",
         unidade_superior_id: unidade.unidade_superior_id || null,
+        codigo_api: unidade.codigo_api || "",
       });
     } else {
       setEditingUnidade(null);
@@ -401,6 +406,7 @@ export default function Areas() {
         responsavel: "",
         cargo_responsavel: "",
         unidade_superior_id: null,
+        codigo_api: "",
       });
     }
     setModalUnidadeOpen(true);
@@ -1142,6 +1148,19 @@ export default function Areas() {
                 className="mt-1"
               />
             </div>
+            
+            <div>
+              <Label htmlFor="codigo_api">Código API</Label>
+              <Input
+                id="codigo_api"
+                value={formData.codigo_api || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, codigo_api: e.target.value })
+                }
+                className="mt-1"
+                placeholder="Código utilizado na integração com API"
+              />
+            </div>
 
             {/* Subordinação */}
             <div>
@@ -1457,6 +1476,19 @@ export default function Areas() {
                 }
                 placeholder="Nome da unidade"
                 className="mt-1"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="unidade_codigo_api">Código API</Label>
+              <Input
+                id="unidade_codigo_api"
+                value={formUnidade.codigo_api || ""}
+                onChange={(e) =>
+                  setFormUnidade({ ...formUnidade, codigo_api: e.target.value })
+                }
+                className="mt-1"
+                placeholder="Código utilizado na integração com API"
               />
             </div>
 

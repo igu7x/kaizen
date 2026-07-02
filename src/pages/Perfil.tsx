@@ -292,9 +292,15 @@ export default function Perfil() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-600">
-                      Cargo Efetivo
-                    </Label>
+                    <Label className="text-xs text-gray-600">Situação Funcional</Label>
+                    <Input
+                      value={profile.situacao_funcional || "Não indicado"}
+                      disabled
+                      className={`mt-1 ${profile.situacao_funcional ? "bg-gray-50" : "bg-gray-50 italic text-gray-400"}`}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-600">Cargo Efetivo</Label>
                     <Input
                       value={profile.cargo_efetivo || "Não indicado"}
                       disabled
@@ -302,7 +308,23 @@ export default function Perfil() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-600">Código</Label>
+                    <Label className="text-xs text-gray-600">Classe Efetivo</Label>
+                    <Input
+                      value={profile.classe_efetivo || "Não indicado"}
+                      disabled
+                      className={`mt-1 ${profile.classe_efetivo ? "bg-gray-50" : "bg-gray-50 italic text-gray-400"}`}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-600">CC/FC</Label>
+                    <Input
+                      value={profile.cc_fc || "Não indicado"}
+                      disabled
+                      className={`mt-1 ${profile.cc_fc ? "bg-gray-50" : "bg-gray-50 italic text-gray-400"}`}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-600">Código CC/FC</Label>
                     <Input
                       value={profile.codigo || "Não indicado"}
                       disabled
