@@ -9,21 +9,20 @@
 -- objeto/área demandante, e é enviado à CCA (RF-24/26). Na publicação pela DG o IFO vira o código
 -- oficial de Item de PCA (atributo `code` de `pcas`, RF-49) — conversão a evoluir.
 --
--- SEGURANÇA (Zero Downtime): tabelas novas, aditivas.
+-- SEGURANÇA (Zero Downtime): tabelas novas, aditivas. Os domínios de `bloco`, `natureza` e
+-- `estado` são validados no backend (IfoService), NÃO por CHECK no banco (decisão jul/2026).
 
 CREATE TABLE IF NOT EXISTS ifo (
     id               BIGSERIAL PRIMARY KEY,
     codigo           VARCHAR(20) NOT NULL,
     ano              INTEGER NOT NULL,
     ciclo_id         BIGINT REFERENCES ciclo_orcamentario (id),
-    bloco            VARCHAR(20) NOT NULL
-                     CHECK (bloco IN ('encerramento', 'renovacao', 'plurianual', 'nova_contratacao')),
-    natureza         VARCHAR(20) CHECK (natureza IS NULL OR natureza IN ('continuada', 'pontual')),
+    bloco            VARCHAR(20) NOT NULL,
+    natureza         VARCHAR(20),
     objeto           TEXT,
     area_demandante  VARCHAR(255),
     unidade_id       BIGINT,
-    estado           VARCHAR(20) NOT NULL DEFAULT 'rascunho'
-                     CHECK (estado IN ('rascunho', 'enviado_cca', 'consolidado', 'publicado')),
+    estado           VARCHAR(20) NOT NULL DEFAULT 'rascunho',
     valor_estimado_cents BIGINT,
     interesse_renovacao  BOOLEAN,
     created_at       TIMESTAMP DEFAULT NOW(),

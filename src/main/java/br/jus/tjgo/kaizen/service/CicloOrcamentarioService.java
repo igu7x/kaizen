@@ -33,6 +33,26 @@ public class CicloOrcamentarioService {
     private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
     private static final String ESTADO_PUBLICADO = "publicado";
 
+    // Domínios validados aqui no backend — os CHECK foram removidos do banco (migration 171).
+    // finalidade/subtipo são sempre definidos internamente (nunca input do usuário); a guarda abaixo
+    // protege contra regressões de refatoração.
+    private static final java.util.Set<String> FINALIDADES = java.util.Set.of("formacao", "revisao");
+    private static final java.util.Set<String> SUBTIPOS = java.util.Set.of("ordinaria", "extraordinaria");
+
+    private static String exigirFinalidade(String finalidade) {
+        if (finalidade == null || !FINALIDADES.contains(finalidade)) {
+            throw new ApiException(400, "Finalidade inválida: " + finalidade);
+        }
+        return finalidade;
+    }
+
+    private static String exigirSubtipo(String subtipo) {
+        if (subtipo != null && !SUBTIPOS.contains(subtipo)) {
+            throw new ApiException(400, "Subtipo de revisão inválido: " + subtipo);
+        }
+        return subtipo;
+    }
+
     /** RNF-07 — esteira determinística da Formação (11 estados, RF-19..41). */
     private static final List<String> ESTADOS_FORMACAO = List.of(
             "aberto_aguardando_proad", "em_consulta", "retorno_areas", "consolidacao_cca",
@@ -104,8 +124,8 @@ public class CicloOrcamentarioService {
         }
         var rows = jdbc.queryForList(
                 "INSERT INTO ciclo_orcamentario (ano, finalidade, estado, versao_gerada, abertura_em, created_by, updated_by) " +
-                        "VALUES (?, 'formacao', ?, 1, NOW(), ?, ?) RETURNING *",
-                anoFormacao, ESTADO_FORMACAO_INICIAL, userId, userId);
+                        "VALUES (?, ?, ?, 1, NOW(), ?, ?) RETURNING *",
+                anoFormacao, exigirFinalidade("formacao"), ESTADO_FORMACAO_INICIAL, userId, userId);
         return toDto(rows.get(0));
     }
 
@@ -139,8 +159,8 @@ public class CicloOrcamentarioService {
         }
         var rows = jdbc.queryForList(
                 "INSERT INTO ciclo_orcamentario (ano, finalidade, subtipo, estado, versao_gerada, abertura_em, created_by, updated_by) " +
-                        "VALUES (?, 'revisao', 'ordinaria', ?, ?, NOW(), ?, ?) RETURNING *",
-                anoVigente, ESTADO_REVISAO_JANELA, ativa.versao(), userId, userId);
+                        "VALUES (?, ?, ?, ?, ?, NOW(), ?, ?) RETURNING *",
+                anoVigente, exigirFinalidade("revisao"), exigirSubtipo("ordinaria"), ESTADO_REVISAO_JANELA, ativa.versao(), userId, userId);
         return toDto(rows.get(0));
     }
 
@@ -153,8 +173,8 @@ public class CicloOrcamentarioService {
         int proximaVersao = (maxVersao == null ? 2 : maxVersao + 1);
         var rows = jdbc.queryForList(
                 "INSERT INTO ciclo_orcamentario (ano, finalidade, subtipo, estado, versao_gerada, abertura_em, created_by, updated_by) " +
-                        "VALUES (?, 'revisao', 'extraordinaria', ?, ?, NOW(), ?, ?) RETURNING *",
-                anoVigente, ESTADO_REVISAO_JANELA, proximaVersao, userId, userId);
+                        "VALUES (?, ?, ?, ?, ?, NOW(), ?, ?) RETURNING *",
+                anoVigente, exigirFinalidade("revisao"), exigirSubtipo("extraordinaria"), ESTADO_REVISAO_JANELA, proximaVersao, userId, userId);
         return toDto(rows.get(0));
     }
 

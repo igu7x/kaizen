@@ -28,6 +28,22 @@ public class ContractService {
     private final PcaRepository pcaRepository;
     private final JdbcTemplate jdbcTemplate;
 
+    /**
+     * Domínio válido de `contracts.situation` (DFD-Consulta do Orçamento de TIC). Validado aqui no
+     * backend — o CHECK foi removido do banco (migration 170, decisão jul/2026). Aceita tanto os
+     * blocos do ciclo de vida (RF-05) quanto a natureza legada (continuada/pontual). Nulo = não
+     * classificado.
+     */
+    private static final java.util.Set<String> SITUACOES_VALIDAS = java.util.Set.of(
+            "encerramento", "renovacao", "plurianual", "nova_contratacao",
+            "continuada", "pontual");
+
+    private static void validarSituation(String situation) {
+        if (situation != null && !situation.isBlank() && !SITUACOES_VALIDAS.contains(situation)) {
+            throw new ApiException(400, "Situação (natureza) inválida: " + situation);
+        }
+    }
+
     public List<Contract> findAll(String startDate, String endDate, String contractType, String searchQuery) {
         return contractRepository.findAll().stream()
                 .filter(c -> !c.getIsDeleted())
@@ -63,8 +79,9 @@ public class ContractService {
 
     @Transactional
     public Contract create(CreateContractRequest req, Long userId) {
+        validarSituation(req.situation());
         Contract contract = new Contract();
-        
+
         if (req.contractPlanId() != null) {
             ContractPlan plan = contractPlanRepository.findById(req.contractPlanId())
                     .orElseThrow(() -> new ApiException(404, "Plano associado não encontrado"));
@@ -110,6 +127,7 @@ public class ContractService {
 
     @Transactional
     public Contract update(Long id, UpdateContractRequest req, Long userId) {
+        validarSituation(req.situation());
         Contract contract = findById(id);
 
         if (req.supplier() != null) contract.setSupplier(req.supplier());

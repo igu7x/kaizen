@@ -453,12 +453,21 @@ public class PcaService {
         return createSnapshot(ano, userId, null, "manual");
     }
 
+    /** Finalidades válidas de uma versão do PCA-TIC (validação de domínio — antes era CHECK no banco). */
+    private static final java.util.Set<String> FINALIDADES_VERSAO =
+            java.util.Set.of("formacao", "revisao", "manual");
+
     /**
-     * RF-45/46 — grava a próxima versão imutável do PCA-TIC e registra sua proveniência
-     * (ciclo de origem + finalidade) em `pca_versoes`. A numeração só avança aqui, na publicação.
+     * RF-45/46 — grava a próxima versão imutável do PCA-TIC registrando a proveniência
+     * (ciclo de origem + finalidade + quem/quando publicou) nas PRÓPRIAS linhas de `pcas_snapshots`
+     * (a fonte de verdade das versões). A numeração só avança aqui, na publicação.
      * Retorna o número da versão gerada.
      */
     public int createSnapshot(Integer ano, Long userId, Long cicloId, String finalidade) {
+        String fin = (finalidade == null || finalidade.isBlank()) ? "manual" : finalidade.trim();
+        if (!FINALIDADES_VERSAO.contains(fin)) {
+            throw new ApiException(400, "Finalidade inválida: " + finalidade);
+        }
         Integer maxVersion = jdbc.queryForObject("SELECT MAX(snapshot_version) FROM pcas_snapshots WHERE year = ?", Integer.class, String.valueOf(ano));
         int nextVersion = maxVersion == null ? 1 : maxVersion + 1;
 
@@ -466,30 +475,28 @@ public class PcaService {
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
                 "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
                 "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
-                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade) " +
+                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade, " +
+                "ciclo_id, finalidade, publicado_por, publicado_em) " +
                 "SELECT id, ?, ?, " +
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
                 "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
                 "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
-                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade " +
+                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade, " +
+                "?, ?, ?, NOW() " +
                 "FROM pcas WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)";
 
-        jdbc.update(insertSql, nextVersion, userId, String.valueOf(ano));
-
-        // RF-45/46 — registra a proveniência da versão (idempotente por (ano, versão)).
-        jdbc.update(
-                "INSERT INTO pca_versoes (ano, versao, ciclo_id, finalidade, publicado_por) VALUES (?, ?, ?, ?, ?) " +
-                        "ON CONFLICT (ano, versao) DO NOTHING",
-                ano, nextVersion, cicloId, finalidade == null ? "manual" : finalidade, userId);
+        jdbc.update(insertSql, nextVersion, userId, cicloId, fin, userId, String.valueOf(ano));
         return nextVersion;
     }
 
     /** RF-46/57 — proveniência das versões publicadas de um ano (versão → finalidade/ciclo/data). */
     public List<Map<String, Object>> getVersoesInfo(Integer ano) {
         return jdbc.queryForList(
-                "SELECT versao, finalidade, ciclo_id, publicado_em, publicado_por " +
-                        "FROM pca_versoes WHERE ano = ? ORDER BY versao DESC",
-                ano);
+                "SELECT snapshot_version AS versao, MAX(finalidade) AS finalidade, MAX(ciclo_id) AS ciclo_id, " +
+                        "MAX(publicado_em) AS publicado_em, MAX(publicado_por) AS publicado_por " +
+                        "FROM pcas_snapshots WHERE year = ? " +
+                        "GROUP BY snapshot_version ORDER BY snapshot_version DESC",
+                String.valueOf(ano));
     }
 
     /**

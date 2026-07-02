@@ -23,8 +23,11 @@ public class IfoService {
 
     private final JdbcTemplate jdbc;
 
+    // Domínios validados aqui no backend — os CHECK foram removidos do banco (migration 172).
     private static final List<String> BLOCOS =
             List.of("encerramento", "renovacao", "plurianual", "nova_contratacao");
+
+    private static final List<String> NATUREZAS = List.of("continuada", "pontual");
 
     public String gerarCodigo(int ano) {
         Integer proximo = jdbc.queryForObject(
@@ -40,6 +43,9 @@ public class IfoService {
         }
         if (req.bloco() == null || !BLOCOS.contains(req.bloco())) {
             throw new ApiException(400, "Bloco inválido");
+        }
+        if (req.natureza() != null && !NATUREZAS.contains(req.natureza())) {
+            throw new ApiException(400, "Natureza inválida");
         }
         String codigo = gerarCodigo(req.ano());
         Long cents = req.valorEstimado() == null ? null : Math.round(req.valorEstimado() * 100);
