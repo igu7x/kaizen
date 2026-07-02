@@ -337,29 +337,28 @@ interface DonutChartCardProps {
   total: number;
 }
 
-/** Rótulo de percentual desenhado dentro do anel da rosca (fatias muito finas são omitidas). */
+/** Rótulo de percentual desenhado FORA do anel da rosca (fatias muito finas são omitidas). */
 function renderDonutPctLabel(props: {
   cx: number;
   cy: number;
   midAngle: number;
-  innerRadius: number;
   outerRadius: number;
   percent: number;
 }) {
-  const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+  const { cx, cy, midAngle, outerRadius, percent } = props;
   if (!percent || percent < 0.03) return null;
   const RAD = Math.PI / 180;
-  const r = (innerRadius + outerRadius) / 2;
+  const r = outerRadius + 9;
   const x = cx + r * Math.cos(-midAngle * RAD);
   const y = cy + r * Math.sin(-midAngle * RAD);
   return (
     <text
       x={x}
       y={y}
-      fill="#ffffff"
+      fill="#334155"
       fontSize={9}
       fontWeight={700}
-      textAnchor="middle"
+      textAnchor={x >= cx ? "start" : "end"}
       dominantBaseline="central"
     >
       {Math.round(percent * 100)}%
@@ -380,7 +379,7 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
       <div className="flex-1 flex items-center gap-3 min-h-0">
         <div
           ref={sweepRef}
-          className="w-[140px] h-[140px] flex-shrink-0 relative"
+          className="w-[160px] h-[150px] flex-shrink-0 relative"
           style={{ overflow: "visible" }}
           onMouseEnter={() => setHovering(true)}
           onMouseLeave={() => setHovering(false)}
@@ -395,8 +394,8 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 }
                 cx="50%"
                 cy="50%"
-                innerRadius={42}
-                outerRadius={65}
+                innerRadius={38}
+                outerRadius={56}
                 paddingAngle={2}
                 dataKey="value"
                 isAnimationActive={false}
