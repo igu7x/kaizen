@@ -223,13 +223,14 @@ public class UserService {
         try {
             user = jdbc.queryForMap(
                     "INSERT INTO users (name, email, password_hash, role, status, diretoria, dominio, is_sso_user, " +
-                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, matricula) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                     strOrNull(data.get("name")), email, passwordHash, strOrNull(data.get("role")),
                     status, diretoria, dominio, password == null,
                     strOrNull(data.get("situacao_funcional")),
                     strOrNull(data.get("nome_cc_fc")), strOrNull(data.get("classe_cc_fc")),
-                    strOrNull(data.get("cargo_efetivo")), strOrNull(data.get("classe_efetivo")));
+                    strOrNull(data.get("cargo_efetivo")), strOrNull(data.get("classe_efetivo")),
+                    strOrNull(data.get("matricula")));
         } catch (DuplicateKeyException dup) {
             Map<String, Object> existingDeleted = findDeletedByEmailRaw(email);
             if (existingDeleted != null) {
@@ -238,13 +239,14 @@ public class UserService {
             // Fallback p/ schema antigo (sem dominio/is_sso_user)
             user = jdbc.queryForMap(
                     "INSERT INTO users (name, email, password_hash, role, status, diretoria, " +
-                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, matricula) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                     strOrNull(data.get("name")), email, passwordHash, strOrNull(data.get("role")),
                     status, diretoria,
                     strOrNull(data.get("situacao_funcional")),
                     strOrNull(data.get("nome_cc_fc")), strOrNull(data.get("classe_cc_fc")),
-                    strOrNull(data.get("cargo_efetivo")), strOrNull(data.get("classe_efetivo")));
+                    strOrNull(data.get("cargo_efetivo")), strOrNull(data.get("classe_efetivo")),
+                    strOrNull(data.get("matricula")));
         }
 
         long id = ((Number) user.get("id")).longValue();
@@ -328,7 +330,7 @@ public class UserService {
             values.add(newDominio);
         }
         
-        String[] hrFields = {"situacao_funcional", "nome_cc_fc", "classe_cc_fc", "cargo_efetivo", "classe_efetivo"};
+        String[] hrFields = {"situacao_funcional", "nome_cc_fc", "classe_cc_fc", "cargo_efetivo", "classe_efetivo", "matricula"};
         for (String field : hrFields) {
             if (data.containsKey(field)) {
                 sets.add(field + " = ?");

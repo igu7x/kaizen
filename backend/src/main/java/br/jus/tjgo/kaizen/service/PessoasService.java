@@ -18,7 +18,7 @@ public class PessoasService {
     private static final String JOIN_AREA_UNIDADE =
             "SELECT p.id, p.area_id, p.unidade_id, p.nome_exibicao, p.usuario, p.linha_organograma, p.ordem, p.subordinacao_id, p.ativo, p.user_id, " +
                     "usr.name as nome, usr.email as email, usr.situacao_funcional as situacao, usr.nome_cc_fc as cc_fc, usr.classe_cc_fc as cc_fc_classe, " +
-                    "usr.cargo_efetivo as cargo_efetivo, usr.classe_efetivo as cargo_efetivo_classe, " +
+                    "usr.cargo_efetivo as cargo_efetivo, usr.classe_efetivo as cargo_efetivo_classe, usr.matricula as matricula, " +
                     "a.nome as area_nome, u.nome as unidade_nome FROM cadastros_pessoas p " +
                     "JOIN cadastros_areas a ON a.id = p.area_id " +
                     "LEFT JOIN cadastros_unidades u ON u.id = p.unidade_id " +
@@ -27,7 +27,7 @@ public class PessoasService {
     private static final String JOIN_WITH_FOTO =
             "SELECT p.id, p.area_id, p.unidade_id, p.nome_exibicao, p.usuario, p.linha_organograma, p.ordem, p.subordinacao_id, p.ativo, p.user_id, " +
                     "usr.name as nome, usr.email as email, usr.situacao_funcional as situacao, usr.nome_cc_fc as cc_fc, usr.classe_cc_fc as cc_fc_classe, " +
-                    "usr.cargo_efetivo as cargo_efetivo, usr.classe_efetivo as cargo_efetivo_classe, " +
+                    "usr.cargo_efetivo as cargo_efetivo, usr.classe_efetivo as cargo_efetivo_classe, usr.matricula as matricula, " +
                     "a.nome as area_nome, u.nome as unidade_nome, usr.foto_perfil as foto_perfil " +
                     "FROM cadastros_pessoas p JOIN cadastros_areas a ON a.id = p.area_id " +
                     "LEFT JOIN cadastros_unidades u ON u.id = p.unidade_id " +
