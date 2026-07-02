@@ -309,12 +309,13 @@ export function ProcessoFormDialog({
           </button>
         </div>
 
-        {/* Corpo rolável — travado (somente leitura) quando não está editando. O <fieldset disabled>
-            desabilita nativamente todos os inputs/selects/botões internos de uma vez. */}
-        <fieldset
-          disabled={!editando}
-          className="flex-1 overflow-y-auto px-6 py-5 space-y-6 bg-slate-50 border-0 min-w-0"
-        >
+        {/* Corpo rolável: o <div> é o container de scroll (fieldset não rola bem em flex). O
+            <fieldset disabled> DENTRO apenas trava todos os inputs/selects/botões de uma vez. */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 bg-slate-50">
+          <fieldset
+            disabled={!editando}
+            className="m-0 min-w-0 border-0 p-0 space-y-6"
+          >
           {/* Identificação */}
           <Section
             icon={<FileText className="h-4 w-4" />}
@@ -728,7 +729,8 @@ export function ProcessoFormDialog({
               </p>
             )}
           </Section>
-        </fieldset>
+          </fieldset>
+        </div>
 
         {/* Footer fixo */}
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3 flex-shrink-0">
