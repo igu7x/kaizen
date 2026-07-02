@@ -545,7 +545,12 @@ public class CadastrosProjetosService {
             fields.add("descricao = ?");
             values.add(data.get("descricao"));
         }
-        // status NÃO é atualizável aqui (calculado por recalcularStatusEntrega)
+        // Status manual: entregas SEM tarefas têm o status definido diretamente (dropdown). Entregas
+        // COM tarefas têm o status derivado das tarefas no frontend, que também envia por aqui.
+        if (data.containsKey("status")) {
+            fields.add("status = ?");
+            values.add(data.get("status"));
+        }
         if (data.containsKey("quantidade_sprints")) {
             fields.add("quantidade_sprints = ?");
             values.add(data.get("quantidade_sprints"));
