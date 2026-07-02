@@ -9,6 +9,8 @@ interface UnidadeMultiPickerProps {
   onChange: (next: string[]) => void;
   placeholder?: string;
   emptyMessage?: string;
+  /** Somente leitura: esconde a busca e o botão de remover (só exibe os selecionados). */
+  somenteLeitura?: boolean;
 }
 
 type UnidadeComArea = Unidade & { area_nome?: string; area_sigla?: string };
@@ -27,6 +29,7 @@ export function UnidadeMultiPicker({
   onChange,
   placeholder = "Digite para buscar...",
   emptyMessage = "Nenhum selecionado",
+  somenteLeitura = false,
 }: UnidadeMultiPickerProps) {
   const [unidades, setUnidades] = useState<UnidadeComArea[]>([]);
   const [search, setSearch] = useState("");
@@ -80,6 +83,7 @@ export function UnidadeMultiPicker({
 
   return (
     <div className="space-y-2">
+      {!somenteLeitura && (
       <div className="relative">
         <Input
           type="text"
@@ -122,9 +126,12 @@ export function UnidadeMultiPicker({
           </div>
         )}
       </div>
+      )}
 
       {value.length === 0 ? (
-        <p className="text-xs italic text-slate-400 px-1">{emptyMessage}</p>
+        <p className="text-xs italic text-slate-400 px-1">
+          {somenteLeitura ? "—" : emptyMessage}
+        </p>
       ) : (
         <ul className="space-y-1.5">
           {value.map((name, idx) => (
@@ -134,14 +141,16 @@ export function UnidadeMultiPicker({
             >
               <Building2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
               <span className="flex-1 break-words">{name}</span>
-              <button
-                type="button"
-                onClick={() => remove(idx)}
-                className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
-                title="Remover"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {!somenteLeitura && (
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
+                  title="Remover"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </li>
           ))}
         </ul>

@@ -461,6 +461,7 @@ export function ProcessoFormDialog({
                     value={form.proprietarios || []}
                     onChange={(next) => update("proprietarios", next)}
                     emptyMessage="Nenhum responsável"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -474,6 +475,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("areas_responsaveis", next)}
                     placeholder="Digite para buscar..."
                     emptyMessage="Nenhuma área"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -496,6 +498,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("entradas", next)}
                     placeholder="Adicionar entrada (ex.: Proad 516136/2024)"
                     emptyMessage="Nenhuma entrada"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -509,6 +512,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("saidas", next)}
                     placeholder="Adicionar saída"
                     emptyMessage="Nenhuma saída"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -549,6 +553,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("sistemas_ferramentas", next)}
                     placeholder="Ex.: Bizagi 3.7.0"
                     emptyMessage="Nenhum item"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -562,6 +567,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("normativos_referencias", next)}
                     placeholder="Ex.: Resoluções do CNJ"
                     emptyMessage="Nenhum item"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -633,6 +639,7 @@ export function ProcessoFormDialog({
             <DocumentosAnexadosInput
               value={form.documentos_anexados || []}
               onChange={(next) => update("documentos_anexados", next)}
+              somenteLeitura={!editando}
             />
           </Section>
 

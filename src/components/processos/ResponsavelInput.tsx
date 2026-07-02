@@ -13,6 +13,8 @@ interface ResponsavelInputProps {
   value: ResponsavelEntry[];
   onChange: (next: ResponsavelEntry[]) => void;
   emptyMessage?: string;
+  /** Somente leitura: esconde os campos de adicionar e o botão de remover. */
+  somenteLeitura?: boolean;
 }
 
 type UnidadeComArea = Unidade & { area_nome?: string; area_sigla?: string };
@@ -26,6 +28,7 @@ export function ResponsavelInput({
   value,
   onChange,
   emptyMessage = "Nenhum responsável",
+  somenteLeitura = false,
 }: ResponsavelInputProps) {
   const [unidades, setUnidades] = useState<UnidadeComArea[]>([]);
   const [area, setArea] = useState("");
@@ -92,6 +95,7 @@ export function ResponsavelInput({
 
   return (
     <div className="space-y-2">
+      {!somenteLeitura && (
       <div className="space-y-2">
         {/* Camada 1: área — busca por digitação no cadastro geral de unidades */}
         <div className="relative">
@@ -167,9 +171,12 @@ export function ResponsavelInput({
           </Button>
         </div>
       </div>
+      )}
 
       {value.length === 0 ? (
-        <p className="text-xs italic text-slate-400 px-1">{emptyMessage}</p>
+        <p className="text-xs italic text-slate-400 px-1">
+          {somenteLeitura ? "—" : emptyMessage}
+        </p>
       ) : (
         <ul className="space-y-1.5">
           {value.map((raw, idx) => {
@@ -186,14 +193,16 @@ export function ResponsavelInput({
                     <span className="text-slate-400"> ({item.area})</span>
                   )}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => remove(idx)}
-                  className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
-                  title="Remover"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                {!somenteLeitura && (
+                  <button
+                    type="button"
+                    onClick={() => remove(idx)}
+                    className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
+                    title="Remover"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </li>
             );
           })}
