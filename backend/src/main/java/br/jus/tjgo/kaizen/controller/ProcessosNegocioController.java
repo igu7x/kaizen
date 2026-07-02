@@ -54,11 +54,9 @@ public class ProcessosNegocioController {
         if ("VIEWER".equals(u.role()) && !privilegiado) {
             return service.findAll(diretoria, null, true);
         }
-        // Gestor do Escritório (superadmin), Compliance Officer e SGJT enxergam tudo;
-        // os demais são restritos aos seus papéis (Responsável / Editor / Revisor).
-        boolean veTudo = privilegiado || "SGJT".equals(u.diretoria());
-        Long scopeUserId = veTudo ? null : u.id();
-        return service.findAll(diretoria, scopeUserId, false);
+        // Regra (jul/2026): todos os demais usuários enxergam TODOS os processos, de todas as
+        // diretorias (a restrição por papel/diretoria foi removida da listagem do Escritório).
+        return service.findAll(diretoria, null, false);
     }
 
     // GET /api/processos-negocio/:id
