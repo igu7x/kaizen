@@ -105,6 +105,7 @@ export default function Pessoas() {
     cargo_efetivo: "",
     cargo_efetivo_classe: "",
     user_id: null,
+    matricula: "",
   });
 
   // Drag and drop states (para áreas)
@@ -254,6 +255,7 @@ export default function Pessoas() {
         cargo_efetivo: pessoa.cargo_efetivo || "",
         cargo_efetivo_classe: pessoa.cargo_efetivo_classe || "",
         user_id: pessoa.user_id || null,
+        matricula: pessoa.matricula || "",
       });
     } else {
       setEditingPessoa(null);
@@ -269,6 +271,7 @@ export default function Pessoas() {
         cargo_efetivo: "",
         cargo_efetivo_classe: "",
         user_id: null,
+        matricula: "",
       });
     }
     setModalOpen(true);
@@ -734,6 +737,7 @@ export default function Pessoas() {
                                   cc_fc_classe: u.classe_cc_fc || "",
                                   cargo_efetivo: u.cargo_efetivo || "",
                                   cargo_efetivo_classe: u.classe_efetivo || "",
+                                  matricula: (u as any).matricula || "",
                                 });
                                 setOpenUserSelect(false);
                               }}
@@ -808,6 +812,16 @@ export default function Pessoas() {
             </div>
 
             {/* Situação Funcional */}
+            <div>
+              <Label htmlFor="matricula">Matrícula</Label>
+              <Input
+                id="matricula"
+                value={formData.matricula || ""}
+                disabled
+                className="mt-1 bg-gray-50"
+              />
+            </div>
+            
             <div>
               <Label htmlFor="situacao">Situação Funcional</Label>
               <Input
