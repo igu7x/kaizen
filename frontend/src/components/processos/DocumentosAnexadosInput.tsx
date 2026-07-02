@@ -31,7 +31,7 @@ interface DocumentosAnexadosInputProps {
 
 const ACCEPT =
   "image/png,image/jpeg,image/jpg,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain";
-const MAX_BYTES_PER_FILE = 5_000_000; // 5MB por arquivo
+const MAX_BYTES_PER_FILE = 20_000_000; // 20MB por arquivo
 
 async function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -162,7 +162,7 @@ export function DocumentosAnexadosInput({
 
       <p className="text-xs text-slate-500">
         Formatos aceitos: PNG, JPG, WEBP, PDF, DOC, DOCX, XLS, XLSX, TXT — máx.
-        5MB por arquivo.
+        20MB por arquivo.
       </p>
 
       {/* Lista de documentos anexados */}
