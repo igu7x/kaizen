@@ -19,6 +19,7 @@ import {
   Activity,
 } from "lucide-react";
 import { homeApi, HomeResumo } from "@/services/homeApi";
+import { usePermissoes } from "@/hooks/usePermissoes";
 
 function saudacao() {
   const h = new Date().getHours();
@@ -60,6 +61,8 @@ export default function Home() {
     user?.diretoria === "SGJT";
   const [resumo, setResumo] = useState<HomeResumo | null>(null);
   const [loading, setLoading] = useState(true);
+  // Acessos rápidos respeitam as permissões da diretoria do usuário (mesmo padrão do menu lateral).
+  const { podeAcessar } = usePermissoes();
 
   useEffect(() => {
     homeApi
@@ -103,6 +106,7 @@ export default function Home() {
       desc: "Acompanhe objetivos e resultados-chave",
       link: "/gestao-estrategica/okrs",
       gradient: "from-blue-600 to-indigo-700",
+      permissaoCodigo: "gestao_okrs",
     },
     {
       icon: ClipboardList,
@@ -110,6 +114,7 @@ export default function Home() {
       desc: "Projetos em execução e entregas",
       link: "/gestao-estrategica/execucao",
       gradient: "from-cyan-600 to-blue-700",
+      permissaoCodigo: "gestao_execucao",
     },
     {
       icon: FilePlus,
@@ -117,6 +122,7 @@ export default function Home() {
       desc: "PCA 2026 e suas contratações",
       link: "/contratacoes-ti/novas",
       gradient: "from-emerald-600 to-teal-700",
+      permissaoCodigo: "contratacoes_novas",
     },
     {
       icon: BookOpen,
@@ -124,8 +130,12 @@ export default function Home() {
       desc: "Matriz, autoavaliação e avaliação",
       link: "/pessoas/competencias",
       gradient: "from-violet-600 to-purple-700",
+      permissaoCodigo: "pessoas_competencias",
     },
   ];
+
+  // Só exibe os atalhos cujos módulos o usuário pode acessar (durante o load libera, evita flicker).
+  const atalhosVisiveis = atalhos.filter((a) => podeAcessar(a.permissaoCodigo));
 
   return (
     <Layout>
@@ -329,7 +339,7 @@ export default function Home() {
               subtitle="Ir direto para os módulos mais usados"
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {atalhos.map((a, i) => {
+              {atalhosVisiveis.map((a, i) => {
                 const Icon = a.icon;
                 return (
                   <Link
