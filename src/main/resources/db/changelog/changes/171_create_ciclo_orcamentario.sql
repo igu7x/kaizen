@@ -9,14 +9,13 @@
 -- Cada ciclo percorre uma esteira (estado), é instruído por um PROAD (RF-22) e, na publicação
 -- pela DG, grava a próxima versão no PCA-TIC (RF-41/75). Ver Especificação de Requisitos, Cap. 2–6.
 --
--- SEGURANÇA (Zero Downtime): tabela nova, aditiva. Os domínios de `finalidade` e `subtipo` são
--- validados no backend (CicloOrcamentarioService), NÃO por CHECK no banco (decisão jul/2026).
+-- SEGURANÇA (Zero Downtime): tabela nova, aditiva.
 
 CREATE TABLE IF NOT EXISTS ciclo_orcamentario (
     id            BIGSERIAL PRIMARY KEY,
     ano           INTEGER NOT NULL,
-    finalidade    VARCHAR(20) NOT NULL,
-    subtipo       VARCHAR(20),
+    finalidade    VARCHAR(20) NOT NULL CHECK (finalidade IN ('formacao', 'revisao')),
+    subtipo       VARCHAR(20) CHECK (subtipo IS NULL OR subtipo IN ('ordinaria', 'extraordinaria')),
     estado        VARCHAR(40) NOT NULL,
     proad         VARCHAR(30),
     versao_gerada INTEGER,
