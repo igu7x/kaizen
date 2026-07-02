@@ -602,6 +602,8 @@ export default function EscritorioProcessos() {
   // Modais
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProcessoNegocio | null>(null);
+  // Modo com que o form abre: "visualizar" (clique no processo → travado) ou "editar".
+  const [formModo, setFormModo] = useState<"editar" | "visualizar">("editar");
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [selecionado, setSelecionado] = useState<ProcessoNegocio | null>(null);
   const [detalheLoading, setDetalheLoading] = useState(false);
@@ -910,23 +912,22 @@ export default function EscritorioProcessos() {
   };
   const handleEditar = (p: ProcessoNegocio) => {
     setDetalheOpen(false);
+    setFormModo("editar");
     setEditing(p);
     setFormOpen(true);
   };
   const handleAbrirDetalhe = async (p: ProcessoNegocio) => {
-    // Abre já com o objeto enxuto (instantâneo) e busca o completo em seguida —
-    // a listagem não traz os bytes do fluxograma/documentos, mas o detalhe precisa
-    // deles para preview, download e geração de PDF.
-    setSelecionado(p);
-    setDetalheOpen(true);
-    setDetalheLoading(true);
+    // Clicar num processo abre o MESMO form da edição, porém travado (somente leitura) — o botão
+    // "Editar" no rodapé destrava. Abre já com o objeto enxuto (instantâneo) e busca o completo em
+    // seguida (a listagem não traz os bytes do fluxograma/documentos, necessários para preview/PDF).
+    setFormModo("visualizar");
+    setEditing(p);
+    setFormOpen(true);
     try {
       const full = await processosNegocioApi.getById(p.id);
-      setSelecionado((cur) => (cur && cur.id === full.id ? full : cur));
+      setEditing((cur) => (cur && cur.id === full.id ? full : cur));
     } catch {
       /* mantém o objeto enxuto; erro já tratado pelo apiClient */
-    } finally {
-      setDetalheLoading(false);
     }
   };
 
@@ -1432,6 +1433,7 @@ export default function EscritorioProcessos() {
         onOpenChange={setFormOpen}
         processo={editing}
         diretoriaPadrao={user?.diretoria || undefined}
+        modoInicial={formModo}
         onSaved={handleSaved}
         validacao={validacaoDoEditing}
       />

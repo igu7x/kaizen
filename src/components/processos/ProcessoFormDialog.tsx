@@ -24,6 +24,7 @@ import {
   BarChart3,
   Save,
   ShieldCheck,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -51,6 +52,8 @@ interface ProcessoFormDialogProps {
   processo?: ProcessoNegocio | null;
   /** Diretoria padrão pra novos processos (do usuário logado) */
   diretoriaPadrao?: string;
+  /** "visualizar" abre o form travado (somente leitura) com um botão "Editar" que destrava. */
+  modoInicial?: "editar" | "visualizar";
   /** Callback após salvar com sucesso */
   onSaved: (processo: ProcessoNegocio) => void;
   /**
@@ -134,12 +137,15 @@ export function ProcessoFormDialog({
   onOpenChange,
   processo,
   diretoriaPadrao,
+  modoInicial = "editar",
   onSaved,
   validacao = null,
 }: ProcessoFormDialogProps) {
   const isEdit = !!processo;
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
   const [saving, setSaving] = useState(false);
+  // Modo do form: quando "visualizar", começa travado (somente leitura) até clicar em "Editar".
+  const [editando, setEditando] = useState(true);
   const [areas, setAreas] = useState<Area[]>([]);
   // Id do processo sendo editado. Em "Salvar Alterações" num processo novo,
   // passamos a editar o mesmo registro (evita recriar a cada clique).
@@ -167,6 +173,7 @@ export function ProcessoFormDialog({
   // Carregar valores ao abrir (modo edição) ou resetar (criação)
   useEffect(() => {
     if (!open) return;
+    setEditando(modoInicial !== "visualizar");
     setCurrentId(processo?.id ?? null);
     if (processo) {
       setForm({
@@ -205,7 +212,7 @@ export function ProcessoFormDialog({
         apreciacao: exigeComiteAprovacao(diretoriaPadrao) ? ["CGTIC"] : [],
       });
     }
-  }, [open, processo, diretoriaPadrao]);
+  }, [open, processo, diretoriaPadrao, modoInicial]);
 
   const update = <K extends keyof CreateProcessoNegocioDto>(
     field: K,
@@ -283,7 +290,11 @@ export function ProcessoFormDialog({
         <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-white">
-              {isEdit ? "Editar Processo" : "Novo Processo"}
+              {!editando
+                ? "Visualizar Processo"
+                : isEdit
+                  ? "Editar Processo"
+                  : "Novo Processo"}
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
               Cadastro de processo de negócio — siga o template institucional.
@@ -298,8 +309,12 @@ export function ProcessoFormDialog({
           </button>
         </div>
 
-        {/* Corpo rolável */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 bg-slate-50">
+        {/* Corpo rolável — travado (somente leitura) quando não está editando. O <fieldset disabled>
+            desabilita nativamente todos os inputs/selects/botões internos de uma vez. */}
+        <fieldset
+          disabled={!editando}
+          className="flex-1 overflow-y-auto px-6 py-5 space-y-6 bg-slate-50 border-0 min-w-0"
+        >
           {/* Identificação */}
           <Section
             icon={<FileText className="h-4 w-4" />}
@@ -713,45 +728,63 @@ export function ProcessoFormDialog({
               </p>
             )}
           </Section>
-        </div>
+        </fieldset>
 
         {/* Footer fixo */}
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3 flex-shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSave(false)}
-            disabled={saving}
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Salvar Alterações
-          </Button>
-          {validacao && (
-            <Button
-              type="button"
-              onClick={() => handleSave(true)}
-              disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <ShieldCheck className="h-4 w-4 mr-2" />
+          {editando ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleSave(false)}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Salvar Alterações
+              </Button>
+              {validacao && (
+                <Button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                  )}
+                  Validar
+                </Button>
               )}
-              Validar
-            </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Fechar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setEditando(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            </>
           )}
         </div>
       </DialogContent>
