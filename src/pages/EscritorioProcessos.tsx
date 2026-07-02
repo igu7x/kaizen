@@ -349,6 +349,23 @@ function renderDonutPctLabel(props: {
   if (!percent || percent < 0.03) return null;
   const RAD = Math.PI / 180;
   const r = outerRadius + 9;
+  // Fatia única de 100%: o recharts joga o midAngle pra 180° (esquerda). Fixa o rótulo
+  // acima da rosca (topo, centralizado) em vez de na lateral.
+  if (percent >= 0.999) {
+    return (
+      <text
+        x={cx}
+        y={cy - r}
+        fill="#334155"
+        fontSize={9}
+        fontWeight={700}
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        100%
+      </text>
+    );
+  }
   const x = cx + r * Math.cos(-midAngle * RAD);
   const y = cy + r * Math.sin(-midAngle * RAD);
   return (
@@ -379,7 +396,7 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
       <div className="flex-1 flex items-center gap-3 min-h-0">
         <div
           ref={sweepRef}
-          className="w-[160px] h-[150px] flex-shrink-0 relative"
+          className="w-[160px] h-[150px] flex-shrink-0 relative [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible"
           style={{ overflow: "visible" }}
           onMouseEnter={() => setHovering(true)}
           onMouseLeave={() => setHovering(false)}
@@ -727,23 +744,22 @@ export default function EscritorioProcessos() {
   }, [unidades, user?.id]);
 
   // Processos vigentes e no prazo (Modelo K1, revisão não vencida) que o usuário pode revisar
-  // antecipadamente: o Responsável vê os seus; o Gestor do Escritório (superadmin) vê todos —
-  // ambos autorizados no endpoint iniciar-revisao. Não apareceriam em "Em Revisão ou Novos".
+  // antecipadamente. Regra: só aparece para o RESPONSÁVEL do processo (cada um vê apenas os
+  // seus) — nem o Gestor do Escritório (superadmin) vê os dos outros aqui. Não apareceriam em
+  // "Em Revisão ou Novos".
   const processosParaRevisar = useMemo(() => {
     if (!user?.id) return [];
     return processos
       .filter(
         (p) =>
-          isK1(p) &&
-          !revisaoVencida(p) &&
-          (isSuperadmin || ehResponsavelDoProcesso(p)),
+          isK1(p) && !revisaoVencida(p) && ehResponsavelDoProcesso(p),
       )
       .sort((a, b) => {
         const da = proximaRevisao(a)?.getTime() ?? Infinity;
         const db = proximaRevisao(b)?.getTime() ?? Infinity;
         return da - db;
       });
-  }, [processos, user?.id, isSuperadmin, ehResponsavelDoProcesso]);
+  }, [processos, user?.id, ehResponsavelDoProcesso]);
 
   // Validação disponível para o usuário no processo em edição (camada atual). Alimenta o botão
   // "Validar" do form: Responsável valida a camada 1 (enviar), Revisor a 2, Compliance a 3.
@@ -999,6 +1015,18 @@ export default function EscritorioProcessos() {
     }
     setProcessos((prev) => prev.map((x) => (x.id === next.id ? next : x)));
     setSelecionado(next);
+  };
+
+  // Ações do rodapé do preview (form em modo leitura): mantém o form aberto refletindo o novo
+  // status/gating (atualiza `editing`) e sincroniza a lista. `null` = deletado → fecha o dialog.
+  const handleProcessoChangedNoForm = (next: ProcessoNegocio | null) => {
+    if (next === null) {
+      setProcessos((prev) => prev.filter((x) => x.id !== editing?.id));
+      setEditing(null);
+      return;
+    }
+    setProcessos((prev) => prev.map((x) => (x.id === next.id ? next : x)));
+    setEditing((cur) => (cur && cur.id === next.id ? next : cur));
   };
 
   const trocarAba = (nova: "vigentes" | "revisao") => {
@@ -1434,6 +1462,7 @@ export default function EscritorioProcessos() {
         diretoriaPadrao={user?.diretoria || undefined}
         modoInicial={formModo}
         onSaved={handleSaved}
+        onProcessoChanged={handleProcessoChangedNoForm}
         validacao={validacaoDoEditing}
       />
       <ProcessoDetalhe

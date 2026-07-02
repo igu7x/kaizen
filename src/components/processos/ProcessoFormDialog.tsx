@@ -24,7 +24,6 @@ import {
   BarChart3,
   Save,
   ShieldCheck,
-  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -44,6 +43,7 @@ import { ListInput } from "./ListInput";
 import { ResponsavelInput } from "./ResponsavelInput";
 import { UnidadeMultiPicker } from "./UnidadeMultiPicker";
 import { DocumentosAnexadosInput } from "./DocumentosAnexadosInput";
+import { ProcessoAcoesFooter } from "./ProcessoAcoesFooter";
 
 interface ProcessoFormDialogProps {
   open: boolean;
@@ -56,6 +56,11 @@ interface ProcessoFormDialogProps {
   modoInicial?: "editar" | "visualizar";
   /** Callback após salvar com sucesso */
   onSaved: (processo: ProcessoNegocio) => void;
+  /**
+   * Callback das ações do rodapé de leitura (validar/enviar/recusar/editores/excluir).
+   * `next` = processo atualizado; `null` = deletado. Só é usado em modo visualizar.
+   */
+  onProcessoChanged?: (next: ProcessoNegocio | null) => void;
   /**
    * Validação disponível para o usuário na camada atual do processo. Quando presente, o form
    * mostra o botão "Validar" (salva e valida a camada do usuário — Responsável/Revisor/Compliance).
@@ -139,6 +144,7 @@ export function ProcessoFormDialog({
   diretoriaPadrao,
   modoInicial = "editar",
   onSaved,
+  onProcessoChanged,
   validacao = null,
 }: ProcessoFormDialogProps) {
   const isEdit = !!processo;
@@ -272,9 +278,11 @@ export function ProcessoFormDialog({
         onSaved(saved);
         onOpenChange(false);
       } else {
-        // "Salvar Alterações": mantém o formulário aberto e editável.
+        // "Salvar Alterações": persiste e FECHA a tela (o backend reseta as camadas de
+        // validação e ajusta a versão ao editar; a lista reflete o novo estado via onSaved).
         toast.success("Alterações salvas.");
         onSaved(saved);
+        onOpenChange(false);
       }
     } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
@@ -740,62 +748,55 @@ export function ProcessoFormDialog({
         </div>
 
         {/* Footer fixo */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3 flex-shrink-0">
-          {editando ? (
-            <>
+        {editando ? (
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3 flex-shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleSave(false)}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Salvar Alterações
+            </Button>
+            {validacao && (
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleSave(true)}
                 disabled={saving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleSave(false)}
-                disabled={saving}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Save className="h-4 w-4 mr-2" />
+                  <ShieldCheck className="h-4 w-4 mr-2" />
                 )}
-                Salvar Alterações
+                Validar
               </Button>
-              {validacao && (
-                <Button
-                  type="button"
-                  onClick={() => handleSave(true)}
-                  disabled={saving}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="h-4 w-4 mr-2" />
-                  )}
-                  Validar
-                </Button>
-              )}
-            </>
-          ) : (
-            <>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Fechar
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setEditando(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Editar
-              </Button>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        ) : processo ? (
+          // Modo leitura: barra de ações completa gated por permissão (mesma do ProcessoDetalhe).
+          // Opera sobre o processo PERSISTIDO recebido por prop, não sobre o estado do form.
+          <ProcessoAcoesFooter
+            processo={processo}
+            onChanged={(next) => onProcessoChanged?.(next)}
+            onEditar={() => setEditando(true)}
+            onFechar={() => onOpenChange(false)}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
