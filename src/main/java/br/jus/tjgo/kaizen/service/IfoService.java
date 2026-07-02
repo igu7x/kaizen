@@ -22,6 +22,7 @@ import java.util.Map;
 public class IfoService {
 
     private final JdbcTemplate jdbc;
+    private final OrcamentoPapelService papelService;
 
     // Domínios validados aqui no backend — os CHECK foram removidos do banco (migration 172).
     private static final List<String> BLOCOS =
@@ -83,7 +84,7 @@ public class IfoService {
     public int converterNaPublicacao(Integer ano, Long userId) {
         if (ano == null) return 0;
         List<Map<String, Object>> ifos = jdbc.queryForList(
-                "SELECT id FROM ifo WHERE ano = ? AND estado <> 'publicado' ORDER BY codigo", ano);
+                "SELECT * FROM ifo WHERE ano = ? AND estado <> 'publicado' ORDER BY codigo", ano);
         if (ifos.isEmpty()) return 0;
         Integer base = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(CAST(NULLIF(regexp_replace(code, '[^0-9]', '', 'g'), '') AS INTEGER)), 0) " +
@@ -92,9 +93,21 @@ public class IfoService {
         int prox = (base == null ? 0 : base) + 1;
         for (Map<String, Object> row : ifos) {
             Long id = asLong(row.get("id"));
+            String codigoOficial = String.valueOf(prox);
+            // RF-41/49/58 — materializa o IFO como Item de PCA oficial (linha viva em `pcas`) da versão
+            // que está sendo publicada. contract_type derivado do bloco (Renovação vs demais → Nova Contratação).
+            String contractType = "renovacao".equals(str(row.get("bloco"))) ? "RENOVACAO" : "NOVA_CONTRATACAO";
+            Long unidadeId = asLong(row.get("unidade_id"));
+            jdbc.update(
+                    "INSERT INTO pcas (code, contract_type, directory_acronym, object_name, estimated_value_cents, " +
+                            "status, year, id_diretoria, id_cadastros_areas, created_by) " +
+                            "VALUES (?, ?, ?, ?, COALESCE(?, 0), 'NAO_INICIADA', ?, ?, " +
+                            "(SELECT area_id FROM cadastros_unidades WHERE id = ?), ?)",
+                    codigoOficial, contractType, str(row.get("area_demandante")), str(row.get("objeto")),
+                    asLong(row.get("valor_estimado_cents")), String.valueOf(ano), unidadeId, unidadeId, userId);
             jdbc.update(
                     "UPDATE ifo SET codigo_oficial = ?, estado = 'publicado', updated_at = NOW(), updated_by = ? WHERE id = ?",
-                    String.valueOf(prox), userId, id);
+                    codigoOficial, userId, id);
             prox++;
         }
         return ifos.size();
@@ -126,7 +139,84 @@ public class IfoService {
                             "updated_at = NOW(), updated_by = ? WHERE id = ?",
                     m, userId, id);
         }
+        // RN-GERAL-07 — alterar o bloco é edição de conteúdo: derruba validações da demanda.
+        invalidarPorEdicao(id, userId);
         return get(id);
+    }
+
+    // ---------- validação por demanda (§8.4 / RN-GERAL-06/07/08) ----------
+
+    /**
+     * Valida uma demanda (IFO) numa das 2 camadas. 1ª camada = Gestor Demandante; 2ª camada = Diretor
+     * de Área (RN-GERAL-06: a 2ª só habilita sobre demanda já em 1ª). Ambas são atos de Autoridade do
+     * escopo Demandante. Só atua sobre IFO em rascunho (ainda não remetido/congelado).
+     */
+    @Transactional
+    public IfoDto validarDemanda(long id, int camada, Long userId) {
+        IfoDto ifo = get(id);
+        papelService.exigirTransicao("demandante", ifo.cicloId());
+        if (!"rascunho".equals(ifo.estado())) {
+            throw new ApiException(400, "IFO já remetido à CCA não pode ser validado");
+        }
+        String atual = jdbc.queryForObject("SELECT validacao FROM ifo WHERE id = ?", String.class, id);
+        if (camada == 1) {
+            jdbc.update("UPDATE ifo SET validacao = 'validada_1a', validado_1a_por = ?, validado_1a_em = NOW(), " +
+                    "updated_at = NOW(), updated_by = ? WHERE id = ?", userId, userId, id);
+        } else if (camada == 2) {
+            if (!"validada_1a".equals(atual)) {
+                throw new ApiException(409, "Valide a 1ª camada antes da 2ª (RN-GERAL-06)");
+            }
+            jdbc.update("UPDATE ifo SET validacao = 'validada_2a', validado_2a_por = ?, validado_2a_em = NOW(), " +
+                    "updated_at = NOW(), updated_by = ? WHERE id = ?", userId, userId, id);
+        } else {
+            throw new ApiException(400, "Camada inválida (use 1 ou 2)");
+        }
+        return get(id);
+    }
+
+    /** Devolve a demanda à edição (Autoridade Demandante), derrubando as validações (RN-GERAL-07). */
+    @Transactional
+    public IfoDto devolverDemanda(long id, Long userId) {
+        IfoDto ifo = get(id);
+        papelService.exigirTransicao("demandante", ifo.cicloId());
+        invalidarPorEdicao(id, userId);
+        return get(id);
+    }
+
+    /** RN-GERAL-07 — reseta a validação da demanda (editar derruba as validações posteriores). */
+    private void invalidarPorEdicao(long id, Long userId) {
+        jdbc.update("UPDATE ifo SET validacao = 'em_edicao', validado_1a_por = NULL, validado_1a_em = NULL, " +
+                "validado_2a_por = NULL, validado_2a_em = NULL, updated_at = NOW(), updated_by = ? WHERE id = ?",
+                userId, id);
+    }
+
+    /**
+     * RN-GERAL-08 — remessa da partição (todos os IFO de uma unidade no ciclo) à CCA. Ato único da
+     * Autoridade Demandante (Diretor), só habilitado com TODAS as demandas em 2ª camada. Congela a
+     * partição (rascunho → enviado_cca). Retorna quantas demandas foram remetidas.
+     */
+    @Transactional
+    public int remeterParticao(long cicloId, long unidadeId, Long userId) {
+        papelService.exigirTransicao("demandante", cicloId);
+        Integer pendentes = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ifo WHERE ciclo_id = ? AND unidade_id = ? AND estado = 'rascunho' " +
+                        "AND validacao <> 'validada_2a'",
+                Integer.class, cicloId, unidadeId);
+        if (pendentes != null && pendentes > 0) {
+            throw new ApiException(409, "Há demandas não validadas em 2ª camada; a partição não pode ser remetida");
+        }
+        return jdbc.update("UPDATE ifo SET estado = 'enviado_cca', updated_at = NOW(), updated_by = ? " +
+                "WHERE ciclo_id = ? AND unidade_id = ? AND estado = 'rascunho'", userId, cicloId, unidadeId);
+    }
+
+    /** Devolução da partição pela CCA (Autoridade CCA) à área, reabrindo para edição. */
+    @Transactional
+    public int devolverParticao(long cicloId, long unidadeId, Long userId) {
+        papelService.exigirTransicao("cca", cicloId);
+        return jdbc.update("UPDATE ifo SET estado = 'rascunho', validacao = 'em_edicao', " +
+                "validado_1a_por = NULL, validado_1a_em = NULL, validado_2a_por = NULL, validado_2a_em = NULL, " +
+                "updated_at = NOW(), updated_by = ? WHERE ciclo_id = ? AND unidade_id = ? AND estado = 'enviado_cca'",
+                userId, cicloId, unidadeId);
     }
 
     @Transactional
@@ -194,6 +284,7 @@ public class IfoService {
                 (Boolean) r.get("interesse_renovacao"),
                 str(r.get("motivo_reclassificacao")),
                 str(r.get("codigo_oficial")),
+                str(r.get("validacao")),
                 contratosDoIfo(id));
     }
 

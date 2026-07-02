@@ -24,5 +24,7 @@ public record IfoDto(
         String motivoReclassificacao,
         /** Código oficial de Item de PCA atribuído na publicação (RF-49); null antes disso. */
         String codigoOficial,
+        /** §8.4 — estado de validação da demanda: em_edicao | validada_1a | validada_2a. */
+        String validacao,
         List<Long> contratos
 ) {}

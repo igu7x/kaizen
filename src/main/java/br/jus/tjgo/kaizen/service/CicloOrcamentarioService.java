@@ -1,7 +1,5 @@
 package br.jus.tjgo.kaizen.service;
 
-import br.jus.tjgo.kaizen.auth.AuthContext;
-import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.dto.CicloDto;
 import br.jus.tjgo.kaizen.dto.EntradaCicloDto;
 import br.jus.tjgo.kaizen.exception.ApiException;
@@ -28,6 +26,7 @@ public class CicloOrcamentarioService {
     private final JdbcTemplate jdbc;
     private final PcaService pcaService;
     private final IfoService ifoService;
+    private final OrcamentoPapelService papelService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aberto_aguardando_proad";
     private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
@@ -72,6 +71,9 @@ public class CicloOrcamentarioService {
             new Janela(2, 3, MonthDay.of(4, 1), MonthDay.of(4, 30)),
             new Janela(3, 4, MonthDay.of(7, 1), MonthDay.of(7, 31)));
 
+    /** RF-31 — corte da Formação: a partir de 01/03 a consulta às unidades fecha (auto-fechamento). */
+    private static final MonthDay CORTE_FORMACAO = MonthDay.of(3, 1);
+
     private static Janela janelaAtiva(LocalDate hoje) {
         MonthDay hm = MonthDay.of(hoje.getMonthValue(), hoje.getDayOfMonth());
         for (Janela j : JANELAS) {
@@ -81,6 +83,56 @@ public class CicloOrcamentarioService {
             }
         }
         return null;
+    }
+
+    private static Janela janelaDaVersao(Integer versao) {
+        if (versao == null) return null;
+        for (Janela j : JANELAS) {
+            if (j.versao() == versao) return j;
+        }
+        return null;
+    }
+
+    /**
+     * RF-31/67/69 — estado derivado exclusivamente pela data corrente (auto-fechamento). Retorna o
+     * estado para o qual o ciclo deve transitar por decurso de prazo, ou null se não há transição:
+     *  - Formação em consulta às unidades e já passou o corte (01/03) → consolidação da CCA (RF-31).
+     *  - Revisão com janela aberta cuja janela já encerrou → rito de validação (RF-67/69; demandante
+     *    deixa de editar, CCA consolida a partir de D+1).
+     */
+    private static String estadoDerivadoPorData(CicloDto ciclo, LocalDate hoje) {
+        MonthDay hm = MonthDay.of(hoje.getMonthValue(), hoje.getDayOfMonth());
+        if ("formacao".equals(ciclo.finalidade())) {
+            if (("em_consulta".equals(ciclo.estado()) || "retorno_areas".equals(ciclo.estado()))
+                    && !hm.isBefore(CORTE_FORMACAO)) {
+                return "consolidacao_cca";
+            }
+        } else if ("revisao".equals(ciclo.finalidade()) && "janela_aberta".equals(ciclo.estado())) {
+            Janela j = janelaDaVersao(ciclo.versaoGerada());
+            if (j != null && j.fim() != null && hm.isAfter(j.fim())) {
+                return "em_rito_validacao";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * RF-31/69 — aplica (persistindo) o auto-fechamento por data a um ciclo específico. Idempotente:
+     * só grava quando há transição a fazer. O gating por papel é ignorado (transição do sistema).
+     */
+    @Transactional
+    public CicloDto sincronizarPorData(long id, Long userId) {
+        CicloDto ciclo = getCiclo(id);
+        String novo = estadoDerivadoPorData(ciclo, LocalDate.now());
+        if (novo != null && !novo.equals(ciclo.estado())) {
+            var rows = jdbc.queryForList(
+                    "UPDATE ciclo_orcamentario SET estado = ?, updated_at = NOW(), updated_by = ? WHERE id = ? RETURNING *",
+                    novo, userId, id);
+            if (!rows.isEmpty()) {
+                return toDto(rows.get(0));
+            }
+        }
+        return ciclo;
     }
 
     // ---------- consultas ----------
@@ -103,7 +155,10 @@ public class CicloOrcamentarioService {
     public EntradaCicloDto getEntrada(int anoVigente) {
         int anoFormacao = anoVigente + 1;
         CicloDto formacao = findCicloMaisRecente(anoFormacao, "formacao");
+        // RF-31/69 — reflete o auto-fechamento por data já na tela de entrada.
+        if (formacao != null) formacao = sincronizarPorData(formacao.id(), null);
         CicloDto revisao = findCicloMaisRecente(anoVigente, "revisao");
+        if (revisao != null) revisao = sincronizarPorData(revisao.id(), null);
         Janela ativa = janelaAtiva(LocalDate.now());
         return new EntradaCicloDto(
                 anoFormacao,
@@ -183,6 +238,8 @@ public class CicloOrcamentarioService {
         if (estado == null || estado.isBlank()) {
             throw new ApiException(400, "Estado é obrigatório");
         }
+        // RN-GERAL-01 — transitar é privativo da Autoridade do escopo do estado ATUAL (Editor não transita).
+        papelService.exigirTransicao(escopoDoEstado(getCiclo(id).estado()), id);
         var rows = jdbc.queryForList(
                 "UPDATE ciclo_orcamentario SET estado = ?, updated_at = NOW(), updated_by = ? WHERE id = ? RETURNING *",
                 estado.trim(), userId, id);
@@ -199,7 +256,6 @@ public class CicloOrcamentarioService {
     @Transactional
     public CicloDto avancar(long id, Long userId) {
         CicloDto ciclo = getCiclo(id);
-        exigirAtor(ciclo.estado());
         List<String> esteira = esteiraDe(ciclo.finalidade());
         int idx = esteira.indexOf(ciclo.estado());
         if (idx < 0) {
@@ -222,7 +278,6 @@ public class CicloOrcamentarioService {
         if (ESTADO_PUBLICADO.equals(ciclo.estado())) {
             throw new ApiException(409, "Ciclo publicado não pode retroceder");
         }
-        exigirAtor(ciclo.estado());
         List<String> esteira = esteiraDe(ciclo.finalidade());
         int idx = esteira.indexOf(ciclo.estado());
         if (idx <= 0) {
@@ -257,51 +312,17 @@ public class CicloOrcamentarioService {
             Map.entry("janela_aberta", "demandante"),
             Map.entry("em_rito_validacao", "demandante"));
 
-    private static final Map<String, String> ATOR_LABEL = Map.ofEntries(
-            Map.entry("cca", "CCA"),
-            Map.entry("demandante", "Demandantes"),
-            Map.entry("gejut", "GEJUT"),
-            Map.entry("sgjt", "SGJT"));
-
-    /**
-     * Resolve o papel do usuário no ciclo a partir do contexto de autenticação. Gestor/superadmin
-     * (ou role ADMIN/MANAGER) conduzem o ciclo (papel "gestor", override). Os demais papéis derivam
-     * da diretoria do usuário; sem diretoria específica, é "demandante".
-     */
-    private static String papelDoUsuario(AuthenticatedUser u) {
-        if (u.isSuperadmin()) return "gestor";
-        String role = u.role() == null ? "" : u.role().toUpperCase();
-        if (role.equals("ADMIN") || role.equals("MANAGER")) return "gestor";
-        String dir = u.diretoria() == null ? "" : u.diretoria().trim().toUpperCase();
-        return switch (dir) {
-            case "SGJT" -> "sgjt";
-            case "GEJUT" -> "gejut";
-            case "CCA" -> "cca";
-            case "DG" -> "dg";
-            default -> "demandante";
-        };
+    /** Escopo (cca/demandante/gejut/sgjt) responsável por transitar a partir de um estado (tabela 8.8). */
+    private static String escopoDoEstado(String estado) {
+        return PAPEL_DO_ESTADO.getOrDefault(estado, "cca");
     }
 
     /**
-     * Exige que o usuário atual seja o ator responsável pelo estado (ou gestor). Se não há contexto
-     * de autenticação (módulo novo, auth ainda parcial), não bloqueia — o gating é best-effort e só
-     * atua quando o usuário está identificado.
+     * Estados da Revisão em que o demandante ainda pode editar seus itens. RF-67/69: só dentro da
+     * janela (`janela_aberta`); uma vez encerrada (`em_rito_validacao`) o demandante não ajusta mais.
      */
-    private void exigirAtor(String estado) {
-        var opt = AuthContext.getCurrentUser();
-        if (opt.isEmpty()) return;
-        String papel = papelDoUsuario(opt.get());
-        if (papel.equals("gestor")) return;
-        String requerido = PAPEL_DO_ESTADO.getOrDefault(estado, "cca");
-        if (!papel.equals(requerido)) {
-            throw new ApiException(403, "Apenas o ator responsável (" + ATOR_LABEL.getOrDefault(requerido, requerido) +
-                    ") pode agir neste estado.");
-        }
-    }
-
-    /** Estados da Revisão em que o demandante ainda pode editar seus itens (dentro da janela). */
     private static final java.util.Set<String> ESTADOS_REVISAO_EDITAVEL =
-            java.util.Set.of("janela_aberta", "em_rito_validacao");
+            java.util.Set.of("janela_aberta");
 
     /** Campos do item do PCA-TIC editáveis durante a Revisão (RF-62/63). */
     private static final java.util.Set<String> CAMPOS_REVISAVEIS =
@@ -320,10 +341,13 @@ public class CicloOrcamentarioService {
         }
         Integer ano = item.get("ano") == null ? null : ((Number) item.get("ano")).intValue();
         CicloDto revisao = ano == null ? null : revisaoEditavelDoAno(ano);
+        // RF-67/69 — se a janela já encerrou por data, o auto-fechamento bloqueia a edição aqui.
+        if (revisao != null) revisao = sincronizarPorData(revisao.id(), userId);
         if (revisao == null || !ESTADOS_REVISAO_EDITAVEL.contains(revisao.estado())) {
             throw new ApiException(409, "Nenhuma revisão aberta para edição neste exercício");
         }
-        exigirAtor(revisao.estado());
+        // Edição de conteúdo é ação compartilhada Autoridade + Editor do escopo Demandante (RN-GERAL-01).
+        papelService.exigirEdicao("demandante", revisao.id());
         Map<String, Object> filtrado = new java.util.LinkedHashMap<>();
         for (Map.Entry<String, Object> e : campos.entrySet()) {
             if (CAMPOS_REVISAVEIS.contains(e.getKey())) {
@@ -346,6 +370,8 @@ public class CicloOrcamentarioService {
 
     @Transactional
     public CicloDto publicar(long id, Long userId) {
+        // RN-GERAL-01/04 — registrar a publicação é ato de Autoridade (Gestor CCA no estado remessa_dg).
+        papelService.exigirTransicao(escopoDoEstado(getCiclo(id).estado()), id);
         var rows = jdbc.queryForList(
                 "UPDATE ciclo_orcamentario SET estado = 'publicado', publicado_em = NOW(), updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND estado <> 'publicado' RETURNING *",
@@ -357,13 +383,14 @@ public class CicloOrcamentarioService {
         // RF-41/75 — a publicação pela DG grava a próxima versão do PCA-TIC (snapshot imutável)
         // do ano do ciclo (Formação = Versão 1 do ano seguinte; Revisão = próxima versão do vigente).
         if (ciclo.ano() != null) {
-            // RF-55 — carimba a origem (ciclo/PROAD/finalidade) nos itens ANTES do snapshot,
-            // para que a versão imutável preserve a rastreabilidade.
+            // RF-41/49/58/75 — materializa cada IFO do ano como Item de PCA oficial (linha em `pcas`)
+            // ANTES do snapshot, para que a versão publicada já contenha as inclusões da Formação/Revisão.
+            ifoService.converterNaPublicacao(ciclo.ano(), userId);
+            // RF-55 — carimba a origem (ciclo/PROAD/finalidade) em TODOS os itens do ano (inclusive os
+            // recém-materializados) ANTES do snapshot, para que a versão imutável preserve a rastreabilidade.
             pcaService.stampOrigem(ciclo.ano(), ciclo.id(), ciclo.proad(), ciclo.finalidade(), userId);
             // RF-45/46 — a numeração da versão só avança aqui (publicação), com proveniência do ciclo.
             pcaService.createSnapshot(ciclo.ano(), userId, ciclo.id(), ciclo.finalidade());
-            // RF-41/49/75 — cada IFO do ano é convertido 1:1 em código oficial de Item de PCA.
-            ifoService.converterNaPublicacao(ciclo.ano(), userId);
         }
         return ciclo;
     }

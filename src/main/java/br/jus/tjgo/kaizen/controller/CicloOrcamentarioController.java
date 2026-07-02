@@ -89,6 +89,13 @@ public class CicloOrcamentarioController {
         return service.retroceder(id, userId);
     }
 
+    // POST /api/ciclo-orcamentario/:id/sincronizar-data — aplica o auto-fechamento por data (RF-31/69)
+    @PostMapping("/{id:\\d+}/sincronizar-data")
+    public CicloDto sincronizarData(@PathVariable long id,
+                                    @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.sincronizarPorData(id, userId);
+    }
+
     // POST /api/ciclo-orcamentario/:id/publicar — publicação pela DG (RF-41/75)
     @PostMapping("/{id:\\d+}/publicar")
     public CicloDto publicar(@PathVariable long id,

@@ -59,6 +59,44 @@ public class IfoController {
         return service.enviarCca(id, userId);
     }
 
+    // PATCH /api/ifo/:id/validar { camada: 1|2 } — validação por demanda em 2 camadas (§8.4)
+    @PatchMapping("/{id:\\d+}/validar")
+    public IfoDto validar(@PathVariable long id, @RequestBody Map<String, Object> body,
+                          @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        int camada = body.get("camada") instanceof Number n ? n.intValue()
+                : Integer.parseInt(String.valueOf(body.getOrDefault("camada", "1")).trim());
+        return service.validarDemanda(id, camada, userId);
+    }
+
+    // POST /api/ifo/:id/devolver-demanda — devolve a demanda à edição (RN-GERAL-07)
+    @PostMapping("/{id:\\d+}/devolver-demanda")
+    public IfoDto devolverDemanda(@PathVariable long id,
+                                  @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.devolverDemanda(id, userId);
+    }
+
+    // POST /api/ifo/particao/remeter { cicloId, unidadeId } — remessa da partição à CCA (RN-GERAL-08)
+    @PostMapping("/particao/remeter")
+    public Map<String, Object> remeterParticao(@RequestBody Map<String, Object> body,
+                                               @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        int n = service.remeterParticao(num(body.get("cicloId")), num(body.get("unidadeId")), userId);
+        return Map.of("remetidas", n);
+    }
+
+    // POST /api/ifo/particao/devolver { cicloId, unidadeId } — devolução da partição pela CCA
+    @PostMapping("/particao/devolver")
+    public Map<String, Object> devolverParticao(@RequestBody Map<String, Object> body,
+                                                @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        int n = service.devolverParticao(num(body.get("cicloId")), num(body.get("unidadeId")), userId);
+        return Map.of("devolvidas", n);
+    }
+
+    private static long num(Object v) {
+        if (v instanceof Number n) return n.longValue();
+        if (v == null) throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Parâmetro numérico obrigatório");
+        return Long.parseLong(String.valueOf(v).trim());
+    }
+
     // DELETE /api/ifo/:id — remove um IFO em rascunho
     @DeleteMapping("/{id:\\d+}")
     public ResponseEntity<Void> excluir(@PathVariable long id) {
