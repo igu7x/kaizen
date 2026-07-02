@@ -62,6 +62,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 
 // ============================================================
@@ -335,6 +336,36 @@ interface DonutChartCardProps {
   data: Array<{ name: string; value: number; color: string; desc?: string }>;
   total: number;
 }
+
+/** Rótulo de percentual desenhado dentro do anel da rosca (fatias muito finas são omitidas). */
+function renderDonutPctLabel(props: {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+}) {
+  const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+  if (!percent || percent < 0.03) return null;
+  const RAD = Math.PI / 180;
+  const r = (innerRadius + outerRadius) / 2;
+  const x = cx + r * Math.cos(-midAngle * RAD);
+  const y = cy + r * Math.sin(-midAngle * RAD);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#ffffff"
+      fontSize={9}
+      fontWeight={700}
+      textAnchor="middle"
+      dominantBaseline="central"
+    >
+      {Math.round(percent * 100)}%
+    </text>
+  );
+}
 function DonutChartCard({ title, data, total }: DonutChartCardProps) {
   const chartData = data.filter((d) => d.value > 0);
   const [hovering, setHovering] = useState(false);
@@ -369,6 +400,8 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 paddingAngle={2}
                 dataKey="value"
                 isAnimationActive={false}
+                labelLine={false}
+                label={chartData.length > 0 ? renderDonutPctLabel : undefined}
               >
                 {(chartData.length > 0
                   ? chartData
@@ -406,10 +439,10 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 style={{ backgroundColor: d.color }}
               />
               <span className="text-slate-700 flex-1 truncate" title={d.desc}>
-                {d.name}
-              </span>
-              <span className="text-slate-500 font-medium tabular-nums">
-                {total > 0 ? Math.round((d.value / total) * 100) : 0}%
+                {d.name}{" "}
+                <span className="text-slate-500 font-medium tabular-nums">
+                  ({d.value})
+                </span>
               </span>
             </div>
           ))}
@@ -444,7 +477,6 @@ function BarChartCard({ title, data }: BarChartCardProps) {
             layout="vertical"
             margin={{ top: 5, right: 40, left: 0, bottom: 5 }}
           >
-            <CartesianGrid horizontal={false} stroke="#f1f5f9" />
             <XAxis type="number" hide />
             <YAxis
               type="category"
@@ -468,6 +500,11 @@ function BarChartCard({ title, data }: BarChartCardProps) {
               barSize={14}
               isAnimationActive={false}
             >
+              <LabelList
+                dataKey="value"
+                position="right"
+                style={{ fontSize: 11, fontWeight: 600, fill: "#334155" }}
+              />
               {data.map((_, idx) => (
                 <Cell
                   key={idx}
@@ -513,20 +550,13 @@ function ColumnChartCard({ title, data }: ColumnChartCardProps) {
           <BarChart
             key={animKey}
             data={data}
-            margin={{ top: 18, right: 10, left: -22, bottom: 5 }}
+            margin={{ top: 18, right: 10, left: 0, bottom: 5 }}
           >
-            <CartesianGrid vertical={false} stroke="#f1f5f9" />
             <XAxis
               dataKey="name"
               tick={{ fontSize: 10, fill: "#475569" }}
               tickLine={false}
               axisLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: "#94a3b8" }}
-              tickLine={false}
-              axisLine={false}
-              allowDecimals={false}
             />
             <RTooltip formatter={(v: number) => [`${v}`, "Processos"]} />
             <Bar
