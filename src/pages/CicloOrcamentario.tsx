@@ -13,6 +13,7 @@ import {
   Info,
   Loader2,
   CheckCircle2,
+  FileDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,12 @@ import {
   type Ciclo,
   type EntradaCiclo,
 } from "@/services/cicloOrcamentarioApi";
+import { ifoApi } from "@/services/dfdApi";
+import { getPcaComparison, getPcaVersoesInfo } from "@/services/pcaApi";
+import { generateDfdTicPDF } from "@/utils/generateDfdTicPDF";
+import { generateRevisaoPcaPDF } from "@/utils/generateRevisaoPcaPDF";
+import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
+import { EditoresPanel } from "@/components/contratacoes/ciclo/EditoresPanel";
 
 /**
  * Ciclo Orçamentário — a oficina onde se produz ou altera um PCA-TIC (RF-59/60).
@@ -256,6 +263,37 @@ export default function CicloOrcamentario() {
     }
   };
 
+  // RF-33 — emite a "Proposta de DFD-TIC" (Formação) com os IFOs do ciclo.
+  const gerarDfdPdf = async () => {
+    if (!ciclo) return;
+    try {
+      const ifos = await ifoApi.listar(ciclo.ano, ciclo.id);
+      generateDfdTicPDF(ciclo, ifos);
+    } catch {
+      toast.error("Não foi possível gerar a Proposta de DFD-TIC.");
+    }
+  };
+
+  // RF-71 — emite a "Proposta de Revisão do PCA-TIC" com a lista consolidada de alterações (RF-68).
+  const gerarRevisaoPdf = async () => {
+    if (!ciclo) return;
+    try {
+      const versoes = await getPcaVersoesInfo(anoVigente).catch(() => []);
+      const ultima = versoes.length ? Math.max(...versoes.map((v) => v.versao)) : undefined;
+      const cmp = await getPcaComparison(anoVigente, undefined, ultima);
+      generateRevisaoPcaPDF({
+        ano: anoVigente,
+        versao: ciclo.versaoGerada ?? janela.calendario.versao,
+        proad: ciclo.proad,
+        incluidos: cmp.incluidos,
+        alterados: cmp.alterados,
+        excluidos: cmp.excluidos,
+      });
+    } catch {
+      toast.error("Não foi possível gerar a Proposta de Revisão.");
+    }
+  };
+
   const formacaoEstado = ciclo?.finalidade === "formacao" ? ciclo.estado : null;
   const aguardandoProad = formacaoEstado === "aberto_aguardando_proad";
 
@@ -349,12 +387,20 @@ export default function CicloOrcamentario() {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                 Linha do tempo · Formação {anoFormacao}
               </h2>
-              {formacaoEstado && (
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                  {estadoLabel(formacaoEstado)}
-                  {ciclo?.proad ? ` · PROAD ${ciclo.proad}` : ""}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {formacaoEstado && (
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                    {estadoLabel(formacaoEstado)}
+                    {ciclo?.proad ? ` · PROAD ${ciclo.proad}` : ""}
+                  </span>
+                )}
+                {ciclo?.finalidade === "formacao" && (
+                  <Button variant="outline" size="sm" onClick={gerarDfdPdf}>
+                    <FileDown className="h-4 w-4 mr-1.5" />
+                    Proposta de DFD-TIC
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* RF-22: registrar o PROAD de instrução */}
@@ -426,11 +472,19 @@ export default function CicloOrcamentario() {
                   ? `Rito da ${janela.calendario.ordem}ª revisão · gera ${rotuloVersao(janela.calendario.versao)}`
                   : "Revisão · nenhuma janela aberta"}
               </h2>
-              {ciclo?.finalidade === "revisao" && (
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  {estadoLabel(ciclo.estado)}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {ciclo?.finalidade === "revisao" && (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    {estadoLabel(ciclo.estado)}
+                  </span>
+                )}
+                {ciclo?.finalidade === "revisao" && (
+                  <Button variant="outline" size="sm" onClick={gerarRevisaoPdf}>
+                    <FileDown className="h-4 w-4 mr-1.5" />
+                    Proposta de Revisão
+                  </Button>
+                )}
+              </div>
             </div>
             {janela.ativa ? (
               <>
@@ -480,6 +534,17 @@ export default function CicloOrcamentario() {
                 </div>
               </div>
             )}
+          </section>
+        )}
+
+        {/* Cap. 8 — juntada de atas dos comitês (RN-GERAL-04) e Editores por escopo (RN-GERAL-09) */}
+        {ciclo && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Governança do ciclo · Cap. 8
+            </h2>
+            <AtasComitesPanel cicloId={ciclo.id} />
+            <EditoresPanel cicloId={ciclo.id} />
           </section>
         )}
       </div>

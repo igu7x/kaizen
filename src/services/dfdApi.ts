@@ -58,6 +58,9 @@ export const dfdApi = {
 export type BlocoIfo = BlocoDfd | "nova_contratacao";
 export type EstadoIfo = "rascunho" | "enviado_cca" | "consolidado" | "publicado";
 
+/** §8.4 — estado de validação da demanda (IFO) nas 2 camadas. */
+export type ValidacaoDemanda = "em_edicao" | "validada_1a" | "validada_2a";
+
 export interface Ifo {
   id: number;
   codigo: string;
@@ -75,6 +78,8 @@ export interface Ifo {
   motivoReclassificacao: string | null;
   /** Código oficial de Item de PCA atribuído na publicação (RF-49); null antes disso. */
   codigoOficial: string | null;
+  /** §8.4 — validação por demanda: em_edicao → validada_1a → validada_2a. */
+  validacao: ValidacaoDemanda | null;
   contratos: number[];
 }
 
@@ -117,5 +122,27 @@ export const ifoApi = {
   /** Remove um IFO em rascunho. */
   excluir(id: number): Promise<void> {
     return apiClient.delete<void>(`/api/ifo/${id}`);
+  },
+
+  // ---------- validação por demanda (§8.4 / Cap. 8) ----------
+
+  /** §8.4 — valida a demanda numa das 2 camadas (1 = Gestor Demandante, 2 = Diretor de Área). */
+  validar(id: number, camada: 1 | 2): Promise<Ifo> {
+    return apiClient.patch<Ifo>(`/api/ifo/${id}/validar`, { camada });
+  },
+
+  /** RN-GERAL-07 — devolve a demanda à edição, derrubando as validações. */
+  devolverDemanda(id: number): Promise<Ifo> {
+    return apiClient.post<Ifo>(`/api/ifo/${id}/devolver-demanda`);
+  },
+
+  /** RN-GERAL-08 — remessa da partição (todas as demandas da unidade no ciclo) à CCA; congela. */
+  remeterParticao(cicloId: number, unidadeId: number): Promise<{ remetidas: number }> {
+    return apiClient.post<{ remetidas: number }>(`/api/ifo/particao/remeter`, { cicloId, unidadeId });
+  },
+
+  /** Devolução da partição pela CCA à área (reabre para edição). */
+  devolverParticao(cicloId: number, unidadeId: number): Promise<{ devolvidas: number }> {
+    return apiClient.post<{ devolvidas: number }>(`/api/ifo/particao/devolver`, { cicloId, unidadeId });
   },
 };

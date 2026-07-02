@@ -16,10 +16,10 @@ export interface EdicaoItemRevisao {
 /**
  * Contrato de API do Ciclo Orçamentário (Orçamento de TIC).
  *
- * IMPORTANTE: o backend deste módulo AINDA NÃO EXISTE (DFD/IFO/Ciclo/finalidade são novos —
- * ver Especificação de Requisitos, Cap. 2–6). Este arquivo define a superfície tipada que o
- * time de backend deve implementar sob `/api/ciclo-orcamentario`. Os resolvedores puros
- * (por data) já funcionam client-side e não dependem do backend.
+ * Backend implementado sob `/api/ciclo-orcamentario` (CicloOrcamentarioController/Service):
+ * entrada, formação, PROAD, revisão (ordinária/extraordinária), estado, avançar/retroceder,
+ * editar item da revisão, sincronizar por data (auto-fechamento) e publicar. Os resolvedores puros
+ * (por data) também funcionam client-side para degradar quando o backend não responde.
  *
  * Conceitos-chave:
  *  - Finalidade: Formação (gera a Versão 1 do ano seguinte) | Revisão (gera Versões 2–4 do ano vigente).
@@ -214,5 +214,10 @@ export const cicloOrcamentarioApi = {
   /** RF-41/75 — publicação pela DG: grava a próxima versão no PCA-TIC e converte IFO→código oficial. */
   publicar(cicloId: number): Promise<Ciclo> {
     return apiClient.post<Ciclo>(`${BASE}/${cicloId}/publicar`);
+  },
+
+  /** RF-31/69 — aplica o auto-fechamento por data (corte 01/03; janela de revisão encerrada). */
+  sincronizarData(cicloId: number): Promise<Ciclo> {
+    return apiClient.post<Ciclo>(`${BASE}/${cicloId}/sincronizar-data`);
   },
 };
