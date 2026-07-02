@@ -394,6 +394,33 @@ public class ProcessosNegocioService {
         // Sem a chave, a versão gerida pelo ciclo de homologação é preservada.
         pushScalar(data, fields, values, "versao");
 
+        // Editar um processo VIGENTE (validado_final) invalida a homologação: volta o status para
+        // 'em_elaboracao' e limpa as marcas de validação/recusa (mesmo efeito do iniciarRevisao).
+        // A versão volta a incrementar quando o processo for re-homologado (validarFinal). Demais
+        // status ficam intactos — preserva a correção in-layer do Revisor (validado_autor) e do
+        // Compliance (validado_diretoria), que validam a própria camada sem devolver ao autor.
+        List<Map<String, Object>> atual = jdbc.queryForList(
+                "SELECT status FROM processos_negocio WHERE id = ? AND is_deleted = FALSE", id);
+        boolean reabrirCiclo = !atual.isEmpty()
+                && "validado_final".equals(str(atual.get(0).get("status")));
+        if (reabrirCiclo) {
+            fields.add("status = 'em_elaboracao'");
+            fields.add("recusado_em = NULL");
+            fields.add("recusado_por_user_id = NULL");
+            fields.add("recusado_por_nome = NULL");
+            fields.add("recusado_camada = NULL");
+            fields.add("recusa_motivo = NULL");
+            fields.add("validado_autor_user_id = NULL");
+            fields.add("validado_autor_nome = NULL");
+            fields.add("validado_autor_em = NULL");
+            fields.add("validado_diretoria_user_id = NULL");
+            fields.add("validado_diretoria_nome = NULL");
+            fields.add("validado_diretoria_em = NULL");
+            fields.add("validado_final_user_id = NULL");
+            fields.add("validado_final_nome = NULL");
+            fields.add("validado_final_em = NULL");
+        }
+
         if (fields.isEmpty()) {
             return findById(id);
         }
