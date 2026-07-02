@@ -9,6 +9,8 @@ import {
   Layers,
   Send,
   Trash2,
+  CheckCircle2,
+  Undo2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -75,6 +77,19 @@ const ESTADO_IFO_LABEL: Record<string, string> = {
   enviado_cca: "Enviado à CCA",
   consolidado: "Consolidado",
   publicado: "Publicado",
+};
+
+// §8.4 — validação por demanda em 2 camadas.
+const VALIDACAO_LABEL: Record<string, string> = {
+  em_edicao: "Em edição",
+  validada_1a: "Validada 1ª",
+  validada_2a: "Validada 2ª",
+};
+
+const VALIDACAO_BADGE: Record<string, string> = {
+  em_edicao: "bg-slate-100 text-slate-600 border-slate-200",
+  validada_1a: "bg-amber-100 text-amber-700 border-amber-200",
+  validada_2a: "bg-emerald-100 text-emerald-700 border-emerald-200",
 };
 
 /**
@@ -188,6 +203,28 @@ export default function DfdConsulta() {
       carregarIfos();
     } catch {
       toast.error("Não foi possível enviar à CCA.");
+    }
+  };
+
+  // §8.4 — validação por demanda: 1ª camada (Gestor Demandante) → 2ª camada (Diretor de Área).
+  const validarDemanda = async (ifo: Ifo, camada: 1 | 2) => {
+    try {
+      await ifoApi.validar(ifo.id, camada);
+      toast.success(`${ifo.codigo} validado (${camada}ª camada).`);
+      carregarIfos();
+    } catch {
+      toast.error("Não foi possível validar (só a Autoridade Demandante pode; a 2ª exige a 1ª).");
+    }
+  };
+
+  // RN-GERAL-07 — devolve a demanda à edição, derrubando as validações.
+  const devolverDemanda = async (ifo: Ifo) => {
+    try {
+      await ifoApi.devolverDemanda(ifo.id);
+      toast.success(`${ifo.codigo} devolvido à edição.`);
+      carregarIfos();
+    } catch {
+      toast.error("Não foi possível devolver a demanda.");
     }
   };
 
@@ -347,6 +384,8 @@ export default function DfdConsulta() {
             ifos={ifos}
             onEnviarCca={enviarCca}
             onExcluir={excluirIfo}
+            onValidar={validarDemanda}
+            onDevolver={devolverDemanda}
             onRenovarSim={(ifo) => marcarInteresse(ifo, true)}
             onRenovarNao={(ifo) => {
               setMotivo("");
@@ -531,12 +570,16 @@ function PainelIfos({
   ifos,
   onEnviarCca,
   onExcluir,
+  onValidar,
+  onDevolver,
   onRenovarSim,
   onRenovarNao,
 }: {
   ifos: Ifo[];
   onEnviarCca: (ifo: Ifo) => void;
   onExcluir: (ifo: Ifo) => void;
+  onValidar: (ifo: Ifo, camada: 1 | 2) => void;
+  onDevolver: (ifo: Ifo) => void;
   onRenovarSim: (ifo: Ifo) => void;
   onRenovarNao: (ifo: Ifo) => void;
 }) {
@@ -610,6 +653,15 @@ function PainelIfos({
                     PCA {ifo.codigoOficial}
                   </Badge>
                 )}
+                {ifo.estado === "rascunho" && (
+                  <Badge
+                    variant="outline"
+                    className={cn("text-xs", VALIDACAO_BADGE[ifo.validacao ?? "em_edicao"])}
+                    title="Validação por demanda (§8.4)"
+                  >
+                    {VALIDACAO_LABEL[ifo.validacao ?? "em_edicao"]}
+                  </Badge>
+                )}
                 <Badge
                   variant="outline"
                   className={cn("text-xs", ESTADO_IFO_BADGE[ifo.estado] ?? ESTADO_IFO_BADGE.rascunho)}
@@ -618,6 +670,39 @@ function PainelIfos({
                 </Badge>
                 {ifo.estado === "rascunho" && (
                   <div className="flex items-center gap-1">
+                    {(ifo.validacao ?? "em_edicao") === "em_edicao" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-amber-700 border-amber-200 hover:bg-amber-50"
+                        onClick={() => onValidar(ifo, 1)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                        Validar 1ª
+                      </Button>
+                    )}
+                    {ifo.validacao === "validada_1a" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                        onClick={() => onValidar(ifo, 2)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                        Validar 2ª (Diretor)
+                      </Button>
+                    )}
+                    {ifo.validacao != null && ifo.validacao !== "em_edicao" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-slate-500 hover:bg-slate-100"
+                        onClick={() => onDevolver(ifo)}
+                      >
+                        <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+                        Devolver
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
