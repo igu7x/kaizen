@@ -106,12 +106,9 @@ export default function Areas() {
     subordinacao: "",
     gestor: "",
     cargo_gestor: "",
-    foto_gestor: "",
     subdiretor: "",
     cargo_subdiretor: "",
-    foto_subdiretor: "",
     gerido_por_unidade_superior: false,
-    colaboradores_vinculados: "",
     codigo_api: "",
   });
 
@@ -246,12 +243,9 @@ export default function Areas() {
         subordinacao: area.subordinacao || "",
         gestor: area.gestor || "",
         cargo_gestor: area.cargo_gestor || "",
-        foto_gestor: area.foto_gestor || "",
         subdiretor: area.subdiretor || "",
         cargo_subdiretor: area.cargo_subdiretor || "",
-        foto_subdiretor: area.foto_subdiretor || "",
         gerido_por_unidade_superior: area.gerido_por_unidade_superior || false,
-        colaboradores_vinculados: area.colaboradores_vinculados || "",
         codigo_api: area.codigo_api || "",
       });
       setGestorSearch(area.gestor || "");
@@ -264,12 +258,9 @@ export default function Areas() {
         subordinacao: "",
         gestor: "",
         cargo_gestor: "",
-        foto_gestor: "",
         subdiretor: "",
         cargo_subdiretor: "",
-        foto_subdiretor: "",
         gerido_por_unidade_superior: false,
-        colaboradores_vinculados: "",
         codigo_api: "",
       });
       setGestorSearch("");
@@ -287,12 +278,9 @@ export default function Areas() {
       subordinacao: "",
       gestor: "",
       cargo_gestor: "",
-      foto_gestor: "",
       subdiretor: "",
       cargo_subdiretor: "",
-      foto_subdiretor: "",
       gerido_por_unidade_superior: false,
-      colaboradores_vinculados: "",
     });
     setGestorSearch("");
     setSubdiretorSearch("");
@@ -803,16 +791,7 @@ export default function Areas() {
                   : "Não"}
               </p>
             </div>
-            {areaSelecionada.colaboradores_vinculados && (
-              <div>
-                <p className="text-xs text-gray-500 uppercase mb-1">
-                  Colaboradores
-                </p>
-                <p className="text-gray-900">
-                  {areaSelecionada.colaboradores_vinculados}
-                </p>
-              </div>
-            )}
+
           </div>
         </div>
 
@@ -1148,19 +1127,7 @@ export default function Areas() {
                 className="mt-1"
               />
             </div>
-            
-            <div>
-              <Label htmlFor="codigo_api">Código API</Label>
-              <Input
-                id="codigo_api"
-                value={formData.codigo_api || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, codigo_api: e.target.value })
-                }
-                className="mt-1"
-                placeholder="Código utilizado na integração com API"
-              />
-            </div>
+
 
             {/* Subordinação */}
             <div>
@@ -1262,19 +1229,7 @@ export default function Areas() {
               />
             </div>
 
-            {/* Foto do Gestor */}
-            <div>
-              <Label htmlFor="foto_gestor">Foto do Gestor (URL)</Label>
-              <Input
-                id="foto_gestor"
-                value={formData.foto_gestor}
-                onChange={(e) =>
-                  setFormData({ ...formData, foto_gestor: e.target.value })
-                }
-                placeholder="URL da foto do gestor"
-                className="mt-1"
-              />
-            </div>
+
 
             {/* Sub-diretor */}
             <div className="relative">
@@ -1350,38 +1305,20 @@ export default function Areas() {
               />
             </div>
 
-            {/* Foto do Sub-diretor */}
             <div>
-              <Label htmlFor="foto_subdiretor">Foto do Sub-diretor (URL)</Label>
+              <Label htmlFor="codigo_api">Código API</Label>
               <Input
-                id="foto_subdiretor"
-                value={formData.foto_subdiretor}
+                id="codigo_api"
+                value={formData.codigo_api || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, foto_subdiretor: e.target.value })
+                  setFormData({ ...formData, codigo_api: e.target.value })
                 }
-                placeholder="URL da foto do sub-diretor"
                 className="mt-1"
+                placeholder="Código utilizado na integração com API"
               />
             </div>
 
-            {/* Colaboradores Vinculados */}
-            <div>
-              <Label htmlFor="colaboradores_vinculados">
-                Colaboradores Vinculados
-              </Label>
-              <Input
-                id="colaboradores_vinculados"
-                value={formData.colaboradores_vinculados}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    colaboradores_vinculados: e.target.value,
-                  })
-                }
-                placeholder="Lista de colaboradores (separados por vírgula)"
-                className="mt-1"
-              />
-            </div>
+
           </div>
 
           <DialogFooter>
@@ -1478,19 +1415,7 @@ export default function Areas() {
                 className="mt-1"
               />
             </div>
-            
-            <div>
-              <Label htmlFor="unidade_codigo_api">Código API</Label>
-              <Input
-                id="unidade_codigo_api"
-                value={formUnidade.codigo_api || ""}
-                onChange={(e) =>
-                  setFormUnidade({ ...formUnidade, codigo_api: e.target.value })
-                }
-                className="mt-1"
-                placeholder="Código utilizado na integração com API"
-              />
-            </div>
+
 
             {/* Descrição */}
             <div>
@@ -1629,6 +1554,20 @@ export default function Areas() {
               <p className="text-xs text-gray-500 mt-1">
                 Somente unidades principais podem ter subordinados
               </p>
+            </div>
+
+            {/* Código API */}
+            <div>
+              <Label htmlFor="unidade_codigo_api">Código API</Label>
+              <Input
+                id="unidade_codigo_api"
+                value={formUnidade.codigo_api || ""}
+                onChange={(e) =>
+                  setFormUnidade({ ...formUnidade, codigo_api: e.target.value })
+                }
+                className="mt-1"
+                placeholder="Código utilizado na integração com API"
+              />
             </div>
           </div>
 
