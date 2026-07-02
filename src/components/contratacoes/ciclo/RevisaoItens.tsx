@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Loader2, Lock } from "lucide-react";
+import { Pencil, Loader2, Lock, CheckCircle2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,11 +21,24 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { pcaApi } from "@/services/pcaApi";
 import { cicloOrcamentarioApi } from "@/services/cicloOrcamentarioApi";
+import type { ValidacaoDemanda } from "@/services/dfdApi";
 import type { PcaItem } from "@/types";
 import { MESES_ORDENADOS } from "@/types";
 
 const STATUS_OPCOES = ["Não Iniciada", "Em andamento", "Concluída"];
 const TODAS = "todas";
+
+// §8.4 — validação por demanda (item) em 2 camadas.
+const VALIDACAO_LABEL: Record<string, string> = {
+  em_edicao: "Em edição",
+  validada_1a: "Validada 1ª",
+  validada_2a: "Validada 2ª",
+};
+const VALIDACAO_BADGE: Record<string, string> = {
+  em_edicao: "bg-slate-100 text-slate-600 border-slate-200",
+  validada_1a: "bg-amber-100 text-amber-700 border-amber-200",
+  validada_2a: "bg-emerald-100 text-emerald-700 border-emerald-200",
+};
 
 function formatBRL(v: number | null | undefined): string {
   return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -56,6 +69,7 @@ export function RevisaoItens({
   const [editando, setEditando] = useState<PcaItem | null>(null);
   const [form, setForm] = useState<EdicaoState | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [validacoes, setValidacoes] = useState<Record<number, ValidacaoDemanda>>({});
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -68,9 +82,42 @@ export function RevisaoItens({
     }
   }, [anoVigente]);
 
+  const carregarValidacoes = useCallback(async () => {
+    try {
+      const rows = await cicloOrcamentarioApi.getValidacoesRevisao(anoVigente);
+      const map: Record<number, ValidacaoDemanda> = {};
+      for (const r of rows) map[r.pca_id] = r.validacao;
+      setValidacoes(map);
+    } catch {
+      setValidacoes({});
+    }
+  }, [anoVigente]);
+
   useEffect(() => {
     carregar();
-  }, [carregar]);
+    carregarValidacoes();
+  }, [carregar, carregarValidacoes]);
+
+  // §8.4 — valida a alteração do item (1ª = Gestor Demandante, 2ª = Diretor).
+  const validarItem = async (item: PcaItem, camada: 1 | 2) => {
+    try {
+      await cicloOrcamentarioApi.validarItemRevisao(item.id, camada);
+      toast.success(`Item ${item.item_pca} validado (${camada}ª camada).`);
+      carregarValidacoes();
+    } catch {
+      toast.error("Não foi possível validar (só a Autoridade Demandante; a 2ª exige a 1ª).");
+    }
+  };
+
+  const devolverItem = async (item: PcaItem) => {
+    try {
+      await cicloOrcamentarioApi.devolverItemRevisao(item.id);
+      toast.success(`Item ${item.item_pca} devolvido à edição.`);
+      carregarValidacoes();
+    } catch {
+      toast.error("Não foi possível devolver o item.");
+    }
+  };
 
   const areas = useMemo(
     () => Array.from(new Set(itens.map((i) => i.area_demandante).filter(Boolean))).sort(),
@@ -104,6 +151,8 @@ export function RevisaoItens({
       });
       setItens((prev) => prev.map((i) => (i.id === atualizado.id ? { ...i, ...atualizado } : i)));
       toast.success("Item revisado.");
+      // RN-GERAL-07 — editar derruba as validações; reflete o novo estado.
+      carregarValidacoes();
       setEditando(null);
       setForm(null);
     } catch {
@@ -166,15 +215,52 @@ export function RevisaoItens({
                 {formatBRL(item.valor_estimado)}
               </span>
               {editavel && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8"
-                  onClick={() => abrirEdicao(item)}
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                  Editar
-                </Button>
+                <>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${VALIDACAO_BADGE[validacoes[item.id] ?? "em_edicao"]}`}
+                    title="Validação por demanda (§8.4)"
+                  >
+                    {VALIDACAO_LABEL[validacoes[item.id] ?? "em_edicao"]}
+                  </Badge>
+                  <Button size="sm" variant="outline" className="h-8" onClick={() => abrirEdicao(item)}>
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                    Editar
+                  </Button>
+                  {(validacoes[item.id] ?? "em_edicao") === "em_edicao" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-amber-700 border-amber-200 hover:bg-amber-50"
+                      onClick={() => validarItem(item, 1)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                      Validar 1ª
+                    </Button>
+                  )}
+                  {validacoes[item.id] === "validada_1a" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                      onClick={() => validarItem(item, 2)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                      Validar 2ª (Diretor)
+                    </Button>
+                  )}
+                  {validacoes[item.id] != null && validacoes[item.id] !== "em_edicao" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-slate-500 hover:bg-slate-100"
+                      onClick={() => devolverItem(item)}
+                    >
+                      <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+                      Devolver
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           ))}

@@ -1,5 +1,6 @@
 import { apiClient } from "./apiClient";
 import type { PcaItem } from "@/types";
+import type { ValidacaoDemanda } from "./dfdApi";
 import {
   CALENDARIO_REVISOES,
   type CalendarioRevisao,
@@ -219,5 +220,27 @@ export const cicloOrcamentarioApi = {
   /** RF-31/69 — aplica o auto-fechamento por data (corte 01/03; janela de revisão encerrada). */
   sincronizarData(cicloId: number): Promise<Ciclo> {
     return apiClient.post<Ciclo>(`${BASE}/${cicloId}/sincronizar-data`);
+  },
+
+  /** §8.4 — estado de validação por item (pca_id → validacao) da revisão aberta do exercício. */
+  getValidacoesRevisao(ano: number): Promise<{ pca_id: number; validacao: ValidacaoDemanda }[]> {
+    return apiClient.get<{ pca_id: number; validacao: ValidacaoDemanda }[]>(
+      `${BASE}/revisao/validacoes?ano=${ano}`,
+    );
+  },
+
+  /** §8.4 — valida a alteração de um item na revisão (1ª = Gestor Demandante, 2ª = Diretor). */
+  validarItemRevisao(itemId: number, camada: 1 | 2): Promise<{ pca_id: number; validacao: ValidacaoDemanda }> {
+    return apiClient.patch<{ pca_id: number; validacao: ValidacaoDemanda }>(
+      `${BASE}/revisao/item/${itemId}/validar`,
+      { camada },
+    );
+  },
+
+  /** RN-GERAL-07 — devolve a alteração do item à edição, derrubando as validações. */
+  devolverItemRevisao(itemId: number): Promise<{ pca_id: number; validacao: ValidacaoDemanda }> {
+    return apiClient.post<{ pca_id: number; validacao: ValidacaoDemanda }>(
+      `${BASE}/revisao/item/${itemId}/devolver`,
+    );
   },
 };

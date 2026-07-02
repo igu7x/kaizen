@@ -42,6 +42,7 @@ import {
   type BlocoDfd,
   type Ifo,
 } from "@/services/dfdApi";
+import { cicloOrcamentarioApi } from "@/services/cicloOrcamentarioApi";
 import { cn } from "@/lib/utils";
 
 const ANOS = [2025, 2026, 2027];
@@ -111,6 +112,23 @@ export default function DfdConsulta() {
   const [selIds, setSelIds] = useState<Set<number>>(new Set());
   const [criandoIfo, setCriandoIfo] = useState(false);
 
+  // Ciclo de formação do exercício — amarra os IFOs à esteira (permite a remessa da partição, §8.4).
+  const [cicloId, setCicloId] = useState<number | null>(null);
+  useEffect(() => {
+    setCicloId(null);
+  }, [ano]);
+
+  const garantirCicloId = useCallback(async (): Promise<number | null> => {
+    if (cicloId != null) return cicloId;
+    try {
+      const c = await cicloOrcamentarioApi.getOuAbrirFormacao(ano);
+      setCicloId(c.id);
+      return c.id;
+    } catch {
+      return null;
+    }
+  }, [cicloId, ano]);
+
   useEffect(() => {
     areasApi
       .getAllUnidades()
@@ -174,8 +192,10 @@ export default function DfdConsulta() {
         selecionados.length === 1
           ? selecionados[0].objeto || "Item de formação"
           : `Banda-envelope (${selecionados.length} contratos)`;
+      const cid = await garantirCicloId();
       await ifoApi.criar({
         ano,
+        cicloId: cid,
         bloco,
         natureza: "continuada",
         objeto,
@@ -225,6 +245,26 @@ export default function DfdConsulta() {
       carregarIfos();
     } catch {
       toast.error("Não foi possível devolver a demanda.");
+    }
+  };
+
+  // RN-GERAL-08 — remessa da partição (todos os IFO da unidade no ciclo) à CCA; só com tudo em 2ª camada.
+  const remeterParticao = async () => {
+    if (unidadeId == null) {
+      toast.error("Selecione uma unidade específica para remeter a partição.");
+      return;
+    }
+    const cid = await garantirCicloId();
+    if (cid == null) {
+      toast.error("Não foi possível resolver o ciclo de formação.");
+      return;
+    }
+    try {
+      const r = await ifoApi.remeterParticao(cid, unidadeId);
+      toast.success(`Partição remetida à CCA (${r.remetidas} demanda(s)).`);
+      carregarIfos();
+    } catch {
+      toast.error("Remessa bloqueada: todas as demandas precisam estar validadas em 2ª camada.");
     }
   };
 
@@ -386,6 +426,8 @@ export default function DfdConsulta() {
             onExcluir={excluirIfo}
             onValidar={validarDemanda}
             onDevolver={devolverDemanda}
+            onRemeter={remeterParticao}
+            podeRemeter={unidadeId != null}
             onRenovarSim={(ifo) => marcarInteresse(ifo, true)}
             onRenovarNao={(ifo) => {
               setMotivo("");
@@ -572,6 +614,8 @@ function PainelIfos({
   onExcluir,
   onValidar,
   onDevolver,
+  onRemeter,
+  podeRemeter,
   onRenovarSim,
   onRenovarNao,
 }: {
@@ -580,6 +624,8 @@ function PainelIfos({
   onExcluir: (ifo: Ifo) => void;
   onValidar: (ifo: Ifo, camada: 1 | 2) => void;
   onDevolver: (ifo: Ifo) => void;
+  onRemeter: () => void;
+  podeRemeter: boolean;
   onRenovarSim: (ifo: Ifo) => void;
   onRenovarNao: (ifo: Ifo) => void;
 }) {
@@ -591,6 +637,17 @@ function PainelIfos({
           <Badge variant="outline" className="ml-1 bg-gray-100 text-gray-600 border-gray-200">
             {ifos.length}
           </Badge>
+          {podeRemeter && ifos.some((i) => i.estado === "rascunho") && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto h-8 text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+              onClick={onRemeter}
+            >
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Remeter partição à CCA
+            </Button>
+          )}
         </CardTitle>
         <p className="text-xs text-gray-500">
           Bandas-envelope (IFO-{"{"}ano{"}"}-NNNN) geradas a partir da DFD-Consulta. Na publicação viram código oficial de PCA.
