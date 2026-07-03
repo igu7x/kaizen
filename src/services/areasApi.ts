@@ -12,13 +12,10 @@ export interface Area {
   gestor?: string;
   gestor_user_id?: number | null;
   cargo_gestor?: string;
-  foto_gestor?: string;
   subdiretor?: string;
   subdiretor_user_id?: number | null;
   cargo_subdiretor?: string;
-  foto_subdiretor?: string;
   gerido_por_unidade_superior: boolean;
-  colaboradores_vinculados?: string;
   ordem_linha: number;
   ordem_posicao: number;
   ativo: boolean;
@@ -35,12 +32,9 @@ export interface CreateAreaDto {
   subordinacao?: string;
   gestor?: string;
   cargo_gestor?: string;
-  foto_gestor?: string;
   subdiretor?: string;
   cargo_subdiretor?: string;
-  foto_subdiretor?: string;
   gerido_por_unidade_superior?: boolean;
-  colaboradores_vinculados?: string;
   codigo_api?: string;
 }
 
@@ -50,12 +44,9 @@ export interface UpdateAreaDto {
   subordinacao?: string;
   gestor?: string;
   cargo_gestor?: string;
-  foto_gestor?: string;
   subdiretor?: string;
   cargo_subdiretor?: string;
-  foto_subdiretor?: string;
   gerido_por_unidade_superior?: boolean;
-  colaboradores_vinculados?: string;
   codigo_api?: string;
 }
 
