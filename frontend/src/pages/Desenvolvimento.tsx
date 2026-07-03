@@ -9,6 +9,7 @@ import {
   AmbienteAdmin,
   CreateAmbienteDto,
 } from "@/services/ambientesApi";
+import { databaseApi, DatabaseQueryResult } from "@/services/databaseApi";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,13 @@ import {
   Shield,
   X,
   UserPlus,
+  Database,
+  Play,
+  TableProperties,
+  ListFilter,
+  AlertCircle,
+  CheckCircle2,
+  Download
 } from "lucide-react";
 
 export default function Desenvolvimento() {
@@ -76,6 +84,55 @@ export default function Desenvolvimento() {
   const [loadingDevs, setLoadingDevs] = useState(false);
   const [savingDev, setSavingDev] = useState(false);
   const [newDevEmail, setNewDevEmail] = useState("");
+
+  // SQL Console state
+  const [sqlQuery, setSqlQuery] = useState("");
+  const [sqlLoading, setSqlLoading] = useState(false);
+  const [sqlResult, setSqlResult] = useState<DatabaseQueryResult | null>(null);
+  const [sqlError, setSqlError] = useState<string | null>(null);
+  const [sqlViewMode, setSqlViewMode] = useState<"table" | "expanded">("table");
+
+  const handleExecuteSql = async () => {
+    if (!sqlQuery.trim()) return;
+    try {
+      setSqlLoading(true);
+      setSqlError(null);
+      const result = await databaseApi.executeQuery(sqlQuery);
+      setSqlResult(result);
+    } catch (err: any) {
+      setSqlResult(null);
+      setSqlError(err.response?.data?.error || err.message || "Erro desconhecido");
+    } finally {
+      setSqlLoading(false);
+    }
+  };
+
+  const exportToCsv = () => {
+    if (!sqlResult || sqlResult.rows.length === 0) return;
+    const headers = Object.keys(sqlResult.rows[0]);
+    const csvRows = [];
+    csvRows.push(headers.join(","));
+    
+    for (const row of sqlResult.rows) {
+      const values = headers.map(header => {
+        const val = row[header];
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      });
+      csvRows.push(values.join(","));
+    }
+    
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "consulta_sql.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Carregar ambientes
   const carregarAmbientes = async () => {
@@ -462,6 +519,175 @@ export default function Desenvolvimento() {
               ))}
             </div>
           )}
+
+          {/* Console SQL */}
+          <div className="mt-12 bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="bg-white/5 border-b border-white/10 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-violet-500/20 p-2 rounded-lg">
+                  <Database className="h-4 w-4 text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold text-sm">Console SQL</h3>
+                  <p className="text-white/40 text-xs">Consulta de Banco de Dados</p>
+                </div>
+              </div>
+              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-normal">
+                <Shield className="h-3 w-3 mr-1" />
+                Read-Only
+              </Badge>
+            </div>
+
+            {/* Editor Area */}
+            <div className="p-5 border-b border-white/10 bg-black/20">
+              <div className="relative">
+                <Textarea
+                  value={sqlQuery}
+                  onChange={(e) => setSqlQuery(e.target.value)}
+                  placeholder="SELECT * FROM users LIMIT 10;"
+                  className="font-mono text-sm bg-transparent border-white/10 text-cyan-300 placeholder:text-white/20 min-h-[120px] focus-visible:ring-violet-500/50"
+                  spellCheck={false}
+                />
+                <Button 
+                  onClick={handleExecuteSql}
+                  disabled={sqlLoading || !sqlQuery.trim()}
+                  className="absolute bottom-3 right-3 bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-900/20 transition-all"
+                  size="sm"
+                >
+                  {sqlLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2 fill-current" />
+                  )}
+                  Executar Consulta
+                </Button>
+              </div>
+            </div>
+
+            {/* Results Area */}
+            {(sqlResult || sqlError || sqlLoading) && (
+              <div className="p-0 bg-transparent relative">
+                {sqlLoading && (
+                  <div className="absolute inset-0 z-10 bg-[#060d18]/80 backdrop-blur-sm flex flex-col items-center justify-center text-white/50">
+                    <Loader2 className="h-6 w-6 animate-spin mb-2 text-violet-400" />
+                    <span className="text-xs">Executando consulta...</span>
+                  </div>
+                )}
+
+                {sqlError && (
+                  <div className="p-5 m-5 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-red-400 font-medium text-sm">Erro na execução</h4>
+                      <p className="text-red-400/80 text-xs mt-1 font-mono">{sqlError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {sqlResult && (
+                  <div className="flex flex-col">
+                    <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between bg-white/5">
+                      <div className="flex items-center gap-4 text-xs text-white/50">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">{sqlResult.count} resultados</span>
+                        </span>
+                        <span>Tempo: {sqlResult.executionTimeMs}ms</span>
+                      </div>
+                      
+                      {sqlResult.rows.length > 0 && (
+                        <div className="flex items-center bg-black/20 rounded-lg p-1 border border-white/5">
+                          <button
+                            onClick={() => setSqlViewMode("table")}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${sqlViewMode === "table" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/70"}`}
+                          >
+                            <TableProperties className="h-3.5 w-3.5" />
+                            Tabela
+                          </button>
+                          <button
+                            onClick={() => setSqlViewMode("expanded")}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${sqlViewMode === "expanded" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/70"}`}
+                          >
+                            <ListFilter className="h-3.5 w-3.5" />
+                            Expandido
+                          </button>
+                          <div className="w-px h-4 bg-white/10 mx-1"></div>
+                          <button
+                            onClick={exportToCsv}
+                            className="px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 text-white/40 hover:text-white/70 transition-colors"
+                            title="Exportar como CSV"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            CSV
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-5 max-h-[500px] overflow-auto custom-scrollbar">
+                      {sqlResult.rows.length === 0 ? (
+                        <div className="text-center py-8 text-white/40 text-sm">
+                          Nenhum resultado retornado pela consulta.
+                        </div>
+                      ) : sqlViewMode === "table" ? (
+                        <div className="overflow-x-auto rounded-lg border border-white/10">
+                          <table className="w-full text-left text-sm text-white/70">
+                            <thead className="text-xs uppercase bg-white/5 text-white/40">
+                              <tr>
+                                {Object.keys(sqlResult.rows[0]).map((key) => (
+                                  <th key={key} className="px-4 py-3 font-medium border-b border-white/10 whitespace-nowrap">
+                                    {key}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sqlResult.rows.map((row, i) => (
+                                <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                  {Object.keys(row).map((key) => (
+                                    <td key={key} className="px-4 py-2 whitespace-nowrap font-mono text-xs">
+                                      {row[key] !== null ? (
+                                        String(row[key]).length > 64 
+                                          ? String(row[key]).substring(0, 64) + "..." 
+                                          : String(row[key])
+                                      ) : (
+                                        <span className="text-white/20 italic">null</span>
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {sqlResult.rows.map((row, i) => (
+                            <div key={i} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                              <div className="text-xs text-white/30 mb-3 pb-2 border-b border-white/10 font-mono">
+                                # Record {i + 1}
+                              </div>
+                              <div className="grid grid-cols-[minmax(120px,max-content)_1fr] gap-x-6 gap-y-2 text-sm">
+                                {Object.keys(row).map((key) => (
+                                  <div key={key} className="contents font-mono">
+                                    <div className="text-cyan-400/70 font-semibold">{key}</div>
+                                    <div className="text-white break-words">
+                                      {row[key] !== null ? String(row[key]) : <span className="text-white/20 italic">null</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
