@@ -8,8 +8,8 @@ import {
   X as XIcon,
   Pencil,
   Trash2,
-  Send,
   CheckCircle2,
+  ClipboardCheck,
   XCircle,
   Loader2,
   FileDown,
@@ -29,6 +29,8 @@ import {
   isComplianceOfficerEmail,
   camposObrigatoriosFaltantes,
   validarComiteParaEnvio,
+  temEditores,
+  edicaoConcluida,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -222,6 +224,10 @@ export function ProcessoAcoesFooter({
       processosNegocioApi.enviar(processo.id),
     );
   };
+  const handleConcluirEdicao = () =>
+    handleAcao("Conclusão da edição", () =>
+      processosNegocioApi.concluirEdicao(processo.id),
+    );
   const handleValidarAutor = () =>
     handleAcao("Validação do autor", () =>
       processosNegocioApi.validarAutor(processo.id),
@@ -330,9 +336,19 @@ export function ProcessoAcoesFooter({
     (isEditorAtribuido && statusEmPreenchimento) ||
     (isDiretorDaArea && processo.status === "validado_autor") ||
     (isComplianceOfficer && processo.status === "validado_diretoria");
+  // Edição concluída (sinal do Editor atribuído). Enquanto houver editor e ele não concluir,
+  // o Responsável fica bloqueado de validar a camada 1.
+  const temEditoresAtribuidos = temEditores(processo);
+  const edicaoJaConcluida = edicaoConcluida(processo);
+  const editorPendente = temEditoresAtribuidos && !edicaoJaConcluida;
+  // O Editor atribuído pode sinalizar "Concluir edição" enquanto o processo está em preenchimento.
+  const podeConcluirEdicao =
+    isEditorAtribuido && statusEmPreenchimento && !edicaoJaConcluida;
   const podeEnviar =
     ehResponsavel &&
-    (processo.status === "em_elaboracao" || processo.status === "recusado");
+    (processo.status === "em_elaboracao" || processo.status === "recusado") &&
+    // Só valida quando não há editor pendente (editor concluiu, ou não há editor atribuído).
+    !editorPendente;
   const podeValidarAutor = ehResponsavel && processo.status === "enviado";
   const podeValidarDiretoria =
     isDiretorDaArea && processo.status === "validado_autor";
@@ -409,6 +425,27 @@ export function ProcessoAcoesFooter({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Sinal do Editor atribuído: pendente (só aparece pra quem não é o editor). */}
+          {editorPendente && statusEmPreenchimento && !isEditorAtribuido && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+              Aguardando o editor concluir a edição
+            </span>
+          )}
+          {podeConcluirEdicao && (
+            <Button
+              type="button"
+              onClick={handleConcluirEdicao}
+              disabled={!!busy}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {busy === "Conclusão da edição" ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ClipboardCheck className="h-4 w-4 mr-2" />
+              )}
+              Concluir edição
+            </Button>
+          )}
           {podeEditar && (
             <Button
               type="button"
@@ -425,14 +462,14 @@ export function ProcessoAcoesFooter({
               type="button"
               onClick={handleEnviar}
               disabled={!!busy}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {busy === "Envio para validação" ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Send className="h-4 w-4 mr-2" />
+                <CheckCircle2 className="h-4 w-4 mr-2" />
               )}
-              Enviar para Validação
+              Validar
             </Button>
           )}
           {podeRecusar && (
@@ -507,32 +544,9 @@ export function ProcessoAcoesFooter({
                 Recusar Processo
               </h3>
               <p className="text-sm text-slate-500 mt-1">
-                Informe o motivo da recusa. O autor poderá editar e re-enviar.
+                O processo volta para o <strong>Responsável</strong> (1ª camada)
+                com o motivo abaixo e a validação recomeça do início.
               </p>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-slate-700">
-                Camada
-              </Label>
-              <div className="mt-1 flex gap-2">
-                {(["autor", "diretoria", "final"] as const).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setRecusaCamada(c)}
-                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${recusaCamada === c
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-                      }`}
-                  >
-                    {c === "autor"
-                      ? "Autor"
-                      : c === "diretoria"
-                        ? "Diretoria"
-                        : "Final"}
-                  </button>
-                ))}
-              </div>
             </div>
             <div>
               <Label className="text-xs font-semibold text-slate-700">

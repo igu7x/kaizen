@@ -164,6 +164,11 @@ function corFaixaStatus(p: ProcessoNegocio): string {
   return "bg-emerald-500";
 }
 
+/** Extrai a sigla de um nome "SIGLA - Nome completo" → "SIGLA". Sem separador, retorna o texto. */
+function siglaDe(nome: string): string {
+  return nome.split(/\s+[-–—]\s+/)[0].trim();
+}
+
 /** Formata a Data da Versão (periodo, "YYYY-MM-DD") como DD/MM/AAAA sem deslocar fuso. */
 function formatDataVersao(periodo: string | null | undefined) {
   if (!periodo) return "—";
@@ -346,7 +351,8 @@ function renderDonutPctLabel(props: {
   percent: number;
 }) {
   const { cx, cy, midAngle, outerRadius, percent } = props;
-  if (!percent || percent < 0.03) return null;
+  // Mostra o rótulo de TODA fatia com valor (>0), inclusive as bem pequenas.
+  if (!percent) return null;
   const RAD = Math.PI / 180;
   const r = outerRadius + 9;
   // Fatia única de 100%: o recharts joga o midAngle pra 180° (esquerda). Fixa o rótulo
@@ -384,7 +390,6 @@ function renderDonutPctLabel(props: {
 }
 function DonutChartCard({ title, data, total }: DonutChartCardProps) {
   const chartData = data.filter((d) => d.value > 0);
-  const [hovering, setHovering] = useState(false);
   const sweepKey = useMemo(
     () => chartData.map((d) => `${d.name}:${d.value}`).join("|"),
     [chartData],
@@ -398,8 +403,6 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
           ref={sweepRef}
           className="w-[160px] h-[150px] flex-shrink-0 relative [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible"
           style={{ overflow: "visible" }}
-          onMouseEnter={() => setHovering(true)}
-          onMouseLeave={() => setHovering(false)}
         >
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -436,16 +439,6 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
               )}
             </PieChart>
           </ResponsiveContainer>
-          {chartData.length > 0 && !hovering && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-xl font-bold text-slate-800 leading-none">
-                {total}
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5 leading-none">
-                total
-              </span>
-            </div>
-          )}
         </div>
         <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-0">
           {data.map((d) => (
@@ -779,6 +772,8 @@ export default function EscritorioProcessos() {
       (st === "em_elaboracao" || st === "recusado") &&
       ehResponsavelDoProcesso(p)
     ) {
+      // Ao EDITAR, o Responsável (e qualquer papel com acesso à edição) valida na hora — não
+      // depende do Editor concluir. A regra do Editor só afeta o "Validar" do rodapé em leitura.
       return { exec: (id: number) => processosNegocioApi.enviar(id) };
     }
     if (st === "validado_autor" && ehRevisor) {
@@ -828,23 +823,24 @@ export default function EscritorioProcessos() {
       .slice(0, 6);
   }, [filtered]);
 
-  // Donut "por área" — agrupado pela área responsável principal do processo (top 4 + "Outras").
+  // Donut "por área" — agrupado pela área responsável principal do processo. Mostra TODAS as
+  // áreas (sem bucket "Outras"), coloridas ciclicamente pela paleta.
   const areaChartData = useMemo(() => {
     const counts = new Map<string, number>();
     filtered.forEach((p) => {
-      const a =
-        (p.areas_responsaveis || [])[0] || p.diretoria || "Não informada";
+      // Só a sigla da diretoria/área (ex.: "DITI - Diretoria..." → "DITI").
+      const a = siglaDe(
+        (p.areas_responsaveis || [])[0] || p.diretoria || "Não informada",
+      );
       counts.set(a, (counts.get(a) || 0) + 1);
     });
-    const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-    const arr = sorted.slice(0, 4).map(([name, value], i) => ({
-      name,
-      value,
-      color: DIRETORIA_COLORS[i % DIRETORIA_COLORS.length],
-    }));
-    const rest = sorted.slice(4).reduce((s, [, v]) => s + v, 0);
-    if (rest > 0) arr.push({ name: "Outras", value: rest, color: "#94a3b8" });
-    return arr;
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], i) => ({
+        name,
+        value,
+        color: DIRETORIA_COLORS[i % DIRETORIA_COLORS.length],
+      }));
   }, [filtered]);
 
   const revisaoPeriodoData = useMemo(() => {
@@ -905,6 +901,8 @@ export default function EscritorioProcessos() {
   // HANDLERS
   // ============================================================
   const handleNovoProcesso = () => {
+    // Sempre editável: sem resetar o modo, criar logo após ver um preview abriria travado.
+    setFormModo("editar");
     setEditing(null);
     setFormOpen(true);
   };
