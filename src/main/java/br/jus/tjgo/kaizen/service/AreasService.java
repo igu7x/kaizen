@@ -69,15 +69,14 @@ public class AreasService {
                         "WHERE COALESCE(ordem_linha, 0) = 0 AND COALESCE(ativo, TRUE) = TRUE", Integer.class);
 
         Map<String, Object> area = jdbc.queryForMap(
-                "INSERT INTO cadastros_areas (nome, sigla, subordinacao, gestor, cargo_gestor, foto_gestor, " +
-                        "subdiretor, cargo_subdiretor, foto_subdiretor, gerido_por_unidade_superior, " +
-                        "colaboradores_vinculados, ordem_linha, ordem_posicao, dominio, codigo_api, created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?) RETURNING *",
+                "INSERT INTO cadastros_areas (nome, sigla, subordinacao, gestor, cargo_gestor, " +
+                        "subdiretor, cargo_subdiretor, gerido_por_unidade_superior, " +
+                        "ordem_linha, ordem_posicao, dominio, codigo_api, created_by, updated_by) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?) RETURNING *",
                 nomeVal, siglaVal, orNull(dto.get("subordinacao")),
-                orNull(dto.get("gestor")), orNull(dto.get("cargo_gestor")), orNull(dto.get("foto_gestor")),
-                orNull(dto.get("subdiretor")), orNull(dto.get("cargo_subdiretor")), orNull(dto.get("foto_subdiretor")),
+                orNull(dto.get("gestor")), orNull(dto.get("cargo_gestor")),
+                orNull(dto.get("subdiretor")), orNull(dto.get("cargo_subdiretor")),
                 dto.get("gerido_por_unidade_superior") != null ? dto.get("gerido_por_unidade_superior") : false,
-                orNull(dto.get("colaboradores_vinculados")),
                 nextPos == null ? 0 : nextPos, dominio != null ? dominio : "SGJT", orNull(dto.get("codigo_api")), userId, userId);
 
         domainService.invalidateCache();
@@ -138,26 +137,24 @@ public class AreasService {
                         "gestor_user_id = CASE WHEN ?::INTEGER IS NOT NULL THEN ?::INTEGER " +
                         "WHEN ?::VARCHAR IS NOT NULL THEN (SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1) " +
                         "ELSE gestor_user_id END, " +
-                        "cargo_gestor = COALESCE(?, cargo_gestor), foto_gestor = COALESCE(?, foto_gestor), " +
+                        "cargo_gestor = COALESCE(?, cargo_gestor), " +
                         "subdiretor = COALESCE(?, subdiretor), " +
                         "subdiretor_user_id = CASE WHEN ?::INTEGER IS NOT NULL THEN ?::INTEGER " +
                         "WHEN ?::VARCHAR IS NOT NULL THEN (SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1) " +
                         "ELSE subdiretor_user_id END, " +
-                        "cargo_subdiretor = COALESCE(?, cargo_subdiretor), foto_subdiretor = COALESCE(?, foto_subdiretor), " +
+                        "cargo_subdiretor = COALESCE(?, cargo_subdiretor), " +
                         "gerido_por_unidade_superior = COALESCE(?, gerido_por_unidade_superior), " +
-                        "colaboradores_vinculados = COALESCE(?, colaboradores_vinculados), " +
                         "codigo_api = COALESCE(?, codigo_api), " +
                         "updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND COALESCE(ativo, TRUE) = TRUE RETURNING *",
                 nomeVal, siglaVal, orNull(dto.get("subordinacao")),
                 orNull(dto.get("gestor")),
                 gestorUserId, gestorUserId, orNull(dto.get("gestor")), orNull(dto.get("gestor")),
-                orNull(dto.get("cargo_gestor")), orNull(dto.get("foto_gestor")),
+                orNull(dto.get("cargo_gestor")),
                 orNull(dto.get("subdiretor")),
                 subdiretorUserId, subdiretorUserId, orNull(dto.get("subdiretor")), orNull(dto.get("subdiretor")),
-                orNull(dto.get("cargo_subdiretor")), orNull(dto.get("foto_subdiretor")),
+                orNull(dto.get("cargo_subdiretor")),
                 dto.get("gerido_por_unidade_superior"),
-                orNull(dto.get("colaboradores_vinculados")),
                 orNull(dto.get("codigo_api")),
                 userId, id);
 
