@@ -1005,7 +1005,9 @@ public class CadastrosProjetosService {
         if (userId == null) {
             return false;
         }
-        if ("ADMIN".equals(role)) {
+        // ADMIN e o perfil Gestor (role MANAGER) podem gerenciar entregas/evidências de qualquer
+        // projeto; senão, precisa ser o gestor específico cadastrado no projeto.
+        if ("ADMIN".equals(role) || "MANAGER".equals(role)) {
             return true;
         }
         var rows = jdbc.queryForList(
