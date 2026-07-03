@@ -839,10 +839,11 @@ export function EscritorioProjetos() {
 
   const ehGestorDeProjeto = meusProjetos.length > 0;
 
-  // Permissão para editar entregas do projeto aberto: ADMIN OU gestor do próprio projeto
+  // Permissão para editar entregas do projeto aberto (Adicionar/Evidências/Ações):
+  // ADMIN, perfil Gestor (role MANAGER) OU o gestor específico do próprio projeto.
   const podeEditarEntregas = useMemo(() => {
     if (!projetoDetalhes) return false;
-    if (user?.role === "ADMIN") return true;
+    if (user?.role === "ADMIN" || user?.role === "MANAGER") return true;
     const rawId = user?.id;
     if (rawId === undefined || rawId === null || rawId === "") return false;
     const guid = (projetoDetalhes as any).gestor_user_id;
