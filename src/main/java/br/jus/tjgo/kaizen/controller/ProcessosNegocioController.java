@@ -112,8 +112,19 @@ public class ProcessosNegocioController {
         if (!podeEditarProcesso(processo, id)) {
             return ResponseEntity.status(403).body(Map.of("error", "Você não tem permissão para editar este processo."));
         }
+        // Editor atribuído (só editor) mantém a edição PENDENTE (precisa acionar "Concluir edição");
+        // Responsável / Gestor (superadmin) / Revisor / Compliance CONCLUEM ao salvar — editam, salvam
+        // e validam direto, sem esperar o editor.
+        Map<String, Object> user = lookupUser(userId);
+        boolean isSuper = user != null && Boolean.TRUE.equals(user.get("is_superadmin"));
+        boolean isCompliance = user != null && isComplianceOfficer(str(user.get("email")));
+        Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
+        boolean isRevisor = gestorUserId != null && eqId(gestorUserId, userId);
+        boolean concluiEdicaoAoSalvar =
+                isSuper || isCompliance || isRevisor || isResponsavelProcesso(id, userId);
         try {
-            Map<String, Object> updated = service.update(id, body, userId);
+            Map<String, Object> updated = service.update(id, body, userId, concluiEdicaoAoSalvar,
+                    userName(user, "Usuário"));
             if (updated == null) {
                 return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
             }
@@ -172,6 +183,33 @@ public class ProcessosNegocioController {
         Map<String, Object> updated = service.iniciarRevisao(id, userId);
         if (updated == null) {
             return ResponseEntity.status(400).body(Map.of("error", "A revisão só pode ser iniciada para um processo vigente (Modelo K1)."));
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    // PATCH /api/processos-negocio/:id/concluir-edicao — Editor atribuído sinaliza que terminou
+    @Operation(summary = "Concluir edição (Editor atribuído)", description = "O Editor atribuído (ou o Gestor do Escritório) sinaliza que terminou a versão completa. Só a partir daí o Responsável pode validar a camada 1. Exige status 'em_elaboracao' ou 'recusado'.")
+    @ApiResponses({ @ApiResponse(responseCode = "200", description = "Edição concluída"),
+            @ApiResponse(responseCode = "403", description = "Não é o Editor atribuído nem superadmin"),
+            @ApiResponse(responseCode = "400", description = "Processo não está em elaboração/recusado") })
+    @PatchMapping("/{id:\\d+}/concluir-edicao")
+    public ResponseEntity<?> concluirEdicao(@PathVariable long id) {
+        Long userId = getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
+        }
+        Map<String, Object> processo = service.findById(id);
+        if (processo == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        Map<String, Object> user = lookupUser(userId);
+        boolean isSuper = user != null && Boolean.TRUE.equals(user.get("is_superadmin"));
+        if (!isSuper && !isEditorProcesso(id, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Editor atribuído ao processo pode concluir a edição."));
+        }
+        Map<String, Object> updated = service.concluirEdicao(id, userId, userName(user, "Editor"));
+        if (updated == null) {
+            return ResponseEntity.status(400).body(Map.of("error", "Só é possível concluir a edição de um processo em elaboração ou recusado."));
         }
         return ResponseEntity.ok(updated);
     }
