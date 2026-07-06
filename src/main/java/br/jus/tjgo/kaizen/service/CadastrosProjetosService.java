@@ -133,14 +133,31 @@ public class CadastrosProjetosService {
             return null;
         }
         Map<String, Object> projeto = rows.get(0);
-        // A view vw_cadastros_projetos_completo (herdada, pré-cutover) pode não expor as colunas
-        // de cargo da Governança. Lê direto da tabela e injeta no retorno para garantir que o
-        // "Cargo" do Patrocinador/Gestor chegue ao formulário e ao TAP.
-        var cargos = jdbc.queryForList(
-                "SELECT patrocinador_cargo, gestor_cargo FROM cadastros_projetos WHERE id = ?", id);
-        if (!cargos.isEmpty()) {
-            projeto.put("patrocinador_cargo", cargos.get(0).get("patrocinador_cargo"));
-            projeto.put("gestor_cargo", cargos.get(0).get("gestor_cargo"));
+        // A view vw_cadastros_projetos_completo (herdada, pré-cutover) pode não expor colunas
+        // adicionadas depois. Lê direto da tabela (+ join no PCA) e injeta no retorno: o "Cargo"
+        // da Governança e o item do PCA vinculado à contratação (id + rótulo para o TAP).
+        var extra = jdbc.queryForList(
+                "SELECT p.patrocinador_cargo, p.gestor_cargo, p.pca_item_id, " +
+                        "pca.code AS pca_item_code, COALESCE(pca.description, pca.object_name) AS pca_item_objeto " +
+                        "FROM cadastros_projetos p LEFT JOIN pcas pca ON pca.id = p.pca_item_id " +
+                        "WHERE p.id = ?", id);
+        if (!extra.isEmpty()) {
+            Map<String, Object> e = extra.get(0);
+            projeto.put("patrocinador_cargo", e.get("patrocinador_cargo"));
+            projeto.put("gestor_cargo", e.get("gestor_cargo"));
+            projeto.put("pca_item_id", e.get("pca_item_id"));
+            Object code = e.get("pca_item_code");
+            if (code != null) {
+                String codeStr = String.valueOf(code).replaceFirst("^0+", "");
+                if (codeStr.isEmpty()) {
+                    codeStr = String.valueOf(code);
+                }
+                Object objeto = e.get("pca_item_objeto");
+                projeto.put("pca_item_label",
+                        "PCA " + codeStr + (objeto != null ? " — " + objeto : ""));
+            } else {
+                projeto.put("pca_item_label", null);
+            }
         }
         projeto.put("instrumentos", jdbc.queryForList(
                 "SELECT ip.id, ip.instrumento_id, i.nome AS instrumento_nome, i.tipo AS instrumento_tipo " +
@@ -204,11 +221,11 @@ public class CadastrosProjetosService {
                         "ancoragem_estrategica_plano_gestao, ancoragem_estrategica_pep, ancoragem_estrategica_programa_x, " +
                         "escopo_sintetico, fora_do_escopo, data_prevista_inicio, data_prevista_conclusao, " +
                         "status, prioridade, complexidade, abrangencia, " +
-                        "havera_contratacao, valor_estimado_contratacao, " +
+                        "havera_contratacao, valor_estimado_contratacao, pca_item_id, " +
                         "saude, saude_justificativa, saude_ultima_revisao, " +
                         "tap_vinculado, observacoes_gerais, diretoria, areas_vinculadas_ids, " +
                         "created_by, updated_by) VALUES (" +
-                        "NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, " +
+                        "NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, " +
                         "?, ?, ?, ?::int[], ?, ?) RETURNING *",
                 str(data.get("codigo")) != null ? str(data.get("codigo")) : "",
                 data.get("nome"),
@@ -232,6 +249,7 @@ public class CadastrosProjetosService {
                 orDefault(str(data.get("abrangencia")), "uma_unidade"),
                 boolOrFalse(data.get("havera_contratacao")),
                 numOrNull(data.get("valor_estimado_contratacao")),
+                numOrNull(data.get("pca_item_id")),
                 orDefault(str(data.get("saude")), "verde"),
                 emptyToNull(str(data.get("saude_justificativa"))),
                 emptyToNull(str(data.get("tap_vinculado"))),
@@ -292,7 +310,7 @@ public class CadastrosProjetosService {
                 "ancoragem_estrategica_plano_gestao", "ancoragem_estrategica_pep",
                 "ancoragem_estrategica_programa_x", "escopo_sintetico", "fora_do_escopo", "data_prevista_inicio",
                 "data_prevista_conclusao", "status", "prioridade", "complexidade", "abrangencia",
-                "havera_contratacao", "valor_estimado_contratacao", "saude", "saude_justificativa",
+                "havera_contratacao", "valor_estimado_contratacao", "pca_item_id", "saude", "saude_justificativa",
                 "tap_vinculado", "observacoes_gerais", "diretoria", "areas_vinculadas_ids");
 
         List<String> fields = new ArrayList<>();
@@ -580,6 +598,12 @@ public class CadastrosProjetosService {
         if (data.containsKey("status")) {
             fields.add("status = ?");
             values.add(data.get("status"));
+            // Data de Conclusão: carimba ao concluir; limpa ao voltar para outro status.
+            if ("concluida".equals(String.valueOf(data.get("status")))) {
+                fields.add("data_conclusao = COALESCE(data_conclusao, CURRENT_DATE)");
+            } else {
+                fields.add("data_conclusao = NULL");
+            }
         }
         if (data.containsKey("quantidade_sprints")) {
             fields.add("quantidade_sprints = ?");
@@ -620,8 +644,10 @@ public class CadastrosProjetosService {
     }
 
     public void updateEntregaStatus(long id, String status) {
-        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ? AND ativo = TRUE",
-                status, id);
+        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, " +
+                "data_conclusao = CASE WHEN ? = 'concluida' THEN COALESCE(data_conclusao, CURRENT_DATE) ELSE NULL END, " +
+                "updated_at = NOW() WHERE id = ? AND ativo = TRUE",
+                status, status, id);
     }
 
     public boolean deleteEntrega(long id, Long userId) {
@@ -835,7 +861,7 @@ public class CadastrosProjetosService {
     public void recalcularStatusEntrega(long entregaId) {
         var tarefas = getTarefasByEntregaId(entregaId);
         if (tarefas.isEmpty()) {
-            jdbc.update("UPDATE cadastros_projetos_entregas SET status = 'nao_iniciada', updated_at = NOW() WHERE id = ?", entregaId);
+            jdbc.update("UPDATE cadastros_projetos_entregas SET status = 'nao_iniciada', data_conclusao = NULL, updated_at = NOW() WHERE id = ?", entregaId);
             return;
         }
         boolean todasAFazer = tarefas.stream().allMatch(t -> "a_fazer".equals(t.get("status")));
@@ -846,7 +872,9 @@ public class CadastrosProjetosService {
         } else if (todasFeitas) {
             novoStatus = "concluida";
         }
-        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ?", novoStatus, entregaId);
+        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, " +
+                "data_conclusao = CASE WHEN ? = 'concluida' THEN COALESCE(data_conclusao, CURRENT_DATE) ELSE NULL END, " +
+                "updated_at = NOW() WHERE id = ?", novoStatus, novoStatus, entregaId);
         Map<String, Object> entrega = getEntregaById(entregaId);
         if (entrega != null) {
             calcularProgresso(((Number) entrega.get("projeto_id")).longValue());
