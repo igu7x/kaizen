@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ShieldCheck,
@@ -14,10 +14,13 @@ import {
   processosNegocioApi,
   ProcessoNegocio,
   isK1,
+  isResponsavel,
+  isComplianceOfficerEmail,
   camposObrigatoriosFaltantes,
   aprovacaoDoComite,
   COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
+import { areasApi, Area } from "@/services/areasApi";
 
 interface ProcessoAprovacaoK1Props {
   /** Processo PERSISTIDO — a aprovação opera sobre ele (aprovacoes/apreciacao), não sobre o form. */
@@ -49,6 +52,39 @@ export function ProcessoAprovacaoK1({
   const { user } = useAuth();
   const isSuperadmin =
     (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
+  const [areas, setAreas] = useState<Area[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    areasApi
+      .getAll()
+      .then((data) => {
+        if (!cancelled) setAreas(data);
+      })
+      .catch(() => {
+        /* sem áreas, cai só nos demais papéis */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Anexar/remover a aprovação do comitê é liberado para quem faz parte das camadas de validação
+  // do processo: Gestor do Escritório (superadmin), Compliance Officer (camada 3), Revisor/Diretor
+  // da área (camada 2 — gestor_user_id) ou Responsável do Processo (camada 1).
+  const podeAnexarAprovacao = useMemo(() => {
+    if (isSuperadmin) return true;
+    if (isComplianceOfficerEmail(user?.email)) return true;
+    if (isResponsavel(processo, user?.id)) return true;
+    const area = areas.find(
+      (a) =>
+        a.sigla?.trim().toUpperCase() ===
+        processo.diretoria?.trim().toUpperCase(),
+    );
+    return (
+      area?.gestor_user_id != null &&
+      Number(area.gestor_user_id) === Number(user?.id)
+    );
+  }, [isSuperadmin, user?.email, user?.id, processo, areas]);
   // Comitê cuja aprovação está sendo anexada/removida no momento (sigla) ou null.
   const [aprovacaoBusyComite, setAprovacaoBusyComite] = useState<string | null>(
     null,
@@ -195,7 +231,7 @@ export function ProcessoAprovacaoK1({
                           </a>
                         )
                       )}
-                      {isSuperadmin && (
+                      {podeAnexarAprovacao && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -214,7 +250,7 @@ export function ProcessoAprovacaoK1({
                       )}
                     </div>
                   </div>
-                ) : isSuperadmin ? (
+                ) : podeAnexarAprovacao ? (
                   <div className="mt-2 flex flex-wrap items-end gap-3">
                     <div className="flex flex-col gap-1">
                       <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">

@@ -342,8 +342,10 @@ export function ProcessoAcoesFooter({
   const edicaoJaConcluida = edicaoConcluida(processo);
   const editorPendente = temEditoresAtribuidos && !edicaoJaConcluida;
   // O Editor atribuído pode sinalizar "Concluir edição" enquanto o processo está em preenchimento.
-  const podeConcluirEdicao =
-    isEditorAtribuido && statusEmPreenchimento && !edicaoJaConcluida;
+  // NÃO depende de edicao_concluida: um save de validador (Responsável/Revisor/Compliance) carimba
+  // edicao_concluida de forma "sticky" e escondia o botão do editor — o editor precisa poder
+  // (re)confirmar a conclusão da sua parte. A ação é idempotente.
+  const podeConcluirEdicao = isEditorAtribuido && statusEmPreenchimento;
   const podeEnviar =
     ehResponsavel &&
     (processo.status === "em_elaboracao" || processo.status === "recusado") &&

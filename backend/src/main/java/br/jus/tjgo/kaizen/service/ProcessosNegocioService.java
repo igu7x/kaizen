@@ -197,7 +197,11 @@ public class ProcessosNegocioService {
         if (rows.isEmpty()) {
             return null;
         }
-        return stampK1IfFirst(id);
+        Map<String, Object> stamped = stampK1IfFirst(id);
+        // A aprovação recém-anexada (e o ID/Data da Versão do K1 recém-carimbados) precisam entrar
+        // no snapshot da versão vigente pra que o PDF do Histórico de Versões fique coerente.
+        refreshSnapshotAtual(id);
+        return stamped;
     }
 
     /** Remove a aprovação de um comitê específico da lista {@code aprovacoes}. */
@@ -212,7 +216,12 @@ public class ProcessosNegocioService {
                 "UPDATE processos_negocio SET aprovacoes = ?::jsonb, updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE RETURNING *",
                 toJson(aprovacoes), userId, id);
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        // Mantém o snapshot da versão vigente coerente após remover uma aprovação de comitê.
+        refreshSnapshotAtual(id);
+        return findById(id);
     }
 
     @SuppressWarnings("unchecked")
@@ -596,19 +605,25 @@ public class ProcessosNegocioService {
         }
         Map<String, Object> processo = rows.get(0);
 
+        // Carimba o 1º Modelo K1 (codigo/periodo/k1_gerado_em) ANTES de congelar o snapshot, pra
+        // que a versão histórica já contenha o ID e a Data da Versão quando o K1 é imediato
+        // (processos sem apreciação de comitê). Para processos que dependem de aprovação de comitê,
+        // o snapshot é atualizado depois, ao anexar a aprovação (refreshSnapshotAtual).
+        Map<String, Object> homologado = stampK1IfFirst(id);
+        Map<String, Object> snapshotRow = homologado != null ? homologado : processo;
+
         // Snapshot da versão no histórico (falha silenciosa pra não bloquear a homologação)
         try {
             jdbc.update(
                     "INSERT INTO processos_negocio_historico " +
                             "  (processo_id, versao, snapshot, validado_final_em, validado_final_nome, validado_final_user_id) " +
                             "VALUES (?, ?, ?::jsonb, ?, ?, ?)",
-                    id, novaVersao, toJson(processo), processo.get("validado_final_em"), userName, userId);
+                    id, novaVersao, toJson(snapshotRow), snapshotRow.get("validado_final_em"), userName, userId);
         } catch (Exception err) {
             log.warn("[processosNegocio] falha ao gravar snapshot histórico: {}", err.getMessage());
         }
 
-        // Se este foi o evento que gerou o 1º Modelo K1, carimba a Data da Versão.
-        return stampK1IfFirst(id);
+        return homologado != null ? homologado : processo;
     }
 
     public List<Map<String, Object>> listVersoes(long id) {
@@ -626,6 +641,34 @@ public class ProcessosNegocioService {
             return null;
         }
         return rows.get(0).get("snapshot");
+    }
+
+    /**
+     * Atualiza o snapshot da versão MAIS RECENTE do processo para refletir o estado homologado
+     * atual. Usado quando o documento vigente é finalizado APÓS a homologação — ao carimbar o
+     * ID/Data da Versão do 1º K1 ou ao anexar/remover a aprovação de um comitê — mantendo o
+     * "Histórico de Versões" (e o PDF de cada versão) coerente com o Modelo K1 vigente.
+     * No-op quando o processo ainda não tem nenhuma versão homologada.
+     */
+    private void refreshSnapshotAtual(long processoId) {
+        try {
+            Map<String, Object> live = findById(processoId);
+            if (live == null) {
+                return;
+            }
+            // Só sincroniza a versão vigente quando o processo está homologado. Se foi reaberto
+            // (em_elaboracao) não se deve sobrescrever o snapshot congelado da última versão.
+            if (!"validado_final".equals(String.valueOf(live.get("status")))) {
+                return;
+            }
+            jdbc.update(
+                    "UPDATE processos_negocio_historico SET snapshot = ?::jsonb " +
+                            "WHERE id = (SELECT id FROM processos_negocio_historico WHERE processo_id = ? " +
+                            "ORDER BY created_at DESC, id DESC LIMIT 1)",
+                    toJson(live), processoId);
+        } catch (Exception e) {
+            log.warn("[processosNegocio] falha ao atualizar snapshot da versão atual: {}", e.getMessage());
+        }
     }
 
     public Map<String, Object> recusar(long id, long userId, String userName, String camada, String motivo) {
