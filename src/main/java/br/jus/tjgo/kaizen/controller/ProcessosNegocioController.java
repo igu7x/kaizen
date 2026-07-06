@@ -391,8 +391,8 @@ public class ProcessosNegocioController {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
         }
         Map<String, Object> user = lookupUser(userId);
-        if (user == null || !Boolean.TRUE.equals(user.get("is_superadmin"))) {
-            return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode anexar o PDF de aprovação."));
+        if (!fazParteDasCamadas(id, user, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas quem faz parte das camadas de validação do processo pode anexar o PDF de aprovação."));
         }
         try {
             Map<String, Object> updated = service.addAprovacao(id, str(body.get("aprovacao_comite")),
@@ -426,8 +426,8 @@ public class ProcessosNegocioController {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
         }
         Map<String, Object> user = lookupUser(userId);
-        if (user == null || !Boolean.TRUE.equals(user.get("is_superadmin"))) {
-            return ResponseEntity.status(403).body(Map.of("error", "Apenas superadmin pode remover o PDF de aprovação."));
+        if (!fazParteDasCamadas(id, user, userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas quem faz parte das camadas de validação do processo pode remover o PDF de aprovação."));
         }
         Map<String, Object> updated = service.removeAprovacao(id, comite, userId);
         if (updated == null) {
@@ -541,6 +541,29 @@ public class ProcessosNegocioController {
         }
         Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
         return gestorUserId != null && eqId(gestorUserId, userId);
+    }
+
+    /**
+     * Faz parte das camadas de validação do processo: Gestor do Escritório (superadmin),
+     * Compliance Officer (camada 3), Revisor/gestor da diretoria (camada 2) ou Responsável do
+     * Processo (camada 1). Usado para liberar o anexo do PDF de aprovação do comitê (CGTIC/CGovTIC).
+     */
+    private boolean fazParteDasCamadas(long id, Map<String, Object> user, long userId) {
+        if (user != null && Boolean.TRUE.equals(user.get("is_superadmin"))) {
+            return true;
+        }
+        if (user != null && isComplianceOfficer(str(user.get("email")))) {
+            return true;
+        }
+        if (isResponsavelProcesso(id, userId)) {
+            return true;
+        }
+        Map<String, Object> processo = service.findById(id);
+        if (processo != null) {
+            Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
+            return gestorUserId != null && eqId(gestorUserId, userId);
+        }
+        return false;
     }
 
     private static Long parseLong(Object v) {
