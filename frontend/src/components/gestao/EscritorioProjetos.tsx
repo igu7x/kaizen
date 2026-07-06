@@ -2893,6 +2893,18 @@ export function EscritorioProjetos() {
     entregaId: number,
     novoStatus: string,
   ) => {
+    // "Concluída" exige anexar a evidência de conclusão. Não muda o status direto:
+    // solicita o anexo e o backend altera para "Concluída" (+ Data de Conclusão) após o upload.
+    if (novoStatus === "concluida") {
+      toast({
+        title: "Anexe a evidência de conclusão",
+        description:
+          'Para concluir esta entrega, é necessário anexar a evidência de conclusão. Após o envio da evidência, o status será alterado automaticamente para "Concluída".',
+      });
+      setEvidenciaEntregaId(entregaId);
+      evidenciaInputRef.current?.click();
+      return;
+    }
     try {
       await cadastrosProjetosApi.updateEntrega(entregaId, {
         status: novoStatus,
@@ -3452,25 +3464,31 @@ export function EscritorioProjetos() {
                       <tr className="bg-blue-600">
                         <th
                           className="text-left py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "30%" }}
+                          style={{ width: "26%" }}
                         >
                           Nome da Entrega
                         </th>
                         <th
                           className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "15%" }}
+                          style={{ width: "13%" }}
                         >
                           Prazo Estimado
                         </th>
                         <th
                           className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "18%" }}
+                          style={{ width: "16%" }}
                         >
                           Status
                         </th>
                         <th
                           className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "25%" }}
+                          style={{ width: "14%" }}
+                        >
+                          Data de Conclusão
+                        </th>
+                        <th
+                          className="text-center py-4 px-6 text-white font-semibold text-sm"
+                          style={{ width: "19%" }}
                         >
                           Evidências
                         </th>
@@ -3571,6 +3589,12 @@ export function EscritorioProjetos() {
                                     </SelectContent>
                                   </Select>
                                 </div>
+                              </td>
+                              <td className="py-3 px-6 text-gray-900 text-sm text-center">
+                                {entrega.status === "concluida" &&
+                                entrega.data_conclusao
+                                  ? formatDatePtBr(entrega.data_conclusao)
+                                  : "—"}
                               </td>
                               <td
                                 className="py-3 px-4 text-center"

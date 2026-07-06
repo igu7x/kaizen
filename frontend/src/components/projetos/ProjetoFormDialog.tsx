@@ -46,6 +46,7 @@ import {
   Check,
   History,
   FileDown,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -64,6 +65,8 @@ import {
 } from "@/services/planosProgramasApi";
 import { areasApi, Area as AreaDiretoria, Unidade } from "@/services/areasApi";
 import { validateTAPFields, generateTAPPdf } from "@/utils/generateTAP";
+import { pcaApi } from "@/services/pcaApi";
+import type { PcaItem } from "@/types";
 
 // ============================================================
 // HELPERS
@@ -85,6 +88,14 @@ const formatDatePtBr = (dateString: string | null | undefined): string => {
   const date = new Date(ymd + "T00:00:00");
   if (isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("pt-BR");
+};
+
+/** Rótulo amigável de um item do PCA: "PCA {numero} — {objeto}" (sem zeros à esquerda). */
+const labelPcaItem = (item: PcaItem): string => {
+  const raw = String(item.item_pca ?? "");
+  const num = raw.replace(/^0+/, "") || raw;
+  const desc = item.description || item.objeto || "";
+  return `PCA ${num}${desc ? " — " + desc : ""}`;
 };
 
 const tapFieldMap: Record<string, string> = {
@@ -184,6 +195,7 @@ export function ProjetoFormDialog({
     (Unidade & { diretoria_sigla?: string })[]
   >([]);
   const [instrumentos, setInstrumentos] = useState<InstrumentoAncoragem[]>([]);
+  const [pcaItens, setPcaItens] = useState<PcaItem[]>([]);
   const [auxLoaded, setAuxLoaded] = useState(false);
 
   // Form state
@@ -226,6 +238,7 @@ export function ProjetoFormDialog({
     abrangencia: "uma_unidade",
     havera_contratacao: false,
     valor_estimado_contratacao: undefined,
+    pca_item_id: undefined,
     saude: "verde",
     saude_justificativa: "",
     tap_vinculado: "",
@@ -258,6 +271,8 @@ export function ProjetoFormDialog({
 
   const [buscaPatrocinador, setBuscaPatrocinador] = useState("");
   const [buscaGestor, setBuscaGestor] = useState("");
+  const [buscaPca, setBuscaPca] = useState("");
+  const [showPcaList, setShowPcaList] = useState(false);
   const [showPatrocinadorList, setShowPatrocinadorList] = useState(false);
   const [showGestorList, setShowGestorList] = useState(false);
   const [ancoragemSearch, setAncoragemSearch] = useState("");
@@ -295,6 +310,13 @@ export function ProjetoFormDialog({
         const instrumentosData =
           await planosProgramasApi.getInstrumentosParaAncoragem(diretoria);
         setInstrumentos(instrumentosData);
+      } catch (e) {
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+      }
+      try {
+        // Itens do PCA (Contratações de TIC > Orçamento > PCA) para vincular à contratação.
+        const pcaData = await pcaApi.getPcaItems();
+        setPcaItens(pcaData.filter((p) => !p.is_deleted));
       } catch (e) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       }
@@ -352,6 +374,7 @@ export function ProjetoFormDialog({
             havera_contratacao: projetoCompleto.havera_contratacao,
             valor_estimado_contratacao:
               projetoCompleto.valor_estimado_contratacao || undefined,
+            pca_item_id: projetoCompleto.pca_item_id ?? undefined,
             saude: projetoCompleto.saude,
             saude_justificativa: projetoCompleto.saude_justificativa || "",
             tap_vinculado: projetoCompleto.tap_vinculado || "",
@@ -2085,30 +2108,123 @@ export function ProjetoFormDialog({
                                   setFormData({
                                     ...formData,
                                     havera_contratacao: !!checked,
+                                    // Ao desmarcar, limpa o item do PCA vinculado.
+                                    ...(checked
+                                      ? {}
+                                      : { pca_item_id: undefined }),
                                   })
                                 }
                                 disabled={mode === "view"}
                               />
                               <span>Sim</span>
                             </label>
-                            {formData.havera_contratacao && (
-                              <Input
-                                type="number"
-                                placeholder="Valor estimado (R$)"
-                                value={
-                                  formData.valor_estimado_contratacao || ""
-                                }
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    valor_estimado_contratacao:
-                                      parseFloat(e.target.value) || undefined,
-                                  })
-                                }
-                                disabled={mode === "view"}
-                                className="w-40"
-                              />
-                            )}
+                            {formData.havera_contratacao &&
+                              (() => {
+                                const pcaSelecionado = pcaItens.find(
+                                  (p) => p.id === formData.pca_item_id,
+                                );
+                                const pcaLabel = pcaSelecionado
+                                  ? labelPcaItem(pcaSelecionado)
+                                  : selectedProjeto?.pca_item_label ||
+                                    (formData.pca_item_id
+                                      ? `Item PCA #${formData.pca_item_id}`
+                                      : "");
+                                const q = buscaPca.trim().toLowerCase();
+                                const pcaFiltrados = pcaItens
+                                  .filter(
+                                    (item) =>
+                                      !q ||
+                                      labelPcaItem(item)
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                      String(item.item_pca ?? "")
+                                        .toLowerCase()
+                                        .includes(q),
+                                  )
+                                  .slice(0, 50);
+                                return (
+                                  <div className="relative flex-1 min-w-[220px]">
+                                    {formData.pca_item_id ? (
+                                      <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-sm">
+                                        <Info className="h-4 w-4 flex-shrink-0 text-blue-600" />
+                                        <span
+                                          className="flex-1 truncate text-blue-900"
+                                          title={pcaLabel}
+                                        >
+                                          {pcaLabel}
+                                        </span>
+                                        {mode !== "view" && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setFormData({
+                                                ...formData,
+                                                pca_item_id: undefined,
+                                              })
+                                            }
+                                            className="text-blue-500 hover:text-red-600 transition-colors"
+                                            title="Remover item do PCA"
+                                          >
+                                            <XCircle className="h-4 w-4" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ) : mode === "view" ? (
+                                      <span className="text-sm text-gray-400">
+                                        Nenhum item do PCA selecionado
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <Input
+                                          placeholder="Adicionar o item do PCA..."
+                                          value={buscaPca}
+                                          onChange={(e) => {
+                                            setBuscaPca(e.target.value);
+                                            setShowPcaList(true);
+                                          }}
+                                          onFocus={() => setShowPcaList(true)}
+                                          onBlur={() =>
+                                            setTimeout(
+                                              () => setShowPcaList(false),
+                                              200,
+                                            )
+                                          }
+                                        />
+                                        {showPcaList && (
+                                          <div className="absolute z-50 mt-1 w-[340px] max-w-[80vw] rounded-md border bg-white shadow-lg max-h-60 overflow-y-auto">
+                                            {pcaItens.length === 0 ? (
+                                              <div className="px-3 py-2 text-sm text-gray-500">
+                                                Nenhum item do PCA cadastrado.
+                                              </div>
+                                            ) : pcaFiltrados.length === 0 ? (
+                                              <div className="px-3 py-2 text-sm text-gray-500">
+                                                Nenhum item encontrado.
+                                              </div>
+                                            ) : (
+                                              pcaFiltrados.map((item) => (
+                                                <div
+                                                  key={item.id}
+                                                  className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                                                  onMouseDown={() => {
+                                                    setFormData({
+                                                      ...formData,
+                                                      pca_item_id: item.id,
+                                                    });
+                                                    setBuscaPca("");
+                                                    setShowPcaList(false);
+                                                  }}
+                                                >
+                                                  {labelPcaItem(item)}
+                                                </div>
+                                              ))
+                                            )}
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                           </div>
                         </div>
                       </div>
