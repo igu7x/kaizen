@@ -7,6 +7,7 @@ import {
   FileText,
   FileImage,
   File as FileIcon,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -115,6 +116,28 @@ export function DocumentosAnexadosInput({
     onChange(value.filter((_, i) => i !== idx));
   };
 
+  // Baixa o documento anexado. Converte o data URL (base64) em blob pra funcionar bem
+  // inclusive com PDFs grandes. Só disponível quando o conteúdo (doc.data) já foi carregado.
+  const baixar = async (doc: DocumentoAnexado) => {
+    if (!doc.data) {
+      toast.warning("Conteúdo do documento ainda carregando. Tente de novo.");
+      return;
+    }
+    try {
+      const blob = await (await fetch(doc.data)).blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.nome || `documento-${doc.tipo}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      toast.warning("Não foi possível baixar o documento.");
+    }
+  };
+
   return (
     <div className="space-y-3">
       <input
@@ -199,6 +222,16 @@ export function DocumentosAnexadosInput({
                   </span>
                 </div>
               </div>
+              {doc.data && (
+                <button
+                  type="button"
+                  onClick={() => baixar(doc)}
+                  className="text-slate-400 hover:text-blue-600 transition-colors flex-shrink-0"
+                  title="Baixar documento"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              )}
               {!somenteLeitura && (
                 <button
                   type="button"
