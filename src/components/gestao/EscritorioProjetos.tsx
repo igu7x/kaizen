@@ -498,6 +498,9 @@ export function EscritorioProjetos() {
   // Estado de pesquisa de projetos
   const [buscaProjeto, setBuscaProjeto] = useState("");
 
+  // Estado de pesquisa de entregas (filtra a tabela de entregas pelo nome, na tela de detalhes)
+  const [buscaEntrega, setBuscaEntrega] = useState("");
+
   // Estado de filtro por status do projeto
   const [filtroStatus, setFiltroStatus] = useState<
     | "todos"
@@ -552,8 +555,6 @@ export function EscritorioProjetos() {
     null,
   );
   const [novaEntregaPrazo, setNovaEntregaPrazo] = useState("");
-  const [novaEntregaAreaPopoverOpen, setNovaEntregaAreaPopoverOpen] =
-    useState(false);
   const [salvandoEntrega, setSalvandoEntrega] = useState(false);
   const [areas, setAreas] = useState<Area[]>([]);
 
@@ -565,8 +566,6 @@ export function EscritorioProjetos() {
     null,
   );
   const [editEntregaPrazo, setEditEntregaPrazo] = useState("");
-  const [editEntregaAreaPopoverOpen, setEditEntregaAreaPopoverOpen] =
-    useState(false);
   const [salvandoEditEntrega, setSalvandoEditEntrega] = useState(false);
 
   // Estados de upload de evidência
@@ -1268,6 +1267,7 @@ export function EscritorioProjetos() {
   const handleVoltarParaProjetos = () => {
     setProjetoDetalhes(null);
     setEntregaSelecionada(null);
+    setBuscaEntrega("");
   };
 
   const handleVoltarParaEntregas = () => {
@@ -2960,6 +2960,52 @@ export function EscritorioProjetos() {
       return labels[status] || labels["nao_iniciada"];
     };
 
+    // ── EAP (Estrutura Analítica de Projeto) — derivados dos 2 blocos clicáveis ──
+    const tapVigenteProjeto = !!projetoDetalhes.tap_validado_patrocinador_em;
+    const tepVigenteProjeto = !!projetoTep?.tep_validado_patrocinador_em;
+
+    // Abertura → abre a edição do projeto (mesma lógica do botão "Editar Projeto").
+    // Com permissão (ADMIN/Gestor ou Permissão TAP) abre editável; senão, em leitura.
+    const abrirEdicaoProjetoEAP = () => {
+      setProjetoEditDialogSlim(false);
+      if (podeEditarEntregas || podeEditarTap) {
+        setProjetoEditDialogMode("edit");
+        setProjetoEditDialogTapMode(!podeEditarEntregas && podeEditarTap);
+      } else {
+        setProjetoEditDialogMode("view");
+        setProjetoEditDialogTapMode(false);
+      }
+      setProjetoEditDialogOpen(true);
+    };
+
+    // Ícone TAP → abre o PDF do TAP quando vigente.
+    const abrirTapPdfEAP = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (tapVigenteProjeto) void generateTAPPdf(projetoDetalhes);
+    };
+
+    // Encerramento → mesmo fluxo do botão TEP em "Andamento do Projeto".
+    const abrirEncerramentoEAP = () => {
+      const tepBloqueadoSemTap = !projetoTep && !tapVigenteProjeto;
+      if (tepBloqueadoSemTap) {
+        toast({
+          title: "TAP precisa estar vigente",
+          description:
+            "Conclua o ciclo de validação do TAP (gestor → diretor → patrocinador) antes de finalizar o projeto.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setShowTepDialog(true);
+    };
+
+    // Ícone TEP → abre o PDF do TEP quando vigente.
+    const abrirTepPdfEAP = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (tepVigenteProjeto && projetoTep)
+        generateTEPPdf(projetoDetalhes, projetoTep, entregas);
+    };
+
     return (
       <div className="space-y-6">
         {/* Header do Projeto */}
@@ -3280,21 +3326,82 @@ export function EscritorioProjetos() {
             </div>
           </div>
 
-          {/* COLUNA DIREITA - Entregas */}
-          <div className="bg-gray-100 border border-gray-200 rounded-lg p-6 h-[650px] flex flex-col">
-            <div className="flex items-center justify-between mb-6 flex-shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">Entregas</h3>
-              {podeEditarEntregas && (
-                <Button
-                  size="sm"
-                  onClick={() => setModalNovaEntregaOpen(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Adicionar
-                </Button>
-              )}
+          {/* COLUNA DIREITA - Estrutura Analítica de Projeto (EAP) */}
+          <div className="flex flex-col gap-4 h-[650px]">
+            {/* Cabeçalho EAP */}
+            <div className="bg-blue-900 rounded-lg px-6 py-4 text-center flex-shrink-0">
+              <h3 className="text-lg font-bold text-white">
+                Estrutura Analítica de Projeto - EAP
+              </h3>
             </div>
+
+            {/* BLOCO 1 — Abertura (Termo de Abertura de Projeto / TAP) */}
+            <div
+              onClick={abrirEdicaoProjetoEAP}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") abrirEdicaoProjetoEAP();
+              }}
+              className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer flex-shrink-0 shadow-sm"
+            >
+              <span className="w-28 md:w-40 font-bold text-gray-900 flex-shrink-0">
+                Abertura
+              </span>
+              <span className="flex-1 text-gray-700 text-sm">
+                Termo de Abertura de Projeto
+              </span>
+              <button
+                type="button"
+                onClick={abrirTapPdfEAP}
+                disabled={!tapVigenteProjeto}
+                title={
+                  tapVigenteProjeto
+                    ? "Abrir PDF do TAP vigente"
+                    : "TAP ainda não vigente"
+                }
+                className={cn(
+                  "flex-shrink-0 flex flex-col items-center justify-center gap-0.5 h-14 w-14 rounded-lg border transition-colors",
+                  tapVigenteProjeto
+                    ? "bg-sky-100 border-sky-300 text-sky-600 hover:bg-sky-200 cursor-pointer"
+                    : "bg-gray-50 border-gray-200 text-gray-300 cursor-default",
+                )}
+              >
+                <FileCheck className="h-5 w-5" />
+                <span className="text-[10px] font-semibold leading-none">
+                  TAP
+                </span>
+              </button>
+            </div>
+
+            {/* BLOCO 2 — Entregas (mantido) */}
+            <div className="bg-gray-100 border border-gray-200 rounded-lg p-6 flex-1 min-h-0 flex flex-col">
+              <div className="flex items-center justify-between gap-3 mb-6 flex-shrink-0">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 flex-shrink-0">
+                    Entregas
+                  </h3>
+                  <div className="relative w-full max-w-xs">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <Input
+                      value={buscaEntrega}
+                      onChange={(e) => setBuscaEntrega(e.target.value)}
+                      placeholder="Pesquisar entrega pelo nome..."
+                      className="h-9 pl-8 bg-white"
+                    />
+                  </div>
+                </div>
+                {podeEditarEntregas && (
+                  <Button
+                    size="sm"
+                    onClick={() => setModalNovaEntregaOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar
+                  </Button>
+                )}
+              </div>
 
             {/* Tabela com Header Azul */}
             <div className="overflow-x-auto overflow-y-auto flex-1">
@@ -3345,37 +3452,31 @@ export function EscritorioProjetos() {
                       <tr className="bg-blue-600">
                         <th
                           className="text-left py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "23%" }}
+                          style={{ width: "30%" }}
                         >
                           Nome da Entrega
                         </th>
                         <th
                           className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "18%" }}
-                        >
-                          Área Responsável
-                        </th>
-                        <th
-                          className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "13%" }}
+                          style={{ width: "15%" }}
                         >
                           Prazo Estimado
                         </th>
                         <th
                           className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "14%" }}
+                          style={{ width: "18%" }}
                         >
                           Status
                         </th>
                         <th
                           className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "22%" }}
+                          style={{ width: "25%" }}
                         >
                           Evidências
                         </th>
                         <th
                           className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "10%" }}
+                          style={{ width: "12%" }}
                         >
                           Ações
                         </th>
@@ -3383,6 +3484,11 @@ export function EscritorioProjetos() {
                     </thead>
                     <tbody>
                       {[...entregas]
+                        .filter((e) =>
+                          (e.nome || "")
+                            .toLowerCase()
+                            .includes(buscaEntrega.trim().toLowerCase()),
+                        )
                         .sort((a, b) => {
                           // Ordena por prazo_estimado crescente; entregas sem prazo vão pro fim.
                           // Critério de desempate: nome.
@@ -3418,9 +3524,6 @@ export function EscritorioProjetos() {
                             >
                               <td className="py-3 px-6 text-gray-900 text-sm">
                                 {entrega.nome}
-                              </td>
-                              <td className="py-3 px-6 text-gray-900 text-sm text-center">
-                                {entrega.area_responsavel_nome || "-"}
                               </td>
                               <td className="py-3 px-6 text-gray-900 text-sm text-center">
                                 {formatDatePtBr(entrega.prazo_estimado)}
@@ -3580,6 +3683,46 @@ export function EscritorioProjetos() {
                 </>
               )}
             </div>
+            </div>
+
+            {/* BLOCO 3 — Encerramento (Termo de Encerramento de Projeto / TEP) */}
+            <div
+              onClick={abrirEncerramentoEAP}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") abrirEncerramentoEAP();
+              }}
+              className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 hover:bg-indigo-50 hover:border-indigo-300 transition-colors cursor-pointer flex-shrink-0 shadow-sm"
+            >
+              <span className="w-28 md:w-40 font-bold text-gray-900 flex-shrink-0">
+                Encerramento
+              </span>
+              <span className="flex-1 text-gray-700 text-sm">
+                Termo de Encerramento de Projeto
+              </span>
+              <button
+                type="button"
+                onClick={abrirTepPdfEAP}
+                disabled={!tepVigenteProjeto}
+                title={
+                  tepVigenteProjeto
+                    ? "Abrir PDF do TEP vigente"
+                    : "TEP ainda não vigente"
+                }
+                className={cn(
+                  "flex-shrink-0 flex flex-col items-center justify-center gap-0.5 h-14 w-14 rounded-lg border transition-colors",
+                  tepVigenteProjeto
+                    ? "bg-indigo-100 border-indigo-300 text-indigo-600 hover:bg-indigo-200 cursor-pointer"
+                    : "bg-gray-50 border-gray-200 text-gray-300 cursor-default",
+                )}
+              >
+                <FileText className="h-5 w-5" />
+                <span className="text-[10px] font-semibold leading-none">
+                  TEP
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3616,76 +3759,6 @@ export function EscritorioProjetos() {
                 placeholder="Ex: Levantamento de requisitos"
                 autoFocus
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="area-entrega">Área Responsável</Label>
-              <Popover
-                open={novaEntregaAreaPopoverOpen}
-                onOpenChange={setNovaEntregaAreaPopoverOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={novaEntregaAreaPopoverOpen}
-                    className="w-full justify-between font-normal h-auto min-h-10 py-2"
-                  >
-                    <span className="flex-1 min-w-0 text-left whitespace-normal break-words">
-                      {novaEntregaAreaId ? (
-                        (() => {
-                          const a = areas.find(
-                            (x) => x.id === novaEntregaAreaId,
-                          );
-                          return a
-                            ? `${a.diretoria} - ${a.nome_area}`
-                            : "Selecione a área responsável";
-                        })()
-                      ) : (
-                        <span className="text-gray-500">
-                          Selecione a área responsável
-                        </span>
-                      )}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="z-[80] w-[--radix-popover-trigger-width] p-0"
-                  align="start"
-                >
-                  <Command>
-                    <CommandInput placeholder="Buscar área..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhuma área encontrada.</CommandEmpty>
-                      <CommandGroup>
-                        {areas.map((area) => {
-                          const label = `${area.diretoria} - ${area.nome_area}`;
-                          return (
-                            <CommandItem
-                              key={area.id}
-                              value={label}
-                              onSelect={() => {
-                                setNovaEntregaAreaId(area.id);
-                                setNovaEntregaAreaPopoverOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  novaEntregaAreaId === area.id
-                                    ? "opacity-100"
-                                    : "opacity-0",
-                                )}
-                              />
-                              {label}
-                            </CommandItem>
-                          );
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="prazo-entrega">Prazo Estimado</Label>
@@ -3787,76 +3860,6 @@ export function EscritorioProjetos() {
                 placeholder="Ex: Levantamento de requisitos"
                 autoFocus
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-area-entrega">Área Responsável</Label>
-              <Popover
-                open={editEntregaAreaPopoverOpen}
-                onOpenChange={setEditEntregaAreaPopoverOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={editEntregaAreaPopoverOpen}
-                    className="w-full justify-between font-normal h-auto min-h-10 py-2"
-                  >
-                    <span className="flex-1 min-w-0 text-left whitespace-normal break-words">
-                      {editEntregaAreaId ? (
-                        (() => {
-                          const a = areas.find(
-                            (x) => x.id === editEntregaAreaId,
-                          );
-                          return a
-                            ? `${a.diretoria} - ${a.nome_area}`
-                            : "Selecione a área responsável";
-                        })()
-                      ) : (
-                        <span className="text-gray-500">
-                          Selecione a área responsável
-                        </span>
-                      )}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="z-[80] w-[--radix-popover-trigger-width] p-0"
-                  align="start"
-                >
-                  <Command>
-                    <CommandInput placeholder="Buscar área..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhuma área encontrada.</CommandEmpty>
-                      <CommandGroup>
-                        {areas.map((area) => {
-                          const label = `${area.diretoria} - ${area.nome_area}`;
-                          return (
-                            <CommandItem
-                              key={area.id}
-                              value={label}
-                              onSelect={() => {
-                                setEditEntregaAreaId(area.id);
-                                setEditEntregaAreaPopoverOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  editEntregaAreaId === area.id
-                                    ? "opacity-100"
-                                    : "opacity-0",
-                                )}
-                              />
-                              {label}
-                            </CommandItem>
-                          );
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-prazo-entrega">Prazo Estimado</Label>
