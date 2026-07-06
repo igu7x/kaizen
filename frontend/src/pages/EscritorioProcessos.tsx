@@ -865,15 +865,13 @@ export default function EscritorioProcessos() {
       .slice(0, 6);
   }, [filtered]);
 
-  // Donut "por área" — agrupado pela área responsável principal do processo. Mostra TODAS as
-  // áreas (sem bucket "Outras"), coloridas ciclicamente pela paleta.
+  // Donut "por área" — a "área" é SEMPRE a Diretoria vinculada do processo (sigla).
+  // Mostra TODAS as diretorias (sem bucket "Outras"), coloridas ciclicamente pela paleta.
   const areaChartData = useMemo(() => {
     const counts = new Map<string, number>();
     filtered.forEach((p) => {
-      // Só a sigla da diretoria/área (ex.: "DITI - Diretoria..." → "DITI").
-      const a = siglaDe(
-        (p.areas_responsaveis || [])[0] || p.diretoria || "Não informada",
-      );
+      // Só a sigla da diretoria (ex.: "DITI - Diretoria..." → "DITI").
+      const a = siglaDe(p.diretoria || "Não informada");
       counts.set(a, (counts.get(a) || 0) + 1);
     });
     return Array.from(counts.entries())
@@ -1384,7 +1382,7 @@ export default function EscritorioProcessos() {
                         Macroprocesso
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Área Responsável
+                        Área
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Modelo Vigente
@@ -1403,8 +1401,8 @@ export default function EscritorioProcessos() {
                       const nextRev = proximaRevisao(p);
                       const overdue =
                         nextRev != null && nextRev.getTime() < Date.now();
-                      const areaLabel =
-                        (p.areas_responsaveis || [])[0] || p.diretoria || "—";
+                      // "Área" = Diretoria vinculada do processo (sigla).
+                      const areaLabel = p.diretoria || "—";
                       const k1 = isK1(p);
                       const docPri = temDocumentoPrimario(p);
                       return (
