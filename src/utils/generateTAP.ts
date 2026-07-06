@@ -888,88 +888,9 @@ export function generateTAPPdf(projeto: Projeto) {
   y = drawMultilineContent(doc, projeto.fora_do_escopo || "", y, 22);
   y += 6;
 
-  // SEÇÃO 9 - Entregas — só quebra se não couber header + 1ª linha
-  y = checkPageBreak(doc, y, 20);
-  y = drawNumberedSectionHeader(doc, 9, "Entregas", y);
-
-  const entregaHeaderH = 9;
-  const colEntregaNome = CONTENT_WIDTH * 0.45;
-  const colEntregaArea = CONTENT_WIDTH * 0.3;
-  const colEntregaPrazo = CONTENT_WIDTH * 0.25;
-
-  drawTextCell(
-    doc,
-    "Nome da Entrega",
-    MARGIN_LEFT,
-    y,
-    colEntregaNome,
-    entregaHeaderH,
-    { bold: true, fontSize: 9, align: "center", bg: ACCENT_BG_LIGHT },
-  );
-  drawTextCell(
-    doc,
-    "Área Responsável",
-    MARGIN_LEFT + colEntregaNome,
-    y,
-    colEntregaArea,
-    entregaHeaderH,
-    { bold: true, fontSize: 9, align: "center", bg: ACCENT_BG_LIGHT },
-  );
-  drawTextCell(
-    doc,
-    "Prazo Estimado",
-    MARGIN_LEFT + colEntregaNome + colEntregaArea,
-    y,
-    colEntregaPrazo,
-    entregaHeaderH,
-    { bold: true, fontSize: 9, align: "center", bg: ACCENT_BG_LIGHT },
-  );
-  y += entregaHeaderH;
-
-  const entregas = projeto.entregas || [];
-  for (let i = 0; i < entregas.length; i++) {
-    const entrega = entregas[i];
-    const prazoTexto = formatDate((entrega as any).prazo_estimado) || "—";
-    const rowH = calcRowHeight(doc, [
-      { text: entrega.nome || "", width: colEntregaNome },
-      { text: entrega.area_responsavel_nome || "", width: colEntregaArea },
-      { text: prazoTexto, width: colEntregaPrazo },
-    ]);
-    y = checkPageBreak(doc, y, rowH);
-    drawTextCell(
-      doc,
-      entrega.nome || "",
-      MARGIN_LEFT,
-      y,
-      colEntregaNome,
-      rowH,
-      { align: "center" },
-    );
-    drawTextCell(
-      doc,
-      entrega.area_responsavel_nome || "",
-      MARGIN_LEFT + colEntregaNome,
-      y,
-      colEntregaArea,
-      rowH,
-      { align: "center" },
-    );
-    drawTextCell(
-      doc,
-      prazoTexto,
-      MARGIN_LEFT + colEntregaNome + colEntregaArea,
-      y,
-      colEntregaPrazo,
-      rowH,
-      { align: "center" },
-    );
-    y += rowH;
-  }
-  y += 6;
-
-  // SEÇÃO 10 - Classificação
+  // SEÇÃO 9 - Classificação
   y = checkPageBreak(doc, y, 30);
-  y = drawNumberedSectionHeader(doc, 10, "Classificação", y);
+  y = drawNumberedSectionHeader(doc, 9, "Classificação", y);
   y = drawLabelValueRow(
     doc,
     "Prioridade Institucional",
@@ -995,12 +916,21 @@ export function generateTAPPdf(projeto: Projeto) {
     y,
   );
   if (projeto.havera_contratacao) {
-    y = drawLabelValueRow(
-      doc,
-      "Valor Estimado",
-      formatCurrency(projeto.valor_estimado_contratacao),
-      y,
-    );
+    if (projeto.pca_item_label) {
+      // Contratação vinculada a um item do PCA (Plano de Contratações Anual).
+      y = drawLabelValueRow(doc, "Item do PCA", projeto.pca_item_label, y);
+    } else if (
+      projeto.valor_estimado_contratacao !== null &&
+      projeto.valor_estimado_contratacao !== undefined
+    ) {
+      // Projetos legados sem item de PCA: mantém o valor estimado.
+      y = drawLabelValueRow(
+        doc,
+        "Valor Estimado",
+        formatCurrency(projeto.valor_estimado_contratacao),
+        y,
+      );
+    }
   }
 
   // ============================================================
