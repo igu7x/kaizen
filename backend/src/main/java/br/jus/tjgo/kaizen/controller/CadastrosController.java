@@ -53,8 +53,6 @@ public class CadastrosController {
     private final TepService tepService;
     private final ObjectMapper objectMapper;
 
-    private static final Path EVIDENCIAS_DIR = Paths.get("uploads", "projetos", "evidencias").toAbsolutePath().normalize();
-
     // ---------- helpers de auth ----------
 
     private Long getUserId(HttpServletRequest req) {
@@ -479,20 +477,16 @@ public class CadastrosController {
             if (entrega == null) {
                 return ResponseEntity.status(404).body(err("Entrega não encontrada"));
             }
-            // Remover evidência antiga, se houver
+            // Remover arquivo legado em disco, se houver (registros antigos anteriores ao DB).
             Object oldPath = entrega.get("evidencia_filepath");
             if (oldPath != null) {
                 deleteFileQuiet(oldPath.toString());
             }
-            // Salvar novo arquivo: uploads/projetos/evidencias/evidencia-entrega-{id}-{timestamp}.pdf
-            Files.createDirectories(EVIDENCIAS_DIR);
-            long ts = System.currentTimeMillis();
-            Path dest = EVIDENCIAS_DIR.resolve("evidencia-entrega-" + id + "-" + ts + ".pdf");
-            file.transferTo(dest);
-
             String filename = file.getOriginalFilename();
             long filesize = file.getSize();
-            service.updateEntregaEvidencia(id, filename, dest.toString(), filesize);
+            // Persiste o PDF NO BANCO (bytea). O filesystem do pod (OpenShift) é efêmero/somente
+            // -leitura, então gravar em disco falhava com 500 em produção.
+            service.updateEntregaEvidencia(id, filename, file.getBytes(), filesize);
 
             if (filename != null && filename.toLowerCase().endsWith(".pdf")) {
                 service.updateEntregaStatus(id, "concluida");
@@ -515,19 +509,29 @@ public class CadastrosController {
             if (entrega == null) {
                 return ResponseEntity.status(404).body(err("Entrega não encontrada"));
             }
+            String filename = entrega.get("evidencia_filename") != null
+                    ? entrega.get("evidencia_filename").toString() : "evidencia.pdf";
+            // Armazenamento atual: bytes no banco.
+            Map<String, Object> dados = service.getEntregaEvidenciaData(id);
+            Object bytes = dados == null ? null : dados.get("evidencia_data");
+            if (bytes instanceof byte[] b && b.length > 0) {
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_PDF)
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                        .body(b);
+            }
+            // Fallback legado: arquivo em disco (registros antigos).
             Object filepath = entrega.get("evidencia_filepath");
-            if (filepath == null) {
-                return ResponseEntity.status(404).body(err("Evidência não disponível"));
+            if (filepath != null) {
+                Path p = Paths.get(filepath.toString());
+                if (Files.exists(p)) {
+                    return ResponseEntity.ok()
+                            .contentType(MediaType.APPLICATION_PDF)
+                            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                            .body(new FileSystemResource(p));
+                }
             }
-            Path p = Paths.get(filepath.toString());
-            if (!Files.exists(p)) {
-                return ResponseEntity.status(404).body(err("Arquivo não encontrado no servidor"));
-            }
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_PDF)
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "inline; filename=\"" + entrega.get("evidencia_filename") + "\"")
-                    .body(new FileSystemResource(p));
+            return ResponseEntity.status(404).body(err("Evidência não disponível"));
         } catch (Exception e) {
             return fail("Erro ao baixar evidência", e);
         }

@@ -133,6 +133,15 @@ public class CadastrosProjetosService {
             return null;
         }
         Map<String, Object> projeto = rows.get(0);
+        // A view vw_cadastros_projetos_completo (herdada, pré-cutover) pode não expor as colunas
+        // de cargo da Governança. Lê direto da tabela e injeta no retorno para garantir que o
+        // "Cargo" do Patrocinador/Gestor chegue ao formulário e ao TAP.
+        var cargos = jdbc.queryForList(
+                "SELECT patrocinador_cargo, gestor_cargo FROM cadastros_projetos WHERE id = ?", id);
+        if (!cargos.isEmpty()) {
+            projeto.put("patrocinador_cargo", cargos.get(0).get("patrocinador_cargo"));
+            projeto.put("gestor_cargo", cargos.get(0).get("gestor_cargo"));
+        }
         projeto.put("instrumentos", jdbc.queryForList(
                 "SELECT ip.id, ip.instrumento_id, i.nome AS instrumento_nome, i.tipo AS instrumento_tipo " +
                         "FROM cadastros_instrumentos_projetos ip " +
@@ -191,7 +200,7 @@ public class CadastrosProjetosService {
         Map<String, Object> projeto = jdbc.queryForMap(
                 "INSERT INTO cadastros_projetos (" +
                         "codigo, nome, descricao_sintetica, objetivo, contexto_justificativa, " +
-                        "patrocinador_id, gestor_id, " +
+                        "patrocinador_id, gestor_id, patrocinador_cargo, gestor_cargo, " +
                         "ancoragem_estrategica_plano_gestao, ancoragem_estrategica_pep, ancoragem_estrategica_programa_x, " +
                         "escopo_sintetico, fora_do_escopo, data_prevista_inicio, data_prevista_conclusao, " +
                         "status, prioridade, complexidade, abrangencia, " +
@@ -199,7 +208,7 @@ public class CadastrosProjetosService {
                         "saude, saude_justificativa, saude_ultima_revisao, " +
                         "tap_vinculado, observacoes_gerais, diretoria, areas_vinculadas_ids, " +
                         "created_by, updated_by) VALUES (" +
-                        "NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, " +
+                        "NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, " +
                         "?, ?, ?, ?::int[], ?, ?) RETURNING *",
                 str(data.get("codigo")) != null ? str(data.get("codigo")) : "",
                 data.get("nome"),
@@ -208,6 +217,8 @@ public class CadastrosProjetosService {
                 emptyToNull(str(data.get("contexto_justificativa"))),
                 numOrNull(data.get("patrocinador_id")),
                 numOrNull(data.get("gestor_id")),
+                emptyToNull(str(data.get("patrocinador_cargo"))),
+                emptyToNull(str(data.get("gestor_cargo"))),
                 boolOrFalse(data.get("ancoragem_estrategica_plano_gestao")),
                 boolOrFalse(data.get("ancoragem_estrategica_pep")),
                 boolOrFalse(data.get("ancoragem_estrategica_programa_x")),
@@ -277,7 +288,8 @@ public class CadastrosProjetosService {
 
         // Mapa ordenado coluna→key (mesmas chaves do fieldMap do Node)
         List<String> keys = List.of("nome", "descricao_sintetica", "objetivo", "contexto_justificativa",
-                "patrocinador_id", "gestor_id", "ancoragem_estrategica_plano_gestao", "ancoragem_estrategica_pep",
+                "patrocinador_id", "gestor_id", "patrocinador_cargo", "gestor_cargo",
+                "ancoragem_estrategica_plano_gestao", "ancoragem_estrategica_pep",
                 "ancoragem_estrategica_programa_x", "escopo_sintetico", "fora_do_escopo", "data_prevista_inicio",
                 "data_prevista_conclusao", "status", "prioridade", "complexidade", "abrangencia",
                 "havera_contratacao", "valor_estimado_contratacao", "saude", "saude_justificativa",
@@ -480,19 +492,37 @@ public class CadastrosProjetosService {
     // ============================================================
 
     public List<Map<String, Object>> getEntregas(long projetoId) {
+        List<Map<String, Object>> rows;
         if (hasColumn("cadastros_projetos_entregas", "area_responsavel_id")) {
-            return jdbc.queryForList(
+            rows = jdbc.queryForList(
                     "SELECT e.*, u.nome AS area_responsavel_nome FROM cadastros_projetos_entregas e " +
                             "LEFT JOIN cadastros_unidades u ON u.id = e.area_responsavel_id " +
                             "WHERE e.projeto_id = ? AND e.ativo = TRUE ORDER BY e.ordem, e.id", projetoId);
+        } else {
+            rows = jdbc.queryForList(
+                    "SELECT e.* FROM cadastros_projetos_entregas e WHERE e.projeto_id = ? AND e.ativo = TRUE " +
+                            "ORDER BY e.ordem, e.id", projetoId);
         }
-        return jdbc.queryForList(
-                "SELECT e.* FROM cadastros_projetos_entregas e WHERE e.projeto_id = ? AND e.ativo = TRUE " +
-                        "ORDER BY e.ordem, e.id", projetoId);
+        // Não trafega os bytes do PDF de evidência nas listagens (só via download-evidencia).
+        rows.forEach(r -> r.remove("evidencia_data"));
+        return rows;
     }
 
     public Map<String, Object> getEntregaById(long id) {
         var rows = jdbc.queryForList("SELECT * FROM cadastros_projetos_entregas WHERE id = ? AND ativo = TRUE", id);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> entrega = rows.get(0);
+        entrega.remove("evidencia_data"); // bytes do PDF só são lidos no download
+        return entrega;
+    }
+
+    /** Lê os bytes do PDF de evidência (para o endpoint de download). Null se não houver. */
+    public Map<String, Object> getEntregaEvidenciaData(long id) {
+        var rows = jdbc.queryForList(
+                "SELECT evidencia_data, evidencia_filename FROM cadastros_projetos_entregas " +
+                        "WHERE id = ? AND ativo = TRUE", id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -581,10 +611,12 @@ public class CadastrosProjetosService {
         return result.isEmpty() ? null : result.get(0);
     }
 
-    public void updateEntregaEvidencia(long id, String filename, String filepath, Long filesize) {
-        jdbc.update("UPDATE cadastros_projetos_entregas SET evidencia_filename = ?, evidencia_filepath = ?, " +
-                "evidencia_filesize = ?, updated_at = NOW() WHERE id = ? AND ativo = TRUE",
-                filename, filepath, filesize, id);
+    /** Persiste o PDF de evidência NO BANCO (bytea). filepath fica NULL (armazenamento legado em disco). */
+    public void updateEntregaEvidencia(long id, String filename, byte[] data, Long filesize) {
+        jdbc.update("UPDATE cadastros_projetos_entregas SET evidencia_filename = ?, evidencia_data = ?, " +
+                "evidencia_filepath = NULL, evidencia_filesize = ?, updated_at = NOW() " +
+                "WHERE id = ? AND ativo = TRUE",
+                filename, data, filesize, id);
     }
 
     public void updateEntregaStatus(long id, String status) {

@@ -761,7 +761,7 @@ export function generateTAPPdf(projeto: Projeto) {
   );
   drawTextCell(
     doc,
-    "Nome",
+    "Responsável",
     MARGIN_LEFT + colPapel + colResp,
     y,
     colNome,
@@ -769,6 +769,11 @@ export function generateTAPPdf(projeto: Projeto) {
     { bold: true, fontSize: 9, align: "center", bg: ACCENT_BG_LIGHT },
   );
   y += govHeaderH;
+
+  // Na coluna "Responsável", o Cargo (quando informado na Governança) substitui o nome.
+  const patrocinadorResp =
+    projeto.patrocinador_cargo || projeto.patrocinador_nome || "";
+  const gestorResp = projeto.gestor_cargo || projeto.gestor_nome || "";
 
   const areasText =
     projeto.areasExecucao
@@ -788,7 +793,7 @@ export function generateTAPPdf(projeto: Projeto) {
     doc,
     [
       { text: respPatrocinador, width: colResp },
-      { text: projeto.patrocinador_nome || "", width: colNome },
+      { text: patrocinadorResp, width: colNome },
     ],
     9,
     12,
@@ -809,7 +814,7 @@ export function generateTAPPdf(projeto: Projeto) {
   );
   drawTextCell(
     doc,
-    projeto.patrocinador_nome || "",
+    patrocinadorResp,
     MARGIN_LEFT + colPapel + colResp,
     y,
     colNome,
@@ -821,7 +826,7 @@ export function generateTAPPdf(projeto: Projeto) {
     doc,
     [
       { text: respGestor, width: colResp },
-      { text: projeto.gestor_nome || "", width: colNome },
+      { text: gestorResp, width: colNome },
     ],
     9,
     12,
@@ -836,7 +841,7 @@ export function generateTAPPdf(projeto: Projeto) {
   });
   drawTextCell(
     doc,
-    projeto.gestor_nome || "",
+    gestorResp,
     MARGIN_LEFT + colPapel + colResp,
     y,
     colNome,

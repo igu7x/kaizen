@@ -113,8 +113,10 @@ export interface Projeto {
   contexto_justificativa: string | null;
   patrocinador_id: number | null;
   patrocinador_nome?: string;
+  patrocinador_cargo?: string | null;
   gestor_id: number | null;
   gestor_nome?: string;
+  gestor_cargo?: string | null;
   ancoragem_estrategica_plano_gestao: boolean;
   ancoragem_estrategica_pep: boolean;
   ancoragem_estrategica_programa_x: boolean;
@@ -318,7 +320,9 @@ export interface CreateProjetoDto {
   objetivo?: string;
   contexto_justificativa?: string;
   patrocinador_id?: number;
+  patrocinador_cargo?: string;
   gestor_id?: number;
+  gestor_cargo?: string;
   ancoragem_estrategica_plano_gestao?: boolean;
   ancoragem_estrategica_pep?: boolean;
   ancoragem_estrategica_programa_x?: boolean;
