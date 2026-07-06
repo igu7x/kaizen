@@ -342,50 +342,60 @@ interface DonutChartCardProps {
   total: number;
 }
 
-/** Rótulo de percentual desenhado FORA do anel da rosca (fatias muito finas são omitidas). */
-function renderDonutPctLabel(props: {
+/**
+ * Rótulo de percentual FORA do anel, com uma linha curta "puxando" da borda da fatia até o
+ * texto — mesmo padrão dos donuts do Escritório de Projetos (GraficoRosca). Usa a cor da
+ * própria fatia (props.fill). Fatia única de 100% → texto no centro do donut.
+ */
+function renderDonutLeaderLabel(props: {
   cx: number;
   cy: number;
   midAngle: number;
   outerRadius: number;
   percent: number;
+  fill?: string;
 }) {
-  const { cx, cy, midAngle, outerRadius, percent } = props;
-  // Mostra o rótulo de TODA fatia com valor (>0), inclusive as bem pequenas.
+  const { cx, cy, midAngle, outerRadius, percent, fill } = props;
   if (!percent) return null;
   const RAD = Math.PI / 180;
-  const r = outerRadius + 9;
-  // Fatia única de 100%: o recharts joga o midAngle pra 180° (esquerda). Fixa o rótulo
-  // acima da rosca (topo, centralizado) em vez de na lateral.
+  const color = fill || "#334155";
+  const text = `${Math.round(percent * 100)}%`;
   if (percent >= 0.999) {
     return (
       <text
         x={cx}
-        y={cy - r}
-        fill="#334155"
-        fontSize={9}
+        y={cy}
+        fill={color}
+        fontSize={13}
         fontWeight={700}
         textAnchor="middle"
         dominantBaseline="central"
       >
-        100%
+        {text}
       </text>
     );
   }
-  const x = cx + r * Math.cos(-midAngle * RAD);
-  const y = cy + r * Math.sin(-midAngle * RAD);
+  const LINE_LEN = 13;
+  const sx = cx + outerRadius * Math.cos(-midAngle * RAD);
+  const sy = cy + outerRadius * Math.sin(-midAngle * RAD);
+  const ex = cx + (outerRadius + LINE_LEN) * Math.cos(-midAngle * RAD);
+  const ey = cy + (outerRadius + LINE_LEN) * Math.sin(-midAngle * RAD);
+  const isRight = ex >= cx;
   return (
-    <text
-      x={x}
-      y={y}
-      fill="#334155"
-      fontSize={9}
-      fontWeight={700}
-      textAnchor={x >= cx ? "start" : "end"}
-      dominantBaseline="central"
-    >
-      {Math.round(percent * 100)}%
-    </text>
+    <g>
+      <line x1={sx} y1={sy} x2={ex} y2={ey} stroke={color} strokeWidth={1} />
+      <text
+        x={ex + (isRight ? 4 : -4)}
+        y={ey}
+        fill={color}
+        fontSize={11}
+        fontWeight={700}
+        textAnchor={isRight ? "start" : "end"}
+        dominantBaseline="central"
+      >
+        {text}
+      </text>
+    </g>
   );
 }
 function DonutChartCard({ title, data, total }: DonutChartCardProps) {
@@ -398,14 +408,14 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm h-[300px] flex flex-col">
       <h3 className="text-sm font-bold text-slate-900 mb-2">{title}</h3>
-      <div className="flex-1 flex items-center gap-3 min-h-0">
+      <div className="flex-1 flex items-center gap-6 min-h-0">
         <div
           ref={sweepRef}
-          className="w-[160px] h-[150px] flex-shrink-0 relative [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible"
+          className="w-[200px] h-[180px] flex-shrink-0 relative [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible"
           style={{ overflow: "visible" }}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart margin={{ top: 14, right: 14, bottom: 14, left: 14 }}>
               <Pie
                 data={
                   chartData.length > 0
@@ -414,13 +424,13 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 }
                 cx="50%"
                 cy="50%"
-                innerRadius={38}
-                outerRadius={56}
+                innerRadius={40}
+                outerRadius={58}
                 paddingAngle={2}
                 dataKey="value"
                 isAnimationActive={false}
                 labelLine={false}
-                label={chartData.length > 0 ? renderDonutPctLabel : undefined}
+                label={chartData.length > 0 ? renderDonutLeaderLabel : undefined}
               >
                 {(chartData.length > 0
                   ? chartData
@@ -442,12 +452,12 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
         </div>
         <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-0">
           {data.map((d) => (
-            <div key={d.name} className="flex items-center gap-2 text-xs">
+            <div key={d.name} className="flex items-start gap-2 text-xs">
               <span
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                className="mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: d.color }}
               />
-              <span className="text-slate-700 flex-1 truncate" title={d.desc}>
+              <span className="text-slate-700 flex-1 leading-tight" title={d.desc}>
                 {d.name}{" "}
                 <span className="text-slate-500 font-medium tabular-nums">
                   ({d.value})
@@ -736,6 +746,36 @@ export default function EscritorioProcessos() {
     };
   }, [unidades, user?.id]);
 
+  // Diretor de uma área = area.gestor_user_id; Sub-diretor = area.subdiretor_user_id.
+  // Resolve a área pela sigla == diretoria do processo (mesmo casamento do Revisor/camada 2).
+  const ehDiretorDoProcesso = useMemo(() => {
+    return (p: ProcessoNegocio): boolean => {
+      const uid = Number(user?.id);
+      if (!uid || Number.isNaN(uid)) return false;
+      const area = areas.find(
+        (a) =>
+          a.sigla?.trim().toUpperCase() === p.diretoria?.trim().toUpperCase(),
+      );
+      if (!area) return false;
+      return (
+        (area.gestor_user_id != null && Number(area.gestor_user_id) === uid) ||
+        (area.subdiretor_user_id != null &&
+          Number(area.subdiretor_user_id) === uid)
+      );
+    };
+  }, [areas, user?.id]);
+
+  // Usuário é Diretor ou Sub-diretor de ALGUMA área (habilita o botão "Novo Processo").
+  const ehDiretorOuSubdiretor = useMemo(() => {
+    const uid = Number(user?.id);
+    if (!uid || Number.isNaN(uid)) return false;
+    return areas.some(
+      (a) =>
+        (a.gestor_user_id != null && Number(a.gestor_user_id) === uid) ||
+        (a.subdiretor_user_id != null && Number(a.subdiretor_user_id) === uid),
+    );
+  }, [areas, user?.id]);
+
   // Processos vigentes e no prazo (Modelo K1, revisão não vencida) que o usuário pode revisar
   // antecipadamente. Regra: só aparece para o RESPONSÁVEL do processo (cada um vê apenas os
   // seus) — nem o Gestor do Escritório (superadmin) vê os dos outros aqui. Não apareceriam em
@@ -745,14 +785,16 @@ export default function EscritorioProcessos() {
     return processos
       .filter(
         (p) =>
-          isK1(p) && !revisaoVencida(p) && ehResponsavelDoProcesso(p),
+          isK1(p) &&
+          !revisaoVencida(p) &&
+          (ehResponsavelDoProcesso(p) || ehDiretorDoProcesso(p)),
       )
       .sort((a, b) => {
         const da = proximaRevisao(a)?.getTime() ?? Infinity;
         const db = proximaRevisao(b)?.getTime() ?? Infinity;
         return da - db;
       });
-  }, [processos, user?.id, ehResponsavelDoProcesso]);
+  }, [processos, user?.id, ehResponsavelDoProcesso, ehDiretorDoProcesso]);
 
   // Validação disponível para o usuário no processo em edição (camada atual). Alimenta o botão
   // "Validar" do form: Responsável valida a camada 1 (enviar), Revisor a 2, Compliance a 3.
@@ -1124,7 +1166,7 @@ export default function EscritorioProcessos() {
               </DropdownMenu>
             )}
 
-            {isSuperadmin && aba === "revisao" && (
+            {(isSuperadmin || ehDiretorOuSubdiretor) && aba === "revisao" && (
               <Button
                 onClick={handleNovoProcesso}
                 className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
