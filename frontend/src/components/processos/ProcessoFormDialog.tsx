@@ -696,6 +696,7 @@ export function ProcessoFormDialog({
               value={form.documentos_anexados || []}
               onChange={(next) => update("documentos_anexados", next)}
               somenteLeitura={!editando}
+              processoId={currentId ?? processo?.id ?? undefined}
             />
           </Section>
 
