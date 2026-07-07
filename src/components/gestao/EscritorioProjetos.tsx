@@ -3103,7 +3103,7 @@ export function EscritorioProjetos() {
               ? "Validar TAP — Pendente"
               : projetoDetalhes.tap_versao && projetoDetalhes.tap_versao > 0
                 ? tapPronto
-                  ? "Visualizar TAP"
+                  ? "Gerenciar TAP"
                   : "Gerar TAP"
                 : "Visualizar Prévia do TAP"}
         </Button>
@@ -3173,7 +3173,7 @@ export function EscritorioProjetos() {
             : tepPendenteUsuario
               ? "Validar TEP — Pendente"
               : tepVigente
-                ? "Visualizar TEP"
+                ? "Gerenciar TEP"
                 : "Finalizar Projeto"}
         </Button>
       );
@@ -3635,7 +3635,7 @@ export function EscritorioProjetos() {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-1"
+                                        className="h-9 w-9 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                         onClick={() =>
                                           window.open(
                                             cadastrosProjetosApi.getEvidenciaDownloadUrl(
@@ -3646,10 +3646,7 @@ export function EscritorioProjetos() {
                                         }
                                         title={entrega.evidencia_filename}
                                       >
-                                        <FileDown className="h-4 w-4" />
-                                        <span className="text-xs max-w-[100px] truncate">
-                                          {entrega.evidencia_filename}
-                                        </span>
+                                        <FileDown className="h-5 w-5" />
                                       </Button>
                                       {podeEditarEntregas && (
                                         <Button
@@ -6290,6 +6287,13 @@ export function EscritorioProjetos() {
           slim={projetoEditDialogSlim}
           tapEditMode={projetoEditDialogTapMode}
           tapEditDiretoria={permissaoTap?.diretoria ?? null}
+          onRevisar={() => {
+            // "Revisar TAP": sai do modo slim e abre a edição completa do projeto
+            // (as mudanças reiniciam o ciclo de validação → nova versão do TAP).
+            setProjetoEditDialogSlim(false);
+            setProjetoEditDialogMode("edit");
+            setProjetoEditDialogTapMode(!podeEditarEntregas && podeEditarTap);
+          }}
           projetoId={projetoDetalhes.id}
           diretoria={selectedDirectorate || projetoDetalhes.diretoria}
           onSaved={async (projetoSalvo) => {

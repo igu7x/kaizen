@@ -17,8 +17,6 @@ import {
   CheckCircle2,
   XCircle,
   Pencil,
-  History,
-  FileDown,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -89,18 +87,6 @@ export function TepDialog({
   const [recusaComentario, setRecusaComentario] = useState("");
   const [recusandoTEP, setRecusandoTEP] = useState(false);
 
-  // Histórico de versões do TEP
-  const [versoesDialogOpen, setVersoesDialogOpen] = useState(false);
-  const [versoes, setVersoes] = useState<
-    Array<{
-      versao: number;
-      validado_em: string | null;
-      validado_por_nome: string | null;
-    }>
-  >([]);
-  const [loadingVersoes, setLoadingVersoes] = useState(false);
-  const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
-
   // Carrega as diretorias do cadastro ao abrir (para resolver o diretor da camada 2).
   useEffect(() => {
     if (!open) return;
@@ -130,34 +116,6 @@ export function TepDialog({
     camada2Area?.gestor_user_id ??
     (projeto as { diretor_user_id?: number } | null)?.diretor_user_id;
   const camada2DiretoriaLabel = camada2Area?.sigla || projeto?.diretoria || "-";
-
-  const handleAbrirVersoes = async () => {
-    setVersoesDialogOpen(true);
-    setLoadingVersoes(true);
-    try {
-      const data = await cadastrosProjetosApi.getTepVersoes(projeto.id);
-      setVersoes(data);
-    } catch (err: any) {
-      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
-    } finally {
-      setLoadingVersoes(false);
-    }
-  };
-
-  const handlePdfVersaoTep = async (versao: number) => {
-    setLoadingPdfVersao(versao);
-    try {
-      const dados = await cadastrosProjetosApi.getTepVersaoDados(
-        projeto.id,
-        versao,
-      );
-      generateTEPPdf(dados.projeto, dados.tep, dados.entregas || []);
-    } catch (err: any) {
-      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
-    } finally {
-      setLoadingPdfVersao(null);
-    }
-  };
 
   // Quando o dialog abre/fecha, resetar edit mode
   useEffect(() => {
@@ -321,7 +279,7 @@ export function TepDialog({
         <DialogHeader>
           <DialogTitle className="text-xl flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-600" />
-            TEP — Termo de Encerramento do Projeto
+            Gerenciamento de TEP
           </DialogTitle>
         </DialogHeader>
 
@@ -364,20 +322,8 @@ export function TepDialog({
               <p className="text-emerald-700 text-xs">
                 Validado em{" "}
                 {formatDate(tepExistente.tep_validado_patrocinador_em)}
-                {tepExistente.tep_versao
-                  ? ` — versão ${tepExistente.tep_versao}`
-                  : ""}
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-emerald-500 text-emerald-700 hover:bg-emerald-100"
-              onClick={handleAbrirVersoes}
-            >
-              <History className="h-4 w-4 mr-1" />
-              Versões
-            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -757,7 +703,7 @@ export function TepDialog({
               Cancelar Edição
             </Button>
           )}
-          {isSuperadmin && (
+          {isSuperadmin && !tepExistente?.tep_validado_patrocinador_em && (
             <Button
               onClick={() => {
                 if (tepExistente && !editMode) {
@@ -787,67 +733,6 @@ export function TepDialog({
           )}
         </DialogFooter>
       </DialogContent>
-
-      {/* Dialog de versões do TEP */}
-      <Dialog
-        open={versoesDialogOpen}
-        onOpenChange={(o) => {
-          if (!o) setVersoesDialogOpen(false);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5 text-blue-500" />
-              Versões do TEP
-            </DialogTitle>
-          </DialogHeader>
-          {loadingVersoes ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-            </div>
-          ) : versoes.length === 0 ? (
-            <p className="text-center text-gray-400 py-6 text-sm">
-              Nenhuma versão encontrada.
-            </p>
-          ) : (
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-              {versoes.map((v) => (
-                <div
-                  key={v.versao}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
-                >
-                  <div>
-                    <span className="font-semibold text-emerald-700 font-mono">
-                      v{v.versao}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {v.validado_em
-                        ? `Validado em ${new Date(v.validado_em).toLocaleDateString("pt-BR")}`
-                        : "—"}
-                      {v.validado_por_nome ? ` por ${v.validado_por_nome}` : ""}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handlePdfVersaoTep(v.versao)}
-                    disabled={loadingPdfVersao === v.versao}
-                    className="gap-1.5"
-                  >
-                    {loadingPdfVersao === v.versao ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <FileDown className="h-4 w-4" />
-                    )}
-                    PDF
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Dialog de recusa do TEP */}
       <Dialog
