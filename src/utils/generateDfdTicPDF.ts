@@ -113,7 +113,7 @@ export function generateDfdTicPDF(ciclo: Ciclo, ifos: Ifo[]): void {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(9);
     doc.setTextColor(120);
-    doc.text("Nenhum item na DFD-Consulta deste ciclo.", margin, y + 2);
+    doc.text("Nenhum item na DFD deste ciclo.", margin, y + 2);
   }
 
   const pages = doc.getNumberOfPages();

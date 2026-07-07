@@ -1138,7 +1138,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectContent>
               </Select>
               <span className="w-32 text-center">Valor Global</span>
-              <span className="w-32 text-center">Valor Ano Ref.</span>
+              <span className="w-32 text-center">Valor {anoSelecionado}</span>
               <Select value={filterMes} onValueChange={setFilterMes}>
                 <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Prazo</span>
@@ -1152,19 +1152,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterFase} onValueChange={setFilterFase}>
-                <SelectTrigger className="w-40 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                  <span>Fase Atual</span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                  <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
-                  <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
-                  <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
-                  <SelectItem value="Concluído">Concluído</SelectItem>
-                </SelectContent>
-              </Select>
+
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-28 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Situação</span>
@@ -1280,22 +1268,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     </span>
                   </div>
 
-                  {/* Fase Atual */}
-                  <div className="w-40 flex items-center justify-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: STEP_COLORS[normalizeStep(item.step) || "Não Iniciada"] || "#9CA3AF" }}
-                    />
-                    <span className="text-[11px] text-gray-700 font-medium whitespace-pre-line leading-tight max-w-[120px]" title={normalizeStep(item.step) || "Não Iniciada"}>
-                      {normalizeStep(item.step) === "Planejamento da Contratação"
-                        ? "Planejamento\nda Contratação"
-                        : normalizeStep(item.step) === "Seleção de Fornecedor"
-                          ? "Seleção de\nFornecedor"
-                          : normalizeStep(item.step) === "Gestão do Contrato"
-                            ? "Gestão\ndo Contrato"
-                            : (normalizeStep(item.step) || "Não Iniciada")}
-                    </span>
-                  </div>
+
 
                   {/* Status */}
                   <div className="w-28 flex flex-col justify-center items-center gap-1">
@@ -1647,7 +1620,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="valor_formalizado">Valor Ano Referência (R$)</Label>
+                <Label htmlFor="valor_formalizado">Valor {anoSelecionado} (R$)</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
                   <Input
@@ -1661,8 +1634,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </div>
             </div>
 
-            {/* Linha 9 - 2 colunas */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Linha 9 - 1 coluna */}
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="process">PROAD</Label>
                 <Input
@@ -1673,23 +1646,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     setFormData({ ...formData, process: e.target.value })
                   }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={String(formData.status)}
-                  onValueChange={(value: PcaStatus) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                    <SelectItem value="Em andamento">Demanda em Andamento</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>
@@ -1972,7 +1928,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_valor_formalizado">Valor Ano Referência (R$)</Label>
+                <Label htmlFor="edit_valor_formalizado">Valor {anoSelecionado} (R$)</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
                   <Input
@@ -1986,8 +1942,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </div>
             </div>
 
-            {/* Linha 9 - 2 colunas */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Linha 9 - 1 coluna */}
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_process">PROAD</Label>
                 <Input
@@ -1998,23 +1954,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     setFormData({ ...formData, process: e.target.value })
                   }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_status">Status</Label>
-                <Select
-                  value={String(formData.status)}
-                  onValueChange={(value: PcaStatus) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                    <SelectItem value="Em andamento">Demanda em Andamento</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>

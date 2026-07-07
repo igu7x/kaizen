@@ -117,8 +117,8 @@ const menuItemsCompleto: MenuItem[] = [
         icon: FilePlus,
         children: [
           {
-            title: "PCA-TIC",
-            path: "/contratacoes-ti/novas",
+            title: "PCA",
+            path: "/pca",
             permissaoCodigo: "contratacoes_novas",
           },
           {
@@ -126,16 +126,7 @@ const menuItemsCompleto: MenuItem[] = [
             path: "/ciclo-orcamentario",
             permissaoCodigo: "contratacoes_novas",
           },
-          {
-            title: "DFD",
-            path: "/dfd",
-            permissaoCodigo: "contratacoes_novas",
-          },
-          {
-            title: "DFD-Consulta",
-            path: "/dfd-consulta",
-            permissaoCodigo: "contratacoes_novas",
-          }
+
         ]
       },
       {

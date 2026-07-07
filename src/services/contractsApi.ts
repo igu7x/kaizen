@@ -12,6 +12,7 @@ export interface ContractFilters {
   endDate?: string;
   contractType?: string;
   searchQuery?: string;
+  minhasDemandas?: boolean;
 }
 
 /**
@@ -39,6 +40,7 @@ export async function getContracts(filters?: ContractFilters): Promise<Contract[
     if (filters.endDate) queryParams.append('endDate', filters.endDate);
     if (filters.contractType) queryParams.append('contractType', filters.contractType);
     if (filters.searchQuery) queryParams.append('searchQuery', filters.searchQuery);
+    if (filters.minhasDemandas) queryParams.append('minhasDemandas', 'true');
   }
 
   const queryString = queryParams.toString();

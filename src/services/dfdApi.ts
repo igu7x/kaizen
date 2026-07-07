@@ -80,6 +80,15 @@ export interface Ifo {
   codigoOficial: string | null;
   /** §8.4 — validação por demanda: em_edicao → validada_1a → validada_2a. */
   validacao: ValidacaoDemanda | null;
+  description?: string | null;
+  justification?: string | null;
+  process?: string | null;
+  financialResourceType?: string | null;
+  contractType?: string | null;
+  formalizedValueCents?: number | null;
+  idCadastrosAreas?: number | null;
+  priority?: string | null;
+  estimatedDate?: string | null;
   contratos: number[];
 }
 
@@ -91,17 +100,39 @@ export interface CriarIfoRequest {
   objeto?: string | null;
   areaDemandante?: string | null;
   unidadeId?: number | null;
+  areaId?: number | null;
   valorEstimado?: number | null;
   interesseRenovacao?: boolean | null;
+  description?: string | null;
+  justification?: string | null;
+  process?: string | null;
+  financialResourceType?: string | null;
+  contractType?: string | null;
+  formalizedValueCents?: number | null;
+  idCadastrosAreas?: number | null;
+  priority?: string | null;
+  estimatedDate?: string | null;
   contratos: number[];
 }
 
 export const ifoApi = {
   /** Lista os IFOs de um ano (e opcionalmente de um ciclo). */
-  listar(ano: number, cicloId?: number): Promise<Ifo[]> {
+  listar(ano: number, cicloId?: number, minhasDemandas?: boolean): Promise<Ifo[]> {
     const params = new URLSearchParams({ ano: String(ano) });
     if (cicloId != null) params.set("cicloId", String(cicloId));
-    return apiClient.get<Ifo[]>(`/api/ifo?${params.toString()}`);
+    if (minhasDemandas) params.set("minhasDemandas", "true");
+    
+    // Pegar o header do x-user-id como no contractsApi (gambiarra rápida pois listar() não recebe headers)
+    const headers: Record<string, string> = {};
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user && user.id) headers["x-user-id"] = String(user.id);
+      } catch (e) {}
+    }
+    
+    return apiClient.get<Ifo[]>(`/api/ifo?${params.toString()}`, { headers });
   },
 
   /** RF-24 — cria um IFO agrupando contratos da DFD-Consulta. */

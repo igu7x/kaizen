@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Input } from "@/components/ui/input";
@@ -155,6 +156,7 @@ function EsteiraControls({
 }
 
 export default function CicloOrcamentario() {
+  const navigate = useNavigate();
   const hoje = useMemo(() => new Date(), []);
   const anoVigente = hoje.getFullYear();
   const anoFormacao = anoVigente + 1;
@@ -186,19 +188,8 @@ export default function CicloOrcamentario() {
     };
   }, [anoVigente]);
 
-  const abrirFormacao = async () => {
-    setFinalidade("formacao");
-    setCiclo(entrada?.formacao ?? null);
-    setAcaoEmCurso(true);
-    try {
-      const c = await cicloOrcamentarioApi.getOuAbrirFormacao(anoFormacao);
-      setCiclo(c);
-      setProadInput(c.proad ?? "");
-    } catch {
-      /* backend off: segue com a timeline estática (ciclo = persistido ou null) */
-    } finally {
-      setAcaoEmCurso(false);
-    }
+  const abrirFormacao = () => {
+    navigate("/ciclo-orcamentario/formacao");
   };
 
   const abrirRevisao = async () => {
@@ -302,8 +293,7 @@ export default function CicloOrcamentario() {
       <div className="space-y-6 page-transition-enter">
         <Breadcrumbs
           items={[
-            { label: "Contratações de TIC", to: "/contratacoes-ti/novas" },
-            { label: "Orçamento" },
+            { label: "Contratações de TIC", to: "/pca" },
             { label: "Ciclo Orçamentário" },
           ]}
         />
@@ -354,114 +344,27 @@ export default function CicloOrcamentario() {
             metas={
               janela.ativa
                 ? [
-                    {
-                      texto: `${janela.calendario.ordem}ª revisão · janela aberta`,
-                      tom: "amber",
-                    },
-                    {
-                      texto: `gera ${rotuloVersao(janela.calendario.versao)}`,
-                      tom: "plain",
-                    },
-                  ]
+                  {
+                    texto: `${janela.calendario.ordem}ª revisão · janela aberta`,
+                    tom: "amber",
+                  },
+                  {
+                    texto: `gera ${rotuloVersao(janela.calendario.versao)}`,
+                    tom: "plain",
+                  },
+                ]
                 : [
-                    {
-                      texto: `próxima janela · ${janela.proximaAberturaEm ?? "—"}`,
-                      tom: "gray",
-                    },
-                  ]
+                  {
+                    texto: `próxima janela · ${janela.proximaAberturaEm ?? "—"}`,
+                    tom: "gray",
+                  },
+                ]
             }
             cta="Abrir revisão"
           />
         </div>
 
-        <NotaInfo>
-          A entrada bifurca por finalidade. A tela seguinte é resolvida por
-          <b> estado × papel × data</b> — o usuário não escolhe qual das três
-          revisões; o sistema resolve pelo calendário (RF-59/RF-60).
-        </NotaInfo>
 
-        {/* Formação */}
-        {finalidade === "formacao" && (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Linha do tempo · Formação {anoFormacao}
-              </h2>
-              <div className="flex items-center gap-2">
-                {formacaoEstado && (
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                    {estadoLabel(formacaoEstado)}
-                    {ciclo?.proad ? ` · PROAD ${ciclo.proad}` : ""}
-                  </span>
-                )}
-                {ciclo?.finalidade === "formacao" && (
-                  <Button variant="outline" size="sm" onClick={gerarDfdPdf}>
-                    <FileDown className="h-4 w-4 mr-1.5" />
-                    Proposta de DFD-TIC
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* RF-22: registrar o PROAD de instrução */}
-            {aguardandoProad && (
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-800">
-                  Instruir o ciclo
-                </p>
-                <p className="mt-0.5 mb-3 text-xs text-slate-500">
-                  Informe o PROAD de instrução para carregar os quatro blocos do
-                  DFD-Consulta. Vira chave-container e de monitoramento (RF-22).
-                </p>
-                <div className="flex items-end gap-2 flex-wrap">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      Número do PROAD
-                    </label>
-                    <Input
-                      value={proadInput}
-                      onChange={(e) => setProadInput(e.target.value)}
-                      placeholder="ex.: 202700004821"
-                      className="w-56 font-mono"
-                    />
-                  </div>
-                  <Button
-                    onClick={registrarProad}
-                    disabled={acaoEmCurso || !proadInput.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {acaoEmCurso ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                    )}
-                    Registrar PROAD
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <CicloTimeline
-              pernas={NOS_FORMACAO}
-              activeIndex={
-                formacaoEstado != null ? IDX_FORMACAO[formacaoEstado] ?? 0 : 0
-              }
-              showMarcoLegend
-            />
-            <p className="text-xs text-slate-400">
-              11 fases, de 31/01 a 31/05 (RF-42). A publicação pela DG é o marco
-              de virada que grava a Versão 1 no PCA-TIC.
-            </p>
-            {ciclo?.finalidade === "formacao" && (
-              <EsteiraControls
-                ciclo={ciclo}
-                onAvancar={avancarEsteira}
-                onRetroceder={retrocederEsteira}
-                disabled={acaoEmCurso}
-              />
-            )}
-          </section>
-        )}
 
         {/* Revisão */}
         {finalidade === "revisao" && (

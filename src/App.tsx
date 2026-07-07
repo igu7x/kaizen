@@ -34,10 +34,10 @@ import CadastroHub from "./pages/CadastroHub";
 import PermissoesTap from "./pages/PermissoesTap";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
-import Dfd from "./pages/Dfd";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
 import CicloOrcamentario from "./pages/CicloOrcamentario";
-import DfdConsulta from "./pages/DfdConsulta";
+import FormacaoPca from "./pages/FormacaoPca";
+
 import { FormBuilder } from "./components/pessoas/FormBuilder";
 import { FormFiller } from "./components/pessoas/FormFiller";
 import { FormResponses } from "./components/pessoas/FormResponses";
@@ -118,12 +118,12 @@ function App() {
                     path="/contratacoes-ti"
                     element={
                       <ProtectedRoute>
-                        <Navigate to="/contratacoes-ti/novas" replace />
+                        <Navigate to="/pca" replace />
                       </ProtectedRoute>
                     }
                   />
                   <Route
-                    path="/contratacoes-ti/novas"
+                    path="/pca"
                     element={
                       <ProtectedRoute>
                         <Contratacoes />
@@ -154,14 +154,7 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route
-                    path="/dfd"
-                    element={
-                      <ProtectedRoute>
-                        <Dfd />
-                      </ProtectedRoute>
-                    }
-                  />
+
                   <Route
                     path="/planejamento-contratacao"
                     element={
@@ -179,13 +172,14 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dfd-consulta"
+                    path="/ciclo-orcamentario/formacao"
                     element={
                       <ProtectedRoute>
-                        <DfdConsulta />
+                        <FormacaoPca />
                       </ProtectedRoute>
                     }
                   />
+
                   <Route
                     path="/contratos-ti"
                     element={

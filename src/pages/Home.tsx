@@ -115,7 +115,7 @@ export default function Home() {
       icon: FilePlus,
       label: "Plano de Contratações",
       desc: "PCA 2026 e suas contratações",
-      link: "/contratacoes-ti/novas",
+      link: "/pca",
       gradient: "from-emerald-600 to-teal-700",
     },
     {

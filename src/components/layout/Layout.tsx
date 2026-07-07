@@ -27,7 +27,7 @@ export function Layout({ children }: LayoutProps) {
   const isPainelIndicadoresPage = location.pathname === "/painel-indicadores";
   const isComitesPage = location.pathname === "/comites";
   const isComiteDetalhe = location.pathname.startsWith("/comites/");
-  const isContratacoesPage = location.pathname.startsWith("/contratacoes-ti");
+  const isContratacoesPage = location.pathname.startsWith("/contratacoes-ti") || location.pathname.startsWith("/pca");
   const isCompetenciasPage = location.pathname.includes("/competencias");
   const isPainelPessoas =
     location.pathname === "/pessoas" || location.pathname === "/pessoas/painel";
@@ -43,7 +43,7 @@ export function Layout({ children }: LayoutProps) {
   const isCicloOrcamentarioPage = location.pathname.startsWith(
     "/ciclo-orcamentario",
   );
-  const isDfdConsultaPage = location.pathname.startsWith("/dfd-consulta");
+
 
   // Páginas com fundo branco (Home, OKRs, Execução, Sprints, Comitês, Contratações, Competências,
   // Painel de Pessoas, Perfil e módulos de administração)
@@ -64,8 +64,7 @@ export function Layout({ children }: LayoutProps) {
     isCadastrosPage ||
     isContratosPage ||
     isGerenciamentoPage ||
-    isCicloOrcamentarioPage ||
-    isDfdConsultaPage;
+    isCicloOrcamentarioPage;
   // Páginas sem padding (apenas comitês)
   const isNoPaddingPage = isComitesPage || isComiteDetalhe;
 
