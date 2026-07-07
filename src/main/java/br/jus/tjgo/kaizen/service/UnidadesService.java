@@ -40,10 +40,10 @@ public class UnidadesService {
                 Integer.class, areaId);
         Map<String, Object> unidade = jdbc.queryForMap(
                 "INSERT INTO cadastros_unidades (area_id, nome, descricao, responsavel, cargo_responsavel, " +
-                        "unidade_superior_id, ordem, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                        "unidade_superior_id, ordem, codigo_api, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 areaId, orNull(dto.get("nome")), orNull(dto.get("descricao")), orNull(dto.get("responsavel")),
                 orNull(dto.get("cargo_responsavel")), orNull(dto.get("unidade_superior_id")),
-                nextOrdem == null ? 0 : nextOrdem, userId, userId);
+                nextOrdem == null ? 0 : nextOrdem, orNull(dto.get("codigo_api")), userId, userId);
 
         Object responsavel = dto.get("responsavel");
         if (responsavel != null && !String.valueOf(responsavel).isBlank()) {
@@ -81,6 +81,10 @@ public class UnidadesService {
         if (dto.containsKey("unidade_superior_id")) {
             updates.add("unidade_superior_id = ?");
             values.add(dto.get("unidade_superior_id"));
+        }
+        if (dto.containsKey("codigo_api")) {
+            updates.add("codigo_api = ?");
+            values.add(orNull(dto.get("codigo_api")));
         }
         updates.add("updated_at = CURRENT_TIMESTAMP");
         updates.add("updated_by = ?");

@@ -133,6 +133,32 @@ public class CadastrosProjetosService {
             return null;
         }
         Map<String, Object> projeto = rows.get(0);
+        // A view vw_cadastros_projetos_completo (herdada, pré-cutover) pode não expor colunas
+        // adicionadas depois. Lê direto da tabela (+ join no PCA) e injeta no retorno: o "Cargo"
+        // da Governança e o item do PCA vinculado à contratação (id + rótulo para o TAP).
+        var extra = jdbc.queryForList(
+                "SELECT p.patrocinador_cargo, p.gestor_cargo, p.pca_item_id, " +
+                        "pca.code AS pca_item_code, COALESCE(pca.description, pca.object_name) AS pca_item_objeto " +
+                        "FROM cadastros_projetos p LEFT JOIN pcas pca ON pca.id = p.pca_item_id " +
+                        "WHERE p.id = ?", id);
+        if (!extra.isEmpty()) {
+            Map<String, Object> e = extra.get(0);
+            projeto.put("patrocinador_cargo", e.get("patrocinador_cargo"));
+            projeto.put("gestor_cargo", e.get("gestor_cargo"));
+            projeto.put("pca_item_id", e.get("pca_item_id"));
+            Object code = e.get("pca_item_code");
+            if (code != null) {
+                String codeStr = String.valueOf(code).replaceFirst("^0+", "");
+                if (codeStr.isEmpty()) {
+                    codeStr = String.valueOf(code);
+                }
+                Object objeto = e.get("pca_item_objeto");
+                projeto.put("pca_item_label",
+                        "PCA " + codeStr + (objeto != null ? " — " + objeto : ""));
+            } else {
+                projeto.put("pca_item_label", null);
+            }
+        }
         projeto.put("instrumentos", jdbc.queryForList(
                 "SELECT ip.id, ip.instrumento_id, i.nome AS instrumento_nome, i.tipo AS instrumento_tipo " +
                         "FROM cadastros_instrumentos_projetos ip " +
@@ -191,15 +217,15 @@ public class CadastrosProjetosService {
         Map<String, Object> projeto = jdbc.queryForMap(
                 "INSERT INTO cadastros_projetos (" +
                         "codigo, nome, descricao_sintetica, objetivo, contexto_justificativa, " +
-                        "patrocinador_id, gestor_id, " +
+                        "patrocinador_id, gestor_id, patrocinador_cargo, gestor_cargo, " +
                         "ancoragem_estrategica_plano_gestao, ancoragem_estrategica_pep, ancoragem_estrategica_programa_x, " +
                         "escopo_sintetico, fora_do_escopo, data_prevista_inicio, data_prevista_conclusao, " +
                         "status, prioridade, complexidade, abrangencia, " +
-                        "havera_contratacao, valor_estimado_contratacao, " +
+                        "havera_contratacao, valor_estimado_contratacao, pca_item_id, " +
                         "saude, saude_justificativa, saude_ultima_revisao, " +
                         "tap_vinculado, observacoes_gerais, diretoria, areas_vinculadas_ids, " +
                         "created_by, updated_by) VALUES (" +
-                        "NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, " +
+                        "NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, " +
                         "?, ?, ?, ?::int[], ?, ?) RETURNING *",
                 str(data.get("codigo")) != null ? str(data.get("codigo")) : "",
                 data.get("nome"),
@@ -208,6 +234,8 @@ public class CadastrosProjetosService {
                 emptyToNull(str(data.get("contexto_justificativa"))),
                 numOrNull(data.get("patrocinador_id")),
                 numOrNull(data.get("gestor_id")),
+                emptyToNull(str(data.get("patrocinador_cargo"))),
+                emptyToNull(str(data.get("gestor_cargo"))),
                 boolOrFalse(data.get("ancoragem_estrategica_plano_gestao")),
                 boolOrFalse(data.get("ancoragem_estrategica_pep")),
                 boolOrFalse(data.get("ancoragem_estrategica_programa_x")),
@@ -221,6 +249,7 @@ public class CadastrosProjetosService {
                 orDefault(str(data.get("abrangencia")), "uma_unidade"),
                 boolOrFalse(data.get("havera_contratacao")),
                 numOrNull(data.get("valor_estimado_contratacao")),
+                numOrNull(data.get("pca_item_id")),
                 orDefault(str(data.get("saude")), "verde"),
                 emptyToNull(str(data.get("saude_justificativa"))),
                 emptyToNull(str(data.get("tap_vinculado"))),
@@ -277,10 +306,11 @@ public class CadastrosProjetosService {
 
         // Mapa ordenado coluna→key (mesmas chaves do fieldMap do Node)
         List<String> keys = List.of("nome", "descricao_sintetica", "objetivo", "contexto_justificativa",
-                "patrocinador_id", "gestor_id", "ancoragem_estrategica_plano_gestao", "ancoragem_estrategica_pep",
+                "patrocinador_id", "gestor_id", "patrocinador_cargo", "gestor_cargo",
+                "ancoragem_estrategica_plano_gestao", "ancoragem_estrategica_pep",
                 "ancoragem_estrategica_programa_x", "escopo_sintetico", "fora_do_escopo", "data_prevista_inicio",
                 "data_prevista_conclusao", "status", "prioridade", "complexidade", "abrangencia",
-                "havera_contratacao", "valor_estimado_contratacao", "saude", "saude_justificativa",
+                "havera_contratacao", "valor_estimado_contratacao", "pca_item_id", "saude", "saude_justificativa",
                 "tap_vinculado", "observacoes_gerais", "diretoria", "areas_vinculadas_ids");
 
         List<String> fields = new ArrayList<>();
@@ -480,19 +510,37 @@ public class CadastrosProjetosService {
     // ============================================================
 
     public List<Map<String, Object>> getEntregas(long projetoId) {
+        List<Map<String, Object>> rows;
         if (hasColumn("cadastros_projetos_entregas", "area_responsavel_id")) {
-            return jdbc.queryForList(
+            rows = jdbc.queryForList(
                     "SELECT e.*, u.nome AS area_responsavel_nome FROM cadastros_projetos_entregas e " +
                             "LEFT JOIN cadastros_unidades u ON u.id = e.area_responsavel_id " +
                             "WHERE e.projeto_id = ? AND e.ativo = TRUE ORDER BY e.ordem, e.id", projetoId);
+        } else {
+            rows = jdbc.queryForList(
+                    "SELECT e.* FROM cadastros_projetos_entregas e WHERE e.projeto_id = ? AND e.ativo = TRUE " +
+                            "ORDER BY e.ordem, e.id", projetoId);
         }
-        return jdbc.queryForList(
-                "SELECT e.* FROM cadastros_projetos_entregas e WHERE e.projeto_id = ? AND e.ativo = TRUE " +
-                        "ORDER BY e.ordem, e.id", projetoId);
+        // Não trafega os bytes do PDF de evidência nas listagens (só via download-evidencia).
+        rows.forEach(r -> r.remove("evidencia_data"));
+        return rows;
     }
 
     public Map<String, Object> getEntregaById(long id) {
         var rows = jdbc.queryForList("SELECT * FROM cadastros_projetos_entregas WHERE id = ? AND ativo = TRUE", id);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> entrega = rows.get(0);
+        entrega.remove("evidencia_data"); // bytes do PDF só são lidos no download
+        return entrega;
+    }
+
+    /** Lê os bytes do PDF de evidência (para o endpoint de download). Null se não houver. */
+    public Map<String, Object> getEntregaEvidenciaData(long id) {
+        var rows = jdbc.queryForList(
+                "SELECT evidencia_data, evidencia_filename FROM cadastros_projetos_entregas " +
+                        "WHERE id = ? AND ativo = TRUE", id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -545,7 +593,18 @@ public class CadastrosProjetosService {
             fields.add("descricao = ?");
             values.add(data.get("descricao"));
         }
-        // status NÃO é atualizável aqui (calculado por recalcularStatusEntrega)
+        // Status manual: entregas SEM tarefas têm o status definido diretamente (dropdown). Entregas
+        // COM tarefas têm o status derivado das tarefas no frontend, que também envia por aqui.
+        if (data.containsKey("status")) {
+            fields.add("status = ?");
+            values.add(data.get("status"));
+            // Data de Conclusão: carimba ao concluir; limpa ao voltar para outro status.
+            if ("concluida".equals(String.valueOf(data.get("status")))) {
+                fields.add("data_conclusao = COALESCE(data_conclusao, CURRENT_DATE)");
+            } else {
+                fields.add("data_conclusao = NULL");
+            }
+        }
         if (data.containsKey("quantidade_sprints")) {
             fields.add("quantidade_sprints = ?");
             values.add(data.get("quantidade_sprints"));
@@ -576,15 +635,19 @@ public class CadastrosProjetosService {
         return result.isEmpty() ? null : result.get(0);
     }
 
-    public void updateEntregaEvidencia(long id, String filename, String filepath, Long filesize) {
-        jdbc.update("UPDATE cadastros_projetos_entregas SET evidencia_filename = ?, evidencia_filepath = ?, " +
-                "evidencia_filesize = ?, updated_at = NOW() WHERE id = ? AND ativo = TRUE",
-                filename, filepath, filesize, id);
+    /** Persiste o PDF de evidência NO BANCO (bytea). filepath fica NULL (armazenamento legado em disco). */
+    public void updateEntregaEvidencia(long id, String filename, byte[] data, Long filesize) {
+        jdbc.update("UPDATE cadastros_projetos_entregas SET evidencia_filename = ?, evidencia_data = ?, " +
+                "evidencia_filepath = NULL, evidencia_filesize = ?, updated_at = NOW() " +
+                "WHERE id = ? AND ativo = TRUE",
+                filename, data, filesize, id);
     }
 
     public void updateEntregaStatus(long id, String status) {
-        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ? AND ativo = TRUE",
-                status, id);
+        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, " +
+                "data_conclusao = CASE WHEN ? = 'concluida' THEN COALESCE(data_conclusao, CURRENT_DATE) ELSE NULL END, " +
+                "updated_at = NOW() WHERE id = ? AND ativo = TRUE",
+                status, status, id);
     }
 
     public boolean deleteEntrega(long id, Long userId) {
@@ -798,7 +861,7 @@ public class CadastrosProjetosService {
     public void recalcularStatusEntrega(long entregaId) {
         var tarefas = getTarefasByEntregaId(entregaId);
         if (tarefas.isEmpty()) {
-            jdbc.update("UPDATE cadastros_projetos_entregas SET status = 'nao_iniciada', updated_at = NOW() WHERE id = ?", entregaId);
+            jdbc.update("UPDATE cadastros_projetos_entregas SET status = 'nao_iniciada', data_conclusao = NULL, updated_at = NOW() WHERE id = ?", entregaId);
             return;
         }
         boolean todasAFazer = tarefas.stream().allMatch(t -> "a_fazer".equals(t.get("status")));
@@ -809,7 +872,9 @@ public class CadastrosProjetosService {
         } else if (todasFeitas) {
             novoStatus = "concluida";
         }
-        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, updated_at = NOW() WHERE id = ?", novoStatus, entregaId);
+        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, " +
+                "data_conclusao = CASE WHEN ? = 'concluida' THEN COALESCE(data_conclusao, CURRENT_DATE) ELSE NULL END, " +
+                "updated_at = NOW() WHERE id = ?", novoStatus, novoStatus, entregaId);
         Map<String, Object> entrega = getEntregaById(entregaId);
         if (entrega != null) {
             calcularProgresso(((Number) entrega.get("projeto_id")).longValue());
@@ -1000,7 +1065,9 @@ public class CadastrosProjetosService {
         if (userId == null) {
             return false;
         }
-        if ("ADMIN".equals(role)) {
+        // ADMIN e o perfil Gestor (role MANAGER) podem gerenciar entregas/evidências de qualquer
+        // projeto; senão, precisa ser o gestor específico cadastrado no projeto.
+        if ("ADMIN".equals(role) || "MANAGER".equals(role)) {
             return true;
         }
         var rows = jdbc.queryForList(

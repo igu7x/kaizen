@@ -74,9 +74,12 @@ public class UserController {
         Object unidadeNome = null;
         Object cargoEfetivo = null;
         Object codigo = null;
+        Object situacaoFuncional = null;
+        Object ccFc = null;
+        Object classeEfetivo = null;
         try {
             var rows = jdbc.queryForList(
-                    "SELECT cu.nome AS unidade_nome, cp.cargo_efetivo, cp.cc_fc_classe " +
+                    "SELECT cu.nome AS unidade_nome, cp.cargo_efetivo, cp.cc_fc_classe, cp.situacao, cp.cc_fc, cp.cargo_efetivo_classe " +
                             "FROM cadastros_pessoas cp " +
                             "LEFT JOIN cadastros_unidades cu ON cu.id = cp.unidade_id " +
                             "WHERE cp.user_id = ? AND cp.ativo = TRUE " +
@@ -87,6 +90,9 @@ public class UserController {
                 unidadeNome = row.get("unidade_nome");
                 cargoEfetivo = row.get("cargo_efetivo");
                 codigo = row.get("cc_fc_classe");
+                situacaoFuncional = row.get("situacao");
+                ccFc = row.get("cc_fc");
+                classeEfetivo = row.get("cargo_efetivo_classe");
             }
         } catch (Exception e) {
             log.warn("[GET /users/me/perfil] erro ao buscar dados da pessoa: {}", e.getMessage());
@@ -96,6 +102,9 @@ public class UserController {
         body.put("unidade_nome", unidadeNome);
         body.put("cargo_efetivo", cargoEfetivo);
         body.put("codigo", codigo);
+        body.put("situacao_funcional", situacaoFuncional);
+        body.put("cc_fc", ccFc);
+        body.put("classe_efetivo", classeEfetivo);
         return ResponseEntity.ok(body);
     }
 
