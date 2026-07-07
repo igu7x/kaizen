@@ -572,10 +572,12 @@ export function EscritorioProjetos() {
   const [uploadingEvidencia, setUploadingEvidencia] = useState<number | null>(
     null,
   );
-  const evidenciaInputRef = useRef<HTMLInputElement>(null);
-  const [evidenciaEntregaId, setEvidenciaEntregaId] = useState<number | null>(
-    null,
-  );
+  // Diálogo "Concluir entrega": o usuário informa a Data de Conclusão e anexa a evidência (PDF).
+  const [concluirModalOpen, setConcluirModalOpen] = useState(false);
+  const [concluirEntrega, setConcluirEntrega] = useState<Entrega | null>(null);
+  const [concluirData, setConcluirData] = useState("");
+  const [concluirFile, setConcluirFile] = useState<File | null>(null);
+  const concluirFileInputRef = useRef<HTMLInputElement>(null);
 
   // Estados de drag and drop para tarefas
   const [draggedTarefa, setDraggedTarefa] = useState<{
@@ -1275,7 +1277,41 @@ export function EscritorioProjetos() {
   };
 
   // Upload de evidência
-  const handleUploadEvidencia = async (entregaId: number, file: File) => {
+  // Abre o diálogo "Concluir entrega" (data de conclusão + evidência).
+  const handleAbrirConcluirEntrega = (entrega: Entrega) => {
+    setConcluirEntrega(entrega);
+    setConcluirData("");
+    setConcluirFile(null);
+    setConcluirModalOpen(true);
+  };
+
+  const handleConfirmarConclusao = async () => {
+    if (!concluirEntrega) return;
+    if (!concluirData) {
+      toast({
+        title: "Informe a data de conclusão",
+        description: "É necessário informar a data de conclusão da entrega.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!concluirFile) {
+      toast({
+        title: "Anexe a evidência",
+        description: "Anexe o PDF de evidência de conclusão.",
+        variant: "destructive",
+      });
+      return;
+    }
+    await handleUploadEvidencia(concluirEntrega.id, concluirFile, concluirData);
+    setConcluirModalOpen(false);
+  };
+
+  const handleUploadEvidencia = async (
+    entregaId: number,
+    file: File,
+    dataConclusao?: string,
+  ) => {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       toast({
         title: "Formato inválido",
@@ -1286,7 +1322,7 @@ export function EscritorioProjetos() {
     }
     setUploadingEvidencia(entregaId);
     try {
-      await cadastrosProjetosApi.uploadEvidencia(entregaId, file);
+      await cadastrosProjetosApi.uploadEvidencia(entregaId, file, dataConclusao);
 
       // Recarregar projeto e lista para atualizar status/progresso
       if (projetoDetalhes) {
@@ -2893,16 +2929,13 @@ export function EscritorioProjetos() {
     entregaId: number,
     novoStatus: string,
   ) => {
-    // "Concluída" exige anexar a evidência de conclusão. Não muda o status direto:
-    // solicita o anexo e o backend altera para "Concluída" (+ Data de Conclusão) após o upload.
+    // "Concluída" exige informar a Data de Conclusão e anexar a evidência (PDF). Não muda o
+    // status direto: abre o diálogo; o backend altera para "Concluída" após o upload.
     if (novoStatus === "concluida") {
-      toast({
-        title: "Anexe a evidência de conclusão",
-        description:
-          'Para concluir esta entrega, é necessário anexar a evidência de conclusão. Após o envio da evidência, o status será alterado automaticamente para "Concluída".',
-      });
-      setEvidenciaEntregaId(entregaId);
-      evidenciaInputRef.current?.click();
+      const entrega = (projetoDetalhes?.entregas || []).find(
+        (e) => e.id === entregaId,
+      );
+      if (entrega) handleAbrirConcluirEntrega(entrega);
       return;
     }
     try {
@@ -3018,6 +3051,134 @@ export function EscritorioProjetos() {
         generateTEPPdf(projetoDetalhes, projetoTep, entregas);
     };
 
+    // Botões de ação do TAP e do TEP — extraídos para serem reusados IDÊNTICOS no
+    // "Andamento do Projeto" (coluna esquerda) e nas linhas Abertura/Encerramento da EAP.
+    const tapAcaoButton = (() => {
+      // "Visualizar TAP" assim que o projeto tem todos os campos obrigatórios
+      // do TAP preenchidos (após salvar). Antes disso, "Gerar TAP".
+      const tapPronto = validateTAPFields(projetoDetalhes).valid;
+      // TAP recusado e aguardando o gestor revalidar.
+      const uid = user?.id ? Number(user.id) : null;
+      const tapRecusadoParaGestor =
+        !!projetoDetalhes.tap_recusado_em &&
+        !projetoDetalhes.tap_validado_gestor_em &&
+        uid !== null &&
+        Number((projetoDetalhes as any).gestor_user_id) === uid;
+      const destacar = tapPendenteUsuario || tapRecusadoParaGestor;
+      return (
+        <Button
+          onClick={() => {
+            // Gerar/Visualizar TAP — modo enxuto: só painel de validação.
+            // Edição dos campos do projeto é feita pelo botão "Editar Projeto".
+            setProjetoEditDialogMode(tapPronto ? "view" : "edit");
+            setProjetoEditDialogSlim(true);
+            setProjetoEditDialogOpen(true);
+          }}
+          variant="outline"
+          size="sm"
+          className={cn(
+            "w-full",
+            tapRecusadoParaGestor
+              ? "border-2 border-red-400 bg-red-50 text-red-900 hover:bg-red-100 animate-pulse shadow-md shadow-red-200"
+              : destacar
+                ? "border-2 border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 animate-pulse shadow-md shadow-amber-200"
+                : tapPronto
+                  ? "border-sky-500 text-sky-700 hover:bg-sky-50"
+                  : "border-amber-500 text-amber-700 hover:bg-amber-50",
+          )}
+        >
+          {destacar ? (
+            <AlertTriangle
+              className={cn(
+                "mr-2 h-4 w-4",
+                tapRecusadoParaGestor ? "text-red-600" : "text-amber-600",
+              )}
+            />
+          ) : (
+            <FileCheck className="mr-2 h-4 w-4" />
+          )}
+          {tapRecusadoParaGestor
+            ? "TAP recusado — revisar"
+            : tapPendenteUsuario
+              ? "Validar TAP — Pendente"
+              : projetoDetalhes.tap_versao && projetoDetalhes.tap_versao > 0
+                ? tapPronto
+                  ? "Visualizar TAP"
+                  : "Gerar TAP"
+                : "Visualizar Prévia do TAP"}
+        </Button>
+      );
+    })();
+
+    const tepAcaoButton = (() => {
+      const tepVigente = !!projetoTep?.tep_validado_patrocinador_em;
+      const uid = user?.id ? Number(user.id) : null;
+      const tepRecusadoParaGestor =
+        !!projetoTep?.tep_recusado_em &&
+        !projetoTep?.tep_validado_gestor_em &&
+        uid !== null &&
+        Number((projetoDetalhes as any).gestor_user_id) === uid;
+      const destacar = tepPendenteUsuario || tepRecusadoParaGestor;
+      // TEP só pode ser gerado se o TAP estiver vigente.
+      // (Quando o TEP já existe, deixamos abrir pra visualizar/validar mesmo assim.)
+      const tapVigente = !!projetoDetalhes.tap_validado_patrocinador_em;
+      const tepBloqueadoSemTap = !projetoTep && !tapVigente;
+      return (
+        <Button
+          onClick={() => {
+            if (tepBloqueadoSemTap) {
+              toast({
+                title: "TAP precisa estar vigente",
+                description:
+                  "Conclua o ciclo de validação do TAP (gestor → diretor → patrocinador) antes de finalizar o projeto.",
+                variant: "destructive",
+              });
+              return;
+            }
+            setShowTepDialog(true);
+          }}
+          variant="outline"
+          size="sm"
+          disabled={tepBloqueadoSemTap}
+          className={cn(
+            "w-full",
+            tepBloqueadoSemTap
+              ? "border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed hover:bg-gray-50"
+              : tepRecusadoParaGestor
+                ? "border-2 border-red-400 bg-red-50 text-red-900 hover:bg-red-100 animate-pulse shadow-md shadow-red-200"
+                : destacar
+                  ? "border-2 border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 animate-pulse shadow-md shadow-amber-200"
+                  : tepVigente
+                    ? "border-indigo-500 text-indigo-700 hover:bg-indigo-50"
+                    : "border-amber-500 text-amber-700 hover:bg-amber-50",
+          )}
+          title={
+            tepBloqueadoSemTap
+              ? "Conclua a validação do TAP antes de finalizar o projeto"
+              : undefined
+          }
+        >
+          {destacar ? (
+            <AlertTriangle
+              className={cn(
+                "mr-2 h-4 w-4",
+                tepRecusadoParaGestor ? "text-red-600" : "text-amber-600",
+              )}
+            />
+          ) : (
+            <FileText className="mr-2 h-4 w-4" />
+          )}
+          {tepRecusadoParaGestor
+            ? "TEP recusado — revisar"
+            : tepPendenteUsuario
+              ? "Validar TEP — Pendente"
+              : tepVigente
+                ? "Visualizar TEP"
+                : "Finalizar Projeto"}
+        </Button>
+      );
+    })();
+
     return (
       <div className="space-y-6">
         {/* Header do Projeto */}
@@ -3046,47 +3207,49 @@ export function EscritorioProjetos() {
           </div>
         </div>
 
-        {/* Botões de ação — Voltar / Editar Projeto */}
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleVoltarParaProjetos}
-            className="bg-white border-gray-300"
-            size="sm"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
-
-          {(podeEditarEntregas || podeEditarTap) && (
-            <Button
-              onClick={() => {
-                setProjetoEditDialogMode("edit");
-                setProjetoEditDialogSlim(false);
-                // Se NÃO é ADMIN/gestor mas tem permissão TAP, abre em modo TAP-only:
-                // o dialog filtra o payload pros 13 campos do TAP no submit e mostra
-                // o banner de aviso. Se for ADMIN/gestor, edição completa.
-                setProjetoEditDialogTapMode(
-                  !podeEditarEntregas && podeEditarTap,
-                );
-                setProjetoEditDialogOpen(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              size="sm"
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar Projeto
-            </Button>
-          )}
-        </div>
-
         {/* Layout de 2 colunas */}
         <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5 xl:gap-6 2xl:gap-8">
-          {/* COLUNA ESQUERDA - Andamento do Projeto */}
-          <div className="bg-gray-100 border border-gray-200 rounded-lg p-5 h-[650px] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-900 mb-6">
-              Andamento do Projeto
-            </h3>
+          {/* COLUNA ESQUERDA - Botões + Andamento do Projeto */}
+          <div className="flex flex-col gap-4 lg:h-[650px]">
+            {/* Botões de ação — Voltar / Editar Projeto (alinhados com o cabeçalho da EAP) */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <Button
+                variant="outline"
+                onClick={handleVoltarParaProjetos}
+                className="bg-white border-gray-300"
+                size="sm"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Button>
+
+              {(podeEditarEntregas || podeEditarTap) && (
+                <Button
+                  onClick={() => {
+                    setProjetoEditDialogMode("edit");
+                    setProjetoEditDialogSlim(false);
+                    // Se NÃO é ADMIN/gestor mas tem permissão TAP, abre em modo TAP-only:
+                    // o dialog filtra o payload pros 13 campos do TAP no submit e mostra
+                    // o banner de aviso. Se for ADMIN/gestor, edição completa.
+                    setProjetoEditDialogTapMode(
+                      !podeEditarEntregas && podeEditarTap,
+                    );
+                    setProjetoEditDialogOpen(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar Projeto
+                </Button>
+              )}
+            </div>
+
+            {/* Andamento do Projeto — preenche até o fim do "3. Encerramento" */}
+            <div className="bg-gray-100 border border-gray-200 rounded-lg p-5 flex-1 min-h-0 overflow-y-auto">
+              <h3 className="text-lg font-bold text-gray-900 mb-6">
+                Andamento do Projeto
+              </h3>
 
             {/* Gráfico de Progresso Semicircular */}
             <div className="flex flex-col items-center justify-center mb-6">
@@ -3201,140 +3364,6 @@ export function EscritorioProjetos() {
                 </p>
               </div>
             </div>
-
-            {/* Botões fixos TAP / TEP */}
-            <div className="mt-4 flex flex-col gap-2">
-              {(() => {
-                // "Visualizar TAP" assim que o projeto tem todos os campos obrigatórios
-                // do TAP preenchidos (após salvar). Antes disso, "Gerar TAP".
-                const tapPronto = validateTAPFields(projetoDetalhes).valid;
-                // TAP recusado e aguardando o gestor revalidar.
-                const uid = user?.id ? Number(user.id) : null;
-                const tapRecusadoParaGestor =
-                  !!projetoDetalhes.tap_recusado_em &&
-                  !projetoDetalhes.tap_validado_gestor_em &&
-                  uid !== null &&
-                  Number((projetoDetalhes as any).gestor_user_id) === uid;
-                const destacar = tapPendenteUsuario || tapRecusadoParaGestor;
-                return (
-                  <Button
-                    onClick={() => {
-                      // Gerar/Visualizar TAP — modo enxuto: só painel de validação.
-                      // Edição dos campos do projeto é feita pelo botão "Editar Projeto".
-                      setProjetoEditDialogMode(tapPronto ? "view" : "edit");
-                      setProjetoEditDialogSlim(true);
-                      setProjetoEditDialogOpen(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "w-full",
-                      tapRecusadoParaGestor
-                        ? "border-2 border-red-400 bg-red-50 text-red-900 hover:bg-red-100 animate-pulse shadow-md shadow-red-200"
-                        : destacar
-                          ? "border-2 border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 animate-pulse shadow-md shadow-amber-200"
-                          : tapPronto
-                            ? "border-sky-500 text-sky-700 hover:bg-sky-50"
-                            : "border-amber-500 text-amber-700 hover:bg-amber-50",
-                    )}
-                  >
-                    {destacar ? (
-                      <AlertTriangle
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          tapRecusadoParaGestor
-                            ? "text-red-600"
-                            : "text-amber-600",
-                        )}
-                      />
-                    ) : (
-                      <FileCheck className="mr-2 h-4 w-4" />
-                    )}
-                    {tapRecusadoParaGestor
-                      ? "TAP recusado — revisar"
-                      : tapPendenteUsuario
-                        ? "Validar TAP — Pendente"
-                        : projetoDetalhes.tap_versao &&
-                          projetoDetalhes.tap_versao > 0
-                          ? tapPronto
-                            ? "Visualizar TAP"
-                            : "Gerar TAP"
-                          : "Visualizar Prévia do TAP"}
-                  </Button>
-                );
-              })()}
-
-              {(() => {
-                const tepVigente = !!projetoTep?.tep_validado_patrocinador_em;
-                const uid = user?.id ? Number(user.id) : null;
-                const tepRecusadoParaGestor =
-                  !!projetoTep?.tep_recusado_em &&
-                  !projetoTep?.tep_validado_gestor_em &&
-                  uid !== null &&
-                  Number((projetoDetalhes as any).gestor_user_id) === uid;
-                const destacar = tepPendenteUsuario || tepRecusadoParaGestor;
-                // TEP só pode ser gerado se o TAP estiver vigente.
-                // (Quando o TEP já existe, deixamos abrir pra visualizar/validar mesmo assim.)
-                const tapVigente =
-                  !!projetoDetalhes.tap_validado_patrocinador_em;
-                const tepBloqueadoSemTap = !projetoTep && !tapVigente;
-                return (
-                  <Button
-                    onClick={() => {
-                      if (tepBloqueadoSemTap) {
-                        toast({
-                          title: "TAP precisa estar vigente",
-                          description:
-                            "Conclua o ciclo de validação do TAP (gestor → diretor → patrocinador) antes de finalizar o projeto.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      setShowTepDialog(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    disabled={tepBloqueadoSemTap}
-                    className={cn(
-                      "w-full",
-                      tepBloqueadoSemTap
-                        ? "border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed hover:bg-gray-50"
-                        : tepRecusadoParaGestor
-                          ? "border-2 border-red-400 bg-red-50 text-red-900 hover:bg-red-100 animate-pulse shadow-md shadow-red-200"
-                          : destacar
-                            ? "border-2 border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 animate-pulse shadow-md shadow-amber-200"
-                            : tepVigente
-                              ? "border-indigo-500 text-indigo-700 hover:bg-indigo-50"
-                              : "border-amber-500 text-amber-700 hover:bg-amber-50",
-                    )}
-                    title={
-                      tepBloqueadoSemTap
-                        ? "Conclua a validação do TAP antes de finalizar o projeto"
-                        : undefined
-                    }
-                  >
-                    {destacar ? (
-                      <AlertTriangle
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          tepRecusadoParaGestor
-                            ? "text-red-600"
-                            : "text-amber-600",
-                        )}
-                      />
-                    ) : (
-                      <FileText className="mr-2 h-4 w-4" />
-                    )}
-                    {tepRecusadoParaGestor
-                      ? "TEP recusado — revisar"
-                      : tepPendenteUsuario
-                        ? "Validar TEP — Pendente"
-                        : tepVigente
-                          ? "Visualizar TEP"
-                          : "Finalizar Projeto"}
-                  </Button>
-                );
-              })()}
             </div>
           </div>
 
@@ -3357,12 +3386,21 @@ export function EscritorioProjetos() {
               }}
               className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer flex-shrink-0 shadow-sm"
             >
-              <span className="w-28 md:w-40 font-bold text-gray-900 flex-shrink-0">
+              <span className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-900 text-white text-sm font-bold">
+                1
+              </span>
+              <span className="text-lg font-bold text-gray-900 flex-shrink-0">
                 Abertura
               </span>
-              <span className="flex-1 text-gray-700 text-sm">
+              <span className="flex-1 text-gray-700 text-base min-w-0 truncate">
                 Termo de Abertura de Projeto
               </span>
+              <div
+                className="flex-shrink-0 w-56"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {tapAcaoButton}
+              </div>
               <button
                 type="button"
                 onClick={abrirTapPdfEAP}
@@ -3390,6 +3428,9 @@ export function EscritorioProjetos() {
             <div className="bg-gray-100 border border-gray-200 rounded-lg p-6 flex-1 min-h-0 flex flex-col">
               <div className="flex items-center justify-between gap-3 mb-6 flex-shrink-0">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <span className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-900 text-white text-sm font-bold">
+                    2
+                  </span>
                   <h3 className="text-lg font-bold text-gray-900 flex-shrink-0">
                     Entregas
                   </h3>
@@ -3444,20 +3485,6 @@ export function EscritorioProjetos() {
                 </div>
               ) : (
                 <>
-                  {/* Input hidden para upload de evidência */}
-                  <input
-                    ref={evidenciaInputRef}
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file && evidenciaEntregaId) {
-                        handleUploadEvidencia(evidenciaEntregaId, file);
-                      }
-                      e.target.value = "";
-                    }}
-                  />
 
                   <table className="w-full">
                     <thead>
@@ -3643,11 +3670,10 @@ export function EscritorioProjetos() {
                                       variant="ghost"
                                       size="sm"
                                       className="h-8 px-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 gap-1"
-                                      onClick={() => {
-                                        setEvidenciaEntregaId(entrega.id);
-                                        evidenciaInputRef.current?.click();
-                                      }}
-                                      title="Enviar PDF de evidência"
+                                      onClick={() =>
+                                        handleAbrirConcluirEntrega(entrega)
+                                      }
+                                      title="Concluir entrega (data + PDF de evidência)"
                                     >
                                       <Upload className="h-4 w-4" />
                                       <span className="text-xs">PDF</span>
@@ -3719,12 +3745,21 @@ export function EscritorioProjetos() {
               }}
               className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 hover:bg-indigo-50 hover:border-indigo-300 transition-colors cursor-pointer flex-shrink-0 shadow-sm"
             >
-              <span className="w-28 md:w-40 font-bold text-gray-900 flex-shrink-0">
+              <span className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-900 text-white text-sm font-bold">
+                3
+              </span>
+              <span className="text-lg font-bold text-gray-900 flex-shrink-0">
                 Encerramento
               </span>
-              <span className="flex-1 text-gray-700 text-sm">
+              <span className="flex-1 text-gray-700 text-base min-w-0 truncate">
                 Termo de Encerramento de Projeto
               </span>
+              <div
+                className="flex-shrink-0 w-56"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {tepAcaoButton}
+              </div>
               <button
                 type="button"
                 onClick={abrirTepPdfEAP}
@@ -3756,6 +3791,94 @@ export function EscritorioProjetos() {
   // ============================================================
   // RENDER - MODAL DE NOVA ENTREGA
   // ============================================================
+
+  // Diálogo "Concluir entrega": Data de Conclusão (informada pelo usuário) + evidência (PDF).
+  const renderModalConcluirEntrega = () => {
+    return (
+      <Dialog open={concluirModalOpen} onOpenChange={setConcluirModalOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              Concluir entrega
+            </DialogTitle>
+            <DialogDescription>{concluirEntrega?.nome}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <p className="text-sm text-gray-600">
+              Para concluir a entrega, informe a{" "}
+              <strong>data de conclusão</strong> e anexe a{" "}
+              <strong>evidência (PDF)</strong>. O status será alterado para
+              "Concluída" após o envio.
+            </p>
+            <div className="grid gap-2">
+              <Label htmlFor="concluir-data">Data de Conclusão</Label>
+              <Input
+                id="concluir-data"
+                type="date"
+                value={concluirData}
+                onChange={(e) => setConcluirData(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Evidência (PDF)</Label>
+              <input
+                ref={concluirFileInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  setConcluirFile(e.target.files?.[0] || null);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => concluirFileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {concluirFile ? "Trocar PDF" : "Selecionar PDF"}
+                </Button>
+                {concluirFile && (
+                  <span
+                    className="text-sm text-gray-700 truncate max-w-[220px]"
+                    title={concluirFile.name}
+                  >
+                    {concluirFile.name}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConcluirModalOpen(false)}
+              disabled={uploadingEvidencia !== null}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmarConclusao}
+              disabled={
+                uploadingEvidencia !== null || !concluirData || !concluirFile
+              }
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {uploadingEvidencia !== null ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Concluir entrega
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
 
   const renderModalNovaEntrega = () => {
     return (
@@ -5849,6 +5972,7 @@ export function EscritorioProjetos() {
       {renderModais()}
       {renderModalInfoCompleta()}
       {renderModalProjetoInfoCompleta()}
+      {renderModalConcluirEntrega()}
       {renderModalNovaEntrega()}
       {renderModalEditEntrega()}
 

@@ -643,6 +643,12 @@ public class CadastrosProjetosService {
                 filename, data, filesize, id);
     }
 
+    /** Define a Data de Conclusão informada manualmente (sobrepõe o CURRENT_DATE do updateEntregaStatus). */
+    public void setEntregaDataConclusao(long id, Object data) {
+        jdbc.update("UPDATE cadastros_projetos_entregas SET data_conclusao = ?, updated_at = NOW() " +
+                "WHERE id = ? AND ativo = TRUE", DateHelper.toSqlDate(data), id);
+    }
+
     public void updateEntregaStatus(long id, String status) {
         jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, " +
                 "data_conclusao = CASE WHEN ? = 'concluida' THEN COALESCE(data_conclusao, CURRENT_DATE) ELSE NULL END, " +
