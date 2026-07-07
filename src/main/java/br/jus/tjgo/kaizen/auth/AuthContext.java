@@ -44,7 +44,7 @@ public final class AuthContext {
     public static void requireRole(List<String> allowedRoles) {
         AuthenticatedUser u = getCurrentUser()
                 .orElseThrow(() -> new ApiException(401, "Não autenticado"));
-        if (!allowedRoles.contains(u.role())) {
+        if (!u.isSuperadmin() && !allowedRoles.contains(u.role())) {
             throw new ApiException(403, "Acesso negado: permissão insuficiente");
         }
     }
