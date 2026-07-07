@@ -69,11 +69,11 @@ public class ProcessosNegocioController {
         return ResponseEntity.ok(processo);
     }
 
-    // POST /api/processos-negocio — só o Gestor do Escritório de Processos (superadmin) cria do zero
-    @Operation(summary = "Criar processo (rascunho)", description = "Cria com status 'em_elaboracao', versão 1.0, ciclos 0. Apenas o Gestor do Escritório de Processos (users.is_superadmin) pode criar do zero.")
+    // POST /api/processos-negocio — Gestor do Escritório (superadmin) ou Diretor/Sub-diretor de macroárea cria do zero
+    @Operation(summary = "Criar processo (rascunho)", description = "Cria com status 'em_elaboracao', versão 1.0, ciclos 0. Podem criar do zero: o Gestor do Escritório de Processos (users.is_superadmin) e os Diretores/Sub-diretores de macroárea (cadastros_areas.gestor_user_id / subdiretor_user_id).")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Criado"),
-            @ApiResponse(responseCode = "403", description = "Não é Gestor do Escritório (superadmin)"),
+            @ApiResponse(responseCode = "403", description = "Não é Gestor do Escritório nem Diretor/Sub-diretor de macroárea"),
             @ApiResponse(responseCode = "413", description = "Fluxograma > 6MB ou documentos > 20MB")
     })
     @PostMapping
@@ -83,8 +83,9 @@ public class ProcessosNegocioController {
             return ResponseEntity.status(401).body(Map.of("error", "Não autenticado"));
         }
         boolean isSuper = AuthContext.getCurrentUser().map(AuthenticatedUser::isSuperadmin).orElse(false);
-        if (!isSuper) {
-            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Gestor do Escritório de Processos pode criar um novo processo."));
+        boolean podeCriar = isSuper || isDiretorOuSubdiretorDeAlgumaArea(userId);
+        if (!podeCriar) {
+            return ResponseEntity.status(403).body(Map.of("error", "Apenas o Gestor do Escritório de Processos, Diretores ou Sub-diretores de macroárea podem criar um novo processo."));
         }
         try {
             Map<String, Object> created = service.create(body, userId);
@@ -606,6 +607,17 @@ public class ProcessosNegocioController {
                         "WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) AND COALESCE(ativo, TRUE) = TRUE LIMIT 1",
                 diretoria);
         return rows.isEmpty() ? null : rows.get(0).get("gestor_user_id");
+    }
+
+    // Diretor (gestor_user_id) ou Sub-diretor (subdiretor_user_id) de ALGUMA macroárea ativa.
+    // Habilita a criação de processos — mesma regra do botão "Novo Processo" no front.
+    private boolean isDiretorOuSubdiretorDeAlgumaArea(long userId) {
+        var rows = jdbc.queryForList(
+                "SELECT 1 FROM cadastros_areas " +
+                        "WHERE (gestor_user_id = ? OR subdiretor_user_id = ?) " +
+                        "AND COALESCE(ativo, TRUE) = TRUE LIMIT 1",
+                userId, userId);
+        return !rows.isEmpty();
     }
 
     private static String userName(Map<String, Object> user, String fallback) {
