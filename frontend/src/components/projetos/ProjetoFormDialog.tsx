@@ -136,6 +136,8 @@ export interface ProjetoFormDialogProps {
   tapEditMode?: boolean;
   /** Nome da diretoria do usuário com Permissão TAP — usado no banner. */
   tapEditDiretoria?: string | null;
+  /** "Revisar TAP" (no modo slim, TAP vigente): abre a edição do projeto para gerar nova versão. */
+  onRevisar?: () => void;
 }
 
 // ============================================================
@@ -152,6 +154,7 @@ export function ProjetoFormDialog({
   onSaved,
   tapEditMode = false,
   tapEditDiretoria = null,
+  onRevisar,
 }: ProjetoFormDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -833,7 +836,7 @@ export function ProjetoFormDialog({
                     ? tapEditMode
                       ? "Editar TAP do Projeto"
                       : "Editar Projeto"
-                    : "Visualizar TAP"}
+                    : "Gerenciamento de TAP"}
               </span>
               {selectedProjeto?.codigo && (
                 <span className="text-gray-500 font-mono text-sm">
@@ -967,11 +970,24 @@ export function ProjetoFormDialog({
                 <FileText className="h-4 w-4 mr-1" />
                 Visualizar PDF
               </Button>
+              {onRevisar && (
+                <Button
+                  size="sm"
+                  onClick={onRevisar}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Revisar TAP
+                </Button>
+              )}
             </div>
           )}
 
-          {/* Painel de Validação do TAP — 3 camadas */}
+          {/* Painel de Validação do TAP — 3 camadas. Escondido quando o TAP já está
+              vigente (validação concluída): o banner "TAP Vigente" e o botão "Revisar TAP"
+              acima já bastam. */}
           {selectedProjeto &&
+            !selectedProjeto.tap_validado_patrocinador_em &&
             (slim ||
               selectedProjeto.tap_validado_gestor_em ||
               mode === "view") && (
@@ -1203,8 +1219,8 @@ export function ProjetoFormDialog({
               <p className="text-sm text-blue-900">
                 Para gerar uma <strong>nova versão</strong> do TAP, altere as
                 informações do projeto pelo botão{" "}
-                <strong>Editar Projeto</strong>. As mudanças vão reiniciar o
-                ciclo de validação (gestor → diretor → patrocinador).
+                <strong>Revisar TAP</strong>. As mudanças vão reiniciar o ciclo
+                de validação (gestor → diretor → patrocinador).
               </p>
             </div>
           )}
