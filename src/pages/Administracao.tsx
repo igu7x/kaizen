@@ -185,6 +185,7 @@ export default function Administracao() {
       classe_efetivo: formData.get("classe_efetivo") as string,
       nome_cc_fc: formData.get("nome_cc_fc") as string,
       classe_cc_fc: formData.get("classe_cc_fc") as string,
+      matricula: formData.get("matricula") as string,
     };
 
     // Adicionar senha se foi fornecida
@@ -495,6 +496,8 @@ export default function Administracao() {
                   />
                 </div>
 
+
+
                 {!isProduction() && (
                   <div>
                     <Label htmlFor="password">
@@ -606,6 +609,15 @@ export default function Administracao() {
                 </div>
 
                 {/* Campos de RH */}
+                <div>
+                  <Label htmlFor="matricula">Matrícula</Label>
+                  <Input
+                    id="matricula"
+                    name="matricula"
+                    defaultValue={(editingUser as any)?.matricula || ""}
+                  />
+                </div>
+
                 <div>
                   <Label htmlFor="situacao_funcional">Situação Funcional</Label>
                   <Input

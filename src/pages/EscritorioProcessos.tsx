@@ -62,6 +62,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 
 // ============================================================
@@ -161,6 +162,11 @@ function corFaixaStatus(p: ProcessoNegocio): string {
     : null;
   if ((dias != null && dias <= 90) || !isK1(p)) return "bg-amber-400";
   return "bg-emerald-500";
+}
+
+/** Extrai a sigla de um nome "SIGLA - Nome completo" → "SIGLA". Sem separador, retorna o texto. */
+function siglaDe(nome: string): string {
+  return nome.split(/\s+[-–—]\s+/)[0].trim();
 }
 
 /** Formata a Data da Versão (periodo, "YYYY-MM-DD") como DD/MM/AAAA sem deslocar fuso. */
@@ -335,9 +341,65 @@ interface DonutChartCardProps {
   data: Array<{ name: string; value: number; color: string; desc?: string }>;
   total: number;
 }
+
+/**
+ * Rótulo de percentual FORA do anel, com uma linha curta "puxando" da borda da fatia até o
+ * texto — mesmo padrão dos donuts do Escritório de Projetos (GraficoRosca). Usa a cor da
+ * própria fatia (props.fill). Fatia única de 100% → texto no centro do donut.
+ */
+function renderDonutLeaderLabel(props: {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  outerRadius: number;
+  percent: number;
+  fill?: string;
+}) {
+  const { cx, cy, midAngle, outerRadius, percent, fill } = props;
+  if (!percent) return null;
+  const RAD = Math.PI / 180;
+  const color = fill || "#334155";
+  const text = `${Math.round(percent * 100)}%`;
+  if (percent >= 0.999) {
+    return (
+      <text
+        x={cx}
+        y={cy}
+        fill={color}
+        fontSize={13}
+        fontWeight={700}
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        {text}
+      </text>
+    );
+  }
+  const LINE_LEN = 13;
+  const sx = cx + outerRadius * Math.cos(-midAngle * RAD);
+  const sy = cy + outerRadius * Math.sin(-midAngle * RAD);
+  const ex = cx + (outerRadius + LINE_LEN) * Math.cos(-midAngle * RAD);
+  const ey = cy + (outerRadius + LINE_LEN) * Math.sin(-midAngle * RAD);
+  const isRight = ex >= cx;
+  return (
+    <g>
+      <line x1={sx} y1={sy} x2={ex} y2={ey} stroke={color} strokeWidth={1} />
+      <text
+        x={ex + (isRight ? 4 : -4)}
+        y={ey}
+        fill={color}
+        fontSize={11}
+        fontWeight={700}
+        textAnchor={isRight ? "start" : "end"}
+        dominantBaseline="central"
+      >
+        {text}
+      </text>
+    </g>
+  );
+}
 function DonutChartCard({ title, data, total }: DonutChartCardProps) {
   const chartData = data.filter((d) => d.value > 0);
-  const [hovering, setHovering] = useState(false);
   const sweepKey = useMemo(
     () => chartData.map((d) => `${d.name}:${d.value}`).join("|"),
     [chartData],
@@ -346,16 +408,14 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm h-[300px] flex flex-col">
       <h3 className="text-sm font-bold text-slate-900 mb-2">{title}</h3>
-      <div className="flex-1 flex items-center gap-3 min-h-0">
+      <div className="flex-1 flex items-center gap-6 min-h-0">
         <div
           ref={sweepRef}
-          className="w-[140px] h-[140px] flex-shrink-0 relative"
+          className="w-[200px] h-[180px] flex-shrink-0 relative [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible"
           style={{ overflow: "visible" }}
-          onMouseEnter={() => setHovering(true)}
-          onMouseLeave={() => setHovering(false)}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart margin={{ top: 14, right: 14, bottom: 14, left: 14 }}>
               <Pie
                 data={
                   chartData.length > 0
@@ -364,11 +424,13 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 }
                 cx="50%"
                 cy="50%"
-                innerRadius={42}
-                outerRadius={65}
+                innerRadius={40}
+                outerRadius={58}
                 paddingAngle={2}
                 dataKey="value"
                 isAnimationActive={false}
+                labelLine={false}
+                label={chartData.length > 0 ? renderDonutLeaderLabel : undefined}
               >
                 {(chartData.length > 0
                   ? chartData
@@ -387,29 +449,19 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
               )}
             </PieChart>
           </ResponsiveContainer>
-          {chartData.length > 0 && !hovering && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-xl font-bold text-slate-800 leading-none">
-                {total}
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5 leading-none">
-                total
-              </span>
-            </div>
-          )}
         </div>
         <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-0">
           {data.map((d) => (
-            <div key={d.name} className="flex items-center gap-2 text-xs">
+            <div key={d.name} className="flex items-start gap-2 text-xs">
               <span
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                className="mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: d.color }}
               />
-              <span className="text-slate-700 flex-1 truncate" title={d.desc}>
-                {d.name}
-              </span>
-              <span className="text-slate-500 font-medium tabular-nums">
-                {total > 0 ? Math.round((d.value / total) * 100) : 0}%
+              <span className="text-slate-700 flex-1 leading-tight" title={d.desc}>
+                {d.name}{" "}
+                <span className="text-slate-500 font-medium tabular-nums">
+                  ({d.value})
+                </span>
               </span>
             </div>
           ))}
@@ -444,7 +496,6 @@ function BarChartCard({ title, data }: BarChartCardProps) {
             layout="vertical"
             margin={{ top: 5, right: 40, left: 0, bottom: 5 }}
           >
-            <CartesianGrid horizontal={false} stroke="#f1f5f9" />
             <XAxis type="number" hide />
             <YAxis
               type="category"
@@ -468,6 +519,11 @@ function BarChartCard({ title, data }: BarChartCardProps) {
               barSize={14}
               isAnimationActive={false}
             >
+              <LabelList
+                dataKey="value"
+                position="right"
+                style={{ fontSize: 11, fontWeight: 600, fill: "#334155" }}
+              />
               {data.map((_, idx) => (
                 <Cell
                   key={idx}
@@ -513,20 +569,13 @@ function ColumnChartCard({ title, data }: ColumnChartCardProps) {
           <BarChart
             key={animKey}
             data={data}
-            margin={{ top: 18, right: 10, left: -22, bottom: 5 }}
+            margin={{ top: 18, right: 10, left: 0, bottom: 5 }}
           >
-            <CartesianGrid vertical={false} stroke="#f1f5f9" />
             <XAxis
               dataKey="name"
               tick={{ fontSize: 10, fill: "#475569" }}
               tickLine={false}
               axisLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: "#94a3b8" }}
-              tickLine={false}
-              axisLine={false}
-              allowDecimals={false}
             />
             <RTooltip formatter={(v: number) => [`${v}`, "Processos"]} />
             <Bar
@@ -572,6 +621,8 @@ export default function EscritorioProcessos() {
   // Modais
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProcessoNegocio | null>(null);
+  // Modo com que o form abre: "visualizar" (clique no processo → travado) ou "editar".
+  const [formModo, setFormModo] = useState<"editar" | "visualizar">("editar");
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [selecionado, setSelecionado] = useState<ProcessoNegocio | null>(null);
   const [detalheLoading, setDetalheLoading] = useState(false);
@@ -584,10 +635,10 @@ export default function EscritorioProcessos() {
 
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
-  // Quem enxerga todas as diretorias (alinhado ao escopo do backend): Gestor do Escritório
-  // (superadmin), Compliance Officer e SGJT. Os demais recebem a lista já restrita por papel.
-  const podeFiltrarDiretoria =
-    isSuperadmin || isComplianceOfficer || user?.diretoria === "SGJT";
+  // Regra (jul/2026): todos os usuários enxergam todos os processos (de todas as diretorias),
+  // então o filtro por diretoria fica habilitado para todos. O Visualizador (VIEWER) segue
+  // restrito aos vigentes (aba única) via `soVisualizador`.
+  const podeFiltrarDiretoria = true;
   // Visualizador (perfil VIEWER): só enxerga "Processos Vigentes", independente da diretoria.
   // Superadmin (Gestor do Escritório) e Compliance Officer não são restritos.
   const soVisualizador =
@@ -695,9 +746,40 @@ export default function EscritorioProcessos() {
     };
   }, [unidades, user?.id]);
 
+  // Diretor de uma área = area.gestor_user_id; Sub-diretor = area.subdiretor_user_id.
+  // Resolve a área pela sigla == diretoria do processo (mesmo casamento do Revisor/camada 2).
+  const ehDiretorDoProcesso = useMemo(() => {
+    return (p: ProcessoNegocio): boolean => {
+      const uid = Number(user?.id);
+      if (!uid || Number.isNaN(uid)) return false;
+      const area = areas.find(
+        (a) =>
+          a.sigla?.trim().toUpperCase() === p.diretoria?.trim().toUpperCase(),
+      );
+      if (!area) return false;
+      return (
+        (area.gestor_user_id != null && Number(area.gestor_user_id) === uid) ||
+        (area.subdiretor_user_id != null &&
+          Number(area.subdiretor_user_id) === uid)
+      );
+    };
+  }, [areas, user?.id]);
+
+  // Usuário é Diretor ou Sub-diretor de ALGUMA área (habilita o botão "Novo Processo").
+  const ehDiretorOuSubdiretor = useMemo(() => {
+    const uid = Number(user?.id);
+    if (!uid || Number.isNaN(uid)) return false;
+    return areas.some(
+      (a) =>
+        (a.gestor_user_id != null && Number(a.gestor_user_id) === uid) ||
+        (a.subdiretor_user_id != null && Number(a.subdiretor_user_id) === uid),
+    );
+  }, [areas, user?.id]);
+
   // Processos vigentes e no prazo (Modelo K1, revisão não vencida) que o usuário pode revisar
-  // antecipadamente: o Responsável vê os seus; o Gestor do Escritório (superadmin) vê todos —
-  // ambos autorizados no endpoint iniciar-revisao. Não apareceriam em "Em Revisão ou Novos".
+  // antecipadamente. Regra: só aparece para o RESPONSÁVEL do processo (cada um vê apenas os
+  // seus) — nem o Gestor do Escritório (superadmin) vê os dos outros aqui. Não apareceriam em
+  // "Em Revisão ou Novos".
   const processosParaRevisar = useMemo(() => {
     if (!user?.id) return [];
     return processos
@@ -705,14 +787,14 @@ export default function EscritorioProcessos() {
         (p) =>
           isK1(p) &&
           !revisaoVencida(p) &&
-          (isSuperadmin || ehResponsavelDoProcesso(p)),
+          (ehResponsavelDoProcesso(p) || ehDiretorDoProcesso(p)),
       )
       .sort((a, b) => {
         const da = proximaRevisao(a)?.getTime() ?? Infinity;
         const db = proximaRevisao(b)?.getTime() ?? Infinity;
         return da - db;
       });
-  }, [processos, user?.id, isSuperadmin, ehResponsavelDoProcesso]);
+  }, [processos, user?.id, ehResponsavelDoProcesso, ehDiretorDoProcesso]);
 
   // Validação disponível para o usuário no processo em edição (camada atual). Alimenta o botão
   // "Validar" do form: Responsável valida a camada 1 (enviar), Revisor a 2, Compliance a 3.
@@ -732,6 +814,8 @@ export default function EscritorioProcessos() {
       (st === "em_elaboracao" || st === "recusado") &&
       ehResponsavelDoProcesso(p)
     ) {
+      // Ao EDITAR, o Responsável (e qualquer papel com acesso à edição) valida na hora — não
+      // depende do Editor concluir. A regra do Editor só afeta o "Validar" do rodapé em leitura.
       return { exec: (id: number) => processosNegocioApi.enviar(id) };
     }
     if (st === "validado_autor" && ehRevisor) {
@@ -781,23 +865,22 @@ export default function EscritorioProcessos() {
       .slice(0, 6);
   }, [filtered]);
 
-  // Donut "por área" — agrupado pela área responsável principal do processo (top 4 + "Outras").
+  // Donut "por área" — a "área" é SEMPRE a Diretoria vinculada do processo (sigla).
+  // Mostra TODAS as diretorias (sem bucket "Outras"), coloridas ciclicamente pela paleta.
   const areaChartData = useMemo(() => {
     const counts = new Map<string, number>();
     filtered.forEach((p) => {
-      const a =
-        (p.areas_responsaveis || [])[0] || p.diretoria || "Não informada";
+      // Só a sigla da diretoria (ex.: "DITI - Diretoria..." → "DITI").
+      const a = siglaDe(p.diretoria || "Não informada");
       counts.set(a, (counts.get(a) || 0) + 1);
     });
-    const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-    const arr = sorted.slice(0, 4).map(([name, value], i) => ({
-      name,
-      value,
-      color: DIRETORIA_COLORS[i % DIRETORIA_COLORS.length],
-    }));
-    const rest = sorted.slice(4).reduce((s, [, v]) => s + v, 0);
-    if (rest > 0) arr.push({ name: "Outras", value: rest, color: "#94a3b8" });
-    return arr;
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], i) => ({
+        name,
+        value,
+        color: DIRETORIA_COLORS[i % DIRETORIA_COLORS.length],
+      }));
   }, [filtered]);
 
   const revisaoPeriodoData = useMemo(() => {
@@ -858,6 +941,8 @@ export default function EscritorioProcessos() {
   // HANDLERS
   // ============================================================
   const handleNovoProcesso = () => {
+    // Sempre editável: sem resetar o modo, criar logo após ver um preview abriria travado.
+    setFormModo("editar");
     setEditing(null);
     setFormOpen(true);
   };
@@ -880,23 +965,22 @@ export default function EscritorioProcessos() {
   };
   const handleEditar = (p: ProcessoNegocio) => {
     setDetalheOpen(false);
+    setFormModo("editar");
     setEditing(p);
     setFormOpen(true);
   };
   const handleAbrirDetalhe = async (p: ProcessoNegocio) => {
-    // Abre já com o objeto enxuto (instantâneo) e busca o completo em seguida —
-    // a listagem não traz os bytes do fluxograma/documentos, mas o detalhe precisa
-    // deles para preview, download e geração de PDF.
-    setSelecionado(p);
-    setDetalheOpen(true);
-    setDetalheLoading(true);
+    // Clicar num processo abre o MESMO form da edição, porém travado (somente leitura) — o botão
+    // "Editar" no rodapé destrava. Abre já com o objeto enxuto (instantâneo) e busca o completo em
+    // seguida (a listagem não traz os bytes do fluxograma/documentos, necessários para preview/PDF).
+    setFormModo("visualizar");
+    setEditing(p);
+    setFormOpen(true);
     try {
       const full = await processosNegocioApi.getById(p.id);
-      setSelecionado((cur) => (cur && cur.id === full.id ? full : cur));
+      setEditing((cur) => (cur && cur.id === full.id ? full : cur));
     } catch {
       /* mantém o objeto enxuto; erro já tratado pelo apiClient */
-    } finally {
-      setDetalheLoading(false);
     }
   };
 
@@ -969,6 +1053,18 @@ export default function EscritorioProcessos() {
     }
     setProcessos((prev) => prev.map((x) => (x.id === next.id ? next : x)));
     setSelecionado(next);
+  };
+
+  // Ações do rodapé do preview (form em modo leitura): mantém o form aberto refletindo o novo
+  // status/gating (atualiza `editing`) e sincroniza a lista. `null` = deletado → fecha o dialog.
+  const handleProcessoChangedNoForm = (next: ProcessoNegocio | null) => {
+    if (next === null) {
+      setProcessos((prev) => prev.filter((x) => x.id !== editing?.id));
+      setEditing(null);
+      return;
+    }
+    setProcessos((prev) => prev.map((x) => (x.id === next.id ? next : x)));
+    setEditing((cur) => (cur && cur.id === next.id ? next : cur));
   };
 
   const trocarAba = (nova: "vigentes" | "revisao") => {
@@ -1068,7 +1164,7 @@ export default function EscritorioProcessos() {
               </DropdownMenu>
             )}
 
-            {isSuperadmin && aba === "revisao" && (
+            {(isSuperadmin || ehDiretorOuSubdiretor) && aba === "revisao" && (
               <Button
                 onClick={handleNovoProcesso}
                 className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
@@ -1286,7 +1382,7 @@ export default function EscritorioProcessos() {
                         Macroprocesso
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Área Responsável
+                        Área
                       </th>
                       <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Modelo Vigente
@@ -1305,8 +1401,8 @@ export default function EscritorioProcessos() {
                       const nextRev = proximaRevisao(p);
                       const overdue =
                         nextRev != null && nextRev.getTime() < Date.now();
-                      const areaLabel =
-                        (p.areas_responsaveis || [])[0] || p.diretoria || "—";
+                      // "Área" = Diretoria vinculada do processo (sigla).
+                      const areaLabel = p.diretoria || "—";
                       const k1 = isK1(p);
                       const docPri = temDocumentoPrimario(p);
                       return (
@@ -1402,7 +1498,9 @@ export default function EscritorioProcessos() {
         onOpenChange={setFormOpen}
         processo={editing}
         diretoriaPadrao={user?.diretoria || undefined}
+        modoInicial={formModo}
         onSaved={handleSaved}
+        onProcessoChanged={handleProcessoChangedNoForm}
         validacao={validacaoDoEditing}
       />
       <ProcessoDetalhe

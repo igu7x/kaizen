@@ -628,7 +628,7 @@ export function MonitoramentoOKRs() {
                         <th className="text-center p-2 lg:p-4 font-semibold text-xs lg:text-sm text-gray-700 w-32 lg:w-40">
                           PRAZO
                         </th>
-                        {(canFullEdit || canEditStatus) && (
+                        {canFullEdit && (
                           <th className="text-center p-2 lg:p-4 font-semibold text-xs lg:text-sm text-gray-700 w-24 lg:w-32">
                             AÇÕES
                           </th>
@@ -651,7 +651,7 @@ export function MonitoramentoOKRs() {
                             >
                               <td
                                 className="p-2 lg:p-4"
-                                colSpan={canFullEdit || canEditStatus ? 5 : 4}
+                                colSpan={canFullEdit ? 5 : 4}
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex-1 min-w-0">
@@ -755,9 +755,6 @@ export function MonitoramentoOKRs() {
                                       </Button>
                                     </div>
                                   </td>
-                                )}
-                                {!canFullEdit && canEditStatus && (
-                                  <td className="p-2 lg:p-4"></td>
                                 )}
                               </tr>
                             ))}
@@ -864,7 +861,7 @@ export function MonitoramentoOKRs() {
                         <th className="text-center p-2 lg:p-4 font-semibold text-xs lg:text-sm text-gray-700 w-32 lg:w-40">
                           PRAZO
                         </th>
-                        {(canFullEdit || canEditStatus) && (
+                        {canFullEdit && (
                           <th className="text-center p-2 lg:p-4 font-semibold text-xs lg:text-sm text-gray-700 w-24 lg:w-32">
                             AÇÕES
                           </th>
@@ -943,9 +940,6 @@ export function MonitoramentoOKRs() {
                                   </Button>
                                 </div>
                               </td>
-                            )}
-                            {!canFullEdit && canEditStatus && (
-                              <td className="p-2 lg:p-4"></td>
                             )}
                           </tr>
                         ))

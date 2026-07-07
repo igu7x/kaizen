@@ -180,12 +180,13 @@ export function validarComiteParaEnvio(
 }
 
 /**
- * Modelo K1: status validado_final, todos os campos obrigatórios preenchidos E todos os comitês
- * exigidos na apreciação aprovaram (apreciação vazia ⇒ basta o resto). É derivado — cai sozinho
- * se o processo sair do validado_final (reedição) ou se faltar campo.
+ * Modelo K1: processo já PROMOVIDO (tem `codigo`/ID, gerado no 1º K1 e permanente) com todos os
+ * campos obrigatórios preenchidos E todos os comitês exigidos aprovados (apreciação vazia ⇒ basta o
+ * resto). O status transitório NÃO rebaixa o modelo: uma revisão volta o status a em_elaboracao e
+ * gera nova versão, mas o processo segue sendo Modelo K1 enquanto mantiver ID + campos + aprovações.
  */
 export function isK1(p: ProcessoNegocio): boolean {
-  if (p.status !== "validado_final") return false;
+  if (!p.codigo) return false;
   if (camposObrigatoriosFaltantes(p).length > 0) return false;
   const exigidos = p.apreciacao || [];
   const aprovados = p.aprovacoes || [];
@@ -209,17 +210,22 @@ export function revisaoVencida(p: { periodo: string | null }): boolean {
   return next != null && next.getTime() < Date.now();
 }
 
-/** Vigente = tem documento primário OU é Modelo K1. */
+/**
+ * Vigente = em vigor AGORA. Um Modelo K1 só é vigente enquanto está `validado_final`; ao ser
+ * reaberto (edição de um vigente → volta para 'em_elaboracao'), sai de "vigentes" e vai só para
+ * "em revisão" até ser revalidado. Documento primário segue vigente pelo próprio anexo.
+ */
 export function isVigente(p: ProcessoNegocio): boolean {
-  return temDocumentoPrimario(p) || isK1(p);
+  return temDocumentoPrimario(p) || (isK1(p) && p.status === "validado_final");
 }
 
 /**
- * Revisão ou Novo = NÃO é K1 OU revisão vencida. Não é exclusivo de {@link isVigente}:
- * um processo pode aparecer nas duas abas (ex: doc primário sem K1, ou K1 com revisão vencida).
+ * Revisão ou Novo = ainda não finalizado (status ≠ validado_final — ex.: em elaboração/revisão) OU
+ * não é K1 completo OU está com a revisão vencida. Não é exclusivo de {@link isVigente}: um Modelo K1
+ * em revisão aparece nas DUAS abas (vigente como modelo publicado; em revisão como versão em curso).
  */
 export function isRevisaoOuNovo(p: ProcessoNegocio): boolean {
-  return !isK1(p) || revisaoVencida(p);
+  return p.status !== "validado_final" || !isK1(p) || revisaoVencida(p);
 }
 
 /**
@@ -308,6 +314,28 @@ export function isEditor(
   return (p.editores || []).some((e) => Number(e.user_id) === uid);
 }
 
+/** True quando o processo tem ao menos um Editor atribuído. */
+export function temEditores(p: Pick<ProcessoNegocio, "editores">): boolean {
+  return (p.editores || []).length > 0;
+}
+
+/** True quando o Editor atribuído sinalizou "Edição concluída" (edicao_concluida_em preenchido). */
+export function edicaoConcluida(
+  p: Pick<ProcessoNegocio, "edicao_concluida_em">,
+): boolean {
+  return !!p.edicao_concluida_em;
+}
+
+/**
+ * O Responsável só pode validar a camada 1 quando NÃO há Editor atribuído, ou quando há e ele já
+ * concluiu a edição. Enquanto houver editor preenchendo (não concluído), a validação fica bloqueada.
+ */
+export function responsavelPodeValidar(
+  p: Pick<ProcessoNegocio, "editores" | "edicao_concluida_em">,
+): boolean {
+  return !temEditores(p) || edicaoConcluida(p);
+}
+
 /** Política de revisão exibida na coluna "Periodicidade" da seção Revisão. */
 export const REVISAO_POLITICA_TEXTO =
   "A revisão do processo deverá ocorrer de forma ordinária, anualmente, ou de forma extraordinária, sempre que houver necessidade de atualização.";
@@ -380,6 +408,10 @@ export interface ProcessoNegocio {
   validado_final_user_id: number | null;
   validado_final_nome: string | null;
   validado_final_em: string | null;
+  /** Sinal "Edição concluída" do Editor atribuído (nulo = pendente/em andamento). */
+  edicao_concluida_em: string | null;
+  edicao_concluida_por_user_id: number | null;
+  edicao_concluida_por_nome: string | null;
   recusado_em: string | null;
   recusado_por_user_id: number | null;
   recusado_por_nome: string | null;
@@ -460,6 +492,11 @@ export const processosNegocioApi = {
   /** Reabre um processo vigente (K1) para revisão antecipada (volta para 'em_elaboracao'). */
   iniciarRevisao(id: number): Promise<ProcessoNegocio> {
     return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/iniciar-revisao`);
+  },
+
+  /** Editor atribuído sinaliza que terminou a versão completa (libera o Responsável a validar). */
+  concluirEdicao(id: number): Promise<ProcessoNegocio> {
+    return apiClient.patch<ProcessoNegocio>(`${BASE}/${id}/concluir-edicao`);
   },
 
   /** Atribui um editor (usuário com permissão de editar/salvar o conteúdo do processo). */

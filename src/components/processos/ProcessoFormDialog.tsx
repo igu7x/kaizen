@@ -24,6 +24,7 @@ import {
   BarChart3,
   Save,
   ShieldCheck,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,6 +34,7 @@ import {
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   COMITES_APROVACAO,
+  exigeComiteAprovacao,
   camposObrigatoriosFaltantes,
   temDocumentoPrimario,
   validarComiteParaEnvio,
@@ -42,6 +44,8 @@ import { ListInput } from "./ListInput";
 import { ResponsavelInput } from "./ResponsavelInput";
 import { UnidadeMultiPicker } from "./UnidadeMultiPicker";
 import { DocumentosAnexadosInput } from "./DocumentosAnexadosInput";
+import { ProcessoAcoesFooter } from "./ProcessoAcoesFooter";
+import { ProcessoAprovacaoK1 } from "./ProcessoAprovacaoK1";
 
 interface ProcessoFormDialogProps {
   open: boolean;
@@ -50,8 +54,15 @@ interface ProcessoFormDialogProps {
   processo?: ProcessoNegocio | null;
   /** Diretoria padrão pra novos processos (do usuário logado) */
   diretoriaPadrao?: string;
+  /** "visualizar" abre o form travado (somente leitura) com um botão "Editar" que destrava. */
+  modoInicial?: "editar" | "visualizar";
   /** Callback após salvar com sucesso */
   onSaved: (processo: ProcessoNegocio) => void;
+  /**
+   * Callback das ações do rodapé de leitura (validar/enviar/recusar/editores/excluir).
+   * `next` = processo atualizado; `null` = deletado. Só é usado em modo visualizar.
+   */
+  onProcessoChanged?: (next: ProcessoNegocio | null) => void;
   /**
    * Validação disponível para o usuário na camada atual do processo. Quando presente, o form
    * mostra o botão "Validar" (salva e valida a camada do usuário — Responsável/Revisor/Compliance).
@@ -59,6 +70,13 @@ interface ProcessoFormDialogProps {
    */
   validacao?: { exec: (id: number) => Promise<ProcessoNegocio> } | null;
 }
+
+/** Rótulo amigável da camada que recusou (usado no banner de recusa). */
+const CAMADA_LABEL: Record<string, string> = {
+  autor: "Responsável",
+  diretoria: "Revisor",
+  final: "Compliance Officer",
+};
 
 const emptyForm: CreateProcessoNegocioDto = {
   macroprocesso: "",
@@ -133,15 +151,17 @@ export function ProcessoFormDialog({
   onOpenChange,
   processo,
   diretoriaPadrao,
+  modoInicial = "editar",
   onSaved,
+  onProcessoChanged,
   validacao = null,
 }: ProcessoFormDialogProps) {
   const isEdit = !!processo;
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
   const [saving, setSaving] = useState(false);
+  // Modo do form: quando "visualizar", começa travado (somente leitura) até clicar em "Editar".
+  const [editando, setEditando] = useState(true);
   const [areas, setAreas] = useState<Area[]>([]);
-  // "Passa por apreciação em instâncias colegiadas?" (Sim/Não). Controla a lista de comitês.
-  const [apreciacaoSim, setApreciacaoSim] = useState(false);
   // Id do processo sendo editado. Em "Salvar Alterações" num processo novo,
   // passamos a editar o mesmo registro (evita recriar a cada clique).
   const [currentId, setCurrentId] = useState<number | null>(
@@ -165,9 +185,15 @@ export function ProcessoFormDialog({
     };
   }, [open]);
 
-  // Carregar valores ao abrir (modo edição) ou resetar (criação)
+  // Carregar valores ao abrir (modo edição) ou resetar (criação).
+  // Depende de `processo?.id` (NÃO do objeto): ao clicar num processo o pai abre o form já
+  // e busca o objeto completo (getById) por baixo, trocando a referência do MESMO processo.
+  // Se reinicializássemos aqui a cada troca de referência, o fetch completando no meio da
+  // edição APAGAVA o que o usuário digitou (bug: "Responsável nunca salva"). O conteúdo pesado
+  // (fluxograma/documentos), que só vem no objeto completo, é sincronizado no efeito seguinte.
   useEffect(() => {
     if (!open) return;
+    setEditando(modoInicial !== "visualizar");
     setCurrentId(processo?.id ?? null);
     if (processo) {
       setForm({
@@ -191,7 +217,7 @@ export function ProcessoFormDialog({
         fluxograma_filename: processo.fluxograma_filename || null,
         fluxograma_mime: processo.fluxograma_mime || null,
         documentos_anexados: processo.documentos_anexados || [],
-        apreciacao: processo.apreciacao || [],
+        apreciacao: exigeComiteAprovacao(processo.diretoria) ? ["CGTIC"] : [],
         periodicidade_revisao: processo.periodicidade_revisao || "",
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
@@ -199,12 +225,29 @@ export function ProcessoFormDialog({
           ? String(parseInt(String(processo.versao), 10) || "")
           : "",
       });
-      setApreciacaoSim((processo.apreciacao || []).length > 0);
     } else {
-      setForm({ ...emptyForm, diretoria: diretoriaPadrao || "" });
-      setApreciacaoSim(false);
+      setForm({
+        ...emptyForm,
+        diretoria: diretoriaPadrao || "",
+        apreciacao: exigeComiteAprovacao(diretoriaPadrao) ? ["CGTIC"] : [],
+      });
     }
-  }, [open, processo, diretoriaPadrao]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, processo?.id, diretoriaPadrao, modoInicial]);
+
+  // Quando o objeto completo (getById) chega — para o MESMO processo já aberto —, sincroniza
+  // só o conteúdo pesado (fluxograma/documentos), que não vem no payload enxuto da listagem.
+  // Roda apenas em modo leitura para NUNCA sobrescrever uma edição em curso do usuário.
+  useEffect(() => {
+    if (!open || editando || !processo) return;
+    setForm((prev) => ({
+      ...prev,
+      fluxograma_data: processo.fluxograma_data ?? null,
+      fluxograma_filename: processo.fluxograma_filename ?? null,
+      fluxograma_mime: processo.fluxograma_mime ?? null,
+      documentos_anexados: processo.documentos_anexados || [],
+    }));
+  }, [processo, open, editando]);
 
   const update = <K extends keyof CreateProcessoNegocioDto>(
     field: K,
@@ -264,11 +307,13 @@ export function ProcessoFormDialog({
         onSaved(saved);
         onOpenChange(false);
       } else {
-        // "Salvar Alterações": mantém o formulário aberto e editável.
+        // "Salvar Alterações": persiste e FECHA a tela (o backend reseta as camadas de
+        // validação e ajusta a versão ao editar; a lista reflete o novo estado via onSaved).
         toast.success("Alterações salvas.");
         onSaved(saved);
+        onOpenChange(false);
       }
-    } catch (err: any) {
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
@@ -282,7 +327,11 @@ export function ProcessoFormDialog({
         <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-white">
-              {isEdit ? "Editar Processo" : "Novo Processo"}
+              {!editando
+                ? "Visualizar Processo"
+                : isEdit
+                  ? "Editar Processo"
+                  : "Novo Processo"}
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
               Cadastro de processo de negócio — siga o template institucional.
@@ -297,8 +346,32 @@ export function ProcessoFormDialog({
           </button>
         </div>
 
-        {/* Corpo rolável */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 bg-slate-50">
+        {/* Corpo rolável: o <div> é o container de scroll (fieldset não rola bem em flex). O
+            <fieldset disabled> DENTRO apenas trava todos os inputs/selects/botões de uma vez. */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 bg-slate-50">
+          {/* Motivo da recusa — aparece para a 1ª camada (Responsável) saber o que o superior
+              pediu para alterar, antes de corrigir e reenviar. Vale na 1ª criação e nas revisões. */}
+          {processo?.status === "recusado" && processo.recusa_motivo && (
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p className="flex items-center gap-2 text-sm font-bold text-red-700">
+                <XCircle className="h-4 w-4 flex-shrink-0" />
+                Processo recusado
+                {processo.recusado_por_nome
+                  ? ` por ${processo.recusado_por_nome}`
+                  : ""}
+                {processo.recusado_camada
+                  ? ` — camada ${CAMADA_LABEL[processo.recusado_camada] ?? processo.recusado_camada}`
+                  : ""}
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-red-900">
+                {processo.recusa_motivo}
+              </p>
+            </div>
+          )}
+          <fieldset
+            disabled={!editando}
+            className="m-0 min-w-0 border-0 p-0 space-y-6"
+          >
           {/* Identificação */}
           <Section
             icon={<FileText className="h-4 w-4" />}
@@ -344,7 +417,10 @@ export function ProcessoFormDialog({
                 </Label>
                 <Select
                   value={form.diretoria || undefined}
-                  onValueChange={(v) => update("diretoria", v)}
+                  onValueChange={(v) => {
+                    update("diretoria", v);
+                    update("apreciacao", exigeComiteAprovacao(v) ? ["CGTIC"] : []);
+                  }}
                 >
                   <SelectTrigger id="diretoria" className="mt-1 bg-white">
                     <SelectValue placeholder="Selecione a área responsável" />
@@ -441,6 +517,7 @@ export function ProcessoFormDialog({
                     value={form.proprietarios || []}
                     onChange={(next) => update("proprietarios", next)}
                     emptyMessage="Nenhum responsável"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -454,6 +531,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("areas_responsaveis", next)}
                     placeholder="Digite para buscar..."
                     emptyMessage="Nenhuma área"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -476,6 +554,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("entradas", next)}
                     placeholder="Adicionar entrada (ex.: Proad 516136/2024)"
                     emptyMessage="Nenhuma entrada"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -489,6 +568,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("saidas", next)}
                     placeholder="Adicionar saída"
                     emptyMessage="Nenhuma saída"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -529,6 +609,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("sistemas_ferramentas", next)}
                     placeholder="Ex.: Bizagi 3.7.0"
                     emptyMessage="Nenhum item"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -542,6 +623,7 @@ export function ProcessoFormDialog({
                     onChange={(next) => update("normativos_referencias", next)}
                     placeholder="Ex.: Resoluções do CNJ"
                     emptyMessage="Nenhum item"
+                    somenteLeitura={!editando}
                   />
                 </div>
               </div>
@@ -613,6 +695,7 @@ export function ProcessoFormDialog({
             <DocumentosAnexadosInput
               value={form.documentos_anexados || []}
               onChange={(next) => update("documentos_anexados", next)}
+              somenteLeitura={!editando}
             />
           </Section>
 
@@ -682,130 +765,101 @@ export function ProcessoFormDialog({
             </div>
           </Section>
 
-          <Section
-            icon={<ShieldCheck className="h-4 w-4" />}
-            title="Apreciação em Instâncias Colegiadas"
-          >
-            <p className="text-xs text-slate-500 mb-2">
-              Este processo passa por apreciação em instâncias colegiadas
-              (comitês)?
-            </p>
-            <div className="flex gap-2 mb-3">
-              {[
-                { label: "Sim", val: true },
-                { label: "Não", val: false },
-              ].map(({ label, val }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => {
-                    setApreciacaoSim(val);
-                    if (!val) update("apreciacao", []);
-                  }}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-                    apreciacaoSim === val
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          </fieldset>
 
-            {apreciacaoSim && (
-              <div className="space-y-2">
-                {(form.apreciacao || []).length <
-                  Object.keys(COMITES_APROVACAO).length && (
-                  <Select
-                    value=""
-                    onValueChange={(sigla) => {
-                      const atual = form.apreciacao || [];
-                      if (!atual.includes(sigla))
-                        update("apreciacao", [...atual, sigla]);
-                    }}
-                  >
-                    <SelectTrigger className="h-10 bg-white max-w-md">
-                      <SelectValue placeholder="Selecionar comitê" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(COMITES_APROVACAO)
-                        .filter(([s]) => !(form.apreciacao || []).includes(s))
-                        .map(([sigla, nome]) => (
-                          <SelectItem key={sigla} value={sigla}>
-                            {sigla} — {nome}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {(form.apreciacao || []).map((sigla) => (
-                    <span
-                      key={sigla}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
-                    >
-                      {sigla}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          update(
-                            "apreciacao",
-                            (form.apreciacao || []).filter((c) => c !== sigla),
-                          )
-                        }
-                        className="text-blue-400 hover:text-blue-700"
-                        aria-label={`Remover ${sigla}`}
-                      >
-                        <XIcon className="h-3 w-3" />
-                      </button>
+          {/* Apreciação + Aprovação (Modelo K1) — FORA do <fieldset disabled> para que o anexo do
+              PDF de aprovação (ação de superadmin) funcione também em modo leitura/preview. */}
+          <div className="mt-6">
+            <Section
+              icon={<ShieldCheck className="h-4 w-4" />}
+              title="Apreciação em Instâncias Colegiadas"
+            >
+              {exigeComiteAprovacao(form.diretoria) ? (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                  <p className="text-sm text-slate-700">
+                    Processos da diretoria <strong>{form.diretoria}</strong>{" "}
+                    passam obrigatoriamente por apreciação do comitê abaixo (regra
+                    automática).
+                  </p>
+                  <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-white px-3 py-1 text-xs font-semibold text-blue-700">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    CGTIC — {COMITES_APROVACAO.CGTIC}
+                    <span className="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-700">
+                      obrigatório
                     </span>
-                  ))}
+                  </span>
                 </div>
-              </div>
-            )}
-          </Section>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  A área responsável
+                  {form.diretoria ? ` (${form.diretoria})` : ""} não requer
+                  aprovação de comitê.
+                </p>
+              )}
+              {/* Espaço de anexar o PDF de aprovação do comitê (torna Modelo K1) — sobre o
+                  processo persistido; superadmin anexa/remove. Só quando o processo já existe. */}
+              {processo && (
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <ProcessoAprovacaoK1
+                    processo={processo}
+                    onChanged={(next) => onProcessoChanged?.(next)}
+                  />
+                </div>
+              )}
+            </Section>
+          </div>
         </div>
 
         {/* Footer fixo */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3 flex-shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSave(false)}
-            disabled={saving}
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Salvar Alterações
-          </Button>
-          {validacao && (
+        {editando ? (
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3 flex-shrink-0">
             <Button
               type="button"
-              onClick={() => handleSave(true)}
+              variant="outline"
+              onClick={() => onOpenChange(false)}
               disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleSave(false)}
+              disabled={saving}
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <ShieldCheck className="h-4 w-4 mr-2" />
+                <Save className="h-4 w-4 mr-2" />
               )}
-              Validar
+              Salvar Alterações
             </Button>
-          )}
-        </div>
+            {validacao && (
+              <Button
+                type="button"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                )}
+                Validar
+              </Button>
+            )}
+          </div>
+        ) : processo ? (
+          // Modo leitura: barra de ações completa gated por permissão (mesma do ProcessoDetalhe).
+          // Opera sobre o processo PERSISTIDO recebido por prop, não sobre o estado do form.
+          <ProcessoAcoesFooter
+            processo={processo}
+            onChanged={(next) => onProcessoChanged?.(next)}
+            onEditar={() => setEditando(true)}
+            onFechar={() => onOpenChange(false)}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

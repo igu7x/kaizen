@@ -24,6 +24,7 @@ export interface Pessoa {
   ordem: number;
   ativo: boolean;
   user_id?: number | null;
+  matricula?: string;
   foto_perfil?: string | null;
   created_at: string;
   updated_at: string;
@@ -43,6 +44,7 @@ export interface CreatePessoaDto {
   cargo_efetivo_classe?: string;
   linha_organograma?: number;
   user_id?: number | null;
+  matricula?: string;
 }
 
 export interface UpdatePessoaDto {

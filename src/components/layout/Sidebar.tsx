@@ -24,6 +24,7 @@ import {
   Database,
   Code,
   Home,
+  Key,
   Workflow,
   BarChart3,
   LucideIcon,
@@ -180,15 +181,21 @@ const menuItemsCompleto: MenuItem[] = [
     children: [
       { title: "Usuários", icon: Users, path: "/administracao" },
       {
-        title: "Cadastro",
+        title: "Cadastros",
         icon: Database,
         path: "/cadastros",
         superAdminOnly: true,
       },
       {
-        title: "Permissões",
+        title: "Permissões Gerais",
         icon: Shield,
         path: "/gerenciamento",
+        superAdminOnly: true,
+      },
+      {
+        title: "Permissões de Ações",
+        icon: Key,
+        path: "/permissoes",
         superAdminOnly: true,
       },
     ],

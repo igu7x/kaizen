@@ -46,6 +46,7 @@ import {
   Check,
   History,
   FileDown,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -64,6 +65,8 @@ import {
 } from "@/services/planosProgramasApi";
 import { areasApi, Area as AreaDiretoria, Unidade } from "@/services/areasApi";
 import { validateTAPFields, generateTAPPdf } from "@/utils/generateTAP";
+import { pcaApi } from "@/services/pcaApi";
+import type { PcaItem } from "@/types";
 
 // ============================================================
 // HELPERS
@@ -85,6 +88,14 @@ const formatDatePtBr = (dateString: string | null | undefined): string => {
   const date = new Date(ymd + "T00:00:00");
   if (isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("pt-BR");
+};
+
+/** Rótulo amigável de um item do PCA: "PCA {numero} — {objeto}" (sem zeros à esquerda). */
+const labelPcaItem = (item: PcaItem): string => {
+  const raw = String(item.item_pca ?? "");
+  const num = raw.replace(/^0+/, "") || raw;
+  const desc = item.description || item.objeto || "";
+  return `PCA ${num}${desc ? " — " + desc : ""}`;
 };
 
 const tapFieldMap: Record<string, string> = {
@@ -145,6 +156,13 @@ export function ProjetoFormDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   const currentUserId = user?.id ? Number(user.id) : null;
+  const isSuperadmin =
+    (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
+  // Campos "destacados" (Nome do Projeto, toda a Governança e Responsáveis, Prioridade,
+  // Complexidade, Saúde e Justificativa da Saúde) só podem ser alterados por superadmin ao
+  // EDITAR um projeto existente. Na criação seguem liberados para quem cria (ADMIN/Gestor).
+  const camposRestritos =
+    mode === "view" || (mode === "edit" && !isSuperadmin);
 
   // Estado da validação TAP
   const [validandoCamadaTAP, setValidandoCamadaTAP] = useState<number | null>(
@@ -177,6 +195,7 @@ export function ProjetoFormDialog({
     (Unidade & { diretoria_sigla?: string })[]
   >([]);
   const [instrumentos, setInstrumentos] = useState<InstrumentoAncoragem[]>([]);
+  const [pcaItens, setPcaItens] = useState<PcaItem[]>([]);
   const [auxLoaded, setAuxLoaded] = useState(false);
 
   // Form state
@@ -202,7 +221,9 @@ export function ProjetoFormDialog({
     objetivo: "",
     contexto_justificativa: "",
     patrocinador_id: undefined,
+    patrocinador_cargo: "",
     gestor_id: undefined,
+    gestor_cargo: "",
     ancoragem_estrategica_plano_gestao: false,
     ancoragem_estrategica_pep: false,
     ancoragem_estrategica_programa_x: false,
@@ -217,6 +238,7 @@ export function ProjetoFormDialog({
     abrangencia: "uma_unidade",
     havera_contratacao: false,
     valor_estimado_contratacao: undefined,
+    pca_item_id: undefined,
     saude: "verde",
     saude_justificativa: "",
     tap_vinculado: "",
@@ -236,7 +258,6 @@ export function ProjetoFormDialog({
     area_responsavel_id: null as number | null,
     prazo_estimado: "",
   });
-  const [entregaAreaSearch, setEntregaAreaSearch] = useState("");
 
   // Edição inline de entrega já cadastrada
   const [editingEntregaIdx, setEditingEntregaIdx] = useState<number | null>(
@@ -247,13 +268,11 @@ export function ProjetoFormDialog({
     area_responsavel_id: null as number | null,
     prazo_estimado: "",
   });
-  const [editEntregaAreaSearch, setEditEntregaAreaSearch] = useState("");
-  const [showEditEntregaAreaDropdown, setShowEditEntregaAreaDropdown] =
-    useState(false);
-  const [showEntregaAreaDropdown, setShowEntregaAreaDropdown] = useState(false);
 
   const [buscaPatrocinador, setBuscaPatrocinador] = useState("");
   const [buscaGestor, setBuscaGestor] = useState("");
+  const [buscaPca, setBuscaPca] = useState("");
+  const [showPcaList, setShowPcaList] = useState(false);
   const [showPatrocinadorList, setShowPatrocinadorList] = useState(false);
   const [showGestorList, setShowGestorList] = useState(false);
   const [ancoragemSearch, setAncoragemSearch] = useState("");
@@ -294,6 +313,13 @@ export function ProjetoFormDialog({
       } catch (e) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       }
+      try {
+        // Itens do PCA (Contratações de TIC > Orçamento > PCA) para vincular à contratação.
+        const pcaData = await pcaApi.getPcaItems();
+        setPcaItens(pcaData.filter((p) => !p.is_deleted));
+      } catch (e) {
+        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+      }
       setAuxLoaded(true);
     };
     loadAuxiliares();
@@ -307,7 +333,6 @@ export function ProjetoFormDialog({
     setTempRiscos([]);
     setTempEntraves([]);
     setNovaEntrega({ nome: "", area_responsavel_id: null, prazo_estimado: "" });
-    setEntregaAreaSearch("");
 
     if (projetoId && (mode === "edit" || mode === "view")) {
       const loadProjeto = async () => {
@@ -323,7 +348,9 @@ export function ProjetoFormDialog({
             contexto_justificativa:
               projetoCompleto.contexto_justificativa || "",
             patrocinador_id: projetoCompleto.patrocinador_id || undefined,
+            patrocinador_cargo: projetoCompleto.patrocinador_cargo || "",
             gestor_id: projetoCompleto.gestor_id || undefined,
+            gestor_cargo: projetoCompleto.gestor_cargo || "",
             ancoragem_estrategica_plano_gestao:
               projetoCompleto.ancoragem_estrategica_plano_gestao,
             ancoragem_estrategica_pep:
@@ -347,6 +374,7 @@ export function ProjetoFormDialog({
             havera_contratacao: projetoCompleto.havera_contratacao,
             valor_estimado_contratacao:
               projetoCompleto.valor_estimado_contratacao || undefined,
+            pca_item_id: projetoCompleto.pca_item_id ?? undefined,
             saude: projetoCompleto.saude,
             saude_justificativa: projetoCompleto.saude_justificativa || "",
             tap_vinculado: projetoCompleto.tap_vinculado || "",
@@ -1227,7 +1255,7 @@ export function ProjetoFormDialog({
                                 prev.filter((f) => tapFieldMap[f] !== "nome"),
                               );
                             }}
-                            disabled={mode === "view"}
+                            disabled={camposRestritos}
                             placeholder="Digite o nome do projeto"
                             className={
                               isTapFieldMissing("nome") ? "border-red-500" : ""
@@ -1359,7 +1387,7 @@ export function ProjetoFormDialog({
                                 200,
                               )
                             }
-                            disabled={mode === "view"}
+                            disabled={camposRestritos}
                             className={
                               isTapFieldMissing("patrocinador_id")
                                 ? "border-red-500"
@@ -1404,6 +1432,21 @@ export function ProjetoFormDialog({
                                 )}
                               </div>
                             )}
+                          <Input
+                            placeholder="Digite o cargo"
+                            value={formData.patrocinador_cargo || ""}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                patrocinador_cargo: e.target.value,
+                              })
+                            }
+                            disabled={camposRestritos}
+                            className="mt-2"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Cargo (substitui o nome do responsável no TAP)
+                          </p>
                         </div>
                         <div className="relative">
                           <Label
@@ -1431,7 +1474,7 @@ export function ProjetoFormDialog({
                             onBlur={() =>
                               setTimeout(() => setShowGestorList(false), 200)
                             }
-                            disabled={mode === "view"}
+                            disabled={camposRestritos}
                             className={
                               isTapFieldMissing("gestor_id")
                                 ? "border-red-500"
@@ -1473,6 +1516,21 @@ export function ProjetoFormDialog({
                               )}
                             </div>
                           )}
+                          <Input
+                            placeholder="Digite o cargo"
+                            value={formData.gestor_cargo || ""}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                gestor_cargo: e.target.value,
+                              })
+                            }
+                            disabled={camposRestritos}
+                            className="mt-2"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Cargo (substitui o nome do responsável no TAP)
+                          </p>
                         </div>
 
                         <div className="md:col-span-2">
@@ -1494,7 +1552,7 @@ export function ProjetoFormDialog({
                                       className="bg-blue-100 text-blue-800 px-3 py-1.5 text-sm gap-2"
                                     >
                                       {dir.sigla} - {dir.nome}
-                                      {mode !== "view" && (
+                                      {!camposRestritos && (
                                         <button
                                           type="button"
                                           onClick={() =>
@@ -1510,7 +1568,7 @@ export function ProjetoFormDialog({
                                 })}
                               </div>
                             )}
-                          {mode !== "view" && (
+                          {!camposRestritos && (
                             <Select
                               value=""
                               onValueChange={handleAdicionarDiretoria}
@@ -1583,7 +1641,7 @@ export function ProjetoFormDialog({
                                           <span className="text-[9px] text-blue-500">
                                             ({unidade.diretoria_sigla})
                                           </span>
-                                          {mode !== "view" && (
+                                          {!camposRestritos && (
                                             <button
                                               type="button"
                                               onClick={() =>
@@ -1599,7 +1657,7 @@ export function ProjetoFormDialog({
                                     })}
                                   </div>
                                 )}
-                              {mode !== "view" &&
+                              {!camposRestritos &&
                                 unidadesDiretorias.length > 0 && (
                                   <Select
                                     value=""
@@ -1680,7 +1738,7 @@ export function ProjetoFormDialog({
                                       <span className="text-[10px] text-blue-500 uppercase">
                                         ({inst.tipo})
                                       </span>
-                                      {mode !== "view" && (
+                                      {!camposRestritos && (
                                         <button
                                           type="button"
                                           onClick={() =>
@@ -1702,7 +1760,7 @@ export function ProjetoFormDialog({
                               </div>
                             )}
                           {/* Botão adicionar — Select que mostra apenas os ainda não selecionados */}
-                          {mode !== "view" && (
+                          {!camposRestritos && (
                             <Select
                               value=""
                               onValueChange={(value) => {
@@ -1984,7 +2042,7 @@ export function ProjetoFormDialog({
                                 ),
                               );
                             }}
-                            disabled={mode === "view"}
+                            disabled={camposRestritos}
                           >
                             <SelectTrigger
                               className={
@@ -2022,7 +2080,7 @@ export function ProjetoFormDialog({
                                 ),
                               );
                             }}
-                            disabled={mode === "view"}
+                            disabled={camposRestritos}
                           >
                             <SelectTrigger
                               className={
@@ -2050,30 +2108,123 @@ export function ProjetoFormDialog({
                                   setFormData({
                                     ...formData,
                                     havera_contratacao: !!checked,
+                                    // Ao desmarcar, limpa o item do PCA vinculado.
+                                    ...(checked
+                                      ? {}
+                                      : { pca_item_id: undefined }),
                                   })
                                 }
                                 disabled={mode === "view"}
                               />
                               <span>Sim</span>
                             </label>
-                            {formData.havera_contratacao && (
-                              <Input
-                                type="number"
-                                placeholder="Valor estimado (R$)"
-                                value={
-                                  formData.valor_estimado_contratacao || ""
-                                }
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    valor_estimado_contratacao:
-                                      parseFloat(e.target.value) || undefined,
-                                  })
-                                }
-                                disabled={mode === "view"}
-                                className="w-40"
-                              />
-                            )}
+                            {formData.havera_contratacao &&
+                              (() => {
+                                const pcaSelecionado = pcaItens.find(
+                                  (p) => p.id === formData.pca_item_id,
+                                );
+                                const pcaLabel = pcaSelecionado
+                                  ? labelPcaItem(pcaSelecionado)
+                                  : selectedProjeto?.pca_item_label ||
+                                    (formData.pca_item_id
+                                      ? `Item PCA #${formData.pca_item_id}`
+                                      : "");
+                                const q = buscaPca.trim().toLowerCase();
+                                const pcaFiltrados = pcaItens
+                                  .filter(
+                                    (item) =>
+                                      !q ||
+                                      labelPcaItem(item)
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                      String(item.item_pca ?? "")
+                                        .toLowerCase()
+                                        .includes(q),
+                                  )
+                                  .slice(0, 50);
+                                return (
+                                  <div className="relative flex-1 min-w-[220px]">
+                                    {formData.pca_item_id ? (
+                                      <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-sm">
+                                        <Info className="h-4 w-4 flex-shrink-0 text-blue-600" />
+                                        <span
+                                          className="flex-1 truncate text-blue-900"
+                                          title={pcaLabel}
+                                        >
+                                          {pcaLabel}
+                                        </span>
+                                        {mode !== "view" && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setFormData({
+                                                ...formData,
+                                                pca_item_id: undefined,
+                                              })
+                                            }
+                                            className="text-blue-500 hover:text-red-600 transition-colors"
+                                            title="Remover item do PCA"
+                                          >
+                                            <XCircle className="h-4 w-4" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ) : mode === "view" ? (
+                                      <span className="text-sm text-gray-400">
+                                        Nenhum item do PCA selecionado
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <Input
+                                          placeholder="Adicionar o item do PCA..."
+                                          value={buscaPca}
+                                          onChange={(e) => {
+                                            setBuscaPca(e.target.value);
+                                            setShowPcaList(true);
+                                          }}
+                                          onFocus={() => setShowPcaList(true)}
+                                          onBlur={() =>
+                                            setTimeout(
+                                              () => setShowPcaList(false),
+                                              200,
+                                            )
+                                          }
+                                        />
+                                        {showPcaList && (
+                                          <div className="absolute z-50 mt-1 w-[340px] max-w-[80vw] rounded-md border bg-white shadow-lg max-h-60 overflow-y-auto">
+                                            {pcaItens.length === 0 ? (
+                                              <div className="px-3 py-2 text-sm text-gray-500">
+                                                Nenhum item do PCA cadastrado.
+                                              </div>
+                                            ) : pcaFiltrados.length === 0 ? (
+                                              <div className="px-3 py-2 text-sm text-gray-500">
+                                                Nenhum item encontrado.
+                                              </div>
+                                            ) : (
+                                              pcaFiltrados.map((item) => (
+                                                <div
+                                                  key={item.id}
+                                                  className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                                                  onMouseDown={() => {
+                                                    setFormData({
+                                                      ...formData,
+                                                      pca_item_id: item.id,
+                                                    });
+                                                    setBuscaPca("");
+                                                    setShowPcaList(false);
+                                                  }}
+                                                >
+                                                  {labelPcaItem(item)}
+                                                </div>
+                                              ))
+                                            )}
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                           </div>
                         </div>
                       </div>
@@ -2097,7 +2248,7 @@ export function ProjetoFormDialog({
                             onValueChange={(v) =>
                               setFormData({ ...formData, saude: v })
                             }
-                            disabled={mode === "view"}
+                            disabled={camposRestritos}
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -2134,7 +2285,7 @@ export function ProjetoFormDialog({
                                 saude_justificativa: e.target.value,
                               })
                             }
-                            disabled={mode === "view"}
+                            disabled={camposRestritos}
                             placeholder="Justifique o status de saúde do projeto"
                             rows={2}
                           />
@@ -2196,10 +2347,6 @@ export function ProjetoFormDialog({
                           );
                           const editingThis = editingEntregaIdx === idx;
                           if (editingThis && mode !== "view") {
-                            const areaSelected = areas.find(
-                              (a) =>
-                                a.id === editEntregaDraft.area_responsavel_id,
-                            );
                             return (
                               <div
                                 key={idx}
@@ -2232,110 +2379,12 @@ export function ProjetoFormDialog({
                                     title="Prazo Estimado"
                                   />
                                 </div>
-                                <div className="relative">
-                                  <Input
-                                    placeholder="Buscar área responsável..."
-                                    value={editEntregaAreaSearch}
-                                    onChange={(e) => {
-                                      setEditEntregaAreaSearch(e.target.value);
-                                      setShowEditEntregaAreaDropdown(true);
-                                    }}
-                                    onFocus={() =>
-                                      setShowEditEntregaAreaDropdown(true)
-                                    }
-                                    className="bg-white"
-                                  />
-                                  {areaSelected && (
-                                    <div className="mt-1">
-                                      <Badge
-                                        variant="secondary"
-                                        className="bg-blue-100 text-blue-800 gap-1.5"
-                                      >
-                                        {areaSelected.diretoria} -{" "}
-                                        {areaSelected.nome_area}
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEditEntregaDraft({
-                                              ...editEntregaDraft,
-                                              area_responsavel_id: null,
-                                            });
-                                            setEditEntregaAreaSearch("");
-                                          }}
-                                          className="hover:text-red-600"
-                                        >
-                                          <XCircle className="h-3 w-3" />
-                                        </button>
-                                      </Badge>
-                                    </div>
-                                  )}
-                                  {showEditEntregaAreaDropdown &&
-                                    editEntregaAreaSearch.trim().length > 0 && (
-                                      <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                        {areas
-                                          .filter((a) => {
-                                            const term =
-                                              editEntregaAreaSearch.toLowerCase();
-                                            return (
-                                              a.nome_area
-                                                .toLowerCase()
-                                                .includes(term) ||
-                                              a.diretoria
-                                                .toLowerCase()
-                                                .includes(term)
-                                            );
-                                          })
-                                          .map((area) => (
-                                            <button
-                                              key={area.id}
-                                              type="button"
-                                              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-b-0"
-                                              onClick={() => {
-                                                setEditEntregaDraft({
-                                                  ...editEntregaDraft,
-                                                  area_responsavel_id: area.id,
-                                                });
-                                                setEditEntregaAreaSearch("");
-                                                setShowEditEntregaAreaDropdown(
-                                                  false,
-                                                );
-                                              }}
-                                            >
-                                              <span className="font-medium">
-                                                {area.nome_area}
-                                              </span>
-                                              <span className="text-xs text-gray-500 ml-2">
-                                                ({area.diretoria})
-                                              </span>
-                                            </button>
-                                          ))}
-                                        {areas.filter((a) => {
-                                          const term =
-                                            editEntregaAreaSearch.toLowerCase();
-                                          return (
-                                            a.nome_area
-                                              .toLowerCase()
-                                              .includes(term) ||
-                                            a.diretoria
-                                              .toLowerCase()
-                                              .includes(term)
-                                          );
-                                        }).length === 0 && (
-                                          <div className="px-3 py-2 text-sm text-gray-400">
-                                            Nenhuma área encontrada
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                </div>
                                 <div className="flex justify-end gap-2">
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
                                       setEditingEntregaIdx(null);
-                                      setEditEntregaAreaSearch("");
-                                      setShowEditEntregaAreaDropdown(false);
                                     }}
                                   >
                                     Cancelar
@@ -2368,8 +2417,6 @@ export function ProjetoFormDialog({
                                         ),
                                       );
                                       setEditingEntregaIdx(null);
-                                      setEditEntregaAreaSearch("");
-                                      setShowEditEntregaAreaDropdown(false);
                                     }}
                                     className="bg-blue-600 hover:bg-blue-700"
                                   >
@@ -2417,8 +2464,6 @@ export function ProjetoFormDialog({
                                               ).slice(0, 10)
                                             : "",
                                         });
-                                        setEditEntregaAreaSearch("");
-                                        setShowEditEntregaAreaDropdown(false);
                                       }}
                                       title="Editar entrega"
                                     >
@@ -2471,109 +2516,6 @@ export function ProjetoFormDialog({
                                 className="w-[160px] bg-white"
                                 title="Prazo Estimado"
                               />
-                            </div>
-                            <div className="relative">
-                              <Input
-                                placeholder="Buscar área responsável..."
-                                value={entregaAreaSearch}
-                                onChange={(e) => {
-                                  setEntregaAreaSearch(e.target.value);
-                                  setShowEntregaAreaDropdown(true);
-                                }}
-                                onFocus={() => setShowEntregaAreaDropdown(true)}
-                                className="bg-white"
-                              />
-                              {novaEntrega.area_responsavel_id && (
-                                <div className="mt-1">
-                                  <Badge
-                                    variant="secondary"
-                                    className="bg-blue-100 text-blue-800 gap-1.5"
-                                  >
-                                    {
-                                      areas.find(
-                                        (a) =>
-                                          a.id ===
-                                          novaEntrega.area_responsavel_id,
-                                      )?.diretoria
-                                    }{" "}
-                                    -{" "}
-                                    {
-                                      areas.find(
-                                        (a) =>
-                                          a.id ===
-                                          novaEntrega.area_responsavel_id,
-                                      )?.nome_area
-                                    }
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setNovaEntrega({
-                                          ...novaEntrega,
-                                          area_responsavel_id: null,
-                                        });
-                                        setEntregaAreaSearch("");
-                                      }}
-                                      className="hover:text-red-600"
-                                    >
-                                      <XCircle className="h-3 w-3" />
-                                    </button>
-                                  </Badge>
-                                </div>
-                              )}
-                              {showEntregaAreaDropdown &&
-                                entregaAreaSearch.trim().length > 0 && (
-                                  <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                    {areas
-                                      .filter((a) => {
-                                        const term =
-                                          entregaAreaSearch.toLowerCase();
-                                        return (
-                                          a.nome_area
-                                            .toLowerCase()
-                                            .includes(term) ||
-                                          a.diretoria
-                                            .toLowerCase()
-                                            .includes(term)
-                                        );
-                                      })
-                                      .map((area) => (
-                                        <button
-                                          key={area.id}
-                                          type="button"
-                                          className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-b-0"
-                                          onClick={() => {
-                                            setNovaEntrega({
-                                              ...novaEntrega,
-                                              area_responsavel_id: area.id,
-                                            });
-                                            setEntregaAreaSearch("");
-                                            setShowEntregaAreaDropdown(false);
-                                          }}
-                                        >
-                                          <span className="font-medium">
-                                            {area.nome_area}
-                                          </span>
-                                          <span className="text-xs text-gray-500 ml-2">
-                                            ({area.diretoria})
-                                          </span>
-                                        </button>
-                                      ))}
-                                    {areas.filter((a) => {
-                                      const term =
-                                        entregaAreaSearch.toLowerCase();
-                                      return (
-                                        a.nome_area
-                                          .toLowerCase()
-                                          .includes(term) ||
-                                        a.diretoria.toLowerCase().includes(term)
-                                      );
-                                    }).length === 0 && (
-                                      <div className="px-3 py-2 text-sm text-gray-400">
-                                        Nenhuma área encontrada
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
                             </div>
                             <div className="flex justify-end">
                               <Button

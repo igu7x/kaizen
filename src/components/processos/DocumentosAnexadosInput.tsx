@@ -7,6 +7,7 @@ import {
   FileText,
   FileImage,
   File as FileIcon,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,11 +28,13 @@ import {
 interface DocumentosAnexadosInputProps {
   value: DocumentoAnexado[];
   onChange: (next: DocumentoAnexado[]) => void;
+  /** Somente leitura: esconde a linha de adicionar e o botão de remover (só lista os anexos). */
+  somenteLeitura?: boolean;
 }
 
 const ACCEPT =
   "image/png,image/jpeg,image/jpg,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain";
-const MAX_BYTES_PER_FILE = 5_000_000; // 5MB por arquivo
+const MAX_BYTES_PER_FILE = 20_000_000; // 20MB por arquivo
 
 async function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -62,6 +65,7 @@ function fileIconFor(mime: string) {
 export function DocumentosAnexadosInput({
   value,
   onChange,
+  somenteLeitura = false,
 }: DocumentosAnexadosInputProps) {
   const [tipoSelecionado, setTipoSelecionado] =
     useState<TipoDocumentoAnexado | null>(null);
@@ -112,6 +116,28 @@ export function DocumentosAnexadosInput({
     onChange(value.filter((_, i) => i !== idx));
   };
 
+  // Baixa o documento anexado. Converte o data URL (base64) em blob pra funcionar bem
+  // inclusive com PDFs grandes. Só disponível quando o conteúdo (doc.data) já foi carregado.
+  const baixar = async (doc: DocumentoAnexado) => {
+    if (!doc.data) {
+      toast.warning("Conteúdo do documento ainda carregando. Tente de novo.");
+      return;
+    }
+    try {
+      const blob = await (await fetch(doc.data)).blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.nome || `documento-${doc.tipo}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      toast.warning("Não foi possível baixar o documento.");
+    }
+  };
+
   return (
     <div className="space-y-3">
       <input
@@ -123,52 +149,58 @@ export function DocumentosAnexadosInput({
       />
 
       {/* Linha de adição: tipo + botão de upload */}
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
-        <div>
-          <Label className="text-xs font-semibold text-slate-700">
-            Tipo de Documento
-          </Label>
-          <Select
-            key={resetKey}
-            value={tipoSelecionado || undefined}
-            onValueChange={(v) => setTipoSelecionado(v as TipoDocumentoAnexado)}
-          >
-            <SelectTrigger className="mt-1 h-9 bg-white">
-              <SelectValue placeholder="(Escolher tipo)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MPS">{TIPO_DOCUMENTO_LABEL.MPS}</SelectItem>
-              <SelectItem value="POP">{TIPO_DOCUMENTO_LABEL.POP}</SelectItem>
-              <SelectItem value="PRI">{TIPO_DOCUMENTO_LABEL.PRI}</SelectItem>
-              <SelectItem value="AUX">{TIPO_DOCUMENTO_LABEL.AUX}</SelectItem>
-              <SelectItem value="FLUXOGRAMA">
-                {TIPO_DOCUMENTO_LABEL.FLUXOGRAMA}
-              </SelectItem>
-              <SelectItem value="IT">{TIPO_DOCUMENTO_LABEL.IT}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button
-          type="button"
-          onClick={pickFile}
-          variant="outline"
-          disabled={!tipoSelecionado}
-          className="h-9 bg-white border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Selecionar Arquivo
-        </Button>
-      </div>
+      {!somenteLeitura && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">
+                Tipo de Documento
+              </Label>
+              <Select
+                key={resetKey}
+                value={tipoSelecionado || undefined}
+                onValueChange={(v) =>
+                  setTipoSelecionado(v as TipoDocumentoAnexado)
+                }
+              >
+                <SelectTrigger className="mt-1 h-9 bg-white">
+                  <SelectValue placeholder="(Escolher tipo)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MPS">{TIPO_DOCUMENTO_LABEL.MPS}</SelectItem>
+                  <SelectItem value="POP">{TIPO_DOCUMENTO_LABEL.POP}</SelectItem>
+                  <SelectItem value="PRI">{TIPO_DOCUMENTO_LABEL.PRI}</SelectItem>
+                  <SelectItem value="AUX">{TIPO_DOCUMENTO_LABEL.AUX}</SelectItem>
+                  <SelectItem value="FLUXOGRAMA">
+                    {TIPO_DOCUMENTO_LABEL.FLUXOGRAMA}
+                  </SelectItem>
+                  <SelectItem value="IT">{TIPO_DOCUMENTO_LABEL.IT}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              onClick={pickFile}
+              variant="outline"
+              disabled={!tipoSelecionado}
+              className="h-9 bg-white border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Selecionar Arquivo
+            </Button>
+          </div>
 
-      <p className="text-xs text-slate-500">
-        Formatos aceitos: PNG, JPG, WEBP, PDF, DOC, DOCX, XLS, XLSX, TXT — máx.
-        5MB por arquivo.
-      </p>
+          <p className="text-xs text-slate-500">
+            Formatos aceitos: PNG, JPG, WEBP, PDF, DOC, DOCX, XLS, XLSX, TXT —
+            máx. 20MB por arquivo.
+          </p>
+        </>
+      )}
 
       {/* Lista de documentos anexados */}
       {value.length === 0 ? (
         <p className="text-xs italic text-slate-400 px-1">
-          Nenhum documento anexado
+          {somenteLeitura ? "—" : "Nenhum documento anexado"}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -190,14 +222,26 @@ export function DocumentosAnexadosInput({
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => remove(idx)}
-                className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
-                title="Remover"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              {doc.data && (
+                <button
+                  type="button"
+                  onClick={() => baixar(doc)}
+                  className="text-slate-400 hover:text-blue-600 transition-colors flex-shrink-0"
+                  title="Baixar documento"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              )}
+              {!somenteLeitura && (
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
+                  title="Remover"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </li>
           ))}
         </ul>

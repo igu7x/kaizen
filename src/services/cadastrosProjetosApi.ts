@@ -113,8 +113,10 @@ export interface Projeto {
   contexto_justificativa: string | null;
   patrocinador_id: number | null;
   patrocinador_nome?: string;
+  patrocinador_cargo?: string | null;
   gestor_id: number | null;
   gestor_nome?: string;
+  gestor_cargo?: string | null;
   ancoragem_estrategica_plano_gestao: boolean;
   ancoragem_estrategica_pep: boolean;
   ancoragem_estrategica_programa_x: boolean;
@@ -128,6 +130,10 @@ export interface Projeto {
   abrangencia: "uma_unidade" | "multiplas_unidades" | "transversal";
   havera_contratacao: boolean;
   valor_estimado_contratacao: number | null;
+  /** Item do PCA vinculado à contratação (quando havera_contratacao). */
+  pca_item_id?: number | null;
+  /** Rótulo do item do PCA vinculado (montado no backend) — usado no TAP. */
+  pca_item_label?: string | null;
   progresso_percentual: number;
   saude: "verde" | "amarelo" | "vermelho";
   saude_justificativa: string | null;
@@ -200,6 +206,8 @@ export interface Entrega {
   evidencia_filename?: string | null;
   evidencia_filepath?: string | null;
   evidencia_filesize?: number | null;
+  /** Data em que a entrega foi concluída (definida ao anexar a evidência de conclusão). */
+  data_conclusao?: string | null;
   prazo_estimado?: string | null;
   updated_at?: string;
 }
@@ -318,7 +326,9 @@ export interface CreateProjetoDto {
   objetivo?: string;
   contexto_justificativa?: string;
   patrocinador_id?: number;
+  patrocinador_cargo?: string;
   gestor_id?: number;
+  gestor_cargo?: string;
   ancoragem_estrategica_plano_gestao?: boolean;
   ancoragem_estrategica_pep?: boolean;
   ancoragem_estrategica_programa_x?: boolean;
@@ -333,6 +343,7 @@ export interface CreateProjetoDto {
   abrangencia?: string;
   havera_contratacao?: boolean;
   valor_estimado_contratacao?: number;
+  pca_item_id?: number | null;
   saude?: string;
   saude_justificativa?: string;
   tap_vinculado?: string;

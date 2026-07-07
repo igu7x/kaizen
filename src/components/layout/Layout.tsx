@@ -44,6 +44,7 @@ export function Layout({ children }: LayoutProps) {
     "/ciclo-orcamentario",
   );
 
+  const isPermissoesPage = location.pathname.startsWith("/permissoes");
 
   // Páginas com fundo branco (Home, OKRs, Execução, Sprints, Comitês, Contratações, Competências,
   // Painel de Pessoas, Perfil e módulos de administração)
@@ -65,6 +66,7 @@ export function Layout({ children }: LayoutProps) {
     isContratosPage ||
     isGerenciamentoPage ||
     isCicloOrcamentarioPage;
+  isPermissoesPage;
   // Páginas sem padding (apenas comitês)
   const isNoPaddingPage = isComitesPage || isComiteDetalhe;
 

@@ -12,18 +12,16 @@ export interface Area {
   gestor?: string;
   gestor_user_id?: number | null;
   cargo_gestor?: string;
-  foto_gestor?: string;
   subdiretor?: string;
   subdiretor_user_id?: number | null;
   cargo_subdiretor?: string;
-  foto_subdiretor?: string;
   gerido_por_unidade_superior: boolean;
-  colaboradores_vinculados?: string;
   ordem_linha: number;
   ordem_posicao: number;
   ativo: boolean;
   dominio?: string;
   is_domain_root?: boolean;
+  codigo_api?: string;
   created_at: string;
   updated_at: string;
 }
@@ -34,12 +32,10 @@ export interface CreateAreaDto {
   subordinacao?: string;
   gestor?: string;
   cargo_gestor?: string;
-  foto_gestor?: string;
   subdiretor?: string;
   cargo_subdiretor?: string;
-  foto_subdiretor?: string;
   gerido_por_unidade_superior?: boolean;
-  colaboradores_vinculados?: string;
+  codigo_api?: string;
 }
 
 export interface UpdateAreaDto {
@@ -48,12 +44,10 @@ export interface UpdateAreaDto {
   subordinacao?: string;
   gestor?: string;
   cargo_gestor?: string;
-  foto_gestor?: string;
   subdiretor?: string;
   cargo_subdiretor?: string;
-  foto_subdiretor?: string;
   gerido_por_unidade_superior?: boolean;
-  colaboradores_vinculados?: string;
+  codigo_api?: string;
 }
 
 // ============================================================
@@ -72,6 +66,7 @@ export interface Unidade {
   unidade_superior_nome?: string;
   ordem: number;
   ativo: boolean;
+  codigo_api?: string;
   created_at: string;
   updated_at: string;
 }
@@ -86,6 +81,7 @@ export interface CreateUnidadeDto {
   responsavel?: string;
   cargo_responsavel?: string;
   unidade_superior_id?: number | null;
+  codigo_api?: string;
 }
 
 export interface UpdateUnidadeDto {
@@ -95,6 +91,7 @@ export interface UpdateUnidadeDto {
   cargo_responsavel?: string;
   unidade_superior_id?: number | null;
   ordem?: number;
+  codigo_api?: string;
 }
 
 // ============================================================
