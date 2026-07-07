@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -69,6 +70,9 @@ export function DocumentosAnexadosInput({
 }: DocumentosAnexadosInputProps) {
   const [tipoSelecionado, setTipoSelecionado] =
     useState<TipoDocumentoAnexado | null>(null);
+  // Nome de exibição + data do documento — informados após escolher o tipo.
+  const [nomeExibicao, setNomeExibicao] = useState("");
+  const [dataDocumento, setDataDocumento] = useState("");
   // Contador usado como `key` do Select pra forçar remount após reset —
   // Radix Select não reseta o display visual ao trocar value controlado pra undefined.
   const [resetKey, setResetKey] = useState(0);
@@ -102,10 +106,14 @@ export function DocumentosAnexadosInput({
         nome: file.name,
         mime: file.type || "application/octet-stream",
         data,
+        nome_exibicao: nomeExibicao.trim() || undefined,
+        data_documento: dataDocumento || undefined,
       };
       onChange([...value, novo]);
-      // Reseta o tipo após anexar pra forçar o usuário a escolher de novo no próximo
+      // Reseta o formulário após anexar pra forçar o usuário a preencher de novo no próximo
       setTipoSelecionado(null);
+      setNomeExibicao("");
+      setDataDocumento("");
       setResetKey((k) => k + 1);
     } catch (err) {
       toast.warning("Não foi possível ler o arquivo.");
@@ -151,7 +159,7 @@ export function DocumentosAnexadosInput({
       {/* Linha de adição: tipo + botão de upload */}
       {!somenteLeitura && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+          <div className="space-y-2">
             <div>
               <Label className="text-xs font-semibold text-slate-700">
                 Tipo de Documento
@@ -178,6 +186,35 @@ export function DocumentosAnexadosInput({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Após escolher o tipo: nome de exibição + data do documento */}
+            {tipoSelecionado && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Nome de Exibição
+                  </Label>
+                  <Input
+                    value={nomeExibicao}
+                    onChange={(e) => setNomeExibicao(e.target.value)}
+                    placeholder="Como o documento aparece na lista"
+                    className="mt-1 h-9 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Data do Documento
+                  </Label>
+                  <Input
+                    type="date"
+                    value={dataDocumento}
+                    onChange={(e) => setDataDocumento(e.target.value)}
+                    className="mt-1 h-9 bg-white"
+                  />
+                </div>
+              </div>
+            )}
+
             <Button
               type="button"
               onClick={pickFile}
@@ -218,9 +255,22 @@ export function DocumentosAnexadosInput({
                     {doc.tipo}
                   </span>
                   <span className="text-sm font-medium text-slate-800 truncate">
-                    {doc.nome}
+                    {doc.nome_exibicao || doc.nome}
                   </span>
+                  {doc.data_documento && (
+                    <span className="text-[11px] text-slate-500 whitespace-nowrap">
+                      {doc.data_documento.split("-").reverse().join("/")}
+                    </span>
+                  )}
                 </div>
+                {doc.nome_exibicao && (
+                  <p
+                    className="text-[11px] text-slate-400 truncate mt-0.5"
+                    title={doc.nome}
+                  >
+                    {doc.nome}
+                  </p>
+                )}
               </div>
               {doc.data && (
                 <button
