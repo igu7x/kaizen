@@ -40,6 +40,7 @@ export function Layout({ children }: LayoutProps) {
   const isCadastrosPage = location.pathname.startsWith("/cadastros");
   const isContratosPage = location.pathname.startsWith("/contratos");
   const isGerenciamentoPage = location.pathname.startsWith("/gerenciamento");
+  const isPermissoesPage = location.pathname.startsWith("/permissoes");
 
   // Páginas com fundo branco (Home, OKRs, Execução, Sprints, Comitês, Contratações, Competências,
   // Painel de Pessoas, Perfil e módulos de administração)
@@ -59,7 +60,8 @@ export function Layout({ children }: LayoutProps) {
     isAdministracaoPage ||
     isCadastrosPage ||
     isContratosPage ||
-    isGerenciamentoPage;
+    isGerenciamentoPage ||
+    isPermissoesPage;
   // Páginas sem padding (apenas comitês)
   const isNoPaddingPage = isComitesPage || isComiteDetalhe;
 
