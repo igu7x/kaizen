@@ -60,8 +60,29 @@ public class AreasService {
         if (siglaVal == null && nomeVal != null) {
             siglaVal = nomeVal;
         }
-        if (siglaVal != null && String.valueOf(siglaVal).length() > 10) {
-            siglaVal = String.valueOf(siglaVal).substring(0, 10).trim();
+        if (siglaVal != null) {
+            siglaVal = String.valueOf(siglaVal).trim().toUpperCase();
+            if (String.valueOf(siglaVal).length() > 10) {
+                siglaVal = String.valueOf(siglaVal).substring(0, 10);
+            }
+        }
+
+        if (nomeVal != null) {
+            Integer count = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM cadastros_areas WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?)) AND COALESCE(ativo, TRUE) = TRUE",
+                    Integer.class, nomeVal);
+            if (count != null && count > 0) {
+                throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma área com este nome.");
+            }
+        }
+
+        if (siglaVal != null) {
+            Integer count = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) AND COALESCE(ativo, TRUE) = TRUE",
+                    Integer.class, siglaVal);
+            if (count != null && count > 0) {
+                throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma área com esta sigla.");
+            }
         }
 
         Integer nextPos = jdbc.queryForObject(
@@ -123,8 +144,29 @@ public class AreasService {
                 siglaVal = nomeVal != null ? nomeVal : area.get("nome");
             }
         }
-        if (siglaVal != null && String.valueOf(siglaVal).length() > 10) {
-            siglaVal = String.valueOf(siglaVal).substring(0, 10).trim();
+        if (siglaVal != null) {
+            siglaVal = String.valueOf(siglaVal).trim().toUpperCase();
+            if (String.valueOf(siglaVal).length() > 10) {
+                siglaVal = String.valueOf(siglaVal).substring(0, 10);
+            }
+        }
+
+        if (nomeVal != null) {
+            Integer count = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM cadastros_areas WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?)) AND id != ? AND COALESCE(ativo, TRUE) = TRUE",
+                    Integer.class, nomeVal, id);
+            if (count != null && count > 0) {
+                throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma área com este nome.");
+            }
+        }
+
+        if (siglaVal != null) {
+            Integer count = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) AND id != ? AND COALESCE(ativo, TRUE) = TRUE",
+                    Integer.class, siglaVal, id);
+            if (count != null && count > 0) {
+                throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma área com esta sigla.");
+            }
         }
 
         Object gestorUserId = dto.containsKey("gestor_user_id") ? dto.get("gestor_user_id") : null;

@@ -465,7 +465,8 @@ public class CadastrosController {
 
     @PostMapping("/entregas/{id:\\d+}/upload-evidencia")
     public ResponseEntity<?> uploadEvidencia(HttpServletRequest req, @PathVariable long id,
-                                             @RequestParam(value = "evidencia", required = false) MultipartFile file) {
+                                             @RequestParam(value = "evidencia", required = false) MultipartFile file,
+                                             @RequestParam(value = "data_conclusao", required = false) String dataConclusao) {
         try {
             if (file == null || file.isEmpty()) {
                 return ResponseEntity.status(400).body(err("Nenhum arquivo enviado"));
@@ -490,6 +491,10 @@ public class CadastrosController {
 
             if (filename != null && filename.toLowerCase().endsWith(".pdf")) {
                 service.updateEntregaStatus(id, "concluida");
+                // Data de Conclusão informada pelo usuário sobrepõe o CURRENT_DATE padrão.
+                if (dataConclusao != null && !dataConclusao.isBlank()) {
+                    service.setEntregaDataConclusao(id, dataConclusao);
+                }
                 service.calcularProgresso(((Number) entrega.get("projeto_id")).longValue());
             }
             Map<String, Object> out = new LinkedHashMap<>();
