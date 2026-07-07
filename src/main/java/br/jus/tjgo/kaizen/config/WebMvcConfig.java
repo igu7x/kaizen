@@ -3,8 +3,10 @@ package br.jus.tjgo.kaizen.config;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import br.jus.tjgo.kaizen.auth.PermissoesAcoesInterceptor;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,6 +22,11 @@ import java.nio.file.Paths;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final Path uploadsPath = Paths.get("uploads").toAbsolutePath().normalize();
+    private final PermissoesAcoesInterceptor permissoesAcoesInterceptor;
+
+    public WebMvcConfig(PermissoesAcoesInterceptor permissoesAcoesInterceptor) {
+        this.permissoesAcoesInterceptor = permissoesAcoesInterceptor;
+    }
 
     @PostConstruct
     public void ensureUploadDirs() {
@@ -36,5 +43,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(uploadsPath.toUri().toString());
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(permissoesAcoesInterceptor);
     }
 }
