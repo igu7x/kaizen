@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.jus.tjgo.kaizen.dto.PermissaoAcaoListDto;
 import br.jus.tjgo.kaizen.dto.CreatePermissaoAcaoReq;
 import br.jus.tjgo.kaizen.dto.TagAcaoDto;
+import br.jus.tjgo.kaizen.exception.ApiException;
 
 import java.util.List;
 
@@ -134,5 +135,23 @@ public class PermissoesAcoesService {
     public void removerPermissao(Long id) {
         String sql = "DELETE FROM permissoes_acoes WHERE id = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+    }
+
+    @Transactional
+    public void atualizarTag(String id, String name) {
+        String checkSql = "SELECT count(1) FROM tags_acoes WHERE lower(name) = lower(:name) AND id != :id";
+        MapSqlParameterSource checkParams = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("name", name);
+        Integer count = jdbcTemplate.queryForObject(checkSql, checkParams, Integer.class);
+        if (count != null && count > 0) {
+            throw new ApiException(400, "Já existe uma ação cadastrada com este nome.");
+        }
+
+        String sql = "UPDATE tags_acoes SET name = :name WHERE id = :id";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("name", name);
+        jdbcTemplate.update(sql, params);
     }
 }
