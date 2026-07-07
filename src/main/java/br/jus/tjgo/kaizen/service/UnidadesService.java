@@ -35,13 +35,44 @@ public class UnidadesService {
 
     public Map<String, Object> create(Map<String, Object> dto, Long userId) {
         Object areaId = dto.get("area_id");
+        
+        Object nomeVal = orNull(dto.get("nome"));
+        Object siglaVal = orNull(dto.get("sigla"));
+        if (siglaVal == null && nomeVal != null) {
+            siglaVal = nomeVal;
+        }
+        if (siglaVal != null) {
+            siglaVal = String.valueOf(siglaVal).trim().toUpperCase();
+            if (String.valueOf(siglaVal).length() > 10) {
+                siglaVal = String.valueOf(siglaVal).substring(0, 10);
+            }
+        }
+        
+        if (nomeVal != null) {
+            Integer count = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM cadastros_unidades WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?)) AND ativo = TRUE",
+                    Integer.class, nomeVal);
+            if (count != null && count > 0) {
+                throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma unidade com este nome.");
+            }
+        }
+        
+        if (siglaVal != null) {
+            Integer count = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM cadastros_unidades WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) AND ativo = TRUE",
+                    Integer.class, siglaVal);
+            if (count != null && count > 0) {
+                throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma unidade com esta sigla.");
+            }
+        }
+        
         Integer nextOrdem = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(ordem), -1) + 1 FROM cadastros_unidades WHERE area_id = ? AND ativo = TRUE",
                 Integer.class, areaId);
         Map<String, Object> unidade = jdbc.queryForMap(
-                "INSERT INTO cadastros_unidades (area_id, nome, descricao, responsavel, cargo_responsavel, " +
-                        "unidade_superior_id, ordem, codigo_api, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
-                areaId, orNull(dto.get("nome")), orNull(dto.get("descricao")), orNull(dto.get("responsavel")),
+                "INSERT INTO cadastros_unidades (area_id, nome, sigla, descricao, responsavel, cargo_responsavel, " +
+                        "unidade_superior_id, ordem, codigo_api, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                areaId, nomeVal, siglaVal, orNull(dto.get("descricao")), orNull(dto.get("responsavel")),
                 orNull(dto.get("cargo_responsavel")), orNull(dto.get("unidade_superior_id")),
                 nextOrdem == null ? 0 : nextOrdem, orNull(dto.get("codigo_api")), userId, userId);
 
@@ -63,8 +94,41 @@ public class UnidadesService {
         List<String> updates = new ArrayList<>();
         List<Object> values = new ArrayList<>();
         if (dto.containsKey("nome")) {
+            Object nomeVal = dto.get("nome");
+            if (nomeVal != null) {
+                Integer count = jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM cadastros_unidades WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?)) AND id != ? AND ativo = TRUE",
+                        Integer.class, nomeVal, id);
+                if (count != null && count > 0) {
+                    throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma unidade com este nome.");
+                }
+            }
             updates.add("nome = ?");
-            values.add(dto.get("nome"));
+            values.add(nomeVal);
+        }
+        if (dto.containsKey("sigla")) {
+            Object siglaVal = orNull(dto.get("sigla"));
+            if (siglaVal == null) {
+                siglaVal = orNull(dto.get("nome"));
+            }
+            if (siglaVal != null) {
+                siglaVal = String.valueOf(siglaVal).trim().toUpperCase();
+                if (String.valueOf(siglaVal).length() > 10) {
+                    siglaVal = String.valueOf(siglaVal).substring(0, 10);
+                }
+            }
+            
+            if (siglaVal != null) {
+                Integer count = jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM cadastros_unidades WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) AND id != ? AND ativo = TRUE",
+                        Integer.class, siglaVal, id);
+                if (count != null && count > 0) {
+                    throw new br.jus.tjgo.kaizen.exception.ApiException(400, "Já existe uma unidade com esta sigla.");
+                }
+            }
+            
+            updates.add("sigla = ?");
+            values.add(siglaVal);
         }
         if (dto.containsKey("descricao")) {
             updates.add("descricao = ?");
