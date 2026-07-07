@@ -22,11 +22,14 @@ import {
   Briefcase,
   History,
   RefreshCw,
+  FileDown,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   processosNegocioApi,
   ProcessoNegocio,
+  DocumentoAnexado,
+  TipoDocumentoAnexado,
   temFluxograma,
   temDocumentoPrimario,
   isK1,
@@ -938,6 +941,108 @@ export default function EscritorioProcessos() {
   }, [filtered, buscaProcesso]);
 
   // ============================================================
+  // TABELA DE DOCUMENTOS — quando um card de artefato (IT/POP/MPS) está ativo,
+  // a tabela deixa de listar processos e passa a listar cada DOCUMENTO daquele
+  // tipo (um por linha), agregado de todos os processos do recorte atual.
+  // ============================================================
+  const artefatoTipo: TipoDocumentoAnexado | null =
+    filtroArtefato === "it"
+      ? "IT"
+      : filtroArtefato === "pop"
+        ? "POP"
+        : filtroArtefato === "mps"
+          ? "MPS"
+          : null;
+
+  const artefatoLabel =
+    artefatoTipo === "IT"
+      ? "Instruções de Trabalho"
+      : artefatoTipo === "POP"
+        ? "POPs"
+        : artefatoTipo === "MPS"
+          ? "MPS"
+          : "Processos";
+
+  const tabelaDocumentos = useMemo(() => {
+    if (!artefatoTipo) return [];
+    const q = buscaProcesso.trim().toLowerCase();
+    const rows: Array<{
+      key: string;
+      processoId: number;
+      processoNome: string;
+      area: string;
+      nomeExibicao: string;
+      doc: DocumentoAnexado;
+    }> = [];
+    filteredBase.forEach((p) => {
+      (p.documentos_anexados || []).forEach((d, idx) => {
+        if (d.tipo !== artefatoTipo) return;
+        const nomeExibicao = d.nome_exibicao || d.nome || "—";
+        const area = p.diretoria || "—";
+        const processoNome = p.nome_processo || "—";
+        if (
+          q &&
+          !nomeExibicao.toLowerCase().includes(q) &&
+          !processoNome.toLowerCase().includes(q) &&
+          !area.toLowerCase().includes(q)
+        )
+          return;
+        rows.push({
+          key: `${p.id}-${idx}`,
+          processoId: p.id,
+          processoNome,
+          area,
+          nomeExibicao,
+          doc: d,
+        });
+      });
+    });
+    return rows.sort((a, b) => a.nomeExibicao.localeCompare(b.nomeExibicao));
+  }, [filteredBase, artefatoTipo, buscaProcesso]);
+
+  // Chave da linha cujo download está em andamento (spinner no botão).
+  const [baixandoDocKey, setBaixandoDocKey] = useState<string | null>(null);
+
+  // Baixa o documento de uma linha da tabela de artefatos. Como a listagem vem
+  // sem o conteúdo (`data` é removido no payload enxuto), busca o processo completo
+  // via getById, casa o documento e faz o download do base64.
+  const baixarDocumentoArtefato = async (
+    rowKey: string,
+    processoId: number,
+    doc: DocumentoAnexado,
+  ) => {
+    setBaixandoDocKey(rowKey);
+    try {
+      const full = await processosNegocioApi.getById(processoId);
+      const docs = full.documentos_anexados || [];
+      const found =
+        docs.find(
+          (d) =>
+            d.tipo === doc.tipo &&
+            d.nome === doc.nome &&
+            (d.nome_exibicao || "") === (doc.nome_exibicao || ""),
+        ) || docs.find((d) => d.tipo === doc.tipo && d.nome === doc.nome);
+      if (!found?.data) {
+        toast.error("Documento não disponível para download.");
+        return;
+      }
+      const blob = await (await fetch(found.data)).blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = found.nome || `documento-${found.tipo}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      toast.error("Não foi possível baixar o documento.");
+    } finally {
+      setBaixandoDocKey(null);
+    }
+  };
+
+  // ============================================================
   // HANDLERS
   // ============================================================
   const handleNovoProcesso = () => {
@@ -1335,14 +1440,20 @@ export default function EscritorioProcessos() {
         {/* TABELA */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 flex items-center gap-4 flex-wrap">
-            <h3 className="text-base font-bold text-slate-900">Processos</h3>
+            <h3 className="text-base font-bold text-slate-900">
+              {artefatoLabel}
+            </h3>
             <div className="relative w-full sm:w-96">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
                 type="text"
                 value={buscaProcesso}
                 onChange={(e) => setBuscaProcesso(e.target.value)}
-                placeholder="Buscar por processo, macroprocesso ou área..."
+                placeholder={
+                  artefatoTipo
+                    ? "Buscar por nome do documento, processo ou área..."
+                    : "Buscar por processo, macroprocesso ou área..."
+                }
                 className="h-9 pl-9 bg-white"
               />
             </div>
@@ -1353,6 +1464,104 @@ export default function EscritorioProcessos() {
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               Carregando processos…
             </div>
+          ) : artefatoTipo ? (
+            tabelaDocumentos.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <FileText className="h-7 w-7 text-slate-400" />
+                </div>
+                <p className="text-slate-700 font-semibold">
+                  Nenhum documento encontrado
+                </p>
+                <p className="text-slate-500 text-sm mt-1">
+                  Não há {artefatoLabel} no recorte atual.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-auto max-h-[60vh]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Nome de Exibição
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Processo
+                        </th>
+                        <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Área
+                        </th>
+                        <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Download
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {tabelaDocumentos.map((row) => (
+                        <tr
+                          key={row.key}
+                          className="transition-colors hover:bg-slate-50/60"
+                        >
+                          <td className="px-5 py-3 text-left">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <div className="text-slate-900 font-medium truncate">
+                                  {row.nomeExibicao}
+                                </div>
+                                {row.doc.data_documento && (
+                                  <div className="text-[11px] text-slate-400 tabular-nums">
+                                    {row.doc.data_documento
+                                      .split("-")
+                                      .reverse()
+                                      .join("/")}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-left text-slate-700">
+                            {row.processoNome}
+                          </td>
+                          <td className="px-5 py-3 text-center text-slate-700">
+                            {row.area}
+                          </td>
+                          <td className="px-5 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                baixarDocumentoArtefato(
+                                  row.key,
+                                  row.processoId,
+                                  row.doc,
+                                )
+                              }
+                              disabled={baixandoDocKey === row.key}
+                              title="Baixar documento"
+                              className="inline-flex items-center justify-center h-9 w-9 rounded-md text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {baixandoDocKey === row.key ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <FileDown className="h-5 w-5" />
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-5 py-3 border-t border-slate-200 bg-slate-50">
+                  <span className="text-xs text-slate-600">
+                    {tabelaDocumentos.length} documento
+                    {tabelaDocumentos.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </>
+            )
           ) : tabelaProcessos.length === 0 ? (
             <div className="py-16 text-center">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
