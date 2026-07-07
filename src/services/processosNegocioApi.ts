@@ -25,6 +25,10 @@ export interface DocumentoAnexado {
   nome: string;
   mime: string;
   data: string; // data URL base64
+  /** Nome de exibição amigável informado no anexo (opcional; cai no `nome` do arquivo). */
+  nome_exibicao?: string;
+  /** Data do documento informada no anexo (YYYY-MM-DD, opcional). */
+  data_documento?: string;
 }
 
 /** Aprovação de um comitê (item da lista `aprovacoes`). `data` vem só no detalhe (não na listagem). */
