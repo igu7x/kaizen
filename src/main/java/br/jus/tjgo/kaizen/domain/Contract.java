@@ -37,6 +37,9 @@ public class Contract {
     @Column(name = "process", length = 255)
     private String process;
 
+    @Column(name = "expense_nature", length = 255)
+    private String expenseNature;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 

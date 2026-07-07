@@ -1,6 +1,7 @@
 package br.jus.tjgo.kaizen.dto;
 
 import java.util.List;
+import java.time.LocalDate;
 
 /**
  * IFO (Item de Formação do Orçamento) — identidade provisória de um item na Formação (código
@@ -17,6 +18,7 @@ public record IfoDto(
         String objeto,
         String areaDemandante,
         Long unidadeId,
+        Long areaId,
         String estado,
         Double valorEstimado,
         Boolean interesseRenovacao,
@@ -26,5 +28,17 @@ public record IfoDto(
         String codigoOficial,
         /** §8.4 — estado de validação da demanda: em_edicao | validada_1a | validada_2a. */
         String validacao,
+        
+        // Atributos de PCA herdados/mesclados
+        String description,
+        String justification,
+        String process,
+        String financialResourceType,
+        String contractType,
+        Long formalizedValueCents,
+        Long idCadastrosAreas,
+        String priority,
+        LocalDate estimatedDate,
+        
         List<Long> contratos
 ) {}

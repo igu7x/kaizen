@@ -53,10 +53,16 @@ public class IfoService {
 
         var rows = jdbc.queryForList(
                 "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, objeto, area_demandante, " +
-                        "unidade_id, estado, valor_estimado_cents, interesse_renovacao, created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?) RETURNING *",
+                        "unidade_id, area_id, estado, valor_estimado_cents, interesse_renovacao, " +
+                        "description, justification, process, financial_resource_type, contract_type, " +
+                        "formalized_value_cents, id_cadastros_areas, priority, estimated_date, " +
+                        "created_by, updated_by) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 codigo, req.ano(), req.cicloId(), req.bloco(), req.natureza(), req.objeto(),
-                req.areaDemandante(), req.unidadeId(), cents, req.interesseRenovacao(), userId, userId);
+                req.areaDemandante(), req.unidadeId(), req.areaId(), cents, req.interesseRenovacao(),
+                req.description(), req.justification(), req.process(), req.financialResourceType(), req.contractType(),
+                req.formalizedValueCents(), req.idCadastrosAreas(), req.priority(), req.estimatedDate(),
+                userId, userId);
 
         Long ifoId = asLong(rows.get(0).get("id"));
         vincularContratos(ifoId, req.contratos());
@@ -220,8 +226,8 @@ public class IfoService {
     }
 
     @Transactional
-    public void excluir(long id) {
-        int n = jdbc.update("DELETE FROM ifo WHERE id = ? AND estado = 'rascunho'", id);
+    public void excluir(long id, Long userId) {
+        int n = jdbc.update("UPDATE ifo SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? WHERE id = ? AND estado = 'rascunho'", userId, id);
         if (n == 0) {
             throw new ApiException(400, "IFO não encontrado ou já enviado (não pode ser excluído)");
         }
@@ -235,8 +241,8 @@ public class IfoService {
         return toDto(rows.get(0));
     }
 
-    public List<IfoDto> listar(Integer ano, Long cicloId) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM ifo WHERE 1=1");
+    public List<IfoDto> listar(Integer ano, Long cicloId, Boolean minhasDemandas, Long userId) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM ifo WHERE is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
             sql.append(" AND ano = ?");
@@ -245,6 +251,19 @@ public class IfoService {
         if (cicloId != null) {
             sql.append(" AND ciclo_id = ?");
             params.add(cicloId);
+        }
+        if (Boolean.TRUE.equals(minhasDemandas) && userId != null) {
+            Long areaId = null;
+            Long unidadeId = null;
+            try {
+                var pessoa = jdbc.queryForMap("SELECT area_id, unidade_id FROM cadastros_pessoas WHERE user_id = ?", userId);
+                areaId = pessoa.get("area_id") != null ? ((Number) pessoa.get("area_id")).longValue() : null;
+                unidadeId = pessoa.get("unidade_id") != null ? ((Number) pessoa.get("unidade_id")).longValue() : null;
+            } catch (Exception e) {}
+            
+            sql.append(" AND (area_id = ? OR unidade_id = ?)");
+            params.add(areaId);
+            params.add(unidadeId);
         }
         sql.append(" ORDER BY codigo");
         return jdbc.queryForList(sql.toString(), params.toArray()).stream().map(this::toDto).toList();
@@ -279,12 +298,22 @@ public class IfoService {
                 str(r.get("objeto")),
                 str(r.get("area_demandante")),
                 asLong(r.get("unidade_id")),
+                asLong(r.get("area_id")),
                 str(r.get("estado")),
                 cents == null ? null : cents / 100.0,
                 (Boolean) r.get("interesse_renovacao"),
                 str(r.get("motivo_reclassificacao")),
                 str(r.get("codigo_oficial")),
                 str(r.get("validacao")),
+                str(r.get("description")),
+                str(r.get("justification")),
+                str(r.get("process")),
+                str(r.get("financial_resource_type")),
+                str(r.get("contract_type")),
+                asLong(r.get("formalized_value_cents")),
+                asLong(r.get("id_cadastros_areas")),
+                str(r.get("priority")),
+                r.get("estimated_date") != null ? ((java.sql.Date) r.get("estimated_date")).toLocalDate() : null,
                 contratosDoIfo(id));
     }
 

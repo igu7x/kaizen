@@ -8,6 +8,7 @@ public record UpdateContractRequest(
         String supplier,
         String contractModel,
         String process,
+        String expenseNature,
         String startDate,
         String endDate,
         String effectiveDate,

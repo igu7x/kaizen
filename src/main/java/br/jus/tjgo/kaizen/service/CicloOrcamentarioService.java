@@ -28,7 +28,7 @@ public class CicloOrcamentarioService {
     private final IfoService ifoService;
     private final OrcamentoPapelService papelService;
 
-    private static final String ESTADO_FORMACAO_INICIAL = "aberto_aguardando_proad";
+    private static final String ESTADO_FORMACAO_INICIAL = "aguardando_proad";
     private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
     private static final String ESTADO_PUBLICADO = "publicado";
 
@@ -54,7 +54,7 @@ public class CicloOrcamentarioService {
 
     /** RNF-07 — esteira determinística da Formação (11 estados, RF-19..41). */
     private static final List<String> ESTADOS_FORMACAO = List.of(
-            "aberto_aguardando_proad", "em_consulta", "retorno_areas", "consolidacao_cca",
+            "aguardando_proad", "aberto", "em_consulta", "retorno_areas", "consolidacao_cca",
             "validacao_gejut", "apreciacao_sgjt", "em_comites", "autorizado",
             "ajuste_pre_publicacao", "remessa_dg", "publicado");
 
@@ -189,14 +189,25 @@ public class CicloOrcamentarioService {
         if (proad == null || proad.isBlank()) {
             throw new ApiException(400, "PROAD é obrigatório");
         }
+
         var rows = jdbc.queryForList(
-                "UPDATE ciclo_orcamentario SET proad = ?, estado = 'em_consulta', updated_at = NOW(), updated_by = ? " +
+                "UPDATE ciclo_orcamentario SET proad = ?, updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND finalidade = 'formacao' RETURNING *",
                 proad.trim(), userId, id);
         if (rows.isEmpty()) {
             throw new ApiException(404, "Ciclo de formação não encontrado");
         }
-        return toDto(rows.get(0));
+        CicloDto dto = toDto(rows.get(0));
+        
+        if ("aguardando_proad".equals(dto.estado())) {
+            rows = jdbc.queryForList(
+                    "UPDATE ciclo_orcamentario SET estado = 'aberto', updated_at = NOW(), updated_by = ? " +
+                            "WHERE id = ? RETURNING *",
+                    userId, id);
+            return toDto(rows.get(0));
+        }
+        
+        return dto;
     }
 
     @Transactional
@@ -265,6 +276,27 @@ public class CicloOrcamentarioService {
             throw new ApiException(409, "Ciclo já está no estado final");
         }
         String proximo = esteira.get(idx + 1);
+
+        if ("aberto".equals(ciclo.estado()) && "em_consulta".equals(proximo)) {
+            var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
+            boolean isSuperadmin = optUser.isPresent() && optUser.get().isSuperadmin();
+
+            if (!isSuperadmin) {
+                Long gestorId = null;
+                try {
+                    gestorId = jdbc.queryForObject(
+                        "SELECT responsavel_user_id FROM cadastros_unidades WHERE nome = 'Coordenadoria de Contratações e Orçamento de TIC'", 
+                        Long.class
+                    );
+                } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+                    // Ignore, gestorId will remain null
+                }
+                if (gestorId == null || !gestorId.equals(userId)) {
+                    throw new ApiException(403, "Apenas o gestor da Coordenadoria de Contratações e Orçamento de TIC pode encaminhar para Consulta");
+                }
+            }
+        }
+
         if (ESTADO_PUBLICADO.equals(proximo)) {
             return publicar(id, userId);
         }
@@ -299,7 +331,8 @@ public class CicloOrcamentarioService {
      * é do escopo SGJT — os comitês deliberam no PROAD, fora do Kaizen.
      */
     private static final Map<String, String> PAPEL_DO_ESTADO = Map.ofEntries(
-            Map.entry("aberto_aguardando_proad", "cca"),   // registrar PROAD / encaminhar DFD-Consulta
+            Map.entry("aguardando_proad", "cca"),   // registrar PROAD
+            Map.entry("aberto", "cca"),             // encaminhar DFD-Consulta
             Map.entry("em_consulta", "demandante"),         // unidades preenchem/validam/remetem
             Map.entry("retorno_areas", "demandante"),
             Map.entry("consolidacao_cca", "cca"),           // consolidar pós-demandantes → GEJUT

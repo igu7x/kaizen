@@ -25,8 +25,10 @@ public class IfoController {
     // GET /api/ifo?ano=2026&cicloId=3
     @GetMapping
     public List<IfoDto> listar(@RequestParam(value = "ano", required = false) Integer ano,
-                               @RequestParam(value = "cicloId", required = false) Long cicloId) {
-        return service.listar(ano, cicloId);
+                               @RequestParam(value = "cicloId", required = false) Long cicloId,
+                               @RequestParam(value = "minhasDemandas", required = false) Boolean minhasDemandas,
+                               @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.listar(ano, cicloId, minhasDemandas, userId);
     }
 
     // GET /api/ifo/:id
@@ -99,8 +101,9 @@ public class IfoController {
 
     // DELETE /api/ifo/:id — remove um IFO em rascunho
     @DeleteMapping("/{id:\\d+}")
-    public ResponseEntity<Void> excluir(@PathVariable long id) {
-        service.excluir(id);
+    public ResponseEntity<Void> excluir(@PathVariable long id,
+                                        @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        service.excluir(id, userId);
         return ResponseEntity.noContent().build();
     }
 }

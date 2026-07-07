@@ -25,6 +25,7 @@ public class ContractsController {
                 contract.getStartDate() != null ? contract.getStartDate().toString() : null,
                 contract.getEndDate() != null ? contract.getEndDate().toString() : null,
                 contract.getProcess(),
+                contract.getExpenseNature(),
                 contract.getContractModel(),
                 contract.getSupplier(),
                 contract.getContractType(),
@@ -33,6 +34,8 @@ public class ContractsController {
                 contract.getNoticeNumber(),
                 contract.getDirectory(),
                 contract.getUnidade(),
+                contract.getCadastroAreaId(),
+                contract.getCadastroUnidadeId(),
                 contract.getTotalValueCents(),
                 contract.getMonthlyValueCents(),
                 "Ativo", // simplificação
@@ -50,8 +53,10 @@ public class ContractsController {
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String contractType,
-            @RequestParam(required = false) String searchQuery) {
-        return contractService.findAll(startDate, endDate, contractType, searchQuery)
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false) Boolean minhasDemandas,
+            @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return contractService.findAll(startDate, endDate, contractType, searchQuery, minhasDemandas, userId)
                 .stream().map(this::toDto).toList();
     }
 
