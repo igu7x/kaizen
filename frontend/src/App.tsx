@@ -36,6 +36,7 @@ import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import Dfd from "./pages/Dfd";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
+import PermissoesAcoes from "./pages/PermissoesAcoes";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
 import { FormFiller } from "./components/pessoas/FormFiller";
 import { FormResponses } from "./components/pessoas/FormResponses";
@@ -205,6 +206,14 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["ADMIN"]}>
                         <CadastroHub />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/permissoes"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <PermissoesAcoes />
                       </ProtectedRoute>
                     }
                   />
