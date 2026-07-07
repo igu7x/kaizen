@@ -58,6 +58,7 @@ export interface Unidade {
   id: number;
   area_id: number;
   nome: string;
+  sigla?: string;
   descricao?: string;
   responsavel?: string;
   cargo_responsavel?: string;
@@ -77,6 +78,7 @@ export interface AreaCompleta extends Area {
 
 export interface CreateUnidadeDto {
   nome: string;
+  sigla?: string;
   descricao?: string;
   responsavel?: string;
   cargo_responsavel?: string;
@@ -86,6 +88,7 @@ export interface CreateUnidadeDto {
 
 export interface UpdateUnidadeDto {
   nome?: string;
+  sigla?: string;
   descricao?: string;
   responsavel?: string;
   cargo_responsavel?: string;
