@@ -427,12 +427,6 @@ export function ProcessoAcoesFooter({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {/* Sinal do Editor atribuído: pendente (só aparece pra quem não é o editor). */}
-          {editorPendente && statusEmPreenchimento && !isEditorAtribuido && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-              Aguardando o editor concluir a edição
-            </span>
-          )}
           {podeConcluirEdicao && (
             <Button
               type="button"

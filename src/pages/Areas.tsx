@@ -124,6 +124,7 @@ export default function Areas() {
   // Form data - Unidade
   const [formUnidade, setFormUnidade] = useState<CreateUnidadeDto>({
     nome: "",
+    sigla: "",
     descricao: "",
     responsavel: "",
     cargo_responsavel: "",
@@ -380,6 +381,7 @@ export default function Areas() {
       setEditingUnidade(unidade);
       setFormUnidade({
         nome: unidade.nome,
+        sigla: unidade.sigla || "",
         descricao: unidade.descricao || "",
         responsavel: unidade.responsavel || "",
         cargo_responsavel: unidade.cargo_responsavel || "",
@@ -390,6 +392,7 @@ export default function Areas() {
       setEditingUnidade(null);
       setFormUnidade({
         nome: "",
+        sigla: "",
         descricao: "",
         responsavel: "",
         cargo_responsavel: "",
@@ -405,6 +408,7 @@ export default function Areas() {
     setEditingUnidade(null);
     setFormUnidade({
       nome: "",
+      sigla: "",
       descricao: "",
       responsavel: "",
       cargo_responsavel: "",
@@ -418,6 +422,15 @@ export default function Areas() {
         toast({
           title: "Erro",
           description: "O nome da unidade é obrigatório",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!(formUnidade.sigla || "").trim()) {
+        toast({
+          title: "Erro",
+          description: "A sigla da unidade é obrigatória",
           variant: "destructive",
         });
         return;
@@ -1121,7 +1134,7 @@ export default function Areas() {
                 maxLength={10}
                 value={formData.sigla}
                 onChange={(e) =>
-                  setFormData({ ...formData, sigla: e.target.value })
+                  setFormData({ ...formData, sigla: e.target.value.toUpperCase() })
                 }
                 placeholder="Ex: DTI (máx. 10 caracteres)"
                 className="mt-1"
@@ -1412,6 +1425,21 @@ export default function Areas() {
                   setFormUnidade({ ...formUnidade, nome: e.target.value })
                 }
                 placeholder="Nome da unidade"
+                className="mt-1"
+              />
+            </div>
+
+            {/* Sigla */}
+            <div>
+              <Label htmlFor="unidade_sigla">Sigla *</Label>
+              <Input
+                id="unidade_sigla"
+                maxLength={10}
+                value={formUnidade.sigla || ""}
+                onChange={(e) =>
+                  setFormUnidade({ ...formUnidade, sigla: e.target.value.toUpperCase() })
+                }
+                placeholder="Ex: SIGLA"
                 className="mt-1"
               />
             </div>

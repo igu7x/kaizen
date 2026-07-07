@@ -8,9 +8,11 @@ import {
   FileImage,
   File as FileIcon,
   Download,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -19,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  processosNegocioApi,
   DocumentoAnexado,
   TipoDocumentoAnexado,
   TIPO_DOCUMENTO_LABEL,
@@ -30,6 +33,12 @@ interface DocumentosAnexadosInputProps {
   onChange: (next: DocumentoAnexado[]) => void;
   /** Somente leitura: esconde a linha de adicionar e o botão de remover (só lista os anexos). */
   somenteLeitura?: boolean;
+  /**
+   * Id do processo dono dos anexos. Em modo leitura, a listagem enxuta não traz o conteúdo
+   * (`data`) dos arquivos; com o id, o download busca o processo completo sob demanda e baixa
+   * mesmo que o `data` ainda não tenha sido hidratado no form.
+   */
+  processoId?: number;
 }
 
 const ACCEPT =
@@ -66,9 +75,15 @@ export function DocumentosAnexadosInput({
   value,
   onChange,
   somenteLeitura = false,
+  processoId,
 }: DocumentosAnexadosInputProps) {
   const [tipoSelecionado, setTipoSelecionado] =
     useState<TipoDocumentoAnexado | null>(null);
+  // Nome de exibição + data do documento — informados após escolher o tipo.
+  const [nomeExibicao, setNomeExibicao] = useState("");
+  const [dataDocumento, setDataDocumento] = useState("");
+  // Índice da linha cujo download está buscando o conteúdo completo (spinner no botão).
+  const [baixandoIdx, setBaixandoIdx] = useState<number | null>(null);
   // Contador usado como `key` do Select pra forçar remount após reset —
   // Radix Select não reseta o display visual ao trocar value controlado pra undefined.
   const [resetKey, setResetKey] = useState(0);
@@ -102,10 +117,14 @@ export function DocumentosAnexadosInput({
         nome: file.name,
         mime: file.type || "application/octet-stream",
         data,
+        nome_exibicao: nomeExibicao.trim() || undefined,
+        data_documento: dataDocumento || undefined,
       };
       onChange([...value, novo]);
-      // Reseta o tipo após anexar pra forçar o usuário a escolher de novo no próximo
+      // Reseta o formulário após anexar pra forçar o usuário a preencher de novo no próximo
       setTipoSelecionado(null);
+      setNomeExibicao("");
+      setDataDocumento("");
       setResetKey((k) => k + 1);
     } catch (err) {
       toast.warning("Não foi possível ler o arquivo.");
@@ -116,15 +135,41 @@ export function DocumentosAnexadosInput({
     onChange(value.filter((_, i) => i !== idx));
   };
 
-  // Baixa o documento anexado. Converte o data URL (base64) em blob pra funcionar bem
-  // inclusive com PDFs grandes. Só disponível quando o conteúdo (doc.data) já foi carregado.
-  const baixar = async (doc: DocumentoAnexado) => {
-    if (!doc.data) {
-      toast.warning("Conteúdo do documento ainda carregando. Tente de novo.");
-      return;
-    }
+  // Resolve o conteúdo (data URL base64) de um documento. Usa o `doc.data` já hidratado;
+  // se estiver ausente (listagem enxuta) e houver `processoId`, busca o processo completo e
+  // casa o documento pelo tipo/nome/nome de exibição.
+  const resolverData = async (
+    doc: DocumentoAnexado,
+  ): Promise<string | null> => {
+    if (doc.data) return doc.data;
+    if (processoId == null) return null;
     try {
-      const blob = await (await fetch(doc.data)).blob();
+      const full = await processosNegocioApi.getById(processoId);
+      const docs = full.documentos_anexados || [];
+      const match =
+        docs.find(
+          (d) =>
+            d.tipo === doc.tipo &&
+            d.nome === doc.nome &&
+            (d.nome_exibicao || "") === (doc.nome_exibicao || ""),
+        ) || docs.find((d) => d.tipo === doc.tipo && d.nome === doc.nome);
+      return match?.data || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Baixa o documento anexado. Converte o data URL (base64) em blob pra funcionar bem
+  // inclusive com PDFs grandes. Em modo leitura busca o conteúdo sob demanda se necessário.
+  const baixar = async (doc: DocumentoAnexado, idx: number) => {
+    setBaixandoIdx(idx);
+    try {
+      const data = await resolverData(doc);
+      if (!data) {
+        toast.warning("Conteúdo do documento indisponível para download.");
+        return;
+      }
+      const blob = await (await fetch(data)).blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -135,6 +180,8 @@ export function DocumentosAnexadosInput({
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch {
       toast.warning("Não foi possível baixar o documento.");
+    } finally {
+      setBaixandoIdx(null);
     }
   };
 
@@ -151,7 +198,7 @@ export function DocumentosAnexadosInput({
       {/* Linha de adição: tipo + botão de upload */}
       {!somenteLeitura && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+          <div className="space-y-2">
             <div>
               <Label className="text-xs font-semibold text-slate-700">
                 Tipo de Documento
@@ -178,6 +225,35 @@ export function DocumentosAnexadosInput({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Após escolher o tipo: nome de exibição + data do documento */}
+            {tipoSelecionado && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Nome de Exibição
+                  </Label>
+                  <Input
+                    value={nomeExibicao}
+                    onChange={(e) => setNomeExibicao(e.target.value)}
+                    placeholder="Como o documento aparece na lista"
+                    className="mt-1 h-9 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Data do Documento
+                  </Label>
+                  <Input
+                    type="date"
+                    value={dataDocumento}
+                    onChange={(e) => setDataDocumento(e.target.value)}
+                    className="mt-1 h-9 bg-white"
+                  />
+                </div>
+              </div>
+            )}
+
             <Button
               type="button"
               onClick={pickFile}
@@ -218,19 +294,53 @@ export function DocumentosAnexadosInput({
                     {doc.tipo}
                   </span>
                   <span className="text-sm font-medium text-slate-800 truncate">
-                    {doc.nome}
+                    {doc.nome_exibicao || doc.nome}
                   </span>
+                  {doc.data_documento && (
+                    <span className="text-[11px] text-slate-500 whitespace-nowrap">
+                      {doc.data_documento.split("-").reverse().join("/")}
+                    </span>
+                  )}
                 </div>
+                {doc.nome_exibicao && (
+                  <p
+                    className="text-[11px] text-slate-400 truncate mt-0.5"
+                    title={doc.nome}
+                  >
+                    {doc.nome}
+                  </p>
+                )}
               </div>
-              {doc.data && (
-                <button
-                  type="button"
-                  onClick={() => baixar(doc)}
-                  className="text-slate-400 hover:text-blue-600 transition-colors flex-shrink-0"
+              {(doc.data || processoId != null) && (
+                // <a> (não <button>) de propósito: em modo leitura o pai envolve tudo num
+                // <fieldset disabled>, que desabilitaria um <button>. Âncora não é form control,
+                // então escapa do disabled e o download continua clicável.
+                <a
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (baixandoIdx !== idx) baixar(doc, idx);
+                  }}
+                  onKeyDown={(e) => {
+                    if (
+                      (e.key === "Enter" || e.key === " ") &&
+                      baixandoIdx !== idx
+                    ) {
+                      e.preventDefault();
+                      baixar(doc, idx);
+                    }
+                  }}
+                  className={`flex-shrink-0 cursor-pointer text-slate-400 transition-colors hover:text-blue-600 ${
+                    baixandoIdx === idx ? "pointer-events-none opacity-50" : ""
+                  }`}
                   title="Baixar documento"
                 >
-                  <Download className="h-4 w-4" />
-                </button>
+                  {baixandoIdx === idx ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </a>
               )}
               {!somenteLeitura && (
                 <button

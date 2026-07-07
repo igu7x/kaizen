@@ -523,9 +523,11 @@ export const cadastrosProjetosApi = {
   async uploadEvidencia(
     entregaId: number,
     file: File,
+    dataConclusao?: string,
   ): Promise<{ success: boolean; filename: string; filesize: number }> {
     const formData = new FormData();
     formData.append("evidencia", file);
+    if (dataConclusao) formData.append("data_conclusao", dataConclusao);
     const response = await authFetch(
       `/api/cadastros/entregas/${entregaId}/upload-evidencia`,
       undefined,
