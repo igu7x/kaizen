@@ -115,11 +115,12 @@ export const competenciasGestorApi = {
     return apiClient.request<FormularioCompetencias[]>(url);
   },
 
+  /** `null` quando o usuário ainda não preencheu — o backend responde com corpo vazio. */
   getMeu(tipo?: string): Promise<FormularioCompetencias | null> {
     const url = tipo
       ? `${BASE_URL}/meu?tipo=${encodeURIComponent(tipo)}`
       : `${BASE_URL}/meu`;
-    return apiClient.request<FormularioCompetencias | null>(url);
+    return apiClient.requestNullable<FormularioCompetencias>(url);
   },
 
   getById(id: number): Promise<FormularioCompetencias> {

@@ -73,12 +73,15 @@ export const avaliacaoGestorApi = {
     return apiClient.request<AvaliacaoGestorFormulario>(`${BASE_URL}/${id}`);
   },
 
-  /** Buscar avaliação existente por pessoa+unidade (para auto-detecção em modo edição) */
+  /**
+   * Buscar avaliação existente por pessoa+unidade (para auto-detecção em modo edição).
+   * `null` quando não existe — o backend responde com corpo vazio.
+   */
   getByPessoaAndUnidade(
     pessoaId: number,
     unidadeId: number,
   ): Promise<AvaliacaoGestorFormulario | null> {
-    return apiClient.request<AvaliacaoGestorFormulario | null>(
+    return apiClient.requestNullable<AvaliacaoGestorFormulario>(
       `${BASE_URL}/by-pessoa/${pessoaId}?unidade_id=${unidadeId}`,
     );
   },

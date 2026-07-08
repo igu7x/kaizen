@@ -1022,6 +1022,40 @@ export function EscritorioProjetos() {
       })
       : projetosDaDiretoria;
 
+  // ---- Opções dos selects de filtro (extraídas dos projetos carregados) ----
+  const projetosParaOpcoes = planoFiltroId ? projetosVinculados : todosProjetos;
+
+  const nomesDe = (p: ProjetoCadastro, campo: string): string[] =>
+    ((p as any)[campo] || "")
+      .split(", ")
+      .map((n: string) => n.trim())
+      .filter((n: string) => n && !n.startsWith("auto:"));
+
+  const diretoriasDisponiveis = Array.from(
+    new Set(
+      projetosParaOpcoes.flatMap((p) => nomesDe(p, "diretorias_nomes")),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  // Áreas restritas à diretoria selecionada: só aparecem as áreas dos projetos daquela diretoria.
+  const areasDisponiveis = Array.from(
+    new Set(
+      projetosParaOpcoes
+        .filter(
+          (p) =>
+            filtroDiretoria === "todos" ||
+            nomesDe(p, "diretorias_nomes").includes(filtroDiretoria),
+        )
+        .flatMap((p) => nomesDe(p, "areas_execucao_diretorias")),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  // Trocar de diretoria reseta a Área: a anterior pode não pertencer à nova diretoria.
+  const handleFiltroDiretoria = (valor: string) => {
+    setFiltroDiretoria(valor);
+    setFiltroUnidade("todos");
+  };
+
   // Gestores únicos dos projetos (para o filtro)
   const gestoresDeProjetos = [
     ...new Map(
@@ -2268,6 +2302,31 @@ export function EscritorioProjetos() {
                 </SelectContent>
               </Select>
             </div>
+            {/* Diretoria — só para o superadmin (Gestor do Escritório de Projetos).
+                Vem ANTES de "Área": escolher a diretoria restringe as áreas listadas. */}
+            {isSuperadmin && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Diretoria
+                </label>
+                <Select
+                  value={filtroDiretoria}
+                  onValueChange={handleFiltroDiretoria}
+                >
+                  <SelectTrigger className="h-10 w-[320px] bg-white">
+                    <SelectValue placeholder="Todas as Diretorias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas as Diretorias</SelectItem>
+                    {diretoriasDisponiveis.map((nomeDir) => (
+                      <SelectItem key={nomeDir} value={nomeDir}>
+                        {nomeDir}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Área
@@ -2278,73 +2337,14 @@ export function EscritorioProjetos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todas as Áreas</SelectItem>
-                  {(() => {
-                    // Extrair áreas únicas diretamente dos projetos carregados
-                    const projetosRef = planoFiltroId
-                      ? projetosVinculados
-                      : todosProjetos;
-                    const areasUnicas = new Set<string>();
-                    projetosRef.forEach((p) => {
-                      const areasStr =
-                        (p as any).areas_execucao_diretorias || "";
-                      areasStr.split(", ").forEach((nome: string) => {
-                        const trimmed = nome.trim();
-                        if (trimmed && !trimmed.startsWith("auto:"))
-                          areasUnicas.add(trimmed);
-                      });
-                    });
-                    return Array.from(areasUnicas)
-                      .sort((a, b) => a.localeCompare(b, "pt-BR"))
-                      .map((nomeArea) => (
-                        <SelectItem key={nomeArea} value={nomeArea}>
-                          {nomeArea}
-                        </SelectItem>
-                      ));
-                  })()}
+                  {areasDisponiveis.map((nomeArea) => (
+                    <SelectItem key={nomeArea} value={nomeArea}>
+                      {nomeArea}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            {/* Diretoria — só para o superadmin (Gestor do Escritório de Projetos) */}
-            {isSuperadmin && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Diretoria
-                </label>
-                <Select
-                  value={filtroDiretoria}
-                  onValueChange={setFiltroDiretoria}
-                >
-                  <SelectTrigger className="h-10 w-[320px] bg-white">
-                    <SelectValue placeholder="Todas as Diretorias" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todas as Diretorias</SelectItem>
-                    {(() => {
-                      // Diretorias únicas extraídas dos projetos carregados
-                      const projetosRef = planoFiltroId
-                        ? projetosVinculados
-                        : todosProjetos;
-                      const diretoriasUnicas = new Set<string>();
-                      projetosRef.forEach((p) => {
-                        const dirsStr = (p as any).diretorias_nomes || "";
-                        dirsStr.split(", ").forEach((nome: string) => {
-                          const trimmed = nome.trim();
-                          if (trimmed && !trimmed.startsWith("auto:"))
-                            diretoriasUnicas.add(trimmed);
-                        });
-                      });
-                      return Array.from(diretoriasUnicas)
-                        .sort((a, b) => a.localeCompare(b, "pt-BR"))
-                        .map((nomeDir) => (
-                          <SelectItem key={nomeDir} value={nomeDir}>
-                            {nomeDir}
-                          </SelectItem>
-                        ));
-                    })()}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
 
           {/* Conteúdo com animações - key força remount ao trocar filtros */}
