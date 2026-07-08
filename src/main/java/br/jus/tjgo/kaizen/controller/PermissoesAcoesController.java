@@ -46,4 +46,11 @@ public class PermissoesAcoesController {
         AuthContext.requireRole(List.of("ADMIN"));
         return ResponseEntity.ok(permissoesAcoesService.listarTags());
     }
+
+    @PutMapping("/tags/{id}")
+    public ResponseEntity<Void> atualizarTag(@PathVariable String id, @RequestBody TagAcaoDto req) {
+        AuthContext.requireRole(List.of("ADMIN"));
+        permissoesAcoesService.atualizarTag(id, req.name());
+        return ResponseEntity.ok().build();
+    }
 }
