@@ -1161,50 +1161,35 @@ export default function Cadastros() {
   };
 
   // Toggle área de execução
+  // Área Responsável: seleção ÚNICA — escolher outra substitui a atual; escolher a mesma remove.
   const toggleAreaExecucao = (areaId: number) => {
-    const current = formData.areas_execucao || [];
-    if (current.includes(areaId)) {
-      setFormData({
-        ...formData,
-        areas_execucao: current.filter((id) => id !== areaId),
-      });
-    } else {
-      setFormData({ ...formData, areas_execucao: [...current, areaId] });
-    }
+    setFormData((prev) => ({
+      ...prev,
+      areas_execucao: (prev.areas_execucao || []).includes(areaId)
+        ? []
+        : [areaId],
+    }));
   };
 
-  // Adicionar diretoria ao projeto
+  // Diretoria: seleção ÚNICA — trocar substitui a atual e limpa a área responsável
+  // (as unidades disponíveis dependem da diretoria escolhida).
   const handleAdicionarDiretoria = (value: string) => {
     const areaId = parseInt(value);
     if (!areaId || formData.areas_vinculadas_ids?.includes(areaId)) return;
     setFormData((prev) => ({
       ...prev,
-      areas_vinculadas_ids: [...(prev.areas_vinculadas_ids || []), areaId],
+      areas_vinculadas_ids: [areaId],
+      areas_execucao: [],
     }));
   };
 
-  // Remover diretoria do projeto
-  const handleRemoverDiretoria = (areaId: number) => {
-    setFormData((prev) => {
-      const novosIds = (prev.areas_vinculadas_ids || []).filter(
-        (id) => id !== areaId,
-      );
-      // Remover também as unidades (areas_execucao) que pertencem à diretoria removida
-      const unidadesDaDiretoria = unidadesDiretorias
-        .filter((u) => {
-          const dir = diretorias.find((d) => d.id === areaId);
-          return u.diretoria_sigla === (dir?.sigla || dir?.nome);
-        })
-        .map((u) => u.id);
-      const novasExecucao = (prev.areas_execucao || []).filter(
-        (id) => !unidadesDaDiretoria.includes(id),
-      );
-      return {
-        ...prev,
-        areas_vinculadas_ids: novosIds,
-        areas_execucao: novasExecucao,
-      };
-    });
+  // Remover a diretoria do projeto (limpa também a área responsável vinculada a ela)
+  const handleRemoverDiretoria = (_areaId: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      areas_vinculadas_ids: [],
+      areas_execucao: [],
+    }));
   };
 
   // Abrir visualização de detalhes do projeto
@@ -3671,9 +3656,9 @@ export default function Cadastros() {
                       </div>
                       <div className="md:col-span-2">
                         <Label className="text-blue-700 font-semibold mb-2 block">
-                          Diretorias
+                          Diretoria
                         </Label>
-                        {/* Diretorias selecionadas */}
+                        {/* Diretoria selecionada */}
                         {formData.areas_vinculadas_ids &&
                           formData.areas_vinculadas_ids.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-2">
@@ -3714,7 +3699,7 @@ export default function Cadastros() {
                                 <Plus className="h-4 w-4" />
                                 <span>
                                   {formData.areas_vinculadas_ids?.length
-                                    ? "Adicionar outra diretoria"
+                                    ? "Trocar diretoria"
                                     : "Selecione a diretoria do projeto"}
                                 </span>
                               </div>
@@ -3742,14 +3727,14 @@ export default function Cadastros() {
                                   ),
                               ).length === 0 && (
                                 <SelectItem value="none" disabled>
-                                  Todas as diretorias já foram adicionadas
+                                  Nenhuma outra diretoria disponível
                                 </SelectItem>
                               )}
                             </SelectContent>
                           </Select>
                         )}
                         <p className="text-xs text-gray-500 mt-1">
-                          Selecione uma ou mais diretorias do projeto
+                          Selecione a diretoria do projeto (apenas uma)
                         </p>
                       </div>
 
@@ -3806,7 +3791,9 @@ export default function Cadastros() {
                                 >
                                   <SelectTrigger className="w-full bg-white border-gray-300">
                                     <span className="text-gray-500 text-sm">
-                                      Selecionar áreas responsáveis...
+                                      {formData.areas_execucao?.length
+                                        ? "Trocar área responsável..."
+                                        : "Selecionar área responsável..."}
                                     </span>
                                   </SelectTrigger>
                                   <SelectContent className="max-h-60">
