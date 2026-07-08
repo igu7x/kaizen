@@ -104,22 +104,31 @@ public class CadastrosProjetosService {
     // ============================================================
 
     public List<Map<String, Object>> getAllProjetos(String diretoria) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM vw_cadastros_projetos_completo WHERE 1=1");
+        // `diretorias_nomes` (siglas das diretorias vinculadas) não existe na view; é montado aqui,
+        // igual em getProjetosByInstrumentoId, para o front filtrar o portfólio por diretoria.
+        boolean hasSigla = hasColumn("cadastros_areas", "sigla");
+        String colunaExpressao = hasSigla
+                ? "ca.sigla"
+                : "COALESCE(SUBSTRING(ca.nome FROM '\\(([^)]+)\\)'), ca.nome)";
+        StringBuilder sql = new StringBuilder(
+                "SELECT p.*, COALESCE((SELECT STRING_AGG(" + colunaExpressao + ", ', ') FROM cadastros_areas ca " +
+                        "WHERE ca.id = ANY(p.areas_vinculadas_ids)), p.diretoria) AS diretorias_nomes " +
+                        "FROM vw_cadastros_projetos_completo p WHERE 1=1");
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             var domain = domainService.getDomainForDiretoria(diretoria);
             if (domain.isDomainRoot()) {
                 params.add(domain.dominio());
-                sql.append(" AND (areas_vinculadas_ids IS NULL OR array_length(areas_vinculadas_ids, 1) IS NULL " +
-                        "OR EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(areas_vinculadas_ids) " +
+                sql.append(" AND (p.areas_vinculadas_ids IS NULL OR array_length(p.areas_vinculadas_ids, 1) IS NULL " +
+                        "OR EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(p.areas_vinculadas_ids) " +
                         "AND (ca.dominio = ? OR ca.dominio IS NULL)))");
             } else {
                 params.add(diretoria);
-                sql.append(" AND EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(areas_vinculadas_ids) " +
+                sql.append(" AND EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(p.areas_vinculadas_ids) " +
                         "AND ca.sigla = ?)");
             }
         }
-        sql.append(" ORDER BY codigo DESC");
+        sql.append(" ORDER BY p.codigo DESC");
         var projetos = jdbc.queryForList(sql.toString(), params.toArray());
         for (Map<String, Object> projeto : projetos) {
             projeto.put("areasExecucao", getAreasExecucao(((Number) projeto.get("id")).longValue()));
