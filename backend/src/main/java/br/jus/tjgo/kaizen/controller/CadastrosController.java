@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.CadastrosProjetosService;
+import br.jus.tjgo.kaizen.service.PermissoesTapService;
 import br.jus.tjgo.kaizen.service.TepService;
 import br.jus.tjgo.kaizen.util.Flash;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -51,6 +52,7 @@ public class CadastrosController {
 
     private final CadastrosProjetosService service;
     private final TepService tepService;
+    private final PermissoesTapService permissoesTapService;
     private final ObjectMapper objectMapper;
 
     // ---------- helpers de auth ----------
@@ -201,8 +203,43 @@ public class CadastrosController {
         }
     }
 
+    /**
+     * Autorização de edição de projeto.
+     *
+     * Até jul/2026 estas regras existiam SOMENTE no frontend: o endpoint aceitava qualquer usuário
+     * autenticado, então bastava um PUT direto para editar qualquer projeto (IDOR).
+     *
+     * Segue o GUIA_PERMISSOES.md: CRUD genérico é decidido por Roles (camada B) e pelas flags
+     * (camada C) — não por @TagAcao. A Permissão TAP é uma concessão específica, com tabela própria.
+     *
+     * Retorna null quando autorizado; caso contrário, a resposta de erro a devolver.
+     * Precisa ser chamado ANTES do try do handler: o catch(Exception) genérico converteria
+     * uma ApiException(403) em 500.
+     */
+    private ResponseEntity<?> negarSeNaoPodeEditarProjeto(long projetoId) {
+        var opt = AuthContext.getCurrentUser();
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(401).body(err("Não autenticado"));
+        }
+        AuthenticatedUser u = opt.get();
+        if (u.isSuperadmin() || "ADMIN".equals(u.role()) || "MANAGER".equals(u.role())) {
+            return null;
+        }
+        if (service.isGestorDoProjeto(projetoId, u.id())) {
+            return null;
+        }
+        if (permissoesTapService.podeEditarTapDoProjeto(u.id(), projetoId)) {
+            return null;
+        }
+        return ResponseEntity.status(403).body(err("Você não tem permissão para editar este projeto."));
+    }
+
     @PutMapping("/projetos/{id:\\d+}")
     public ResponseEntity<?> updateProjeto(HttpServletRequest req, @PathVariable long id, @RequestBody Map<String, Object> body) {
+        ResponseEntity<?> negado = negarSeNaoPodeEditarProjeto(id);
+        if (negado != null) {
+            return negado;
+        }
         try {
             Map<String, Object> projeto = service.updateProjeto(id, body, getUserId(req));
             if (projeto == null) {

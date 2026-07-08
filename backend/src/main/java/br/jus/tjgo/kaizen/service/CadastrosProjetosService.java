@@ -146,6 +146,21 @@ public class CadastrosProjetosService {
         return projetos;
     }
 
+    /**
+     * O usuário é o Gestor deste projeto?
+     *
+     * Atenção: {@code cadastros_projetos.gestor_id} referencia {@code cadastros_pessoas}, NÃO
+     * {@code users}. O id do usuário é {@code cadastros_pessoas.user_id} (é o que a view expõe
+     * como {@code gestor_user_id}). Comparar gestor_id com users.id barraria todos os gestores.
+     */
+    public boolean isGestorDoProjeto(long projetoId, long userId) {
+        return !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_projetos p " +
+                        "JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
+                        "WHERE p.id = ? AND ges.user_id = ? AND p.ativo = TRUE LIMIT 1",
+                projetoId, userId).isEmpty();
+    }
+
     public Map<String, Object> getProjetoById(long id) {
         var rows = jdbc.queryForList("SELECT * FROM vw_cadastros_projetos_completo WHERE id = ?", id);
         if (rows.isEmpty()) {
