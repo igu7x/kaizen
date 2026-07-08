@@ -1379,9 +1379,7 @@ export default function EscritorioProcessos() {
             borderColor="border-pink-200"
             activeRing="ring-pink-400"
             active={filtroArtefato === "it"}
-            onClick={() =>
-              setFiltroArtefato(filtroArtefato === "it" ? "all" : "it")
-            }
+            onClick={() => setFiltroArtefato("it")}
           />
           <StatCard
             title="POPs"
@@ -1394,9 +1392,7 @@ export default function EscritorioProcessos() {
             borderColor="border-amber-200"
             activeRing="ring-amber-400"
             active={filtroArtefato === "pop"}
-            onClick={() =>
-              setFiltroArtefato(filtroArtefato === "pop" ? "all" : "pop")
-            }
+            onClick={() => setFiltroArtefato("pop")}
           />
           <StatCard
             title="MPS"
@@ -1409,9 +1405,7 @@ export default function EscritorioProcessos() {
             borderColor="border-emerald-200"
             activeRing="ring-emerald-400"
             active={filtroArtefato === "mps"}
-            onClick={() =>
-              setFiltroArtefato(filtroArtefato === "mps" ? "all" : "mps")
-            }
+            onClick={() => setFiltroArtefato("mps")}
           />
         </div>
 
@@ -1486,6 +1480,9 @@ export default function EscritorioProcessos() {
                         <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                           Nome de Exibição
                         </th>
+                        <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Data da Versão
+                        </th>
                         <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                           Processo
                         </th>
@@ -1506,20 +1503,18 @@ export default function EscritorioProcessos() {
                           <td className="px-5 py-3 text-left">
                             <div className="flex items-center gap-2 min-w-0">
                               <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                              <div className="min-w-0">
-                                <div className="text-slate-900 font-medium truncate">
-                                  {row.nomeExibicao}
-                                </div>
-                                {row.doc.data_documento && (
-                                  <div className="text-[11px] text-slate-400 tabular-nums">
-                                    {row.doc.data_documento
-                                      .split("-")
-                                      .reverse()
-                                      .join("/")}
-                                  </div>
-                                )}
-                              </div>
+                              <span className="text-slate-900 font-medium truncate">
+                                {row.nomeExibicao}
+                              </span>
                             </div>
+                          </td>
+                          <td className="px-5 py-3 text-center text-slate-700 tabular-nums whitespace-nowrap">
+                            {row.doc.data_documento
+                              ? row.doc.data_documento
+                                  .split("-")
+                                  .reverse()
+                                  .join("/")
+                              : "—"}
                           </td>
                           <td className="px-5 py-3 text-left text-slate-700">
                             {row.processoNome}
