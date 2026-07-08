@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Date;
 import java.time.LocalDate;
 import br.jus.tjgo.kaizen.utils.DateHelper;
+import br.jus.tjgo.kaizen.utils.SqlValue;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -42,6 +43,15 @@ public class CadastrosProjetosService {
     private final ObjectMapper objectMapper;
 
     private static final Set<String> STATUS_MANUAIS = Set.of("concluido", "cancelado", "suspenso");
+
+    /**
+     * Colunas nao-texto de cadastros_projetos (integer / bigint / numeric) no UPDATE.
+     * O Jackson serializa numeric (BigDecimal) e bigint (Long) como STRING, por paridade com o
+     * driver pg do Node; o front devolve essas strings no PUT. O pgjdbc binda String como VARCHAR
+     * e o Postgres recusa a atribuicao. Precisam passar por numOrNull(), como ja faz o INSERT.
+     */
+    private static final Set<String> COLUNAS_NUMERICAS = Set.of(
+            "patrocinador_id", "gestor_id", "valor_estimado_contratacao", "pca_item_id");
 
     // Códigos de diretoria/macro área centralizados em OrgCodigos (compartilhado com processos).
 
@@ -134,6 +144,21 @@ public class CadastrosProjetosService {
             projeto.put("areasExecucao", getAreasExecucao(((Number) projeto.get("id")).longValue()));
         }
         return projetos;
+    }
+
+    /**
+     * O usuário é o Gestor deste projeto?
+     *
+     * Atenção: {@code cadastros_projetos.gestor_id} referencia {@code cadastros_pessoas}, NÃO
+     * {@code users}. O id do usuário é {@code cadastros_pessoas.user_id} (é o que a view expõe
+     * como {@code gestor_user_id}). Comparar gestor_id com users.id barraria todos os gestores.
+     */
+    public boolean isGestorDoProjeto(long projetoId, long userId) {
+        return !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_projetos p " +
+                        "JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
+                        "WHERE p.id = ? AND ges.user_id = ? AND p.ativo = TRUE LIMIT 1",
+                projetoId, userId).isEmpty();
     }
 
     public Map<String, Object> getProjetoById(long id) {
@@ -337,6 +362,9 @@ public class CadastrosProjetosService {
                 } else if ("data_prevista_inicio".equals(key) || "data_prevista_conclusao".equals(key)) {
                     fields.add(key + " = ?");
                     values.add(DateHelper.toSqlDate(value));
+                } else if (COLUNAS_NUMERICAS.contains(key)) {
+                    fields.add(key + " = ?");
+                    values.add(SqlValue.numeroOuNull(value));
                 } else {
                     fields.add(key + " = ?");
                     values.add(value);

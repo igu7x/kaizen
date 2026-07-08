@@ -1,6 +1,7 @@
 package br.jus.tjgo.kaizen.service;
 
 import br.jus.tjgo.kaizen.exception.ApiException;
+import br.jus.tjgo.kaizen.utils.SqlValue;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -161,7 +162,8 @@ public class PcaRenovacoesDetailsService {
         return jdbc.queryForMap(
                 "INSERT INTO pca_tarefas (renovacao_id, tipo, ponto_controle_id, tarefa, responsavel, prazo, status, created_by) " +
                         "VALUES (?, 'renovacao', ?, ?, ?, ?::date, ?, ?) RETURNING *",
-                renovacaoId, data.get("ponto_controle_id"), data.get("tarefa"), data.get("responsavel"),
+                renovacaoId, SqlValue.numeroOuNull(data.get("ponto_controle_id")), data.get("tarefa"),
+                data.get("responsavel"),
                 data.get("prazo"), orDefault((String) data.get("status"), "Não iniciada"), userId);
     }
 
@@ -171,7 +173,10 @@ public class PcaRenovacoesDetailsService {
         for (String key : List.of("tarefa", "responsavel", "prazo", "status", "ponto_controle_id")) {
             if (data.containsKey(key)) {
                 updates.add(key + (isDateCol(key) ? " = ?::date" : " = ?"));
-                values.add(data.get(key));
+                // ponto_controle_id é integer; o front pode mandar como String (ver SqlValue).
+                values.add("ponto_controle_id".equals(key)
+                        ? SqlValue.numeroOuNull(data.get(key))
+                        : data.get(key));
             }
         }
         if (updates.isEmpty()) {
