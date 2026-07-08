@@ -53,6 +53,21 @@ public class TepService {
                     "Conclua o ciclo de validação do TAP primeiro.");
         }
 
+        // Só na CRIAÇÃO do TEP: todas as entregas ativas precisam estar concluídas.
+        // Um TEP já existente segue editável/validável mesmo que alguma entrega mude de status.
+        boolean tepJaExiste = !jdbc.queryForList(
+                "SELECT 1 FROM tep_termos_encerramento WHERE projeto_id = ? LIMIT 1", projetoId).isEmpty();
+        if (!tepJaExiste) {
+            Integer entregasPendentes = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM cadastros_projetos_entregas " +
+                            "WHERE projeto_id = ? AND ativo = TRUE AND status <> 'concluida'",
+                    Integer.class, projetoId);
+            if (entregasPendentes != null && entregasPendentes > 0) {
+                throw new RuntimeException("Não é possível finalizar o projeto: há " + entregasPendentes +
+                        " entrega(s) não concluída(s). Conclua todas as entregas antes de gerar o TEP.");
+            }
+        }
+
         Map<String, Object> tep = jdbc.queryForMap(
                 "INSERT INTO tep_termos_encerramento " +
                         "(projeto_id, tipo_encerramento, motivo_cancelamento, consideracoes_gerente, " +
