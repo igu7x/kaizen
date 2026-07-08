@@ -69,10 +69,11 @@ export const autoavaliacaoApi = {
     return apiClient.request<AutoavaliacaoFormulario[]>(url);
   },
 
+  /** `null` quando o usuário ainda não preencheu — o backend responde com corpo vazio. */
   getMeu(
     tipoInventario: string = "equipe",
   ): Promise<AutoavaliacaoFormulario | null> {
-    return apiClient.request<AutoavaliacaoFormulario | null>(
+    return apiClient.requestNullable<AutoavaliacaoFormulario>(
       `${BASE_URL}/meu?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
     );
   },
