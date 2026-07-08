@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Date;
 import java.time.LocalDate;
 import br.jus.tjgo.kaizen.utils.DateHelper;
+import br.jus.tjgo.kaizen.utils.SqlValue;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -42,6 +43,15 @@ public class CadastrosProjetosService {
     private final ObjectMapper objectMapper;
 
     private static final Set<String> STATUS_MANUAIS = Set.of("concluido", "cancelado", "suspenso");
+
+    /**
+     * Colunas nao-texto de cadastros_projetos (integer / bigint / numeric) no UPDATE.
+     * O Jackson serializa numeric (BigDecimal) e bigint (Long) como STRING, por paridade com o
+     * driver pg do Node; o front devolve essas strings no PUT. O pgjdbc binda String como VARCHAR
+     * e o Postgres recusa a atribuicao. Precisam passar por numOrNull(), como ja faz o INSERT.
+     */
+    private static final Set<String> COLUNAS_NUMERICAS = Set.of(
+            "patrocinador_id", "gestor_id", "valor_estimado_contratacao", "pca_item_id");
 
     // Códigos de diretoria/macro área centralizados em OrgCodigos (compartilhado com processos).
 
@@ -337,6 +347,9 @@ public class CadastrosProjetosService {
                 } else if ("data_prevista_inicio".equals(key) || "data_prevista_conclusao".equals(key)) {
                     fields.add(key + " = ?");
                     values.add(DateHelper.toSqlDate(value));
+                } else if (COLUNAS_NUMERICAS.contains(key)) {
+                    fields.add(key + " = ?");
+                    values.add(SqlValue.numeroOuNull(value));
                 } else {
                     fields.add(key + " = ?");
                     values.add(value);
