@@ -21,6 +21,7 @@ import {
   DollarSign,
   Building2,
   BookOpen,
+  GraduationCap,
   Database,
   Code,
   Home,
@@ -154,16 +155,24 @@ const menuItemsCompleto: MenuItem[] = [
     icon: Users,
     children: [
       {
-        title: "Painel",
-        icon: LayoutDashboard,
-        path: "/pessoas/painel",
-        permissaoCodigo: "pessoas_painel",
-      },
-      {
         title: "Gestão por Competências",
         icon: BookOpen,
         path: "/pessoas/competencias",
         permissaoCodigo: "pessoas_competencias",
+      },
+      {
+        title: "Plano Anual de Capacitação",
+        icon: GraduationCap,
+        children: [
+          {
+            title: "Tecnologia da Informação",
+            path: "/pessoas/pac/tecnologia-da-informacao",
+          },
+          {
+            title: "Apoio Judiciário",
+            path: "/pessoas/pac/apoio-judiciario",
+          },
+        ],
       },
     ],
   },

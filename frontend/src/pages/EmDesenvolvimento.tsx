@@ -1,0 +1,21 @@
+import { Layout } from "@/components/layout/Layout";
+import { Hammer } from "lucide-react";
+
+interface EmDesenvolvimentoProps {
+  titulo: string;
+}
+
+/** Placeholder reutilizável para telas ainda não implementadas ("Em desenvolvimento"). */
+export default function EmDesenvolvimento({ titulo }: EmDesenvolvimentoProps) {
+  return (
+    <Layout>
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center bg-white rounded-2xl border border-gray-200">
+        <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mb-6">
+          <Hammer className="h-10 w-10 text-gray-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">{titulo}</h2>
+        <p className="text-gray-500 max-w-md">Em desenvolvimento.</p>
+      </div>
+    </Layout>
+  );
+}
