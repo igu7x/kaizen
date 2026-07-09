@@ -350,7 +350,8 @@ export function CompetenciasGestorForm({
               Identificação da Diretoria
             </span>
             <p className="font-medium text-gray-800 mt-0.5">
-              {diretoriaUsuario || "Carregando..."}
+              {/* Ao editar, a diretoria é a do formulário (macroárea da unidade), não a de quem edita. */}
+              {editFormulario?.diretoria || diretoriaUsuario || "Carregando..."}
             </p>
           </div>
         </CardContent>

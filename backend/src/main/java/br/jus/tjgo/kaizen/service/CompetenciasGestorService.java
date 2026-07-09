@@ -139,17 +139,38 @@ public class CompetenciasGestorService {
         return out;
     }
 
+    /**
+     * A diretoria do formulário é a MACROÁREA da unidade selecionada (cadastros_unidades.area_id →
+     * cadastros_areas.sigla), NÃO a diretoria de quem preenche/edita. Sem isso, um editor de outra
+     * diretoria (ex.: validador final da SGJT editando um form da DPE) sobrescrevia a diretoria com
+     * a dele. Cai no valor enviado pelo cliente apenas se a unidade não resolver a macroárea.
+     */
+    private String diretoriaDaUnidade(Long unidadeId, Object fallback) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT a.sigla FROM cadastros_unidades u " +
+                            "JOIN cadastros_areas a ON a.id = u.area_id " +
+                            "WHERE u.id = ? LIMIT 1",
+                    unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("sigla") != null) {
+                return str(rows.get(0).get("sigla"));
+            }
+        }
+        return fallback != null ? str(fallback) : null;
+    }
+
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipo = data.get("tipo") != null ? str(data.get("tipo")) : "equipe";
         Long unidadeId = asLong(data.get("unidade_id"));
+        String diretoria = diretoriaDaUnidade(unidadeId, data.get("diretoria"));
 
         Map<String, Object> formulario = jdbc.queryForMap(
                 "INSERT INTO competencias_gestor_formularios " +
                         "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, diretoria, unidade_id, qtd_colaboradores, tipo, status, created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?) RETURNING *",
                 userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId,
+                str(data.get("email_institucional")), diretoria, unidadeId,
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, tipo, userId, userId);
         long formularioId = ((Number) formulario.get("id")).longValue();
 
@@ -261,6 +282,9 @@ public class CompetenciasGestorService {
             // paridade com o try/catch silencioso do Node
         }
 
+        // Diretoria = macroárea da unidade (não a do editor). Ver diretoriaDaUnidade.
+        Long updUnidadeId = asLong(data.get("unidade_id"));
+        String updDiretoria = diretoriaDaUnidade(updUnidadeId, data.get("diretoria"));
         jdbc.update(
                 "UPDATE competencias_gestor_formularios SET " +
                         "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
@@ -268,7 +292,7 @@ public class CompetenciasGestorService {
                         "  updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE",
                 str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), str(data.get("diretoria")), asLong(data.get("unidade_id")),
+                str(data.get("email_institucional")), updDiretoria, updUnidadeId,
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, userId, id);
 
         if (autoValidateAutor) {
