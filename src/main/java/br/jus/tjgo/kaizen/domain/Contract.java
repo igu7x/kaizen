@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,6 +52,9 @@ public class Contract {
 
     @Column(name = "limit_date")
     private LocalDate limitDate;
+
+    @Column(name = "year_duration_standard")
+    private BigDecimal yearDurationStandard;
 
     @Column(name = "contract_type", length = 50)
     private ContractTypeEnum contractType;

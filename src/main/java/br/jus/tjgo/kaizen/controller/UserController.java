@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.controller;
 
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.service.DomainService;
+import br.jus.tjgo.kaizen.service.PermissoesAcoesService;
 import br.jus.tjgo.kaizen.service.UserService;
 import br.jus.tjgo.kaizen.util.Flash;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,6 +32,7 @@ public class UserController {
 
     private final UserService userService;
     private final DomainService domainService;
+    private final PermissoesAcoesService permissoesAcoesService;
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
 
@@ -105,6 +107,15 @@ public class UserController {
         body.put("situacao_funcional", situacaoFuncional);
         body.put("cc_fc", ccFc);
         body.put("classe_efetivo", classeEfetivo);
+
+        // Camada D — tags de Permissão de Ação concedidas ao usuário (Ciclo Orçamentário).
+        try {
+            body.put("tags_acesso", permissoesAcoesService.buscarTagsDoUsuario(userId));
+        } catch (Exception e) {
+            log.warn("[GET /users/me/perfil] erro ao buscar tags_acesso: {}", e.getMessage());
+            body.put("tags_acesso", List.of());
+        }
+
         return ResponseEntity.ok(body);
     }
 

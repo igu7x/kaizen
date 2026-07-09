@@ -27,6 +27,7 @@ public class CicloOrcamentarioService {
     private final PcaService pcaService;
     private final IfoService ifoService;
     private final OrcamentoPapelService papelService;
+    private final PermissoesAcoesService permissoesAcoesService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aguardando_proad";
     private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
@@ -177,6 +178,12 @@ public class CicloOrcamentarioService {
         if (existente != null) {
             return existente;
         }
+        
+        // Bloqueio no backend: apenas usuários com a tag podem disparar a abertura do ciclo.
+        if (userId != null && !permissoesAcoesService.validarAcesso(userId, "PCA_FORMACAO_ABERTURA")) {
+            throw new ApiException(403, "Acesso Negado: Você não possui a permissão necessária (PCA_FORMACAO_ABERTURA) para realizar a abertura da Formação do PCA.");
+        }
+        
         var rows = jdbc.queryForList(
                 "INSERT INTO ciclo_orcamentario (ano, finalidade, estado, versao_gerada, abertura_em, created_by, updated_by) " +
                         "VALUES (?, ?, ?, 1, NOW(), ?, ?) RETURNING *",
@@ -204,6 +211,9 @@ public class CicloOrcamentarioService {
                     "UPDATE ciclo_orcamentario SET estado = 'aberto', updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ? RETURNING *",
                     userId, id);
+            
+            ifoService.gerarIfosRenovacao(id, dto.ano(), userId);
+            
             return toDto(rows.get(0));
         }
         
@@ -249,8 +259,8 @@ public class CicloOrcamentarioService {
         if (estado == null || estado.isBlank()) {
             throw new ApiException(400, "Estado é obrigatório");
         }
-        // RN-GERAL-01 — transitar é privativo da Autoridade do escopo do estado ATUAL (Editor não transita).
-        papelService.exigirTransicao(escopoDoEstado(getCiclo(id).estado()), id);
+        // Validação da transição: Tag de Ação (Camada D) se existir, senão Autoridade do Escopo (Camada B).
+        exigirTagAcao(userId, getCiclo(id).estado(), id);
         var rows = jdbc.queryForList(
                 "UPDATE ciclo_orcamentario SET estado = ?, updated_at = NOW(), updated_by = ? WHERE id = ? RETURNING *",
                 estado.trim(), userId, id);
@@ -276,26 +286,6 @@ public class CicloOrcamentarioService {
             throw new ApiException(409, "Ciclo já está no estado final");
         }
         String proximo = esteira.get(idx + 1);
-
-        if ("aberto".equals(ciclo.estado()) && "em_consulta".equals(proximo)) {
-            var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
-            boolean isSuperadmin = optUser.isPresent() && optUser.get().isSuperadmin();
-
-            if (!isSuperadmin) {
-                Long gestorId = null;
-                try {
-                    gestorId = jdbc.queryForObject(
-                        "SELECT responsavel_user_id FROM cadastros_unidades WHERE nome = 'Coordenadoria de Contratações e Orçamento de TIC'", 
-                        Long.class
-                    );
-                } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-                    // Ignore, gestorId will remain null
-                }
-                if (gestorId == null || !gestorId.equals(userId)) {
-                    throw new ApiException(403, "Apenas o gestor da Coordenadoria de Contratações e Orçamento de TIC pode encaminhar para Consulta");
-                }
-            }
-        }
 
         if (ESTADO_PUBLICADO.equals(proximo)) {
             return publicar(id, userId);
@@ -345,9 +335,49 @@ public class CicloOrcamentarioService {
             Map.entry("janela_aberta", "demandante"),
             Map.entry("em_rito_validacao", "demandante"));
 
+    /**
+     * Camada D — tag de Permissão de Ação exigida para transitar A PARTIR de cada estado.
+     * Complementa o gating por papel (Camada B via OrcamentoPapelService). A ausência de tag
+     * para um estado (null) significa proteção apenas pela Camada B.
+     * Mapeamento derivado da Máquina de Transições (§8.8) e Matriz RACI (§8.9).
+     */
+    private static final Map<String, String> TAG_DO_ESTADO = Map.ofEntries(
+            Map.entry("aguardando_proad",      "PCA_REGISTRAR_PROAD"),
+            Map.entry("aberto",               "PCA_ENCAMINHAR_CONSULTA"),
+            Map.entry("consolidacao_cca",     "PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"),
+            Map.entry("validacao_gejut",      "PCA_ENCAMINHAR_SGJT"),
+            Map.entry("apreciacao_sgjt",      "PCA_PAUTAR_COMITES"),
+            Map.entry("em_comites",           "PCA_AUTORIZAR_COMITES"),
+            Map.entry("autorizado",           "PCA_INSTRUIR_PRODUTO_FINAL"),
+            Map.entry("ajuste_pre_publicacao", "PCA_REMETER_DG"),
+            Map.entry("remessa_dg",           "PCA_REGISTRAR_PUBLICACAO"));
+
     /** Escopo (cca/demandante/gejut/sgjt) responsável por transitar a partir de um estado (tabela 8.8). */
     private static String escopoDoEstado(String estado) {
         return PAPEL_DO_ESTADO.getOrDefault(estado, "cca");
+    }
+
+    /**
+     * Camada D — exige que o usuário possua a tag de ação associada ao estado atual
+     * na tabela permissoes_acoes, cruzando com sua area_id/unidade_id.
+     * Superadmin é bypass (Camada C). Se não há tag mapeada para o estado, a validação é
+     * delegada exclusivamente à Camada B (OrcamentoPapelService).
+     */
+    private void exigirTagAcao(Long userId, String estadoAtual, Long cicloId) {
+        String tag = TAG_DO_ESTADO.get(estadoAtual);
+        if (tag == null) {
+            // Estado sem tag: protegido apenas pela Camada B
+            if (cicloId != null) {
+                papelService.exigirTransicao(escopoDoEstado(estadoAtual), cicloId);
+            }
+            return;
+        }
+        var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
+        if (optUser.isPresent() && optUser.get().isSuperadmin()) return; // Camada C: bypass
+        if (userId == null || !permissoesAcoesService.validarAcesso(userId, tag)) {
+            throw new ApiException(403,
+                    "Ação não autorizada. Permissão necessária: " + tag);
+        }
     }
 
     /**
@@ -487,7 +517,7 @@ public class CicloOrcamentarioService {
     @Transactional
     public CicloDto publicar(long id, Long userId) {
         // RN-GERAL-01/04 — registrar a publicação é ato de Autoridade (Gestor CCA no estado remessa_dg).
-        papelService.exigirTransicao(escopoDoEstado(getCiclo(id).estado()), id);
+        exigirTagAcao(userId, getCiclo(id).estado(), id);
         var rows = jdbc.queryForList(
                 "UPDATE ciclo_orcamentario SET estado = 'publicado', publicado_em = NOW(), updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND estado <> 'publicado' RETURNING *",
@@ -511,6 +541,42 @@ public class CicloOrcamentarioService {
         return ciclo;
     }
 
+    /** Mapa de qual campo pertence a qual estado — gating por fase. */
+    private static final Map<String, String> CAMPO_LINK_POR_ESTADO = Map.of(
+        "proad_gejut",         "validacao_gejut",
+        "proad_sgjt",          "apreciacao_sgjt",
+        "proad_ata_comites",   "em_comites",
+        "proad_produto_final", "autorizado",
+        "proad_publicacao",    "remessa_dg",
+        "link_dou",            "remessa_dg"
+    );
+
+    private static final java.util.Set<String> CAMPOS_LINK_VALIDOS = CAMPO_LINK_POR_ESTADO.keySet();
+
+    @Transactional
+    public CicloDto salvarLink(long id, String campo, String valor, Long userId) {
+        if (!CAMPOS_LINK_VALIDOS.contains(campo)) {
+            throw new ApiException(400, "Campo de link inválido: " + campo);
+        }
+        CicloDto ciclo = getCiclo(id);
+        String estadoExigido = CAMPO_LINK_POR_ESTADO.get(campo);
+        if (!estadoExigido.equals(ciclo.estado())) {
+            throw new ApiException(409,
+                "O link '" + campo + "' só pode ser editado na fase '" + estadoExigido + "'.");
+        }
+        var rows = jdbc.queryForList(
+            "UPDATE ciclo_orcamentario SET " + campo + " = ?, updated_at = NOW(), updated_by = ? " +
+            "WHERE id = ? RETURNING *",
+            valor, userId, id);
+        if (rows.isEmpty()) throw new ApiException(404, "Ciclo não encontrado");
+        return toDto(rows.get(0));
+    }
+
+    @Transactional
+    public CicloDto excluirLink(long id, String campo, Long userId) {
+        return salvarLink(id, campo, null, userId);
+    }
+
     // ---------- mapper ----------
 
     private CicloDto toDto(Map<String, Object> r) {
@@ -523,7 +589,13 @@ public class CicloOrcamentarioService {
                 str(r.get("proad")),
                 asInt(r.get("versao_gerada")),
                 str(r.get("abertura_em")),
-                str(r.get("publicado_em")));
+                str(r.get("publicado_em")),
+                str(r.get("proad_gejut")),
+                str(r.get("proad_sgjt")),
+                str(r.get("proad_ata_comites")),
+                str(r.get("proad_produto_final")),
+                str(r.get("proad_publicacao")),
+                str(r.get("link_dou")));
     }
 
     private static Long asLong(Object v) {

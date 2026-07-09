@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
+import java.math.BigDecimal;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record UpdateContractRequest(
@@ -25,5 +26,6 @@ public record UpdateContractRequest(
         Long cadastroUnidadeId,
         Long totalValueCents,
         Long monthlyValueCents,
-        List<Long> pcaIds
+        List<Long> pcaIds,
+        BigDecimal yearDurationStandard
 ) {}

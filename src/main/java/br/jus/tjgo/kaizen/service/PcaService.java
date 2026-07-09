@@ -56,7 +56,7 @@ public class PcaService {
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
-            "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_unidades_diretoria.nome as diretoria_nome, " +
             "cadastro_unidades_area.nome as area_demandante_nome, ";
@@ -68,7 +68,7 @@ public class PcaService {
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
-            "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_unidades_diretoria.nome as diretoria_nome, " +
             "cadastro_unidades_area.nome as area_demandante_nome, ";

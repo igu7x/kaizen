@@ -13,5 +13,11 @@ public record CicloDto(
         String proad,
         Integer versaoGerada,
         String aberturaEm,
-        String publicadoEm
+        String publicadoEm,
+        String proadGejut,
+        String proadSgjt,
+        String proadAtaComites,
+        String proadProdutoFinal,
+        String proadPublicacao,
+        String linkDou
 ) {}

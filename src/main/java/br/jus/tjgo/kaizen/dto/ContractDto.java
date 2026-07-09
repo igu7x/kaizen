@@ -1,5 +1,7 @@
 package br.jus.tjgo.kaizen.dto;
 
+import java.math.BigDecimal;
+
 public record ContractDto(
         Long id,
         Long contractPlanId,
@@ -25,5 +27,6 @@ public record ContractDto(
         Integer effectiveAdditiveTerm,
         String description,
         Long yearValue,
-        String situation
+        String situation,
+        BigDecimal yearDurationStandard
 ) {}

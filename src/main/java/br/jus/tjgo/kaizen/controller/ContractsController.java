@@ -44,7 +44,8 @@ public class ContractsController {
                 contract.getEffectiveAdditiveTerm(),
                 contract.getDescription(),
                 contract.getYearValue(),
-                contract.getSituation()
+                contract.getSituation(),
+                contract.getYearDurationStandard()
         );
     }
 

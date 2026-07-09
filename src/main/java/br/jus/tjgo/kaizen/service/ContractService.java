@@ -134,6 +134,7 @@ public class ContractService {
         contract.setCadastroUnidadeId(req.cadastroUnidadeId());
         contract.setTotalValueCents(req.totalValueCents() != null ? req.totalValueCents() : 0L);
         contract.setMonthlyValueCents(req.monthlyValueCents() != null ? req.monthlyValueCents() : 0L);
+        contract.setYearDurationStandard(req.yearDurationStandard());
 
         contract.setUnidade(resolveUnidade(req.cadastroUnidadeId(), req.cadastroAreaId()));
 
@@ -170,6 +171,7 @@ public class ContractService {
         if (req.directory() != null) contract.setDirectory(req.directory());
         if (req.totalValueCents() != null) contract.setTotalValueCents(req.totalValueCents());
         if (req.monthlyValueCents() != null) contract.setMonthlyValueCents(req.monthlyValueCents());
+        if (req.yearDurationStandard() != null) contract.setYearDurationStandard(req.yearDurationStandard());
 
         boolean updateUnidade = false;
         if (req.cadastroAreaId() != null) {

@@ -23,12 +23,29 @@ public class IfoService {
 
     private final JdbcTemplate jdbc;
     private final OrcamentoPapelService papelService;
+    private final PermissoesAcoesService permissoesAcoesService;
 
     // Domínios validados aqui no backend — os CHECK foram removidos do banco (migration 172).
     private static final List<String> BLOCOS =
             List.of("encerramento", "renovacao", "plurianual", "nova_contratacao");
 
     private static final List<String> NATUREZAS = List.of("continuada", "pontual");
+
+    private static final Map<String, List<String>> TAGS_ACESSO_POR_ESTADO = Map.ofEntries(
+        Map.entry("aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA")),
+        Map.entry("aberto_aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA")),
+        Map.entry("aberto", List.of("PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA")),
+        Map.entry("em_consulta", List.of("PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO")),
+        Map.entry("retorno_areas", List.of("PCA_CONSOLIDAR_ENCAMINHAR_GEJUT")),
+        Map.entry("consolidacao_cca", List.of("PCA_CONSOLIDAR_ENCAMINHAR_GEJUT")),
+        Map.entry("validacao_gejut", List.of("PCA_ENCAMINHAR_SGJT")),
+        Map.entry("apreciacao_sgjt", List.of("PCA_PAUTAR_COMITES")),
+        Map.entry("em_comites", List.of("PCA_AUTORIZAR_COMITES")),
+        Map.entry("autorizado", List.of("PCA_INSTRUIR_PRODUTO_FINAL")),
+        Map.entry("ajuste_pre_publicacao", List.of("PCA_REMETER_DG")),
+        Map.entry("remessa_dg", List.of("PCA_REGISTRAR_PUBLICACAO")),
+        Map.entry("publicado", List.of()) // sem restrição
+    );
 
     public String gerarCodigo(int ano) {
         Integer proximo = jdbc.queryForObject(
@@ -242,6 +259,31 @@ public class IfoService {
     }
 
     public List<IfoDto> listar(Integer ano, Long cicloId, Boolean minhasDemandas, Long userId) {
+        if (cicloId != null && userId != null) {
+            try {
+                var cicloMap = jdbc.queryForMap("SELECT finalidade, estado FROM ciclo_orcamentario WHERE id = ?", cicloId);
+                if ("formacao".equals(cicloMap.get("finalidade"))) {
+                    String estado = (String) cicloMap.get("estado");
+                    if (!"publicado".equals(estado)) {
+                        List<Map<String, Object>> rows = jdbc.queryForList("SELECT is_superadmin FROM users WHERE id = ?", userId);
+                        boolean isSuperAdmin = !rows.isEmpty() && Boolean.TRUE.equals(rows.get(0).get("is_superadmin"));
+                        if (!isSuperAdmin) {
+                            List<String> tagsPermitidas = TAGS_ACESSO_POR_ESTADO.getOrDefault(estado, List.of());
+                            List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
+                            boolean temAcesso = tagsPermitidas.stream().anyMatch(userTags::contains);
+                            if (!temAcesso) {
+                                throw new ApiException(403, "Acesso restrito à fase atual do ciclo de formação.");
+                            }
+                        }
+                    }
+                }
+            } catch (ApiException e) {
+                throw e;
+            } catch (Exception e) {
+                // Ignore if cycle not found
+            }
+        }
+
         StringBuilder sql = new StringBuilder("SELECT * FROM ifo WHERE is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
@@ -315,6 +357,92 @@ public class IfoService {
                 str(r.get("priority")),
                 r.get("estimated_date") != null ? ((java.sql.Date) r.get("estimated_date")).toLocalDate() : null,
                 contratosDoIfo(id));
+    }
+
+    @Transactional
+    public void gerarIfosRenovacao(long cicloId, int anoFormacao, Long userId) {
+        var check = jdbc.queryForList("SELECT id FROM ifo WHERE ciclo_id = ? AND bloco = 'renovacao' LIMIT 1", cicloId);
+        if (!check.isEmpty()) return;
+
+        String queryContratos = "SELECT c.id as contract_id, c.object_name, c.total_value_cents, c.directory, " +
+                "c.cadastro_unidade_id, c.cadastro_area_id, cp.pca_id " +
+                "FROM contracts c " +
+                "LEFT JOIN contracts_pcas cp ON c.id = cp.contract_id " +
+                "WHERE EXTRACT(YEAR FROM c.limit_date) >= ? AND (c.is_deleted = FALSE OR c.is_deleted IS NULL) " +
+                "ORDER BY c.id";
+
+        List<Map<String, Object>> contratosRenovacao = jdbc.queryForList(queryContratos, anoFormacao);
+
+        Map<Long, List<Map<String, Object>>> porPca = new java.util.LinkedHashMap<>();
+        List<Map<String, Object>> avulsos = new java.util.ArrayList<>();
+
+        for (Map<String, Object> c : contratosRenovacao) {
+            Long pcaId = asLong(c.get("pca_id"));
+            if (pcaId != null) {
+                porPca.computeIfAbsent(pcaId, k -> new java.util.ArrayList<>()).add(c);
+            } else {
+                avulsos.add(c);
+            }
+        }
+
+        for (Map.Entry<Long, List<Map<String, Object>>> entry : porPca.entrySet()) {
+            Long pcaId = entry.getKey();
+            List<Map<String, Object>> contratosDoPca = entry.getValue();
+
+            var pcaRows = jdbc.queryForList(
+                    "SELECT object_name, directory_acronym, estimated_value_cents, id_diretoria, " +
+                    "id_cadastros_areas, id_area_demandante, priority, description, justification, " +
+                    "process, financial_resource_type, contract_type, formalized_value_cents " +
+                    "FROM pcas WHERE id = ?", pcaId);
+
+            if (pcaRows.isEmpty()) continue;
+            Map<String, Object> pca = pcaRows.get(0);
+            String codigo = gerarCodigo(anoFormacao);
+
+            var inserted = jdbc.queryForList(
+                    "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
+                    "objeto, area_demandante, unidade_id, area_id, valor_estimado_cents, " +
+                    "description, justification, process, financial_resource_type, contract_type, " +
+                    "formalized_value_cents, id_cadastros_areas, priority, created_by, updated_by) " +
+                    "VALUES (?, ?, ?, 'renovacao', 'continuada', 'rascunho', TRUE, " +
+                    "?, ?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                    codigo, anoFormacao, cicloId,
+                    str(pca.get("object_name")), str(pca.get("directory_acronym")),
+                    asLong(pca.get("id_diretoria")), asLong(pca.get("id_area_demandante")),
+                    asLong(pca.get("estimated_value_cents")),
+                    str(pca.get("description")), str(pca.get("justification")), str(pca.get("process")),
+                    str(pca.get("financial_resource_type")), str(pca.get("contract_type")),
+                    asLong(pca.get("formalized_value_cents")), asLong(pca.get("id_cadastros_areas")),
+                    str(pca.get("priority")), userId, userId);
+
+            Long ifoId = asLong(inserted.get(0).get("id"));
+
+            for (Map<String, Object> c : contratosDoPca) {
+                Long contractId = asLong(c.get("contract_id"));
+                jdbc.update("INSERT INTO ifo_contratos (ifo_id, contract_id) VALUES (?, ?) ON CONFLICT DO NOTHING", ifoId, contractId);
+            }
+        }
+
+        for (Map<String, Object> c : avulsos) {
+            String codigo = gerarCodigo(anoFormacao);
+            Long unidadeId = asLong(c.get("cadastro_unidade_id"));
+            Long areaId = asLong(c.get("cadastro_area_id"));
+
+            var inserted = jdbc.queryForList(
+                    "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
+                    "objeto, area_demandante, unidade_id, area_id, valor_estimado_cents, " +
+                    "created_by, updated_by) " +
+                    "VALUES (?, ?, ?, 'renovacao', 'continuada', 'rascunho', TRUE, " +
+                    "?, ?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
+                    codigo, anoFormacao, cicloId,
+                    str(c.get("object_name")), str(c.get("directory")),
+                    unidadeId, areaId, asLong(c.get("total_value_cents")),
+                    userId, userId);
+
+            Long ifoId = asLong(inserted.get(0).get("id"));
+            Long contractId = asLong(c.get("contract_id"));
+            jdbc.update("INSERT INTO ifo_contratos (ifo_id, contract_id) VALUES (?, ?) ON CONFLICT DO NOTHING", ifoId, contractId);
+        }
     }
 
     private static Long asLong(Object v) {
