@@ -242,7 +242,9 @@ export function AvaliacaoGestorForm({
     loadPessoas(Number(value));
   };
 
-  // Carregar avaliáveis da unidade: autoavaliações + (no inventário "gestor") o gestor da unidade.
+  // Carregar avaliáveis da unidade.
+  // - Equipe: lista as autoavaliações (o avaliador escolhe o colaborador).
+  // - Gestor: só existe UM gestor por unidade, então já vem auto-selecionado (não há dropdown).
   const loadPessoas = async (unidadeId: number) => {
     setLoadingPessoas(true);
     try {
@@ -252,18 +254,41 @@ export function AvaliacaoGestorForm({
       );
       setAutoavaliacoes(avals);
 
-      // O gestor da unidade pode ser avaliado mesmo sem autoavaliação. Só entra como item extra
-      // quando ainda NÃO se autoavaliou (autoavaliacao_id nulo); se já se autoavaliou, ele aparece
-      // na lista de autoavaliações e não deve duplicar.
       if (tipoInventario === "gestor") {
+        let g: GestorDaUnidade | null = null;
         try {
-          const g = await avaliacaoGestorApi.getGestorDaUnidade(
-            unidadeId,
-            "gestor",
-          );
-          setGestorUnidade(g && g.autoavaliacao_id == null ? g : null);
+          g = await avaliacaoGestorApi.getGestorDaUnidade(unidadeId, "gestor");
         } catch {
-          setGestorUnidade(null);
+          g = null;
+        }
+        setGestorUnidade(g);
+        if (g) {
+          // Auto-seleciona o gestor da unidade como avaliado. Usa a autoavaliação (pessoa_id) se
+          // ele já se autoavaliou; senão, a chave estável (pessoa_user_id).
+          const usaAuto = g.autoavaliacao_id != null;
+          setForm((prev) => ({
+            ...prev,
+            pessoa_id: usaAuto ? String(g!.autoavaliacao_id) : "",
+            pessoa_user_id: usaAuto ? "" : String(g!.pessoa_user_id),
+            pessoa_nome: g!.nome || "",
+            pessoa_cargo: g!.cargo || "",
+            pessoa_email: g!.email || "",
+          }));
+          try {
+            const existente = usaAuto
+              ? await avaliacaoGestorApi.getByPessoaAndUnidade(
+                  g.autoavaliacao_id!,
+                  unidadeId,
+                )
+              : await avaliacaoGestorApi.getByPessoaAndUnidade(
+                  g.pessoa_user_id,
+                  unidadeId,
+                  "user",
+                );
+            setAvaliacaoExistente(existente);
+          } catch {
+            setAvaliacaoExistente(null);
+          }
         }
       }
     } catch (err) {
@@ -611,9 +636,10 @@ export function AvaliacaoGestorForm({
             ? competenciasGestorApi.getUnidadesLideranca()
             : competenciasGestorApi.getMinhasUnidadesGestor();
 
-        const [allAreas, autorizadas] = await Promise.all([
+        const [allAreas, autorizadas, idsComMatriz] = await Promise.all([
           areasApi.getAll(),
           fetchUnidades,
+          competenciasGestorApi.getUnidadesComMatriz(tipoInventario || "gestor"),
         ]);
 
         if (allAreas.length > 0) {
@@ -624,7 +650,14 @@ export function AvaliacaoGestorForm({
           setDiretoriaUsuario(userArea?.sigla || userArea?.nome || "");
         }
 
-        setUnidadesAutorizadas(autorizadas);
+        // Só unidades com a Matriz de Competências validada (há referencial para avaliar).
+        // Em modo edição, preserva a unidade do formulário mesmo que não esteja na lista.
+        const idsSet = new Set(idsComMatriz);
+        setUnidadesAutorizadas(
+          autorizadas.filter(
+            (u) => idsSet.has(u.id) || u.id === formularioEdit?.unidade_id,
+          ),
+        );
 
         if (isEditMode && formularioEdit) {
           const tecnicas = (formularioEdit.respostas || []).filter(
@@ -1124,7 +1157,9 @@ export function AvaliacaoGestorForm({
           </CardHeader>
           <CardContent className="space-y-3">
             <Label>
-              Selecione o colaborador a ser avaliado{" "}
+              {tipoInventario === "gestor"
+                ? "Gestor da unidade (avaliado)"
+                : "Selecione o colaborador a ser avaliado"}{" "}
               {!isEditMode && <span className="text-red-500">*</span>}
             </Label>
             {isEditMode ? (
@@ -1145,9 +1180,35 @@ export function AvaliacaoGestorForm({
             ) : loadingPessoas ? (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando colaboradores com autoavaliação...
+                Carregando…
               </div>
-            ) : autoavaliacoes.length === 0 && !gestorUnidade ? (
+            ) : tipoInventario === "gestor" ? (
+              // Só um gestor por unidade → auto-selecionado (sem dropdown).
+              gestorUnidade ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+                    <span className="text-sm text-gray-500">Nome</span>
+                    <p className="font-medium text-gray-800 mt-0.5">
+                      {form.pessoa_nome || gestorUnidade.nome}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+                    <span className="text-sm text-gray-500">Cargo/Função</span>
+                    <p className="font-medium text-gray-800 mt-0.5">
+                      {form.pessoa_cargo || "-"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-700">
+                    Esta unidade não tem gestor cadastrado (defina o responsável
+                    no cadastro da unidade).
+                  </p>
+                </div>
+              )
+            ) : autoavaliacoes.length === 0 ? (
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-amber-700">

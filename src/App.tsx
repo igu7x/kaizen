@@ -35,6 +35,7 @@ import PermissoesTap from "./pages/PermissoesTap";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import Dfd from "./pages/Dfd";
+import EmDesenvolvimento from "./pages/EmDesenvolvimento";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
 import PermissoesAcoes from "./pages/PermissoesAcoes";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
@@ -225,7 +226,7 @@ function App() {
                     path="/pessoas"
                     element={
                       <ProtectedRoute>
-                        <Navigate to="/pessoas/painel" replace />
+                        <Navigate to="/pessoas/competencias" replace />
                       </ProtectedRoute>
                     }
                   />
@@ -250,6 +251,22 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Pessoas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/pessoas/pac/tecnologia-da-informacao"
+                    element={
+                      <ProtectedRoute>
+                        <EmDesenvolvimento titulo="Plano Anual de Capacitação — Tecnologia da Informação" />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/pessoas/pac/apoio-judiciario"
+                    element={
+                      <ProtectedRoute>
+                        <EmDesenvolvimento titulo="Plano Anual de Capacitação — Apoio Judiciário" />
                       </ProtectedRoute>
                     }
                   />
