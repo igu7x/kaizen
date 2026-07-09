@@ -202,6 +202,18 @@ public class AutoavaliacaoService {
                     i + 1, r.get("tipo") != null ? str(r.get("tipo")) : "tecnica");
         }
 
+        // Backfill: se o diretor já tinha avaliado esta pessoa (avaliacao_gestor com pessoa_user_id
+        // e sem pessoa_id, pois a autoavaliação não existia), adota o vínculo agora. A partir daqui
+        // TODA a máquina de integração (que casa por af.id = ag.pessoa_id) volta a funcionar.
+        if (unidadeId != null) {
+            jdbc.update(
+                    "UPDATE avaliacao_gestor_formularios SET pessoa_id = ?, updated_at = NOW() " +
+                            "WHERE pessoa_user_id = ? AND unidade_id = ? " +
+                            "  AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                            "  AND pessoa_id IS NULL AND is_deleted = FALSE",
+                    formularioId, userId, unidadeId, tipoInv);
+        }
+
         return findById(formularioId);
     }
 

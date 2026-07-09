@@ -51,11 +51,24 @@ public class AvaliacaoGestorController {
     // GET /api/avaliacao-gestor/by-pessoa/:pessoaId?unidade_id=
     @GetMapping("/by-pessoa/{pessoaId:\\d+}")
     public ResponseEntity<?> byPessoa(@PathVariable long pessoaId,
-                                      @RequestParam(value = "unidade_id", required = false) Long unidadeId) {
+                                      @RequestParam(value = "unidade_id", required = false) Long unidadeId,
+                                      @RequestParam(value = "by", required = false) String by) {
         if (unidadeId == null || unidadeId == 0) {
             return ResponseEntity.status(400).body(Map.of("error", "unidade_id é obrigatório"));
         }
-        return ResponseEntity.ok(service.findByPessoaAndUnidade(pessoaId, unidadeId));
+        // by=user → pessoaId é o user_id da pessoa (gestor sem autoavaliação); senão é o id da
+        // autoavaliação (comportamento legado).
+        Map<String, Object> found = "user".equals(by)
+                ? service.findByPessoaUserIdAndUnidade(pessoaId, unidadeId)
+                : service.findByPessoaAndUnidade(pessoaId, unidadeId);
+        return ResponseEntity.ok(found);
+    }
+
+    // GET /api/avaliacao-gestor/gestor-da-unidade/:unidadeId — o gestor da unidade como avaliável
+    @GetMapping("/gestor-da-unidade/{unidadeId:\\d+}")
+    public ResponseEntity<?> gestorDaUnidade(@PathVariable long unidadeId,
+                                             @RequestParam(value = "tipo_inventario", required = false, defaultValue = "gestor") String tipoInventario) {
+        return ResponseEntity.ok(service.gestorDaUnidade(unidadeId, tipoInventario));
     }
 
     // GET /api/avaliacao-gestor/:id/versoes
