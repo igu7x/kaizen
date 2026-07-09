@@ -531,21 +531,15 @@ export async function generateCompetenciasPDF(
   // Lado esquerdo - textos em branco
   const leftMaxW = PAGE_WIDTH * 0.6 - (MARGIN_LEFT + 5) - 4;
 
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("Matriz de Competências", MARGIN_LEFT + 5, headerY + 18, {
-    maxWidth: leftMaxW,
-  });
-
+  // Título único: "Matriz de Competências - Gestor" / "- Equipe" (sem o subtítulo redundante).
   const tipoLabel =
     formulario.tipo === "gestor"
       ? "Matriz de Competências - Gestor"
       : "Matriz de Competências - Equipe";
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
+  doc.setFontSize(17);
+  doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text(tipoLabel, MARGIN_LEFT + 5, headerY + 27, { maxWidth: leftMaxW });
+  doc.text(tipoLabel, MARGIN_LEFT + 5, headerY + 20, { maxWidth: leftMaxW });
 
   doc.setFontSize(10);
   doc.setTextColor(200, 210, 230);
