@@ -160,6 +160,13 @@ export const competenciasGestorApi = {
     );
   },
 
+  /** Ids das unidades que já têm a Matriz de Competências (do tipo) validada. */
+  getUnidadesComMatriz(tipo: string = "gestor"): Promise<number[]> {
+    return apiClient.request<number[]>(
+      `${BASE_URL}/unidades-com-matriz?tipo=${encodeURIComponent(tipo)}`,
+    );
+  },
+
   /** Buscar unidades autorizadas para o usuário (exclui já preenchidas) */
   getUnidadesAutorizadas(
     tipo: string = "equipe",
