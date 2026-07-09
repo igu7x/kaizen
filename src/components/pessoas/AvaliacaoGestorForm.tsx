@@ -9,6 +9,7 @@ import {
 import {
   avaliacaoGestorApi,
   AvaliacaoGestorFormulario,
+  GestorDaUnidade,
 } from "@/services/avaliacaoGestorApi";
 import { autoavaliacaoApi } from "@/services/autoavaliacaoApi";
 import {
@@ -53,6 +54,8 @@ interface RespostaComportamentalState {
 
 interface FormState {
   pessoa_id: string;
+  /** user_id da pessoa avaliada (gestor da unidade) quando não há autoavaliação. */
+  pessoa_user_id: string;
   pessoa_nome: string;
   pessoa_cargo: string;
   pessoa_email: string;
@@ -114,6 +117,10 @@ export function AvaliacaoGestorForm({
     }[]
   >([]);
   const [loadingPessoas, setLoadingPessoas] = useState(false);
+  // Gestor da unidade (do cadastro) como avaliável, mesmo sem autoavaliação — só no inventário "gestor".
+  const [gestorUnidade, setGestorUnidade] = useState<GestorDaUnidade | null>(
+    null,
+  );
 
   // Competências padrão carregadas da API (com fallback para constantes)
   const [compComportamentais, setCompComportamentais] = useState(
@@ -190,6 +197,7 @@ export function AvaliacaoGestorForm({
 
   const [form, setForm] = useState<FormState>({
     pessoa_id: "",
+    pessoa_user_id: "",
     pessoa_nome: "",
     pessoa_cargo: "",
     pessoa_email: "",
@@ -223,16 +231,18 @@ export function AvaliacaoGestorForm({
       unidade_id: value,
       unidade_path: [value],
       pessoa_id: "",
+      pessoa_user_id: "",
       pessoa_nome: "",
       pessoa_cargo: "",
       pessoa_email: "",
       respostas: [],
     }));
+    setGestorUnidade(null);
     loadCompetencias(Number(value));
     loadPessoas(Number(value));
   };
 
-  // Carregar autoavaliações da unidade selecionada
+  // Carregar avaliáveis da unidade: autoavaliações + (no inventário "gestor") o gestor da unidade.
   const loadPessoas = async (unidadeId: number) => {
     setLoadingPessoas(true);
     try {
@@ -241,6 +251,21 @@ export function AvaliacaoGestorForm({
         tipoInventario || "equipe",
       );
       setAutoavaliacoes(avals);
+
+      // O gestor da unidade pode ser avaliado mesmo sem autoavaliação. Só entra como item extra
+      // quando ainda NÃO se autoavaliou (autoavaliacao_id nulo); se já se autoavaliou, ele aparece
+      // na lista de autoavaliações e não deve duplicar.
+      if (tipoInventario === "gestor") {
+        try {
+          const g = await avaliacaoGestorApi.getGestorDaUnidade(
+            unidadeId,
+            "gestor",
+          );
+          setGestorUnidade(g && g.autoavaliacao_id == null ? g : null);
+        } catch {
+          setGestorUnidade(null);
+        }
+      }
     } catch (err) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
@@ -254,6 +279,37 @@ export function AvaliacaoGestorForm({
   const [avaliacaoExistente, setAvaliacaoExistente] =
     useState<AvaliacaoGestorFormulario | null>(null);
 
+  // Dispatcher do dropdown: "auto:<id>" = a partir de uma autoavaliação; "user:<userId>" = o gestor
+  // da unidade (sem autoavaliação).
+  const handleAvaliavelSelect = (key: string) => {
+    if (key.startsWith("user:")) {
+      if (gestorUnidade) handleGestorSelect(gestorUnidade);
+    } else {
+      handlePessoaSelect(key.replace(/^auto:/, ""));
+    }
+  };
+
+  const handleGestorSelect = async (g: GestorDaUnidade) => {
+    setForm((prev) => ({
+      ...prev,
+      pessoa_id: "",
+      pessoa_user_id: String(g.pessoa_user_id),
+      pessoa_nome: g.nome || "",
+      pessoa_cargo: g.cargo || "",
+      pessoa_email: g.email || "",
+    }));
+    try {
+      const existente = await avaliacaoGestorApi.getByPessoaAndUnidade(
+        g.pessoa_user_id,
+        Number(form.unidade_id),
+        "user",
+      );
+      setAvaliacaoExistente(existente);
+    } catch {
+      setAvaliacaoExistente(null);
+    }
+  };
+
   const handlePessoaSelect = async (avalId: string) => {
     const aval = autoavaliacoes.find((a) => String(a.id) === avalId);
     if (!aval) return;
@@ -261,6 +317,7 @@ export function AvaliacaoGestorForm({
     setForm((prev) => ({
       ...prev,
       pessoa_id: avalId,
+      pessoa_user_id: "",
       pessoa_nome: aval.nome_completo,
       pessoa_cargo: aval.cargo_funcao || "",
       pessoa_email: aval.email_institucional || "",
@@ -659,7 +716,12 @@ export function AvaliacaoGestorForm({
 
           setForm((prev) => ({
             ...prev,
-            pessoa_id: String(formularioEdit.pessoa_id),
+            pessoa_id: formularioEdit.pessoa_id
+              ? String(formularioEdit.pessoa_id)
+              : "",
+            pessoa_user_id: formularioEdit.pessoa_user_id
+              ? String(formularioEdit.pessoa_user_id)
+              : "",
             pessoa_nome: formularioEdit.pessoa_nome,
             pessoa_cargo: formularioEdit.pessoa_cargo || "",
             pessoa_email: formularioEdit.pessoa_email || "",
@@ -798,7 +860,7 @@ export function AvaliacaoGestorForm({
   const handleSubmit = async () => {
     // Validacao
     if (!form.unidade_id) return toast.error("Selecione a unidade.");
-    if (!form.pessoa_id)
+    if (!form.pessoa_id && !form.pessoa_user_id)
       return toast.error("Selecione o colaborador a ser avaliado.");
 
     if (form.respostas.length === 0) {
@@ -889,7 +951,10 @@ export function AvaliacaoGestorForm({
           : [];
 
       const payload = {
-        pessoa_id: Number(form.pessoa_id),
+        pessoa_id: form.pessoa_id ? Number(form.pessoa_id) : undefined,
+        pessoa_user_id: form.pessoa_user_id
+          ? Number(form.pessoa_user_id)
+          : undefined,
         pessoa_nome: form.pessoa_nome.trim(),
         pessoa_cargo: form.pessoa_cargo.trim() || undefined,
         pessoa_email: form.pessoa_email.trim() || undefined,
@@ -1082,7 +1147,7 @@ export function AvaliacaoGestorForm({
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Carregando colaboradores com autoavaliação...
               </div>
-            ) : autoavaliacoes.length === 0 ? (
+            ) : autoavaliacoes.length === 0 && !gestorUnidade ? (
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-amber-700">
@@ -1093,15 +1158,30 @@ export function AvaliacaoGestorForm({
             ) : (
               <>
                 <Select
-                  value={form.pessoa_id}
-                  onValueChange={handlePessoaSelect}
+                  value={
+                    form.pessoa_user_id
+                      ? `user:${form.pessoa_user_id}`
+                      : form.pessoa_id
+                        ? `auto:${form.pessoa_id}`
+                        : ""
+                  }
+                  onValueChange={handleAvaliavelSelect}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o colaborador" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
+                    {gestorUnidade && (
+                      <SelectItem
+                        value={`user:${gestorUnidade.pessoa_user_id}`}
+                      >
+                        {gestorUnidade.nome}
+                        {gestorUnidade.cargo ? ` — ${gestorUnidade.cargo}` : ""}
+                        {" (gestor — sem autoavaliação)"}
+                      </SelectItem>
+                    )}
                     {autoavaliacoes.map((a) => (
-                      <SelectItem key={a.id} value={String(a.id)}>
+                      <SelectItem key={a.id} value={`auto:${a.id}`}>
                         {a.nome_completo}
                         {a.cargo_funcao ? ` — ${a.cargo_funcao}` : ""}
                       </SelectItem>
@@ -1109,7 +1189,7 @@ export function AvaliacaoGestorForm({
                   </SelectContent>
                 </Select>
 
-                {form.pessoa_id && (
+                {(form.pessoa_id || form.pessoa_user_id) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
                       <span className="text-sm text-gray-500">Nome</span>

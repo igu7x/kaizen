@@ -44,7 +44,15 @@ const isValidadorFinal = (email: string) =>
 interface CompetenciasGestorResumoProps {
   formulario: FormularioCompetencias;
   onValidated?: (formulario: FormularioCompetencias) => void;
-  onEdit?: (formulario: FormularioCompetencias) => void;
+  /**
+   * Abre o formulário para edição. `validarCamada` (opcional) sinaliza que, ao salvar, a edição
+   * deve JÁ validar aquela camada — usado pelos superiores (Diretoria/Final) para "editar e validar
+   * direto", sem devolver o formulário ao primeiro membro da cadeia via Recusar.
+   */
+  onEdit?: (
+    formulario: FormularioCompetencias,
+    validarCamada?: "diretoria" | "final",
+  ) => void;
 }
 
 const pesoLabels: Record<number, string> = {
@@ -215,6 +223,19 @@ export function CompetenciasGestorResumo({
     return canValidateAutor || canValidateDiretoria;
   })();
 
+  // Camada que o usuário superior valida agora (Diretoria/Final). Quando setada, a edição feita
+  // por ele deve JÁ validar essa camada ao salvar — "editar e validar direto", sem Recusar (que
+  // devolveria ao primeiro membro da cadeia). O backend (canEdit) já autoriza: gestor da diretoria
+  // edita em 'validado_autor'; validador final edita em 'validado_diretoria'.
+  const camadaAoEditar: "diretoria" | "final" | null = canValidateDiretoria
+    ? "diretoria"
+    : canValidateFinal
+      ? "final"
+      : null;
+
+  // O botão Editar aparece para o autor/camada-1 (podeEditar) OU para o superior que valida agora.
+  const mostrarBotaoEditar = !!onEdit && (podeEditar || camadaAoEditar !== null);
+
   const handleValidarAutor = async () => {
     setValidating(true);
     try {
@@ -296,15 +317,15 @@ export function CompetenciasGestorResumo({
         preenchidoPorSubdiretor={preenchidoPorSubdiretor}
       />
 
-      {/* Botão Editar — quem tem papel no fluxo pode editar até o formulário ser validado totalmente */}
-      {onEdit && podeEditar && (
+      {/* Botão Editar — autor/camada-1 edita; superior (Diretoria/Final) edita E valida ao salvar. */}
+      {mostrarBotaoEditar && (
         <div className="flex justify-end">
           <Button
             variant="outline"
-            onClick={() => onEdit(formulario)}
+            onClick={() => onEdit!(formulario, camadaAoEditar ?? undefined)}
             className="border-gray-300"
           >
-            Editar
+            {camadaAoEditar ? "Editar e validar" : "Editar"}
           </Button>
         </div>
       )}

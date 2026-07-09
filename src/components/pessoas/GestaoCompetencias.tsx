@@ -94,6 +94,10 @@ export function GestaoCompetencias() {
   const [formularioEdit, setFormularioEdit] =
     useState<FormularioCompetencias | null>(null);
   const [editFromResumo, setEditFromResumo] = useState(false);
+  // Camada que o superior (Diretoria/Final) validará ao salvar a edição feita pelo resumo.
+  const [validarCamadaEdit, setValidarCamadaEdit] = useState<
+    "diretoria" | "final" | null
+  >(null);
   const [autoavaliacaoResumo, setAutoavaliacaoResumo] =
     useState<AutoavaliacaoFormulario | null>(null);
   const [autoavaliacaoEditMode, setAutoavaliacaoEditMode] = useState(false);
@@ -400,9 +404,10 @@ export function GestaoCompetencias() {
         <CompetenciasGestorResumo
           formulario={formularioResumo}
           onValidated={(f) => setFormularioResumo(f)}
-          onEdit={(f) => {
+          onEdit={(f, validarCamada) => {
             setFormularioEdit(f);
             setEditFromResumo(true);
+            setValidarCamadaEdit(validarCamada ?? null);
             setCurrentView("equipe_edit");
           }}
         />
@@ -436,6 +441,7 @@ export function GestaoCompetencias() {
           }}
           onEditFormulario={(f) => {
             setFormularioEdit(f);
+            setValidarCamadaEdit(null);
             setCurrentView("equipe_edit");
           }}
         />
@@ -451,10 +457,12 @@ export function GestaoCompetencias() {
             variant="ghost"
             size="sm"
             onClick={() => {
+              const voltarPara = editFromResumo
+                ? "equipe_resumo"
+                : "equipe_respostas";
               setEditFromResumo(false);
-              setCurrentView(
-                editFromResumo ? "equipe_resumo" : "equipe_respostas",
-              );
+              setValidarCamadaEdit(null);
+              setCurrentView(voltarPara);
             }}
             className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
           >
@@ -469,8 +477,10 @@ export function GestaoCompetencias() {
           validationMode={
             !editFromResumo && formularioEdit.status === "enviado"
           }
+          validarCamadaAoSalvar={validarCamadaEdit}
           onSubmitted={(formulario) => {
             setEditFromResumo(false);
+            setValidarCamadaEdit(null);
             setFormularioResumo(formulario);
             setCurrentView("equipe_resumo");
           }}
@@ -526,9 +536,10 @@ export function GestaoCompetencias() {
         <CompetenciasGestorResumo
           formulario={formularioResumo}
           onValidated={(f) => setFormularioResumo(f)}
-          onEdit={(f) => {
+          onEdit={(f, validarCamada) => {
             setFormularioEdit(f);
             setEditFromResumo(true);
+            setValidarCamadaEdit(validarCamada ?? null);
             setCurrentView("gestor_edit");
           }}
         />
@@ -562,6 +573,7 @@ export function GestaoCompetencias() {
           }}
           onEditFormulario={(f) => {
             setFormularioEdit(f);
+            setValidarCamadaEdit(null);
             setCurrentView("gestor_edit");
           }}
         />
@@ -577,10 +589,12 @@ export function GestaoCompetencias() {
             variant="ghost"
             size="sm"
             onClick={() => {
+              const voltarPara = editFromResumo
+                ? "gestor_resumo"
+                : "gestor_respostas";
               setEditFromResumo(false);
-              setCurrentView(
-                editFromResumo ? "gestor_resumo" : "gestor_respostas",
-              );
+              setValidarCamadaEdit(null);
+              setCurrentView(voltarPara);
             }}
             className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
           >
@@ -595,8 +609,10 @@ export function GestaoCompetencias() {
           validationMode={
             !editFromResumo && formularioEdit.status === "enviado"
           }
+          validarCamadaAoSalvar={validarCamadaEdit}
           onSubmitted={(formulario) => {
             setEditFromResumo(false);
+            setValidarCamadaEdit(null);
             setFormularioResumo(formulario);
             setCurrentView("gestor_resumo");
           }}
@@ -1275,8 +1291,8 @@ export function GestaoCompetencias() {
             </Card>
           )}
 
-          {/* Gerenciar Competências Técnicas (versionamento/edição) — dev/staging only, só com referenciais preenchidos */}
-          {temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
+          {/* Gerenciar Competências Técnicas (versionamento/edição) — só superadmin, com referenciais preenchidos */}
+          {isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
             <Card
               className="bg-gray-50 border border-gray-300 shadow-sm hover:border-orange-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("competencias_tecnicas_admin")}
