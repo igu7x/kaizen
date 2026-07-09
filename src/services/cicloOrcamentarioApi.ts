@@ -85,6 +85,13 @@ export interface Ciclo {
   versaoGerada: number | null;
   aberturaEm: string | null;
   publicadoEm: string | null;
+  /** Links/PROADs por fase */
+  proadGejut: string | null;
+  proadSgjt: string | null;
+  proadAtaComites: string | null;
+  proadProdutoFinal: string | null;
+  proadPublicacao: string | null;
+  linkDou: string | null;
 }
 
 /** Resumo de uma janela de revisão resolvida pela data corrente (RF-60/61). */
@@ -242,5 +249,15 @@ export const cicloOrcamentarioApi = {
     return apiClient.post<{ pca_id: number; validacao: ValidacaoDemanda }>(
       `${BASE}/revisao/item/${itemId}/devolver`,
     );
+  },
+
+  /** Salva um link/PROAD de fase no ciclo (gating por estado no backend). */
+  salvarLink(cicloId: number, campo: string, valor: string): Promise<Ciclo> {
+    return apiClient.patch<Ciclo>(`${BASE}/${cicloId}/link`, { campo, valor });
+  },
+
+  /** Remove um link/PROAD de fase do ciclo. */
+  excluirLink(cicloId: number, campo: string): Promise<Ciclo> {
+    return apiClient.delete<Ciclo>(`${BASE}/${cicloId}/link`, { data: { campo } });
   },
 };

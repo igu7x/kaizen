@@ -65,8 +65,8 @@ export function Layout({ children }: LayoutProps) {
     isCadastrosPage ||
     isContratosPage ||
     isGerenciamentoPage ||
-    isCicloOrcamentarioPage;
-  isPermissoesPage;
+    isCicloOrcamentarioPage ||
+    isPermissoesPage;
   // Páginas sem padding (apenas comitês)
   const isNoPaddingPage = isComitesPage || isComiteDetalhe;
 

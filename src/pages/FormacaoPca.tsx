@@ -3,7 +3,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, Plus, ExternalLink, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { CicloTimeline } from "@/components/contratacoes/ciclo/CicloTimeline";
@@ -14,6 +14,8 @@ import { ifoApi, type Ifo } from "@/services/dfdApi";
 import { Contract } from "@/types";
 import { formatCurrency } from "@/services/pcaApi";
 import { DialogNovoIfo } from "@/components/ciclo/DialogNovoIfo";
+import { FaseBanner } from "@/components/ciclo/FaseBanner";
+import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
 
 const IDX_FORMACAO: Record<string, number> = {
   aguardando_proad: 0,
@@ -44,6 +46,33 @@ const PROXIMO_ATOR_LABELS: Record<string, string> = {
   remessa_dg: "Publicar (DG)",
 };
 
+const TAG_POR_ESTADO: Record<string, string> = {
+  aberto: "PCA_ENCAMINHAR_CONSULTA",
+  consolidacao_cca: "PCA_CONSOLIDAR_ENCAMINHAR_GEJUT",
+  validacao_gejut: "PCA_ENCAMINHAR_SGJT",
+  apreciacao_sgjt: "PCA_PAUTAR_COMITES",
+  em_comites: "PCA_AUTORIZAR_COMITES",
+  autorizado: "PCA_INSTRUIR_PRODUTO_FINAL",
+  ajuste_pre_publicacao: "PCA_REMETER_DG",
+  remessa_dg: "PCA_REGISTRAR_PUBLICACAO",
+};
+
+const TAGS_ACESSO_POR_ESTADO: Record<string, string[]> = {
+  aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
+  aberto_aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
+  aberto: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
+  em_consulta: ["PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO"],
+  retorno_areas: ["PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"],
+  consolidacao_cca: ["PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"],
+  validacao_gejut: ["PCA_ENCAMINHAR_SGJT"],
+  apreciacao_sgjt: ["PCA_PAUTAR_COMITES"],
+  em_comites: ["PCA_AUTORIZAR_COMITES"],
+  autorizado: ["PCA_INSTRUIR_PRODUTO_FINAL"],
+  ajuste_pre_publicacao: ["PCA_REMETER_DG"],
+  remessa_dg: ["PCA_REGISTRAR_PUBLICACAO"],
+  publicado: [], // Sem restrição
+};
+
 function EsteiraControls({
   ciclo,
   onAvancar,
@@ -57,6 +86,14 @@ function EsteiraControls({
   disabled?: boolean;
   podeAvancar?: boolean;
 }) {
+  const { user } = useAuth();
+  const tags = user?.tags_acesso ?? [];
+  const isSuperadmin = (user as any)?.is_superadmin;
+
+  const tagNecessaria = TAG_POR_ESTADO[ciclo.estado];
+  const temPermissaoDeTag = isSuperadmin || !tagNecessaria || tags.includes(tagNecessaria);
+  const podeAvancarFinal = podeAvancar && temPermissaoDeTag;
+
   const labelBotaoAvancar = PROXIMO_ATOR_LABELS[ciclo.estado] || "Encaminhar ao próximo ator";
   return (
     <div className="flex items-center gap-4 py-2 border-t mt-4">
@@ -68,15 +105,17 @@ function EsteiraControls({
           <ArrowLeft className="h-4 w-4 mr-1.5" />
           Retornar
         </Button>
-        <Button
-          size="sm"
-          onClick={onAvancar}
-          disabled={disabled || !podeAvancar}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <ArrowRight className="h-4 w-4 mr-1.5" />
-          {labelBotaoAvancar}
-        </Button>
+        {podeAvancarFinal && (
+          <Button
+            size="sm"
+            onClick={onAvancar}
+            disabled={disabled}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <ArrowRight className="h-4 w-4 mr-1.5" />
+            {labelBotaoAvancar}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -93,10 +132,15 @@ export default function FormacaoPca() {
   const [proadInput, setProadInput] = useState("");
 
   // Dados dos blocos
-  const [contratosRenovacao, setContratosRenovacao] = useState<Contract[]>([]);
+  const [ifosRenovacao, setIfosRenovacao] = useState<Ifo[]>([]);
+  const [allContracts, setAllContracts] = useState<Contract[]>([]);
   const [ifos, setIfos] = useState<Ifo[]>([]);
   const [loadingBlocos, setLoadingBlocos] = useState(false);
   const [isNovoIfoOpen, setIsNovoIfoOpen] = useState(false);
+  
+  // Publicação DG
+  const [isPublicarOpen, setIsPublicarOpen] = useState(false);
+  const [dataPublicacao, setDataPublicacao] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -125,20 +169,16 @@ export default function FormacaoPca() {
       // Se o ciclo está na fase de "em_consulta", restringimos a visibilidade
       const isEmConsulta = ciclo.estado === "em_consulta";
 
-      // Bloco 1: Renovação (contratos com limite de vigência >= anoAtual + 1)
-      const allContracts = await contractsApi.getContracts({
+      const fetchedContracts = await contractsApi.getContracts({
         minhasDemandas: isEmConsulta ? true : undefined
       });
-      const emRenovacao = allContracts.filter((c) => {
-        if (!c.endDate) return false;
-        const year = new Date(c.endDate).getFullYear();
-        return year >= anoFormacao;
-      });
-      setContratosRenovacao(emRenovacao);
+      setAllContracts(fetchedContracts);
 
-      // Bloco 2: Nova Contratação (IFOs criados para esta formação)
       const ifosData = await ifoApi.listar(anoFormacao, ciclo.id, isEmConsulta ? true : undefined);
-      // Filtramos apenas os de nova_contratacao para o Bloco 2
+      
+      const emRenovacao = ifosData.filter((i) => i.bloco === "renovacao");
+      setIfosRenovacao(emRenovacao);
+
       const novasContratacoes = ifosData.filter((i) => i.bloco === "nova_contratacao");
       setIfos(novasContratacoes);
     } catch (err) {
@@ -175,10 +215,20 @@ export default function FormacaoPca() {
 
   const avancarEsteira = async () => {
     if (!ciclo) return;
+    if (ciclo.estado === "remessa_dg") {
+      setIsPublicarOpen(true);
+      return;
+    }
+    await processarAvanco();
+  };
+
+  const processarAvanco = async () => {
+    if (!ciclo) return;
     setAcaoEmCurso(true);
     try {
       const c = await cicloOrcamentarioApi.avancar(ciclo.id);
       setCiclo(c);
+      setIsPublicarOpen(false);
       toast.success(
         c.estado === "publicado" ? "Publicado. Versão gravada no PCA-TIC." : "Encaminhado ao próximo ator.",
       );
@@ -209,6 +259,15 @@ export default function FormacaoPca() {
   const isGestorCCA = (user as any)?.is_superadmin || (user?.role === "MANAGER" && user?.unidade_nome === "Coordenadoria de Contratações e Orçamento de TIC");
   const podeAvancarParaConsulta = formacaoEstado !== "aberto" || isGestorCCA;
 
+  const temAcessoFaseAtual = useMemo(() => {
+    if (!formacaoEstado) return false;
+    if (formacaoEstado === "publicado") return true;
+    if ((user as any)?.is_superadmin) return true;
+    
+    const tagsPermitidas = TAGS_ACESSO_POR_ESTADO[formacaoEstado] || [];
+    return tagsPermitidas.some(tag => user?.tags_acesso?.includes(tag));
+  }, [formacaoEstado, user]);
+
   return (
     <Layout>
       <div className="space-y-6 page-transition-enter pb-10">
@@ -223,10 +282,10 @@ export default function FormacaoPca() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-              Formação PCA – {anoFormacao}
+              Formação do DFD — PCA-TIC {anoFormacao}
             </h1>
             <p className="text-slate-500 mt-1">
-              CCA · gera PCA-TIC {anoFormacao} · Versão 1
+              Documento de Formalização da Demanda · gera Versão 1 do PCA-TIC {anoFormacao}
             </p>
           </div>
           {ciclo && (
@@ -244,59 +303,246 @@ export default function FormacaoPca() {
               showMarcoLegend
             />
 
-            {aguardandoProad && (
-              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-6 shadow-sm">
+            {!temAcessoFaseAtual ? (
+              <div className="mt-8 rounded-xl border border-amber-100 bg-amber-50/50 p-6 shadow-sm text-center">
                 <h3 className="text-base font-semibold text-slate-800 mb-2">
-                  Instruir o ciclo
+                  Acesso Restrito
                 </h3>
-                <p className="text-sm text-slate-600 mb-4 max-w-2xl">
-                  A formação de {anoFormacao} já está aberta. Informe o PROAD de instrução
-                  para carregar os quatro blocos do Documento de Formalização da Demanda (DFD).
+                <p className="text-sm text-slate-600">
+                  A fase atual da Formação do PCA é de visualização restrita aos atores responsáveis. Você pode acompanhar o andamento pelo fluxo acima, mas os detalhes desta fase não estão disponíveis.
                 </p>
-                <div className="flex flex-col gap-4 max-w-xl">
-                  <div className="space-y-1.5 w-full">
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Número do PROAD de instrução
-                    </label>
-                    <Input
-                      placeholder="202700004821"
-                      value={proadInput}
-                      onChange={(e) => setProadInput(e.target.value)}
-                      className="bg-white border-slate-200 w-full"
-                    />
-                  </div>
-                  <div>
-                    <Button
-                      onClick={registrarProad}
-                      disabled={!proadInput.trim() || acaoEmCurso}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {acaoEmCurso ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                      )}
-                      Iniciar DFD
-                    </Button>
-                  </div>
-                </div>
               </div>
-            )}
+            ) : (
+              <>
+                {/* Banner contextual da fase atual */}
+                {formacaoEstado && (
+                  <FaseBanner estado={formacaoEstado} ano={anoFormacao} />
+                )}
 
-            {!aguardandoProad && (
-              <EsteiraControls
-                ciclo={ciclo}
-                onAvancar={avancarEsteira}
-                onRetroceder={retrocederEsteira}
-                disabled={acaoEmCurso}
-                podeAvancar={podeAvancarParaConsulta}
-              />
+                {/* Fase: Abertura — PROAD */}
+                {aguardandoProad && (
+                  <div className="rounded-xl border border-blue-100 bg-white p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-slate-800 mb-2">
+                      Instruir o ciclo
+                    </h3>
+                    <p className="text-sm text-slate-600 mb-4 max-w-2xl">
+                      Informe o PROAD de instrução para carregar os blocos do DFD-Consulta.
+                    </p>
+                    <div className="flex flex-col gap-4 max-w-xl">
+                      <div className="space-y-1.5 w-full">
+                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Número do PROAD de instrução
+                        </label>
+                        <Input
+                          placeholder="202700004821"
+                          value={proadInput}
+                          onChange={(e) => setProadInput(e.target.value)}
+                          className="bg-white border-slate-200 w-full"
+                        />
+                      </div>
+                      <div>
+                        <Button
+                          onClick={registrarProad}
+                          disabled={!proadInput.trim() || acaoEmCurso}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          {acaoEmCurso ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                          )}
+                          Iniciar DFD
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fases pós-abertura: conteúdo específico + controles da esteira */}
+                {!aguardandoProad && (
+                  <>
+                    {/* Fase: Consolidação (consolidacao_cca / validacao_gejut) — listagem consolidada */}
+                    {(formacaoEstado === "consolidacao_cca" || formacaoEstado === "validacao_gejut") && ciclo.proad && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-slate-800">
+                            Referência no PROAD
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-2">
+                          {formacaoEstado === "consolidacao_cca"
+                            ? "O DFD consolidado está sendo organizado pela CCA para encaminhamento à GEJUT."
+                            : "A GEJUT está analisando a conformidade jurídica do DFD consolidado."}
+                        </p>
+                        <CampoLinkProad
+                          cicloId={ciclo.id}
+                          campo="proad_gejut"
+                          valorOriginal={ciclo.proadGejut}
+                          estadoAtual={formacaoEstado}
+                          estadoEditavel="validacao_gejut"
+                          label="PROAD do Despacho GEJUT"
+                          onSaved={(c) => setCiclo(c)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Fase: Apreciação SGJT */}
+                    {formacaoEstado === "apreciacao_sgjt" && ciclo.proad && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-slate-800">
+                            DFD em apreciação pela SGJT
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-2">
+                          A SGJT aprecia o DFD validado pela GEJUT e prepara o pautamento para os comitês CGTIC e CGovTIC.
+                        </p>
+                        <CampoLinkProad
+                          cicloId={ciclo.id}
+                          campo="proad_sgjt"
+                          valorOriginal={ciclo.proadSgjt}
+                          estadoAtual={formacaoEstado}
+                          estadoEditavel="apreciacao_sgjt"
+                          label="PROAD do Despacho SGJT"
+                          onSaved={(c) => setCiclo(c)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Fase: Comitês (CGTIC · CGovTIC) */}
+                    {formacaoEstado === "em_comites" && ciclo.proad && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-slate-800">
+                            Deliberação nos Comitês
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-3">
+                          As atas de deliberação dos comitês CGTIC e CGovTIC devem ser juntadas ao PROAD.
+                        </p>
+                        <div className="text-xs text-slate-400 italic mb-2">
+                          As atas são registradas diretamente no PROAD (ato externo ao Kaizen).
+                        </div>
+                        <CampoLinkProad
+                          cicloId={ciclo.id}
+                          campo="proad_ata_comites"
+                          valorOriginal={ciclo.proadAtaComites}
+                          estadoAtual={formacaoEstado}
+                          estadoEditavel="em_comites"
+                          label="PROAD da Ata dos Comitês"
+                          onSaved={(c) => setCiclo(c)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Fase: Autorizado / Ajuste pré-publicação (Remessa V1) */}
+                    {(formacaoEstado === "autorizado" || formacaoEstado === "ajuste_pre_publicacao") && ciclo.proad && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-slate-800">
+                            {formacaoEstado === "autorizado" ? "Produto final do DFD" : "Ajuste pré-publicação"}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-2">
+                          {formacaoEstado === "autorizado"
+                            ? "O DFD foi autorizado pelos comitês. Instrua o produto final no PROAD e encaminhe para ajuste pré-publicação."
+                            : "Realize os ajustes finais no PROAD antes da remessa à Diretoria-Geral."}
+                        </p>
+                        <CampoLinkProad
+                          cicloId={ciclo.id}
+                          campo="proad_produto_final"
+                          valorOriginal={ciclo.proadProdutoFinal}
+                          estadoAtual={formacaoEstado}
+                          estadoEditavel="autorizado"
+                          label="PROAD do Produto Final"
+                          onSaved={(c) => setCiclo(c)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Fase: Remessa DG */}
+                    {formacaoEstado === "remessa_dg" && ciclo.proad && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-slate-800">
+                            Publicação no DOU
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-2">
+                          A publicação foi realizada no PROAD pela Diretoria-Geral. Informe os links abaixo antes de registrar a publicação.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          <CampoLinkProad
+                            cicloId={ciclo.id}
+                            campo="proad_publicacao"
+                            valorOriginal={ciclo.proadPublicacao}
+                            estadoAtual={formacaoEstado}
+                            estadoEditavel="remessa_dg"
+                            label="PROAD da Publicação"
+                            onSaved={setCiclo}
+                          />
+                          <CampoLinkProad
+                            cicloId={ciclo.id}
+                            campo="link_dou"
+                            valorOriginal={ciclo.linkDou}
+                            estadoAtual={formacaoEstado}
+                            estadoEditavel="remessa_dg"
+                            label="Link DOU"
+                            onSaved={setCiclo}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fase: Publicado — resumo final */}
+                    {formacaoEstado === "publicado" && (
+                      <div className="rounded-xl border border-green-200 bg-green-50/50 p-6 shadow-sm text-center flex flex-col items-center">
+                        <CheckCheck className="h-10 w-10 text-green-500 mb-3" />
+                        <h3 className="text-lg font-semibold text-slate-800 mb-1">
+                          PCA-TIC {anoFormacao} — Versão 1 publicada
+                        </h3>
+                        <p className="text-sm text-slate-600 mb-4 max-w-md">
+                          O Documento de Formalização da Demanda foi concluído e o PCA-TIC foi publicado. A versão está congelada.
+                        </p>
+                        <div className="flex flex-col gap-2 items-center text-left w-full max-w-sm bg-white p-4 rounded-lg border border-green-100">
+                          <CampoLinkProad
+                            cicloId={ciclo.id}
+                            campo="proad_publicacao"
+                            valorOriginal={ciclo.proadPublicacao}
+                            estadoAtual={formacaoEstado}
+                            estadoEditavel="NONE"
+                            label="PROAD da Publicação"
+                            onSaved={(c) => setCiclo(c)}
+                          />
+                          <CampoLinkProad
+                            cicloId={ciclo.id}
+                            campo="link_dou"
+                            valorOriginal={ciclo.linkDou}
+                            estadoAtual={formacaoEstado}
+                            estadoEditavel="NONE"
+                            label="Link DOU"
+                            onSaved={(c) => setCiclo(c)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <EsteiraControls
+                      ciclo={ciclo}
+                      onAvancar={avancarEsteira}
+                      onRetroceder={retrocederEsteira}
+                      disabled={acaoEmCurso}
+                      podeAvancar={podeAvancarParaConsulta}
+                    />
+                  </>
+                )}
+              </>
             )}
           </section>
         )}
 
-        {/* Blocos só aparecem se já tiver PROAD instruído (ou seja, se a consulta foi liberada) */}
-        {ciclo && ciclo.proad && (
+        {/* Blocos só aparecem se já tiver PROAD instruído (ou seja, se a consulta foi liberada) e se tiver acesso à fase atual */}
+        {ciclo && ciclo.proad && temAcessoFaseAtual && (
           <div className="space-y-8 mt-8">
             {/* Bloco 1: Renovação */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -308,7 +554,7 @@ export default function FormacaoPca() {
                   <h2 className="text-base font-semibold text-slate-800">Renovação</h2>
                 </div>
                 <span className="text-sm text-slate-500 font-medium">
-                  {contratosRenovacao.length} Contratos
+                  {ifosRenovacao.length} {ifosRenovacao.length === 1 ? 'IFO' : 'IFOs'}
                 </span>
               </div>
               <div className="p-0">
@@ -316,44 +562,66 @@ export default function FormacaoPca() {
                   <div className="p-8 flex justify-center">
                     <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                   </div>
-                ) : contratosRenovacao.length === 0 ? (
+                ) : ifosRenovacao.length === 0 ? (
                   <div className="p-8 text-center text-sm text-slate-500">
-                    Nenhum contrato em renovação encontrado para {anoFormacao}.
+                    Nenhum IFO de renovação encontrado para {anoFormacao}.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 border-b text-slate-500">
-                        <tr>
-                          <th className="px-5 py-3 font-medium">Contrato</th>
-                          <th className="px-5 py-3 font-medium">Natureza</th>
-                          <th className="px-5 py-3 font-medium">Nat. despesa</th>
-                          <th className="px-5 py-3 font-medium text-right">Valor anual</th>
-                          <th className="px-5 py-3 font-medium">Vigência</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {contratosRenovacao.map((c) => (
-                          <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-5 py-3 font-medium text-slate-900">
-                              {c.noticeNumber || "-"}
-                            </td>
-                            <td className="px-5 py-3 text-slate-600">
-                              continuada
-                            </td>
-                            <td className="px-5 py-3 text-slate-600">
-                              {(c as any).expenseNature || "-"}
-                            </td>
-                            <td className="px-5 py-3 text-right text-slate-700 font-medium">
-                              {formatCurrency(c.totalValueCents || 0)}
-                            </td>
-                            <td className="px-5 py-3 text-slate-600">
-                              {c.endDate ? `até ${new Date(c.endDate).toLocaleDateString('pt-BR')}` : "-"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="p-4 space-y-6">
+                    {ifosRenovacao.map((ifo) => (
+                      <div key={ifo.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                        {/* IFO Header */}
+                        <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm font-semibold text-slate-700">{ifo.codigo}</span>
+                            <span className="text-sm text-slate-900 font-medium">{ifo.objeto || "-"}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-slate-600">
+                            <span>área <b className="text-slate-800">{ifo.areaDemandante || "-"}</b></span>
+                            <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado ? ifo.valorEstimado * 100 : 0)}</span>
+                          </div>
+                        </div>
+                        {/* Contratos Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-white border-b text-slate-500">
+                              <tr>
+                                <th className="px-4 py-2 font-medium">Contrato</th>
+                                <th className="px-4 py-2 font-medium">Natureza</th>
+                                <th className="px-4 py-2 font-medium">Nat. despesa</th>
+                                <th className="px-4 py-2 font-medium text-right">Valor anual</th>
+                                <th className="px-4 py-2 font-medium">Vigência</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {ifo.contratos && ifo.contratos.map((contractId) => {
+                                const c = allContracts.find(ac => ac.id === contractId);
+                                if (!c) return null;
+                                return (
+                                  <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono">
+                                      {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
+                                    </td>
+                                    <td className="px-4 py-2 text-slate-600">
+                                      continuada
+                                    </td>
+                                    <td className="px-4 py-2 text-slate-600">
+                                      {(c as any).expenseNature || "-"}
+                                    </td>
+                                    <td className="px-4 py-2 text-right text-slate-700 font-medium">
+                                      {formatCurrency(c.totalValueCents || 0)}
+                                    </td>
+                                    <td className="px-4 py-2 text-slate-600">
+                                      {c.endDate ? `até ${new Date(c.endDate).toLocaleDateString('pt-BR')}` : "-"}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -443,6 +711,43 @@ export default function FormacaoPca() {
         proad={ciclo?.proad}
         onSuccess={loadBlocos}
       />
+
+      {/* Modal de Publicação DG */}
+      {isPublicarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b bg-slate-50 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                📋 Registrar Publicação (DG)
+              </h2>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                A publicação foi realizada no PROAD pela Diretoria-Geral. 
+                Confirma a publicação do PCA-TIC {anoFormacao}?
+              </p>
+              
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm flex gap-2 items-start mt-4">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <strong>Atenção:</strong> Esta ação é irreversível. O PCA-TIC será versionado e congelado.
+                </div>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t bg-slate-50 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsPublicarOpen(false)} disabled={acaoEmCurso}>
+                Cancelar
+              </Button>
+              <Button onClick={processarAvanco} disabled={acaoEmCurso || !proadPublicacao || !dataPublicacao} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {acaoEmCurso ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Registrar Publicação
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

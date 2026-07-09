@@ -1274,7 +1274,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   <div className="w-28 flex flex-col justify-center items-center gap-1">
                     {renderStatusBadge(item.status)}
                     {item.contract_ids && item.contract_ids.split(',').map(idStr => {
-                      const id = idStr.trim();
+                      const parts = idStr.split(':');
+                      const id = parts.shift()?.trim();
+                      const noticeNumber = parts.join(':').trim();
                       if (!id) return null;
                       return (
                         <Badge
@@ -1286,7 +1288,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                           }}
                           className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
                         >
-                          CT: {id}
+                          CT: {noticeNumber || id}
                         </Badge>
                       );
                     })}
@@ -1330,7 +1332,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     {item.contract_ids && (
                       <div className="flex gap-1">
                         {item.contract_ids.split(',').map(idStr => {
-                          const id = idStr.trim();
+                          const parts = idStr.split(':');
+                          const id = parts.shift()?.trim();
+                          const noticeNumber = parts.join(':').trim();
                           if (!id) return null;
                           return (
                             <Badge
@@ -1342,7 +1346,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                               }}
                               className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
                             >
-                              CT: {id}
+                              CT: {noticeNumber || id}
                             </Badge>
                           );
                         })}

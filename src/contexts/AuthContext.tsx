@@ -83,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               unidade_nome: fresh.unidade_nome ?? null,
               cargo_efetivo: fresh.cargo_efetivo ?? null,
               codigo: fresh.codigo ?? null,
+              tags_acesso: fresh.tags_acesso ?? prev?.tags_acesso ?? [],
             };
             Storage.save("user", merged);
             return merged;

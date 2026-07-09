@@ -63,7 +63,8 @@ export function ContratosTI() {
     cadastroUnidadeId: undefined as number | undefined,
     monthlyValueCents: 0,
     totalValueCents: 0,
-    yearValue: 0
+    yearValue: 0,
+    yearDurationStandard: undefined as number | undefined
   });
 
   useEffect(() => {
@@ -460,6 +461,21 @@ export function ContratosTI() {
                 max="9999-12-31"
                 value={formData.effectiveDate || ''}
                 onChange={(e) => handleInputChange('effectiveDate', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Duração Máxima (Anos)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.yearDurationStandard !== undefined ? formData.yearDurationStandard : ''}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  handleInputChange('yearDurationStandard', isNaN(val) ? undefined : val);
+                }}
+                placeholder="Ex: 5"
               />
             </div>
 

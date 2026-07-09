@@ -21,6 +21,8 @@ export interface User {
   cargo_efetivo?: string | null;
   codigo?: string | null;
   is_developer?: boolean;
+  // Camada D — tags de Permissão de Ação concedidas (Ciclo Orçamentário)
+  tags_acesso?: string[];
 }
 
 export interface AuthContextType {
