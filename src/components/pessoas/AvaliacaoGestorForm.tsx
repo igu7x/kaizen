@@ -1214,7 +1214,9 @@ export function AvaliacaoGestorForm({
       )}
 
       {/* Secao 5 - Competencias Tecnicas */}
-      {form.unidade_id && form.pessoa_id && (
+      {/* pessoa_id OU pessoa_user_id: no fluxo de avaliar o gestor sem autoavaliacao so ha
+          pessoa_user_id, e a secao (com a matriz da unidade) precisa aparecer igual. */}
+      {form.unidade_id && (form.pessoa_id || form.pessoa_user_id) && (
         <>
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-8">
             <div className="flex gap-4">
