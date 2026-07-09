@@ -207,6 +207,15 @@ public class CompetenciasGestorController {
         return service.findCompetenciasByUnidade(unidadeId);
     }
 
+    // GET /api/competencias-gestor/unidades-com-matriz?tipo=gestor
+    // Ids das unidades que já têm a Matriz de Competências (do tipo) validada — usado para
+    // filtrar o seletor de unidade da avaliação (só faz sentido avaliar onde há referencial).
+    @GetMapping("/unidades-com-matriz")
+    public List<Long> unidadesComMatriz(
+            @RequestParam(value = "tipo", required = false, defaultValue = "gestor") String tipo) {
+        return service.unidadesComMatrizValidada(tipo);
+    }
+
     // GET /api/competencias-gestor/unidade-gestor/:unidadeId
     @GetMapping("/unidade-gestor/{unidadeId:\\d+}")
     public List<Map<String, Object>> competenciasGestorUnidade(@PathVariable long unidadeId) {

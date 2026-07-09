@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -101,9 +102,27 @@ public class AvaliacaoGestorController {
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
         long userId = currentUserId();
-        if (body.get("pessoa_id") == null || isBlank(body.get("pessoa_nome")) || isBlank(body.get("avaliador_nome"))
-                || isBlank(body.get("diretoria")) || isEmptyList(body.get("respostas"))) {
-            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios faltando"));
+        // A pessoa avaliada pode vir por pessoa_id (autoavaliação) OU pessoa_user_id (gestor da
+        // unidade avaliado antes da autoavaliação). Lista os campos faltando com precisão.
+        List<String> faltando = new ArrayList<>();
+        if (body.get("pessoa_id") == null && body.get("pessoa_user_id") == null) {
+            faltando.add("colaborador a ser avaliado");
+        }
+        if (isBlank(body.get("pessoa_nome"))) {
+            faltando.add("nome do colaborador");
+        }
+        if (isBlank(body.get("avaliador_nome"))) {
+            faltando.add("nome do avaliador");
+        }
+        if (isBlank(body.get("diretoria"))) {
+            faltando.add("diretoria");
+        }
+        if (isEmptyList(body.get("respostas"))) {
+            faltando.add("notas das competências");
+        }
+        if (!faltando.isEmpty()) {
+            return ResponseEntity.status(400).body(Map.of(
+                    "error", "Campos obrigatórios faltando: " + String.join(", ", faltando)));
         }
         Map<String, Object> formulario = service.create(body, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(formulario);

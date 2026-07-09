@@ -400,6 +400,15 @@ public class CompetenciasGestorService {
                 unidadeId);
     }
 
+    /** Ids das unidades com a Matriz de Competências (do tipo) validada até a camada final. */
+    public List<Long> unidadesComMatrizValidada(String tipo) {
+        return jdbc.queryForList(
+                "SELECT DISTINCT unidade_id FROM competencias_gestor_formularios " +
+                        "WHERE tipo = ? AND is_deleted = FALSE AND validado_final_em IS NOT NULL " +
+                        "  AND unidade_id IS NOT NULL",
+                Long.class, tipo);
+    }
+
     public List<Map<String, Object>> findCompetenciasGestorByUnidade(long unidadeId) {
         return jdbc.queryForList(
                 "SELECT cgi.id, cgi.nome, cgi.descricao, cgi.peso, cgi.aplicabilidade, cgi.quantidade_pessoas, " +
