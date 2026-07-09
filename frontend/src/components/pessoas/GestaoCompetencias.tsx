@@ -1895,8 +1895,10 @@ export function GestaoCompetencias() {
               );
             })()}
 
-          {/* Avaliação da Liderança — 4 superusuários preenchem, SGJT admins só visualizam */}
-          {isAvaliadorLideranca && !isSGJTAdmin && temAvgestorGestor && (
+          {/* Avaliação da Liderança — gestores/subdiretores de macroárea preenchem.
+              Sem exigir temAvgestorGestor: o avaliador pode avaliar o gestor da unidade ANTES
+              da autoavaliação existir (o form lista o gestor da unidade). */}
+          {isAvaliadorLideranca && !isSGJTAdmin && (
             <Card
               className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("inv_gestor_lideranca")}
@@ -1929,7 +1931,7 @@ export function GestaoCompetencias() {
               </CardContent>
             </Card>
           )}
-          {isAvaliadorLideranca && isSGJTAdmin && temAvgestorGestor && (
+          {isAvaliadorLideranca && isSGJTAdmin && (
             <Card
               className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("inv_gestor_lideranca")}
