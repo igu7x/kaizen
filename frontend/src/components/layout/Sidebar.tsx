@@ -155,6 +155,14 @@ const menuItemsCompleto: MenuItem[] = [
     icon: Users,
     children: [
       {
+        // Escondido apenas em produção (stagingOnly); segue visível em local e staging.
+        title: "Painel",
+        icon: LayoutDashboard,
+        path: "/pessoas/painel",
+        permissaoCodigo: "pessoas_painel",
+        stagingOnly: true,
+      },
+      {
         title: "Gestão por Competências",
         icon: BookOpen,
         path: "/pessoas/competencias",
