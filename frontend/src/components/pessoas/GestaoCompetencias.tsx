@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,8 @@ import {
   Scale,
   GitCompare,
   ShieldAlert,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi } from "@/services/areasApi";
@@ -49,6 +51,113 @@ import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
 import { CompetenciasPadraoView } from "./CompetenciasPadraoView";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
 import { Settings, Wrench } from "lucide-react";
+
+/** Corpo colapsável animado (grid-rows 0fr→1fr para transição de altura suave). */
+function Collapsible({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={`grid transition-all duration-300 ease-out ${
+        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+      }`}
+    >
+      <div className="overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+/** Seção principal do hub (módulo que se desdobra). */
+function HubSection({
+  open,
+  onToggle,
+  icon,
+  iconBg,
+  title,
+  description,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: ReactNode;
+  iconBg: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-4 p-5 text-left hover:bg-gray-50 transition-colors"
+      >
+        <div
+          className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}
+        >
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-gray-900 text-lg">{title}</h3>
+          <p className="text-sm text-gray-500">{description}</p>
+        </div>
+        <ChevronDown
+          className={`h-5 w-5 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      <Collapsible open={open}>
+        <div className="px-5 pb-5">{children}</div>
+      </Collapsible>
+    </div>
+  );
+}
+
+/** Sub-seção do hub (nível aninhado dentro de uma seção). */
+function HubSubSection({
+  open,
+  onToggle,
+  icon,
+  iconBg,
+  title,
+  description,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: ReactNode;
+  iconBg: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50/60 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-100/70 transition-colors"
+      >
+        <div
+          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg}`}
+        >
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-gray-800">{title}</h4>
+          <p className="text-xs text-gray-500">{description}</p>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      <Collapsible open={open}>
+        <div className="p-4 pt-0">{children}</div>
+      </Collapsible>
+    </div>
+  );
+}
 
 type View =
   | "inventario"
@@ -129,6 +238,20 @@ export function GestaoCompetencias() {
     useState(false);
   const [temReferencialGerenciavel, setTemReferencialGerenciavel] =
     useState(false);
+
+  // Estado do acordeão do hub. Persiste enquanto o componente estiver montado,
+  // então voltar de um formulário mantém a seção aberta. Tudo aberto por padrão:
+  // é uma página única onde os módulos já vêm desdobrados.
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    () => new Set(["matriz", "inventario", "inv_equipe", "inv_gestor"]),
+  );
+  const toggleSection = (key: string) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // Verificar se há elegíveis para avaliação integrada (1 chamada ao backend)
   const checkElegiveis = async () => {
@@ -1169,59 +1292,9 @@ export function GestaoCompetencias() {
   }
 
   // ── Matriz de Competências (sub-página) ─────────────────
-  if (currentView === "referencial_home") {
-    // Acesso negado para usuários não autorizados (exceto SGJT)
-    if (!isSGJT && referencialAutorizado === false) {
-      return (
-        <div className="p-6 space-y-6">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCurrentView("inventario")}
-              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-            </Button>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Matriz de Competências
-            </h2>
-          </div>
-          <Card className="border border-red-200 bg-red-50">
-            <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                <ShieldAlert className="h-8 w-8 text-red-500" />
-              </div>
-              <h3 className="text-xl font-bold text-red-700">Acesso Negado</h3>
-              <p className="text-red-600 max-w-md">
-                Você não possui autorização para acessar o Matriz de
-                Competências. Entre em contato com a SGJT caso acredite que
-                deveria ter acesso.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Matriz de Competências
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Matriz de Competências da Equipe */}
+  const matrizCards = (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Matriz de Competências da Equipe */}
           <Card
             className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
             onClick={() => setCurrentView("equipe")}
@@ -1342,10 +1415,8 @@ export function GestaoCompetencias() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   // ── Visualizar Competências Padrão (read-only) ─────────────────
   if (currentView === "competencias_padrao_view") {
@@ -1358,119 +1429,9 @@ export function GestaoCompetencias() {
   }
 
   // ── Inventário de Competências — HOME (2 cards) ─────────────────
-  if (currentView === "inventario_home") {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Inventário de Competências
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(() => {
-            // Mostra "Matriz de Competências da Equipe" apenas se:
-            // - Está cadastrado como colaborador em alguma unidade (pode preencher autoavaliação)
-            // - É gestor de alguma unidade (pode preencher avaliação do gestor / integrada)
-            // - É admin SGJT (visualiza tudo)
-            // - Tem alguma avaliação integrada tipo='equipe' pendente para validar
-            const temIntegradaEquipePendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "equipe",
-            );
-            return (
-              temUnidadeColaborador ||
-              isGestorDeUnidade ||
-              isSGJTAdmin ||
-              temIntegradaEquipePendente
-            );
-          })() && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inventario_equipe_home")}
-            >
-              <CardContent className="p-6 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                  <Users className="h-6 w-6 text-teal-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
-                    Inventário de Competências da Equipe
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Inventário de competências técnicas e comportamentais.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {(() => {
-            // Mostra "Matriz de Competências do Gestor" apenas se:
-            // - É avaliador da liderança (preenche para outros gestores)
-            // - É admin SGJT (visualiza tudo)
-            // - Tem alguma avaliação integrada tipo='gestor' pendente para validar
-            const temIntegradaGestorPendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "gestor",
-            );
-            return (
-              isAvaliadorLideranca ||
-              isSGJTAdmin ||
-              isGestorDeUnidade ||
-              temIntegradaGestorPendente
-            );
-          })() && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inventario_gestor_home")}
-            >
-              <CardContent className="p-6 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                  <UserCog className="h-6 w-6 text-violet-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
-                    Inventário de Competências do Gestor
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Inventário de competências técnicas, comportamentais,
-                    estratégicas e gerenciais.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Inventário → Matriz de Competências da Equipe (3 cards) ──────────────
-  if (currentView === "inventario_equipe_home") {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario_home")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Inventário de Competências da Equipe
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  // ── Inventário → Matriz de Competências da Equipe (cards) ──────────────
+  const invEquipeCards = (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Autoavaliação do Colaborador — apenas viewers (e admins/managers colaboradores de unidade que NÃO sejam gestor de unidade nem avaliador da liderança); SGJT admins têm card próprio */}
           {(!isAdminOrManager || (temUnidadeColaborador && !isSGJTAdmin)) &&
             !isGestorDeUnidade &&
@@ -1749,30 +1710,12 @@ export function GestaoCompetencias() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
-  // ── Inventário → Matriz de Competências do Gestor (3 cards) ──────────────
-  if (currentView === "inventario_gestor_home") {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario_home")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Inventário de Competências do Gestor
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  // ── Inventário → Matriz de Competências do Gestor (cards) ──────────────
+  const invGestorCards = (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Autoavaliação do Gestor — gestor de unidade SEMPRE preenche (mesmo se também for avaliador da liderança); admin/manager preenche se não for avaliador da liderança; SGJT admins só visualizam */}
           {((isAdminOrManager && !isAvaliadorLideranca) || isGestorDeUnidade) &&
             !isSGJTAdmin && (
@@ -2139,10 +2082,8 @@ export function GestaoCompetencias() {
                 </CardContent>
               </Card>
             )}
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   // ── Competências Padrão (admin) ─────────────────────
   if (currentView === "competencias_padrao_admin") {
@@ -2188,78 +2129,116 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Inventário (view principal — 2 cards) ─────────────────────
+  // ── Hub (página única — módulos se desdobram em acordeão) ─────────────
+  // Todas as regras de visibilidade são idênticas às das antigas telas de menu:
+  // cada seção/sub-seção só aparece se o gate correspondente for verdadeiro.
+  const showMatriz = isSGJT || referencialAutorizado;
+  const temIntegradaEquipePendente = integradaPendentes.some(
+    (p) => (p.tipo_inventario || "equipe") === "equipe",
+  );
+  const temIntegradaGestorPendente = integradaPendentes.some(
+    (p) => (p.tipo_inventario || "equipe") === "gestor",
+  );
+  const showInvEquipe =
+    temUnidadeColaborador ||
+    isGestorDeUnidade ||
+    isSGJTAdmin ||
+    temIntegradaEquipePendente;
+  const showInvGestor =
+    isAvaliadorLideranca ||
+    isSGJTAdmin ||
+    isGestorDeUnidade ||
+    temIntegradaGestorPendente;
 
   return (
-    <div className="p-6 space-y-10">
-      <h2 className="text-2xl font-bold text-gray-800 border-l-4 border-blue-500 pl-4">
-        Gestão por Competências
-      </h2>
+    <div className="p-6 space-y-6 max-w-5xl">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
+          Gestão por Competências
+        </h2>
+        <p className="text-sm text-gray-500 mt-2 pl-5">
+          Selecione um módulo para expandir e acessar as ações disponíveis para
+          o seu perfil.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Matriz de Competências — só aparece para quem tem permissão ou SGJT */}
-        {(isSGJT || referencialAutorizado) && (
-          <Card
-            className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => setCurrentView("referencial_home")}
+      <div className="space-y-4">
+        {/* Matriz de Competências — só para quem tem permissão ou SGJT */}
+        {showMatriz && (
+          <HubSection
+            open={openSections.has("matriz")}
+            onToggle={() => toggleSection("matriz")}
+            icon={<BookOpen className="h-6 w-6 text-blue-600" />}
+            iconBg="bg-blue-100"
+            title="Matriz de Competências"
+            description="Competências da equipe e do gestor"
           >
-            <CardContent className="p-8 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                <BookOpen className="h-7 w-7 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-xl group-hover:text-blue-600 transition-colors">
-                  Matriz de Competências
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Competências da equipe e do gestor
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            {matrizCards}
+          </HubSection>
         )}
 
         {/* Inventário de Competências */}
-        <Card
-          className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-lg transition-all cursor-pointer group"
-          onClick={() => setCurrentView("inventario_home")}
+        <HubSection
+          open={openSections.has("inventario")}
+          onToggle={() => toggleSection("inventario")}
+          icon={<ClipboardCheck className="h-6 w-6 text-teal-600" />}
+          iconBg="bg-teal-100"
+          title="Inventário de Competências"
+          description="Autoavaliação, avaliação do gestor e integrada"
         >
-          <CardContent className="p-8 flex items-center gap-5">
-            <div className="w-14 h-14 rounded-xl bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
-              <ClipboardCheck className="h-7 w-7 text-teal-600" />
+          <div className="space-y-4">
+            {showInvEquipe && (
+              <HubSubSection
+                open={openSections.has("inv_equipe")}
+                onToggle={() => toggleSection("inv_equipe")}
+                icon={<Users className="h-5 w-5 text-teal-600" />}
+                iconBg="bg-teal-100"
+                title="Inventário de Competências da Equipe"
+                description="Competências técnicas e comportamentais"
+              >
+                {invEquipeCards}
+              </HubSubSection>
+            )}
+            {showInvGestor && (
+              <HubSubSection
+                open={openSections.has("inv_gestor")}
+                onToggle={() => toggleSection("inv_gestor")}
+                icon={<UserCog className="h-5 w-5 text-violet-600" />}
+                iconBg="bg-violet-100"
+                title="Inventário de Competências do Gestor"
+                description="Técnicas, comportamentais, estratégicas e gerenciais"
+              >
+                {invGestorCards}
+              </HubSubSection>
+            )}
+            {!showInvEquipe && !showInvGestor && (
+              <p className="text-sm text-gray-500 px-1 py-2">
+                Nenhum inventário disponível para o seu perfil no momento.
+              </p>
+            )}
+          </div>
+        </HubSection>
+
+        {/* Editar Competências Padrão — superadmin + dev/staging only */}
+        {isSGJT && isCompetenciasPadraoEnabled() && (
+          <button
+            type="button"
+            onClick={() => setCurrentView("competencias_padrao_admin")}
+            className="w-full rounded-2xl border border-gray-200 bg-white shadow-sm hover:border-purple-300 hover:shadow-md transition-all flex items-center gap-4 p-5 text-left group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+              <Settings className="h-6 w-6 text-purple-600" />
             </div>
-            <div>
-              <h3 className="font-bold text-gray-800 text-xl group-hover:text-teal-600 transition-colors">
-                Inventário de Competências
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-gray-900 text-lg group-hover:text-purple-600 transition-colors">
+                Editar Competências Padrão
               </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Autoavaliação, avaliação do gestor e integrada
+              <p className="text-sm text-gray-500">
+                Gerenciar competências comportamentais, estratégicas e gerenciais
               </p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Competências Padrão — superadmin + dev/staging only */}
-        {isSGJT && isCompetenciasPadraoEnabled() && (
-          <Card
-            className="bg-gray-50 border border-gray-300 shadow-sm hover:border-purple-400 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => setCurrentView("competencias_padrao_admin")}
-          >
-            <CardContent className="p-8 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                <Settings className="h-7 w-7 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-xl group-hover:text-purple-600 transition-colors">
-                  Editar Competências Padrão
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Gerenciar competências comportamentais, estratégicas e
-                  gerenciais
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
+          </button>
         )}
       </div>
     </div>
