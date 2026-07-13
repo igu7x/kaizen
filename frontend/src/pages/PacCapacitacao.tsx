@@ -19,11 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from "@/components/ui/popover";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -1130,55 +1125,54 @@ function ColaboradorPicker({
     );
   }
 
+  // Dropdown inline (não usa Popover em portal): dentro de um Dialog modal do Radix, o
+  // portal do Popover cai fora do foco/pointer-events do modal e a lista não aparece.
   return (
-    <Popover open={aberto} onOpenChange={setAberto}>
-      <PopoverAnchor asChild>
-        <Input
-          placeholder="Buscar servidor cadastrado…"
-          value={busca}
-          onChange={(e) => {
-            setBusca(e.target.value);
-            setAberto(true);
-          }}
-          onFocus={() => setAberto(true)}
-        />
-      </PopoverAnchor>
-      <PopoverContent
-        align="start"
-        sideOffset={4}
-        className="w-[420px] max-w-[80vw] max-h-60 overflow-y-auto p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onCloseAutoFocus={(e) => e.preventDefault()}
-      >
-        {colaboradores.length === 0 ? (
-          <div className="px-3 py-2 text-sm text-gray-500">
-            Nenhum colaborador cadastrado.
-          </div>
-        ) : filtrados.length === 0 ? (
-          <div className="px-3 py-2 text-sm text-gray-500">
-            Nenhum servidor encontrado.
-          </div>
-        ) : (
-          filtrados.map((c) => (
-            <div
-              key={c.id}
-              className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
-              onMouseDown={() => {
-                onSelecionar(c);
-                setBusca("");
-                setAberto(false);
-              }}
-            >
-              <span className="font-medium text-gray-800">{c.colaborador}</span>
-              <span className="text-gray-400">
-                {" "}
-                — {(c.diretoria as unknown as string) || "—"}
-              </span>
+    <div className="relative">
+      <Input
+        placeholder="Buscar servidor cadastrado…"
+        value={busca}
+        onChange={(e) => {
+          setBusca(e.target.value);
+          setAberto(true);
+        }}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setTimeout(() => setAberto(false), 150)}
+      />
+      {aberto && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+          {colaboradores.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-500">
+              Nenhum colaborador cadastrado.
             </div>
-          ))
-        )}
-      </PopoverContent>
-    </Popover>
+          ) : filtrados.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-500">
+              Nenhum servidor encontrado.
+            </div>
+          ) : (
+            filtrados.map((c) => (
+              <div
+                key={c.id}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                onMouseDown={() => {
+                  onSelecionar(c);
+                  setBusca("");
+                  setAberto(false);
+                }}
+              >
+                <span className="font-medium text-gray-800">
+                  {c.colaborador}
+                </span>
+                <span className="text-gray-400">
+                  {" "}
+                  — {(c.diretoria as unknown as string) || "—"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
