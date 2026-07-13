@@ -104,15 +104,6 @@ function translateComplexidade(c: string): string {
   return map[c] || c;
 }
 
-function translateAbrangencia(a: string): string {
-  const map: Record<string, string> = {
-    uma_unidade: "Uma Unidade",
-    multiplas_unidades: "Múltiplas Unidades",
-    transversal: "Transversal",
-  };
-  return map[a] || a;
-}
-
 function addFooter(
   doc: jsPDF,
   pageNum: number,
@@ -901,12 +892,6 @@ export function generateTAPPdf(projeto: Projeto) {
     doc,
     "Complexidade do Projeto",
     translateComplexidade(projeto.complexidade),
-    y,
-  );
-  y = drawLabelValueRow(
-    doc,
-    "Abrangência Organizacional",
-    translateAbrangencia(projeto.abrangencia),
     y,
   );
   y = drawLabelValueRow(

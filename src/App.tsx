@@ -36,6 +36,7 @@ import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import Dfd from "./pages/Dfd";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
+import PacCapacitacao from "./pages/PacCapacitacao";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
 import PermissoesAcoes from "./pages/PermissoesAcoes";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
@@ -258,7 +259,10 @@ function App() {
                     path="/pessoas/pac/tecnologia-da-informacao"
                     element={
                       <ProtectedRoute>
-                        <EmDesenvolvimento titulo="Plano Anual de Capacitação — Tecnologia da Informação" />
+                        <PacCapacitacao
+                          titulo="Plano Anual de Capacitação — Tecnologia da Informação"
+                          modulo="ti"
+                        />
                       </ProtectedRoute>
                     }
                   />
