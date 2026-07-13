@@ -707,9 +707,10 @@ export default function PacCapacitacao({
               <Label className="mb-1.5 block">Diretoria</Label>
               <Input
                 value={certForm.diretoria}
-                readOnly
-                placeholder="Preenchida a partir do servidor"
-                className="bg-gray-50 text-gray-600"
+                onChange={(e) =>
+                  setCertForm((f) => ({ ...f, diretoria: e.target.value }))
+                }
+                placeholder="Preenchida pelo servidor, mas editável"
               />
             </div>
             <div>
