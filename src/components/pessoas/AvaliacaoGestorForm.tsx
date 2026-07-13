@@ -652,10 +652,14 @@ export function AvaliacaoGestorForm({
 
         // Só unidades com a Matriz de Competências validada (há referencial para avaliar).
         // Em modo edição, preserva a unidade do formulário mesmo que não esteja na lista.
-        const idsSet = new Set(idsComMatriz);
+        // Coage ambos os lados para número: o backend serializa bigint como string e int4
+        // como número, então a interseção falharia por tipo (Set<string> vs id number).
+        const idsSet = new Set(idsComMatriz.map((id) => Number(id)));
         setUnidadesAutorizadas(
           autorizadas.filter(
-            (u) => idsSet.has(u.id) || u.id === formularioEdit?.unidade_id,
+            (u) =>
+              idsSet.has(Number(u.id)) ||
+              Number(u.id) === Number(formularioEdit?.unidade_id),
           ),
         );
 
@@ -1055,19 +1059,11 @@ export function AvaliacaoGestorForm({
           <CardTitle className="text-lg">Avaliador</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-500">Nome do Avaliador</span>
-              <p className="font-medium text-gray-800 mt-0.5">
-                {user?.name || "-"}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-500">Perfil</span>
-              <p className="font-medium text-gray-800 mt-0.5">
-                {user?.role || "-"}
-              </p>
-            </div>
+          <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+            <span className="text-sm text-gray-500">Nome do Avaliador</span>
+            <p className="font-medium text-gray-800 mt-0.5">
+              {user?.name || "-"}
+            </p>
           </div>
         </CardContent>
       </Card>
