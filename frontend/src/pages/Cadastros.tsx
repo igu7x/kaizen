@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PcaItemPicker } from "@/components/projetos/PcaItemPicker";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -348,6 +349,7 @@ export default function Cadastros() {
     abrangencia: "uma_unidade",
     havera_contratacao: false,
     valor_estimado_contratacao: undefined,
+    pca_item_id: undefined,
     saude: "verde",
     saude_justificativa: "",
     tap_vinculado: "",
@@ -767,6 +769,7 @@ export default function Cadastros() {
           havera_contratacao: projetoCompleto.havera_contratacao,
           valor_estimado_contratacao:
             projetoCompleto.valor_estimado_contratacao || undefined,
+          pca_item_id: projetoCompleto.pca_item_id ?? undefined,
           saude: projetoCompleto.saude,
           saude_justificativa: projetoCompleto.saude_justificativa || "",
           tap_vinculado: projetoCompleto.tap_vinculado || "",
@@ -861,6 +864,7 @@ export default function Cadastros() {
         abrangencia: "uma_unidade",
         havera_contratacao: false,
         valor_estimado_contratacao: undefined,
+        pca_item_id: undefined,
         saude: "verde",
         saude_justificativa: "",
         tap_vinculado: "",
@@ -4223,6 +4227,8 @@ export default function Cadastros() {
                                 setFormData({
                                   ...formData,
                                   havera_contratacao: !!checked,
+                                  // Ao desmarcar, limpa o item do PCA vinculado.
+                                  ...(checked ? {} : { pca_item_id: undefined }),
                                 })
                               }
                               disabled={modalMode === "view"}
@@ -4230,19 +4236,13 @@ export default function Cadastros() {
                             <span>Sim</span>
                           </label>
                           {formData.havera_contratacao && (
-                            <Input
-                              type="number"
-                              placeholder="Item do PCA"
-                              value={formData.valor_estimado_contratacao || ""}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  valor_estimado_contratacao:
-                                    parseFloat(e.target.value) || undefined,
-                                })
+                            <PcaItemPicker
+                              value={formData.pca_item_id}
+                              onChange={(id) =>
+                                setFormData({ ...formData, pca_item_id: id })
                               }
                               disabled={modalMode === "view"}
-                              className="w-40"
+                              fallbackLabel={selectedProjeto?.pca_item_label}
                             />
                           )}
                         </div>
