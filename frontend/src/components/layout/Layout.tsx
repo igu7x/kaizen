@@ -31,6 +31,7 @@ export function Layout({ children }: LayoutProps) {
   const isCompetenciasPage = location.pathname.includes("/competencias");
   const isPainelPessoas =
     location.pathname === "/pessoas" || location.pathname === "/pessoas/painel";
+  const isPacPage = location.pathname.startsWith("/pessoas/pac");
   const isPerfilPage = location.pathname === "/perfil";
   // Módulos de administração (fundo branco como nas páginas principais).
   // /contratos/* é caminho legado e redireciona para /cadastros/* (App.tsx); a flag
@@ -56,6 +57,7 @@ export function Layout({ children }: LayoutProps) {
     isContratacoesPage ||
     isCompetenciasPage ||
     isPainelPessoas ||
+    isPacPage ||
     isPerfilPage ||
     isAdministracaoPage ||
     isCadastrosPage ||
