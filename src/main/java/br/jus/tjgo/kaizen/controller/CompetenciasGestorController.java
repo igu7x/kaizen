@@ -211,7 +211,7 @@ public class CompetenciasGestorController {
     // Ids das unidades que já têm a Matriz de Competências (do tipo) validada — usado para
     // filtrar o seletor de unidade da avaliação (só faz sentido avaliar onde há referencial).
     @GetMapping("/unidades-com-matriz")
-    public List<Long> unidadesComMatriz(
+    public List<Integer> unidadesComMatriz(
             @RequestParam(value = "tipo", required = false, defaultValue = "gestor") String tipo) {
         return service.unidadesComMatrizValidada(tipo);
     }
