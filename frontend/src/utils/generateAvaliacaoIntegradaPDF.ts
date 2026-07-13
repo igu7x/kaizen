@@ -468,41 +468,6 @@ export function generateAvaliacaoIntegradaPDF(
   y = headerH + 8;
 
   // ============================================================
-  // BLOCO - Histórico de Validação
-  // ============================================================
-  const validationItems: Array<{ label: string; value: string }> = [];
-  validationItems.push({
-    label: "Avaliador",
-    value: formulario.avaliador_nome || "",
-  });
-  validationItems.push({
-    label: "Colaborador",
-    value: formulario.pessoa_nome || "",
-  });
-
-  if (formulario.validado_gestor_nome) {
-    const label1 =
-      tipoInventario === "gestor"
-        ? "Validação da Liderança"
-        : "Validação do Gestor";
-    validationItems.push({
-      label: label1,
-      value: `${formulario.validado_gestor_nome} — ${formulario.validado_gestor_em ? formatDate(formulario.validado_gestor_em) : ""}`,
-    });
-  }
-  if (formulario.validado_colaborador_nome) {
-    const label2 =
-      tipoInventario === "gestor"
-        ? "Validação do Gestor"
-        : "Validação do Colaborador";
-    validationItems.push({
-      label: label2,
-      value: `${formulario.validado_colaborador_nome} — ${formulario.validado_colaborador_em ? formatDate(formulario.validado_colaborador_em) : ""}`,
-    });
-  }
-  y = drawValidationBlock(doc, validationItems, "Histórico de Validação", y);
-
-  // ============================================================
   // COMPETÊNCIAS (por seção)
   // ============================================================
   const respostas = formulario.respostas || [];
@@ -559,6 +524,43 @@ export function generateAvaliacaoIntegradaPDF(
       });
     }
   }
+
+  // ============================================================
+  // BLOCO - Histórico de Validação (ao final do documento)
+  // ============================================================
+  const validationItems: Array<{ label: string; value: string }> = [];
+  validationItems.push({
+    label: "Avaliador",
+    value: formulario.avaliador_nome || "",
+  });
+  validationItems.push({
+    label: "Colaborador",
+    value: formulario.pessoa_nome || "",
+  });
+
+  if (formulario.validado_gestor_nome) {
+    const label1 =
+      tipoInventario === "gestor"
+        ? "Validação da Liderança"
+        : "Validação do Gestor";
+    validationItems.push({
+      label: label1,
+      value: `${formulario.validado_gestor_nome} — ${formulario.validado_gestor_em ? formatDate(formulario.validado_gestor_em) : ""}`,
+    });
+  }
+  if (formulario.validado_colaborador_nome) {
+    const label2 =
+      tipoInventario === "gestor"
+        ? "Validação do Gestor"
+        : "Validação do Colaborador";
+    validationItems.push({
+      label: label2,
+      value: `${formulario.validado_colaborador_nome} — ${formulario.validado_colaborador_em ? formatDate(formulario.validado_colaborador_em) : ""}`,
+    });
+  }
+  y += 6;
+  y = checkPageBreak(doc, y, 16 + validationItems.length * 9);
+  y = drawValidationBlock(doc, validationItems, "Histórico de Validação", y);
 
   // ============================================================
   // RODAPÉS — sem data/hora, só identificação e versão

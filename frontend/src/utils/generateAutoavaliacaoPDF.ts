@@ -366,12 +366,6 @@ export function generateAutoavaliacaoPDF(formulario: AutoavaliacaoFormulario) {
     { label: "Cargo/Função", value: formulario.cargo_funcao || "" },
     { label: "E-mail", value: formulario.email_institucional || "" },
   ];
-  if (formulario.validado_por_nome) {
-    dadosItems.push({
-      label: "Validado em",
-      value: `${formulario.validado_por_nome} — ${formulario.validado_em ? formatDate(formulario.validado_em) : ""}`,
-    });
-  }
   y = drawValidationBlock(doc, dadosItems, "Dados do Colaborador", y);
 
   // ============================================================
@@ -416,6 +410,21 @@ export function generateAutoavaliacaoPDF(formulario: AutoavaliacaoFormulario) {
         y,
       });
     }
+  }
+
+  // ============================================================
+  // BLOCO - Histórico de Validação (ao final do documento)
+  // ============================================================
+  if (formulario.validado_por_nome) {
+    const validationItems = [
+      {
+        label: "Validado em",
+        value: `${formulario.validado_por_nome} — ${formulario.validado_em ? formatDate(formulario.validado_em) : ""}`,
+      },
+    ];
+    y += 6;
+    y = pageBreak(doc, y, 16 + validationItems.length * 9);
+    y = drawValidationBlock(doc, validationItems, "Histórico de Validação", y);
   }
 
   // FOOTER em todas as páginas (sem data/hora — refletindo só identificação e versão)
