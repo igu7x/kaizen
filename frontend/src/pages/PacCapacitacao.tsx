@@ -37,6 +37,7 @@ import {
   vagasEfetivas,
 } from "@/services/pacCapacitacaoApi";
 import { getColaboradores, Colaborador } from "@/services/colaboradoresApi";
+import { areasApi, Area } from "@/services/areasApi";
 import {
   GraduationCap,
   Plus,
@@ -139,6 +140,7 @@ export default function PacCapacitacao({
   >({});
   const [loadingCerts, setLoadingCerts] = useState<Record<number, boolean>>({});
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [certDialogItem, setCertDialogItem] =
     useState<PacCapacitacaoItem | null>(null);
   const [certForm, setCertForm] = useState<CertForm>(CERT_VAZIO);
@@ -165,6 +167,10 @@ export default function PacCapacitacao({
     getColaboradores()
       .then(setColaboradores)
       .catch(() => setColaboradores([]));
+    areasApi
+      .getAll()
+      .then(setAreas)
+      .catch(() => setAreas([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modulo]);
 
@@ -705,12 +711,12 @@ export default function PacCapacitacao({
             </div>
             <div>
               <Label className="mb-1.5 block">Diretoria</Label>
-              <Input
+              <DiretoriaPicker
+                areas={areas}
                 value={certForm.diretoria}
-                onChange={(e) =>
-                  setCertForm((f) => ({ ...f, diretoria: e.target.value }))
+                onChange={(v) =>
+                  setCertForm((f) => ({ ...f, diretoria: v }))
                 }
-                placeholder="Preenchida pelo servidor, mas editável"
               />
             </div>
             <div>
@@ -1167,6 +1173,64 @@ function ColaboradorPicker({
               </div>
             ))
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Combobox de diretoria: lista as áreas cadastradas ao digitar; aceita valor livre. */
+function DiretoriaPicker({
+  areas,
+  value,
+  onChange,
+}: {
+  areas: Area[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const q = value.trim().toLowerCase();
+  const filtrados = areas
+    .filter(
+      (a) =>
+        !q ||
+        (a.sigla || "").toLowerCase().includes(q) ||
+        (a.nome || "").toLowerCase().includes(q),
+    )
+    .slice(0, 50);
+
+  return (
+    <div className="relative">
+      <Input
+        placeholder="Selecione ou digite a diretoria…"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setAberto(true);
+        }}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setTimeout(() => setAberto(false), 150)}
+      />
+      {aberto && filtrados.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+          {filtrados.map((a) => (
+            <div
+              key={a.id}
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+              onMouseDown={() => {
+                onChange(a.sigla || a.nome);
+                setAberto(false);
+              }}
+            >
+              <span className="font-medium text-gray-800">
+                {a.sigla || a.nome}
+              </span>
+              {a.sigla && a.nome && (
+                <span className="text-gray-400"> — {a.nome}</span>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
