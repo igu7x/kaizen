@@ -1059,19 +1059,11 @@ export function AvaliacaoGestorForm({
           <CardTitle className="text-lg">Avaliador</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-500">Nome do Avaliador</span>
-              <p className="font-medium text-gray-800 mt-0.5">
-                {user?.name || "-"}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-500">Perfil</span>
-              <p className="font-medium text-gray-800 mt-0.5">
-                {user?.role || "-"}
-              </p>
-            </div>
+          <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+            <span className="text-sm text-gray-500">Nome do Avaliador</span>
+            <p className="font-medium text-gray-800 mt-0.5">
+              {user?.name || "-"}
+            </p>
           </div>
         </CardContent>
       </Card>
