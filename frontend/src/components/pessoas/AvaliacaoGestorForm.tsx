@@ -652,10 +652,14 @@ export function AvaliacaoGestorForm({
 
         // Só unidades com a Matriz de Competências validada (há referencial para avaliar).
         // Em modo edição, preserva a unidade do formulário mesmo que não esteja na lista.
-        const idsSet = new Set(idsComMatriz);
+        // Coage ambos os lados para número: o backend serializa bigint como string e int4
+        // como número, então a interseção falharia por tipo (Set<string> vs id number).
+        const idsSet = new Set(idsComMatriz.map((id) => Number(id)));
         setUnidadesAutorizadas(
           autorizadas.filter(
-            (u) => idsSet.has(u.id) || u.id === formularioEdit?.unidade_id,
+            (u) =>
+              idsSet.has(Number(u.id)) ||
+              Number(u.id) === Number(formularioEdit?.unidade_id),
           ),
         );
 
