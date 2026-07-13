@@ -655,13 +655,12 @@ export function AvaliacaoGestorForm({
         // Coage ambos os lados para número: o backend serializa bigint como string e int4
         // como número, então a interseção falharia por tipo (Set<string> vs id number).
         const idsSet = new Set(idsComMatriz.map((id) => Number(id)));
-        setUnidadesAutorizadas(
-          autorizadas.filter(
-            (u) =>
-              idsSet.has(Number(u.id)) ||
-              Number(u.id) === Number(formularioEdit?.unidade_id),
-          ),
+        const unidadesFiltradas = autorizadas.filter(
+          (u) =>
+            idsSet.has(Number(u.id)) ||
+            Number(u.id) === Number(formularioEdit?.unidade_id),
         );
+        setUnidadesAutorizadas(unidadesFiltradas);
 
         if (isEditMode && formularioEdit) {
           const tecnicas = (formularioEdit.respostas || []).filter(
@@ -817,8 +816,11 @@ export function AvaliacaoGestorForm({
             }
             setChangedCompKeys(changedPadrao);
           }
-        } else if (autorizadas.length === 1) {
-          const u = autorizadas[0];
+        } else if (unidadesFiltradas.length === 1) {
+          // Auto-seleciona quando só há UMA unidade com matriz validada — mesmo que o
+          // usuário lidere várias unidades (só uma tem referencial p/ avaliar). Sem isso,
+          // a unidade aparece read-only mas o gestor/competências não carregam.
+          const u = unidadesFiltradas[0];
           setForm((prev) => ({
             ...prev,
             unidade_id: String(u.id),
