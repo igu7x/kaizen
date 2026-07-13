@@ -19,6 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -32,7 +37,11 @@ import {
   pacCapacitacaoApi,
   PacCapacitacaoItem,
   PacCapacitacaoInput,
+  PacCertificado,
+  progressoCapacitacao,
+  vagasEfetivas,
 } from "@/services/pacCapacitacaoApi";
+import { getColaboradores, Colaborador } from "@/services/colaboradoresApi";
 import {
   GraduationCap,
   Plus,
@@ -47,6 +56,11 @@ import {
   Info,
   Building2,
   Layers,
+  Award,
+  Download,
+  Upload,
+  FileText,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -86,6 +100,21 @@ const FORM_VAZIO: PacCapacitacaoInput = {
   observacoes: "",
 };
 
+interface CertForm {
+  colaborador_id: number | null;
+  nome_servidor: string;
+  diretoria: string;
+  arquivo_nome: string;
+  arquivo_data: string;
+}
+const CERT_VAZIO: CertForm = {
+  colaborador_id: null,
+  nome_servidor: "",
+  diretoria: "",
+  arquivo_nome: "",
+  arquivo_data: "",
+};
+
 interface PacCapacitacaoProps {
   titulo: string;
   modulo?: string;
@@ -109,6 +138,21 @@ export default function PacCapacitacao({
   const [salvando, setSalvando] = useState(false);
   const [excluir, setExcluir] = useState<PacCapacitacaoItem | null>(null);
 
+  // Certificados
+  const [certsPorItem, setCertsPorItem] = useState<
+    Record<number, PacCertificado[]>
+  >({});
+  const [loadingCerts, setLoadingCerts] = useState<Record<number, boolean>>({});
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [certDialogItem, setCertDialogItem] =
+    useState<PacCapacitacaoItem | null>(null);
+  const [certForm, setCertForm] = useState<CertForm>(CERT_VAZIO);
+  const [salvandoCert, setSalvandoCert] = useState(false);
+  const [excluirCert, setExcluirCert] = useState<{
+    cert: PacCertificado;
+    capacitacaoId: number;
+  } | null>(null);
+
   const carregar = async () => {
     setLoading(true);
     try {
@@ -123,8 +167,29 @@ export default function PacCapacitacao({
 
   useEffect(() => {
     carregar();
+    getColaboradores()
+      .then(setColaboradores)
+      .catch(() => setColaboradores([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modulo]);
+
+  const carregarCerts = async (capacitacaoId: number) => {
+    setLoadingCerts((p) => ({ ...p, [capacitacaoId]: true }));
+    try {
+      const certs = await pacCapacitacaoApi.listCertificados(capacitacaoId);
+      setCertsPorItem((p) => ({ ...p, [capacitacaoId]: certs }));
+    } catch {
+      /* erro tratado no apiClient */
+    } finally {
+      setLoadingCerts((p) => ({ ...p, [capacitacaoId]: false }));
+    }
+  };
+
+  const toggleExpand = (it: PacCapacitacaoItem) => {
+    const abrindo = expandido !== it.id;
+    setExpandido(abrindo ? it.id : null);
+    if (abrindo && certsPorItem[it.id] === undefined) carregarCerts(it.id);
+  };
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -213,6 +278,93 @@ export default function PacCapacitacao({
   const set = (campo: keyof PacCapacitacaoInput, valor: unknown) =>
     setForm((prev) => ({ ...prev, [campo]: valor }));
 
+  // ---- Certificados ----
+  const abrirCertDialog = (it: PacCapacitacaoItem) => {
+    setCertDialogItem(it);
+    setCertForm(CERT_VAZIO);
+  };
+
+  const onSelecionarPdf = (file: File | undefined) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Anexe um arquivo PDF.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      setCertForm((f) => ({
+        ...f,
+        arquivo_data: String(reader.result || ""),
+        arquivo_nome: file.name,
+      }));
+    reader.readAsDataURL(file);
+  };
+
+  const salvarCert = async () => {
+    if (!certDialogItem) return;
+    if (!certForm.nome_servidor.trim()) {
+      toast.error("Selecione o servidor.");
+      return;
+    }
+    if (!certForm.arquivo_data) {
+      toast.error("Anexe o PDF do certificado.");
+      return;
+    }
+    setSalvandoCert(true);
+    try {
+      await pacCapacitacaoApi.addCertificado(certDialogItem.id, {
+        colaborador_id: certForm.colaborador_id,
+        nome_servidor: certForm.nome_servidor.trim(),
+        diretoria: certForm.diretoria.trim() || null,
+        arquivo_nome: certForm.arquivo_nome || null,
+        arquivo_data: certForm.arquivo_data || null,
+      });
+      toast.success("Certificado adicionado.");
+      const capId = certDialogItem.id;
+      setCertDialogItem(null);
+      await Promise.all([carregarCerts(capId), carregar()]);
+    } catch {
+      /* erro tratado no apiClient */
+    } finally {
+      setSalvandoCert(false);
+    }
+  };
+
+  const baixarCert = async (cert: PacCertificado) => {
+    try {
+      const { arquivo_data, arquivo_nome } =
+        await pacCapacitacaoApi.getCertificadoArquivo(cert.id);
+      if (!arquivo_data) {
+        toast.warning("Certificado sem arquivo anexado.");
+        return;
+      }
+      const blob = await (await fetch(arquivo_data)).blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = arquivo_nome || `certificado-${cert.nome_servidor}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.warning("Não foi possível baixar o certificado.");
+    }
+  };
+
+  const confirmarExclusaoCert = async () => {
+    if (!excluirCert) return;
+    try {
+      await pacCapacitacaoApi.removeCertificado(excluirCert.cert.id);
+      toast.success("Certificado removido.");
+      const capId = excluirCert.capacitacaoId;
+      setExcluirCert(null);
+      await Promise.all([carregarCerts(capId), carregar()]);
+    } catch {
+      /* erro tratado no apiClient */
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -227,7 +379,7 @@ export default function PacCapacitacao({
               <p className="text-sm text-gray-500 mt-0.5">
                 Matriz de Capacitação — {itens.length}{" "}
                 {itens.length === 1 ? "item" : "itens"}. Clique numa linha para
-                ver os detalhes.
+                ver detalhes e certificados.
               </p>
             </div>
           </div>
@@ -294,41 +446,44 @@ export default function PacCapacitacao({
                   <th className="px-3 py-3 text-center">Vagas</th>
                   <th className="px-3 py-3">Modalidade</th>
                   <th className="px-3 py-3">Estimativa de custo</th>
+                  <th className="px-3 py-3 min-w-[150px]">Progresso</th>
                   <th className="px-3 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-16 text-center">
+                    <td colSpan={10} className="px-3 py-16 text-center">
                       <Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" />
                     </td>
                   </tr>
                 ) : filtrados.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-3 py-16 text-center text-gray-500"
                     >
                       Nenhum item encontrado.
                     </td>
                   </tr>
                 ) : (
-                  filtrados.map((it) => {
-                    const aberto = expandido === it.id;
-                    return (
-                      <FragmentRow
-                        key={it.id}
-                        it={it}
-                        aberto={aberto}
-                        onToggle={() =>
-                          setExpandido(aberto ? null : it.id)
-                        }
-                        onEdit={() => abrirEdicao(it)}
-                        onDelete={() => setExcluir(it)}
-                      />
-                    );
-                  })
+                  filtrados.map((it) => (
+                    <FragmentRow
+                      key={it.id}
+                      it={it}
+                      aberto={expandido === it.id}
+                      onToggle={() => toggleExpand(it)}
+                      onEdit={() => abrirEdicao(it)}
+                      onDelete={() => setExcluir(it)}
+                      certs={certsPorItem[it.id]}
+                      loadingCerts={!!loadingCerts[it.id]}
+                      onAddCert={() => abrirCertDialog(it)}
+                      onDownloadCert={baixarCert}
+                      onDeleteCert={(cert) =>
+                        setExcluirCert({ cert, capacitacaoId: it.id })
+                      }
+                    />
+                  ))
                 )}
               </tbody>
             </table>
@@ -346,7 +501,6 @@ export default function PacCapacitacao({
           </DialogHeader>
 
           <div className="space-y-6 py-2">
-            {/* Identificação */}
             <Secao icone={<Layers className="h-4 w-4" />} titulo="Identificação">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Campo label="Código">
@@ -407,7 +561,6 @@ export default function PacCapacitacao({
               </div>
             </Secao>
 
-            {/* Planejamento */}
             <Secao icone={<Target className="h-4 w-4" />} titulo="Planejamento">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Campo label="Público-Alvo">
@@ -442,12 +595,10 @@ export default function PacCapacitacao({
                     onChange={(e) =>
                       set(
                         "numero_vagas",
-                        e.target.value === ""
-                          ? null
-                          : Number(e.target.value),
+                        e.target.value === "" ? null : Number(e.target.value),
                       )
                     }
-                    placeholder="Deixe em branco se não se aplica"
+                    placeholder="Em branco = 1 vaga no progresso"
                   />
                 </Campo>
                 <Campo label="Competências a desenvolver">
@@ -523,11 +674,112 @@ export default function PacCapacitacao({
         </DialogContent>
       </Dialog>
 
-      {/* Confirmação de exclusão */}
-      <AlertDialog
-        open={!!excluir}
-        onOpenChange={(o) => !o && setExcluir(null)}
+      {/* Dialog Adicionar Certificado */}
+      <Dialog
+        open={!!certDialogItem}
+        onOpenChange={(o) => !o && setCertDialogItem(null)}
       >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar certificado</DialogTitle>
+          </DialogHeader>
+          {certDialogItem && (
+            <p className="text-sm text-gray-500 -mt-2 mb-1">
+              {certDialogItem.codigo ? `${certDialogItem.codigo} — ` : ""}
+              {certDialogItem.evento_capacitacao}
+            </p>
+          )}
+          <div className="space-y-4 py-1">
+            <div>
+              <Label className="mb-1.5 block">
+                Servidor <span className="text-red-500">*</span>
+              </Label>
+              <ColaboradorPicker
+                colaboradores={colaboradores}
+                nomeSelecionado={certForm.nome_servidor}
+                onSelecionar={(c) =>
+                  setCertForm((f) => ({
+                    ...f,
+                    colaborador_id: c.id,
+                    nome_servidor: c.colaborador,
+                    diretoria: (c.diretoria as unknown as string) || "",
+                  }))
+                }
+                onLimpar={() => setCertForm(CERT_VAZIO)}
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Diretoria</Label>
+              <Input
+                value={certForm.diretoria}
+                readOnly
+                placeholder="Preenchida a partir do servidor"
+                className="bg-gray-50 text-gray-600"
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">
+                Certificado (PDF) <span className="text-red-500">*</span>
+              </Label>
+              {certForm.arquivo_data ? (
+                <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+                  <FileText className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span className="flex-1 truncate text-emerald-900">
+                    {certForm.arquivo_nome}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCertForm((f) => ({
+                        ...f,
+                        arquivo_data: "",
+                        arquivo_nome: "",
+                      }))
+                    }
+                    className="text-emerald-600 hover:text-red-600"
+                    title="Remover"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 px-3 py-3 text-sm text-gray-500 cursor-pointer hover:border-emerald-400 hover:text-emerald-600 transition-colors">
+                  <Upload className="h-4 w-4" />
+                  Selecionar PDF do certificado
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => onSelecionarPdf(e.target.files?.[0])}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCertDialogItem(null)}
+              disabled={salvandoCert}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={salvarCert}
+              disabled={salvandoCert}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {salvandoCert && (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              )}
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de exclusão do item */}
+      <AlertDialog open={!!excluir} onOpenChange={(o) => !o && setExcluir(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir item</AlertDialogTitle>
@@ -551,24 +803,67 @@ export default function PacCapacitacao({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirmação de exclusão de certificado */}
+      <AlertDialog
+        open={!!excluirCert}
+        onOpenChange={(o) => !o && setExcluirCert(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover certificado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remover o certificado de{" "}
+              <span className="font-semibold">
+                {excluirCert?.cert.nome_servidor}
+              </span>
+              ? O progresso será recalculado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmarExclusaoCert}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
 
-/** Linha da tabela + painel de detalhes (colunas azuis) ao expandir. */
+/** Linha da tabela + painel de detalhes (colunas azuis) e certificados ao expandir. */
 function FragmentRow({
   it,
   aberto,
   onToggle,
   onEdit,
   onDelete,
+  certs,
+  loadingCerts,
+  onAddCert,
+  onDownloadCert,
+  onDeleteCert,
 }: {
   it: PacCapacitacaoItem;
   aberto: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  certs: PacCertificado[] | undefined;
+  loadingCerts: boolean;
+  onAddCert: () => void;
+  onDownloadCert: (cert: PacCertificado) => void;
+  onDeleteCert: (cert: PacCertificado) => void;
 }) {
+  const progresso = progressoCapacitacao(it);
+  const total = vagasEfetivas(it.numero_vagas);
+  const feitos = it.certificados_count ?? 0;
+  const completo = progresso >= 100;
+
   return (
     <>
       <tr
@@ -626,6 +921,28 @@ function FragmentRow({
           {it.estimativa_custo || "—"}
         </td>
         <td className="px-3 py-3">
+          <div className="flex items-center gap-2 min-w-[130px]">
+            <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  completo ? "bg-emerald-500" : "bg-blue-500"
+                }`}
+                style={{ width: `${progresso}%` }}
+              />
+            </div>
+            <span
+              className={`text-xs font-semibold tabular-nums ${
+                completo ? "text-emerald-600" : "text-gray-600"
+              }`}
+            >
+              {progresso}%
+            </span>
+          </div>
+          <span className="text-[11px] text-gray-400">
+            {feitos}/{total} certificado{total > 1 ? "s" : ""}
+          </span>
+        </td>
+        <td className="px-3 py-3">
           <div className="flex items-center justify-end gap-1">
             <button
               onClick={(e) => {
@@ -652,53 +969,216 @@ function FragmentRow({
       </tr>
       {aberto && (
         <tr className="bg-emerald-50/30 border-b border-gray-100">
-          <td colSpan={9} className="px-4 py-5">
-            <div className="rounded-xl border border-emerald-100 bg-white p-5">
-              <div className="flex items-center gap-2 mb-4 text-emerald-700">
-                <Info className="h-4 w-4" />
-                <span className="text-sm font-semibold">
-                  Detalhes da capacitação
-                </span>
+          <td colSpan={10} className="px-4 py-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Detalhes (colunas azuis) */}
+              <div className="rounded-xl border border-emerald-100 bg-white p-5">
+                <div className="flex items-center gap-2 mb-4 text-emerald-700">
+                  <Info className="h-4 w-4" />
+                  <span className="text-sm font-semibold">
+                    Detalhes da capacitação
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                  <Detalhe
+                    icone={<Layers className="h-4 w-4" />}
+                    label="Categoria"
+                    valor={it.categoria}
+                  />
+                  <Detalhe
+                    icone={<ClipboardList className="h-4 w-4" />}
+                    label="Tema"
+                    valor={it.tema}
+                  />
+                  <Detalhe
+                    icone={<Users className="h-4 w-4" />}
+                    label="Público-Alvo"
+                    valor={it.publico_alvo}
+                  />
+                  <Detalhe
+                    icone={<Target className="h-4 w-4" />}
+                    label="Competências"
+                    valor={it.competencias}
+                  />
+                  <Detalhe
+                    icone={<Info className="h-4 w-4" />}
+                    label="Objetivo / Justificativa"
+                    valor={it.objetivo_justificativa}
+                    full
+                  />
+                  <Detalhe
+                    icone={<Building2 className="h-4 w-4" />}
+                    label="Observações"
+                    valor={it.observacoes}
+                    full
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                <Detalhe
-                  icone={<Layers className="h-4 w-4" />}
-                  label="Categoria"
-                  valor={it.categoria}
-                />
-                <Detalhe
-                  icone={<ClipboardList className="h-4 w-4" />}
-                  label="Tema"
-                  valor={it.tema}
-                />
-                <Detalhe
-                  icone={<Users className="h-4 w-4" />}
-                  label="Público-Alvo"
-                  valor={it.publico_alvo}
-                />
-                <Detalhe
-                  icone={<Target className="h-4 w-4" />}
-                  label="Competências a serem desenvolvidas"
-                  valor={it.competencias}
-                />
-                <Detalhe
-                  icone={<Info className="h-4 w-4" />}
-                  label="Objetivo / Justificativa"
-                  valor={it.objetivo_justificativa}
-                  full
-                />
-                <Detalhe
-                  icone={<Building2 className="h-4 w-4" />}
-                  label="Observações"
-                  valor={it.observacoes}
-                  full
-                />
+
+              {/* Certificados dos participantes */}
+              <div className="rounded-xl border border-emerald-100 bg-white p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 text-emerald-700">
+                    <Award className="h-4 w-4" />
+                    <span className="text-sm font-semibold">
+                      Certificados dos participantes
+                      {certs ? ` (${certs.length})` : ""}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onAddCert}
+                    className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                  </Button>
+                </div>
+
+                {loadingCerts ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+                  </div>
+                ) : !certs || certs.length === 0 ? (
+                  <p className="text-sm text-gray-400 py-4 text-center">
+                    Nenhum certificado lançado ainda.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {certs.map((cert) => (
+                      <li
+                        key={cert.id}
+                        className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">
+                            {cert.nome_servidor}
+                          </p>
+                          {cert.diretoria && (
+                            <p className="text-xs text-gray-500">
+                              {cert.diretoria}
+                            </p>
+                          )}
+                        </div>
+                        {cert.tem_arquivo && (
+                          <button
+                            onClick={() => onDownloadCert(cert)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            title="Baixar certificado"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onDeleteCert(cert)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          title="Remover"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+/** Autocomplete de colaborador cadastrado (nome + diretoria vêm do cadastro). */
+function ColaboradorPicker({
+  colaboradores,
+  nomeSelecionado,
+  onSelecionar,
+  onLimpar,
+}: {
+  colaboradores: Colaborador[];
+  nomeSelecionado: string;
+  onSelecionar: (c: Colaborador) => void;
+  onLimpar: () => void;
+}) {
+  const [busca, setBusca] = useState("");
+  const [aberto, setAberto] = useState(false);
+
+  const q = busca.trim().toLowerCase();
+  const filtrados = colaboradores
+    .filter((c) => !q || c.colaborador.toLowerCase().includes(q))
+    .slice(0, 50);
+
+  if (nomeSelecionado) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+        <Users className="h-4 w-4 text-blue-600 flex-shrink-0" />
+        <span className="flex-1 truncate text-blue-900">{nomeSelecionado}</span>
+        <button
+          type="button"
+          onClick={() => {
+            onLimpar();
+            setBusca("");
+          }}
+          className="text-blue-500 hover:text-red-600"
+          title="Trocar servidor"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Popover open={aberto} onOpenChange={setAberto}>
+      <PopoverAnchor asChild>
+        <Input
+          placeholder="Buscar servidor cadastrado…"
+          value={busca}
+          onChange={(e) => {
+            setBusca(e.target.value);
+            setAberto(true);
+          }}
+          onFocus={() => setAberto(true)}
+        />
+      </PopoverAnchor>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[420px] max-w-[80vw] max-h-60 overflow-y-auto p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        {colaboradores.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-gray-500">
+            Nenhum colaborador cadastrado.
+          </div>
+        ) : filtrados.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-gray-500">
+            Nenhum servidor encontrado.
+          </div>
+        ) : (
+          filtrados.map((c) => (
+            <div
+              key={c.id}
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+              onMouseDown={() => {
+                onSelecionar(c);
+                setBusca("");
+                setAberto(false);
+              }}
+            >
+              <span className="font-medium text-gray-800">{c.colaborador}</span>
+              <span className="text-gray-400">
+                {" "}
+                — {(c.diretoria as unknown as string) || "—"}
+              </span>
+            </div>
+          ))
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

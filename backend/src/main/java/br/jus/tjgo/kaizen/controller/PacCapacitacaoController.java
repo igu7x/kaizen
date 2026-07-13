@@ -55,4 +55,42 @@ public class PacCapacitacaoController {
         }
         return ResponseEntity.ok(Map.of("message", "Item excluído com sucesso"));
     }
+
+    // ============================================================
+    // CERTIFICADOS DOS PARTICIPANTES
+    // ============================================================
+
+    @GetMapping("/{id:\\d+}/certificados")
+    public List<Map<String, Object>> listCertificados(@PathVariable long id) {
+        return service.listCertificados(id);
+    }
+
+    @PostMapping("/{id:\\d+}/certificados")
+    public ResponseEntity<?> addCertificado(@PathVariable long id, @RequestBody Map<String, Object> body) {
+        if (service.getById(id) == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Item não encontrado"));
+        }
+        Object nome = body.get("nome_servidor");
+        if (nome == null || String.valueOf(nome).isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Informe o nome do servidor"));
+        }
+        return ResponseEntity.status(201).body(service.addCertificado(id, body));
+    }
+
+    @GetMapping("/certificados/{certId:\\d+}/arquivo")
+    public ResponseEntity<?> getCertificadoArquivo(@PathVariable long certId) {
+        Map<String, Object> arquivo = service.getCertificadoArquivo(certId);
+        if (arquivo == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Certificado não encontrado"));
+        }
+        return ResponseEntity.ok(arquivo);
+    }
+
+    @DeleteMapping("/certificados/{certId:\\d+}")
+    public ResponseEntity<?> deleteCertificado(@PathVariable long certId) {
+        if (!service.deleteCertificado(certId)) {
+            return ResponseEntity.status(404).body(Map.of("error", "Certificado não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("message", "Certificado excluído com sucesso"));
+    }
 }

@@ -26,9 +26,12 @@ public class PacCapacitacaoService {
 
     public List<Map<String, Object>> list(String modulo) {
         return jdbc.queryForList(
-                "SELECT * FROM pac_capacitacao " +
-                        "WHERE modulo = ? AND is_deleted = FALSE " +
-                        "ORDER BY codigo NULLS LAST, id",
+                "SELECT p.*, " +
+                        "  (SELECT COUNT(*) FROM pac_capacitacao_certificados c " +
+                        "   WHERE c.capacitacao_id = p.id AND c.is_deleted = FALSE) AS certificados_count " +
+                        "FROM pac_capacitacao p " +
+                        "WHERE p.modulo = ? AND p.is_deleted = FALSE " +
+                        "ORDER BY p.codigo NULLS LAST, p.id",
                 modulo == null || modulo.isBlank() ? "ti" : modulo);
     }
 
@@ -83,6 +86,63 @@ public class PacCapacitacaoService {
                 "UPDATE pac_capacitacao SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP " +
                         "WHERE id = ? AND is_deleted = FALSE", id);
         return n > 0;
+    }
+
+    // ============================================================
+    // CERTIFICADOS DOS PARTICIPANTES
+    // ============================================================
+
+    /** Lista os certificados de um item (sem o base64 do arquivo, só metadados). */
+    public List<Map<String, Object>> listCertificados(long capacitacaoId) {
+        return jdbc.queryForList(
+                "SELECT id, capacitacao_id, colaborador_id, nome_servidor, diretoria, " +
+                        "       arquivo_nome, (arquivo_data IS NOT NULL) AS tem_arquivo, created_at " +
+                        "FROM pac_capacitacao_certificados " +
+                        "WHERE capacitacao_id = ? AND is_deleted = FALSE " +
+                        "ORDER BY created_at, id",
+                capacitacaoId);
+    }
+
+    @Transactional
+    public Map<String, Object> addCertificado(long capacitacaoId, Map<String, Object> body) {
+        Long id = jdbc.queryForObject(
+                "INSERT INTO pac_capacitacao_certificados " +
+                        "(capacitacao_id, colaborador_id, nome_servidor, diretoria, arquivo_nome, arquivo_data) " +
+                        "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                Long.class,
+                capacitacaoId,
+                body.get("colaborador_id") == null ? null : Long.valueOf(String.valueOf(body.get("colaborador_id"))),
+                str(body.get("nome_servidor")),
+                blankToNull(str(body.get("diretoria"))),
+                blankToNull(str(body.get("arquivo_nome"))),
+                blankToNull(str(body.get("arquivo_data"))));
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT id, capacitacao_id, colaborador_id, nome_servidor, diretoria, " +
+                        "       arquivo_nome, (arquivo_data IS NOT NULL) AS tem_arquivo, created_at " +
+                        "FROM pac_capacitacao_certificados WHERE id = ?",
+                id);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Retorna o arquivo (data URL base64) de um certificado, para download. */
+    public Map<String, Object> getCertificadoArquivo(long certId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT arquivo_nome, arquivo_data FROM pac_capacitacao_certificados " +
+                        "WHERE id = ? AND is_deleted = FALSE",
+                certId);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Transactional
+    public boolean deleteCertificado(long certId) {
+        int n = jdbc.update(
+                "UPDATE pac_capacitacao_certificados SET is_deleted = TRUE " +
+                        "WHERE id = ? AND is_deleted = FALSE", certId);
+        return n > 0;
+    }
+
+    private String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
     }
 
     /** numero_vagas é INTEGER; os demais são texto. Strings vazias viram NULL. */
