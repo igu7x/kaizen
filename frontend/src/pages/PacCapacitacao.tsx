@@ -690,8 +690,8 @@ export default function PacCapacitacao({
               {certDialogItem.evento_capacitacao}
             </p>
           )}
-          <div className="space-y-4 py-1">
-            <div>
+          <div className="space-y-4 py-1 min-w-0">
+            <div className="min-w-0">
               <Label className="mb-1.5 block">
                 Servidor <span className="text-red-500">*</span>
               </Label>
