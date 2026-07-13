@@ -1130,22 +1130,18 @@ function ColaboradorPicker({
   return (
     <div className="relative">
       <Input
-        placeholder="Buscar servidor cadastrado…"
+        placeholder="Digite o nome do servidor…"
         value={busca}
         onChange={(e) => {
           setBusca(e.target.value);
           setAberto(true);
         }}
-        onFocus={() => setAberto(true)}
         onBlur={() => setTimeout(() => setAberto(false), 150)}
       />
-      {aberto && (
+      {/* Só mostra a lista quando o usuário começa a digitar. */}
+      {aberto && q.length > 0 && (
         <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
-          {colaboradores.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-gray-500">
-              Nenhum colaborador cadastrado.
-            </div>
-          ) : filtrados.length === 0 ? (
+          {filtrados.length === 0 ? (
             <div className="px-3 py-2 text-sm text-gray-500">
               Nenhum servidor encontrado.
             </div>
