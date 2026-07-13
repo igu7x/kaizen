@@ -726,7 +726,10 @@ export default function PacCapacitacao({
               {certForm.arquivo_data ? (
                 <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
                   <FileText className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                  <span className="flex-1 truncate text-emerald-900">
+                  <span
+                    className="flex-1 min-w-0 truncate text-emerald-900"
+                    title={certForm.arquivo_nome}
+                  >
                     {certForm.arquivo_nome}
                   </span>
                   <button
@@ -738,7 +741,7 @@ export default function PacCapacitacao({
                         arquivo_nome: "",
                       }))
                     }
-                    className="text-emerald-600 hover:text-red-600"
+                    className="text-emerald-600 hover:text-red-600 flex-shrink-0"
                     title="Remover"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1116,14 +1119,19 @@ function ColaboradorPicker({
     return (
       <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
         <Users className="h-4 w-4 text-blue-600 flex-shrink-0" />
-        <span className="flex-1 truncate text-blue-900">{nomeSelecionado}</span>
+        <span
+          className="flex-1 min-w-0 truncate text-blue-900"
+          title={nomeSelecionado}
+        >
+          {nomeSelecionado}
+        </span>
         <button
           type="button"
           onClick={() => {
             onLimpar();
             setBusca("");
           }}
-          className="text-blue-500 hover:text-red-600"
+          className="text-blue-500 hover:text-red-600 flex-shrink-0"
           title="Trocar servidor"
         >
           <Trash2 className="h-4 w-4" />
