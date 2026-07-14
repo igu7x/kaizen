@@ -51,8 +51,8 @@ export type PapelCiclo =
 /** Estados da esteira de Formação (RF-19/21 → publicação). */
 export type EstadoFormacao =
   | "aberto_aguardando_proad"
-  | "em_consulta"
-  | "retorno_areas"
+  | "em_consulta_1"
+  | "em_consulta_2"
   | "consolidacao_cca"
   | "validacao_gejut"
   | "apreciacao_sgjt"

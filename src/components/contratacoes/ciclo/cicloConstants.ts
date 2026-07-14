@@ -13,25 +13,10 @@ export const NOS_FORMACAO: CicloTimelinePerna[] = [
     nodes: [
       { area: "CCA", fase: "Abertura", data: "31/01" },
       { area: "Demandantes", fase: "Consulta", data: "28/02" },
-      { area: "CCA · GEJUT", fase: "Consolidação", data: "07/03" },
-      { area: "SGJT", fase: "Apreciação", data: "15/03" },
-      { area: "CGTIC · CGovTIC", fase: "Comitês", data: "25/03" },
-      { area: "SGJT", fase: "Autorização", data: "até 31/03", soft: true },
-      { area: "CCA · GEJUT → DG", fase: "Remessa V1", data: "31/03" },
-    ],
-  },
-  {
-    label: "Revisão e publicação",
-    nodes: [
-      { area: "Demandantes", fase: "Janela de Revisão", data: "15/05" },
-      {
-        area: "Rito de TIC (ágil)",
-        fase: "Rito Simplificado",
-        data: "15/05–31/05",
-        soft: true,
-      },
-      { area: "CCA · GEJUT → DG", fase: "Remessa Final", data: "31/05" },
-      { area: "DG", fase: "Publicação", data: "evento", soft: true, marco: true },
+      { area: "CCA · GEJUT", fase: "Consolidação", data: "15/03" },
+      { area: "SGJT", fase: "Apreciação", data: "20/03" },
+      { area: "CGovTIC", fase: "Comitês", data: "25/03" },
+      { area: "CCA", fase: "Remessa à DG", data: "31/03" },
     ],
   },
 ];

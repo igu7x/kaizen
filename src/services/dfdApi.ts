@@ -74,6 +74,7 @@ export interface Ifo {
   estado: EstadoIfo;
   valorEstimado: number | null;
   interesseRenovacao: boolean | null;
+  interesseRenovacaoConfirmado: boolean | null;
   /** RF-07 — motivo quando reclassificado (Renovação→Encerramento). */
   motivoReclassificacao: string | null;
   /** Código oficial de Item de PCA atribuído na publicação (RF-49); null antes disso. */
@@ -115,6 +116,26 @@ export interface CriarIfoRequest {
   contratos: number[];
 }
 
+export interface AtualizarIfoRequest {
+  bloco: BlocoIfo;
+  natureza?: string | null;
+  objeto?: string | null;
+  areaDemandante?: string | null;
+  unidadeId?: number | null;
+  areaId?: number | null;
+  valorEstimado?: number | null;
+  interesseRenovacao?: boolean | null;
+  description?: string | null;
+  justification?: string | null;
+  process?: string | null;
+  financialResourceType?: string | null;
+  contractType?: string | null;
+  formalizedValueCents?: number | null;
+  idCadastrosAreas?: number | null;
+  priority?: string | null;
+  estimatedDate?: string | null;
+}
+
 export const ifoApi = {
   /** Lista os IFOs de um ano (e opcionalmente de um ciclo). */
   listar(ano: number, cicloId?: number, minhasDemandas?: boolean): Promise<Ifo[]> {
@@ -140,6 +161,16 @@ export const ifoApi = {
     return apiClient.post<Ifo>("/api/ifo", req);
   },
 
+  /** Atualiza os atributos de um IFO. Requer tag de edição correspondente ao estado. */
+  atualizar(id: number, req: AtualizarIfoRequest): Promise<Ifo> {
+    return apiClient.put<Ifo>(`/api/ifo/${id}`, req);
+  },
+
+  /** Atualiza a lista de contratos vinculados a um IFO. Requer tag de edição. */
+  atualizarContratos(id: number, contratosIds: number[]): Promise<Ifo> {
+    return apiClient.put<Ifo>(`/api/ifo/${id}/contratos`, contratosIds);
+  },
+
   /** RF-26 — envia o IFO à CCA. */
   enviarCca(id: number): Promise<Ifo> {
     return apiClient.post<Ifo>(`/api/ifo/${id}/enviar-cca`);
@@ -150,7 +181,7 @@ export const ifoApi = {
     return apiClient.patch<Ifo>(`/api/ifo/${id}/interesse-renovacao`, { interesse, motivo });
   },
 
-  /** Remove um IFO em rascunho. */
+  /** Remove um IFO. Requer tag de exclusão correspondente ao estado atual. */
   excluir(id: number): Promise<void> {
     return apiClient.delete<void>(`/api/ifo/${id}`);
   },

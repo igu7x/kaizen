@@ -48,9 +48,9 @@ import { EditoresPanel } from "@/components/contratacoes/ciclo/EditoresPanel";
 
 /** Índice do nó ativo na timeline da Formação (11 nós) a partir do estado do ciclo. */
 const IDX_FORMACAO: Record<string, number> = {
-  aberto_aguardando_proad: 0,
-  em_consulta: 1,
-  retorno_areas: 2,
+  aberto: 0,
+  em_consulta_1: 1,
+  em_consulta_2: 1,
   consolidacao_cca: 2,
   validacao_gejut: 2,
   apreciacao_sgjt: 3,
@@ -72,10 +72,10 @@ const IDX_REVISAO: Record<string, number> = {
 };
 
 const ESTADO_LABEL: Record<string, string> = {
-  aberto_aguardando_proad: "Aberto · aguardando PROAD",
-  em_consulta: "Em consulta",
-  retorno_areas: "Retorno das áreas",
-  consolidacao_cca: "Consolidação (CCA)",
+  aberto: "Janela Inicial (DFD-Consulta)",
+  em_consulta_1: "Consulta (1ª Validação)",
+  em_consulta_2: "Consulta (2ª Validação)",
+  consolidacao_cca: "Consolidação DFD-Sistematização",
   validacao_gejut: "Validação (GEJUT)",
   apreciacao_sgjt: "Apreciação (SGJT)",
   em_comites: "Em comitês",
@@ -93,9 +93,9 @@ function estadoLabel(e?: string | null): string {
 
 /** RNF-04/07 — ator responsável em cada estado da esteira (quem age agora). */
 const ATOR_ESTADO: Record<string, string> = {
-  aberto_aguardando_proad: "CCA",
-  em_consulta: "Demandantes",
-  retorno_areas: "Demandantes",
+  aberto: "CCA",
+  em_consulta_1: "Demandantes",
+  em_consulta_2: "Demandantes",
   consolidacao_cca: "CCA",
   validacao_gejut: "GEJUT",
   apreciacao_sgjt: "SGJT",
@@ -321,7 +321,11 @@ export default function CicloOrcamentario() {
             onClick={abrirFormacao}
             icon={<Plus className="h-6 w-6" />}
             iconClass="bg-blue-50 text-blue-700"
-            titulo={`Formação PCA – ${anoFormacao}`}
+            titulo={
+              entrada?.formacao?.estado === "publicado"
+                ? `Revisão PCA ${anoFormacao}`
+                : `Formação PCA – ${anoFormacao}`
+            }
             descricao={`Elaboração do plano do próximo exercício. Aberta automaticamente na virada de 1º de janeiro. Gera a Versão 1 de ${anoFormacao}.`}
             metas={[
               {
@@ -330,9 +334,13 @@ export default function CicloOrcamentario() {
                   : "Aberto · aguardando PROAD",
                 tom: "blue",
               },
-              { texto: "rito ordinário · 31/01–31/05", tom: "plain" },
+              { texto: "rito ordinário · 31/01–31/03", tom: "plain" },
             ]}
-            cta="Abrir formação"
+            cta={
+              entrada?.formacao?.estado === "publicado"
+                ? "Abrir revisão"
+                : "Abrir formação"
+            }
           />
           <EntryCard
             selecionado={finalidade === "revisao"}

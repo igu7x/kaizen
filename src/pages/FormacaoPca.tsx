@@ -3,7 +3,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, Plus, ExternalLink, CheckCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, Plus, ExternalLink, CheckCheck, Pencil, Trash2, Link as LinkIcon, AlertTriangle, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { CicloTimeline } from "@/components/contratacoes/ciclo/CicloTimeline";
@@ -14,62 +14,59 @@ import { ifoApi, type Ifo } from "@/services/dfdApi";
 import { Contract } from "@/types";
 import { formatCurrency } from "@/services/pcaApi";
 import { DialogNovoIfo } from "@/components/ciclo/DialogNovoIfo";
+import { DialogEditarIfo } from "@/components/ciclo/DialogEditarIfo";
+import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContratos";
 import { FaseBanner } from "@/components/ciclo/FaseBanner";
 import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const IDX_FORMACAO: Record<string, number> = {
   aguardando_proad: 0,
   aberto_aguardando_proad: 0,
   aberto: 0,
-  em_consulta: 1,
-  retorno_areas: 2,
+  em_consulta_1: 1,
+  em_consulta_2: 1,
   consolidacao_cca: 2,
   validacao_gejut: 2,
   apreciacao_sgjt: 3,
   em_comites: 4,
-  autorizado: 5,
-  ajuste_pre_publicacao: 7,
-  remessa_dg: 9,
-  publicado: 10,
+  remessa_dg: 5,
+  publicado: 5,
 };
 
 const PROXIMO_ATOR_LABELS: Record<string, string> = {
   aberto: "Encaminhar à Consulta",
-  em_consulta: "Encaminhar ao Retorno das áreas",
-  retorno_areas: "Encaminhar à Consolidação",
+  em_consulta_1: "Encaminhar à 2° Validação",
+  em_consulta_2: "Enviar à Consolidação",
   consolidacao_cca: "Encaminhar à Validação (GEJUT)",
   validacao_gejut: "Encaminhar à Apreciação",
   apreciacao_sgjt: "Encaminhar aos Comitês",
-  em_comites: "Encaminhar para Autorização",
-  autorizado: "Encaminhar para Ajuste pré-publicação",
-  ajuste_pre_publicacao: "Encaminhar para Remessa (DG)",
-  remessa_dg: "Publicar (DG)",
+  em_comites: "Encaminhar para Remessa à DG",
+  remessa_dg: "Publicar",
 };
 
 const TAG_POR_ESTADO: Record<string, string> = {
   aberto: "PCA_ENCAMINHAR_CONSULTA",
+  em_consulta_1: "PCA_VALIDAR_DEMANDA_1_CAMADA",
+  em_consulta_2: "PCA_VALIDAR_DEMANDA_2_CAMADA",
   consolidacao_cca: "PCA_CONSOLIDAR_ENCAMINHAR_GEJUT",
   validacao_gejut: "PCA_ENCAMINHAR_SGJT",
   apreciacao_sgjt: "PCA_PAUTAR_COMITES",
   em_comites: "PCA_AUTORIZAR_COMITES",
-  autorizado: "PCA_INSTRUIR_PRODUTO_FINAL",
-  ajuste_pre_publicacao: "PCA_REMETER_DG",
-  remessa_dg: "PCA_REGISTRAR_PUBLICACAO",
+  remessa_dg: "PCA_REMETER_DG",
 };
 
 const TAGS_ACESSO_POR_ESTADO: Record<string, string[]> = {
   aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
   aberto_aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
   aberto: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
-  em_consulta: ["PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO"],
-  retorno_areas: ["PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"],
+  em_consulta_1: ["PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO"],
+  em_consulta_2: ["PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO"],
   consolidacao_cca: ["PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"],
   validacao_gejut: ["PCA_ENCAMINHAR_SGJT"],
   apreciacao_sgjt: ["PCA_PAUTAR_COMITES"],
   em_comites: ["PCA_AUTORIZAR_COMITES"],
-  autorizado: ["PCA_INSTRUIR_PRODUTO_FINAL"],
-  ajuste_pre_publicacao: ["PCA_REMETER_DG"],
-  remessa_dg: ["PCA_REGISTRAR_PUBLICACAO"],
+  remessa_dg: ["PCA_REMETER_DG"],
   publicado: [], // Sem restrição
 };
 
@@ -132,15 +129,22 @@ export default function FormacaoPca() {
   const [proadInput, setProadInput] = useState("");
 
   // Dados dos blocos
+  const [ifosEncerramento, setIfosEncerramento] = useState<Ifo[]>([]);
   const [ifosRenovacao, setIfosRenovacao] = useState<Ifo[]>([]);
+  const [ifosPlurianual, setIfosPlurianual] = useState<Ifo[]>([]);
   const [allContracts, setAllContracts] = useState<Contract[]>([]);
   const [ifos, setIfos] = useState<Ifo[]>([]);
   const [loadingBlocos, setLoadingBlocos] = useState(false);
   const [isNovoIfoOpen, setIsNovoIfoOpen] = useState(false);
-  
+
+  // Modals de edição
+  const [ifoEditing, setIfoEditing] = useState<Ifo | null>(null);
+  const [ifoLinking, setIfoLinking] = useState<Ifo | null>(null);
+  const [ifoDeleting, setIfoDeleting] = useState<Ifo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Publicação DG
   const [isPublicarOpen, setIsPublicarOpen] = useState(false);
-  const [dataPublicacao, setDataPublicacao] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -166,8 +170,8 @@ export default function FormacaoPca() {
     if (!ciclo) return;
     setLoadingBlocos(true);
     try {
-      // Se o ciclo está na fase de "em_consulta", restringimos a visibilidade
-      const isEmConsulta = ciclo.estado === "em_consulta";
+      // Se o ciclo está na fase de Consulta, restringimos a visibilidade
+      const isEmConsulta = ciclo.estado === "em_consulta_1" || ciclo.estado === "em_consulta_2";
 
       const fetchedContracts = await contractsApi.getContracts({
         minhasDemandas: isEmConsulta ? true : undefined
@@ -175,9 +179,15 @@ export default function FormacaoPca() {
       setAllContracts(fetchedContracts);
 
       const ifosData = await ifoApi.listar(anoFormacao, ciclo.id, isEmConsulta ? true : undefined);
-      
+
+      const emEncerramento = ifosData.filter((i) => i.bloco === "encerramento");
+      setIfosEncerramento(emEncerramento);
+
       const emRenovacao = ifosData.filter((i) => i.bloco === "renovacao");
       setIfosRenovacao(emRenovacao);
+
+      const emPlurianual = ifosData.filter((i) => i.bloco === "plurianual");
+      setIfosPlurianual(emPlurianual);
 
       const novasContratacoes = ifosData.filter((i) => i.bloco === "nova_contratacao");
       setIfos(novasContratacoes);
@@ -256,17 +266,54 @@ export default function FormacaoPca() {
   const formacaoEstado = ciclo?.finalidade === "formacao" ? ciclo.estado : null;
   const aguardandoProad = (formacaoEstado === "aguardando_proad" || formacaoEstado === "aberto_aguardando_proad") && !ciclo?.proad;
 
-  const isGestorCCA = (user as any)?.is_superadmin || (user?.role === "MANAGER" && user?.unidade_nome === "Coordenadoria de Contratações e Orçamento de TIC");
-  const podeAvancarParaConsulta = formacaoEstado !== "aberto" || isGestorCCA;
+  const podeAvancarParaConsulta = true; // Validação ocorre integralmente por TAG no EsteiraControls
 
   const temAcessoFaseAtual = useMemo(() => {
     if (!formacaoEstado) return false;
     if (formacaoEstado === "publicado") return true;
     if ((user as any)?.is_superadmin) return true;
-    
+
     const tagsPermitidas = TAGS_ACESSO_POR_ESTADO[formacaoEstado] || [];
     return tagsPermitidas.some(tag => user?.tags_acesso?.includes(tag));
   }, [formacaoEstado, user]);
+
+  const hasEditTag = (prefix: string) => {
+    if (!formacaoEstado) return false;
+    if (formacaoEstado === "publicado") return false;
+    if ((user as any)?.is_superadmin) return true;
+    const estadoMap = formacaoEstado === "aberto_aguardando_proad" ? "AGUARDANDO_PROAD" : formacaoEstado.toUpperCase();
+    const tagNecessaria = `PCA_${prefix}_${estadoMap}`;
+    return user?.tags_acesso?.includes(tagNecessaria) ?? false;
+  };
+
+  const podeEditarIfo = hasEditTag("MODIFICAR_IFO");
+  const podeVincularContratos = hasEditTag("VINCULAR_CONTRATOS");
+  const podeDeletarIfo = hasEditTag("DELETAR_IFO");
+
+  const handleDeleteIfo = async () => {
+    if (!ifoDeleting) return;
+    setIsDeleting(true);
+    try {
+      await ifoApi.excluir(ifoDeleting.id);
+      toast.success("IFO excluído com sucesso.");
+      setIfoDeleting(null);
+      loadBlocos();
+    } catch {
+      toast.error("Não foi possível excluir o IFO. Verifique as dependências.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDefinirInteresse = async (ifoId: number, interesse: boolean) => {
+    try {
+      await ifoApi.definirInteresseRenovacao(ifoId, interesse);
+      toast.success(interesse ? "Renovação confirmada." : "IFO movido para Encerramento.");
+      loadBlocos();
+    } catch {
+      toast.error("Erro ao registrar interesse na renovação.");
+    }
+  };
 
   return (
     <Layout>
@@ -409,88 +456,54 @@ export default function FormacaoPca() {
                       </div>
                     )}
 
-                    {/* Fase: Comitês (CGTIC · CGovTIC) */}
+                    {/* Fase: Comitês e Autorização (CGTIC · CGovTIC · SGJT) */}
                     {formacaoEstado === "em_comites" && ciclo.proad && (
                       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-semibold text-slate-800">
-                            Deliberação nos Comitês
+                            Deliberação nos Comitês e Autorização
                           </h3>
                         </div>
                         <p className="text-xs text-slate-500 mb-3">
-                          As atas de deliberação dos comitês CGTIC e CGovTIC devem ser juntadas ao PROAD.
+                          Os comitês CGTIC e CGovTIC deliberam e autorizam o DFD. As atas de deliberação devem ser juntadas ao PROAD. Instrua também o produto final do DFD nesta fase.
                         </p>
                         <div className="text-xs text-slate-400 italic mb-2">
                           As atas são registradas diretamente no PROAD (ato externo ao Kaizen).
                         </div>
-                        <CampoLinkProad
-                          cicloId={ciclo.id}
-                          campo="proad_ata_comites"
-                          valorOriginal={ciclo.proadAtaComites}
-                          estadoAtual={formacaoEstado}
-                          estadoEditavel="em_comites"
-                          label="PROAD da Ata dos Comitês"
-                          onSaved={(c) => setCiclo(c)}
-                        />
-                      </div>
-                    )}
-
-                    {/* Fase: Autorizado / Ajuste pré-publicação (Remessa V1) */}
-                    {(formacaoEstado === "autorizado" || formacaoEstado === "ajuste_pre_publicacao") && ciclo.proad && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-slate-800">
-                            {formacaoEstado === "autorizado" ? "Produto final do DFD" : "Ajuste pré-publicação"}
-                          </h3>
+                        <div className="flex flex-col gap-2">
+                          <CampoLinkProad
+                            cicloId={ciclo.id}
+                            campo="proad_ata_comites"
+                            valorOriginal={ciclo.proadAtaComites}
+                            estadoAtual={formacaoEstado}
+                            estadoEditavel="em_comites"
+                            label="PROAD da Ata dos Comitês"
+                            onSaved={(c) => setCiclo(c)}
+                          />
+                          <CampoLinkProad
+                            cicloId={ciclo.id}
+                            campo="proad_produto_final"
+                            valorOriginal={ciclo.proadProdutoFinal}
+                            estadoAtual={formacaoEstado}
+                            estadoEditavel="em_comites"
+                            label="PROAD do Produto Final"
+                            onSaved={(c) => setCiclo(c)}
+                          />
                         </div>
-                        <p className="text-xs text-slate-500 mb-2">
-                          {formacaoEstado === "autorizado"
-                            ? "O DFD foi autorizado pelos comitês. Instrua o produto final no PROAD e encaminhe para ajuste pré-publicação."
-                            : "Realize os ajustes finais no PROAD antes da remessa à Diretoria-Geral."}
-                        </p>
-                        <CampoLinkProad
-                          cicloId={ciclo.id}
-                          campo="proad_produto_final"
-                          valorOriginal={ciclo.proadProdutoFinal}
-                          estadoAtual={formacaoEstado}
-                          estadoEditavel="autorizado"
-                          label="PROAD do Produto Final"
-                          onSaved={(c) => setCiclo(c)}
-                        />
                       </div>
                     )}
 
-                    {/* Fase: Remessa DG */}
+                    {/* Fase: Remessa à DG */}
                     {formacaoEstado === "remessa_dg" && ciclo.proad && (
                       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-semibold text-slate-800">
-                            Publicação no DOU
+                            Remessa à Diretoria-Geral
                           </h3>
                         </div>
                         <p className="text-xs text-slate-500 mb-2">
-                          A publicação foi realizada no PROAD pela Diretoria-Geral. Informe os links abaixo antes de registrar a publicação.
+                          O DFD foi remetido à Diretoria-Geral. Utilize o botão "Publicar" para registrar a publicação oficial do PCA-TIC {anoFormacao}.
                         </p>
-                        <div className="flex flex-col gap-2">
-                          <CampoLinkProad
-                            cicloId={ciclo.id}
-                            campo="proad_publicacao"
-                            valorOriginal={ciclo.proadPublicacao}
-                            estadoAtual={formacaoEstado}
-                            estadoEditavel="remessa_dg"
-                            label="PROAD da Publicação"
-                            onSaved={setCiclo}
-                          />
-                          <CampoLinkProad
-                            cicloId={ciclo.id}
-                            campo="link_dou"
-                            valorOriginal={ciclo.linkDou}
-                            estadoAtual={formacaoEstado}
-                            estadoEditavel="remessa_dg"
-                            label="Link DOU"
-                            onSaved={setCiclo}
-                          />
-                        </div>
                       </div>
                     )}
 
@@ -499,31 +512,11 @@ export default function FormacaoPca() {
                       <div className="rounded-xl border border-green-200 bg-green-50/50 p-6 shadow-sm text-center flex flex-col items-center">
                         <CheckCheck className="h-10 w-10 text-green-500 mb-3" />
                         <h3 className="text-lg font-semibold text-slate-800 mb-1">
-                          PCA-TIC {anoFormacao} — Versão 1 publicada
+                          PCA-TIC {anoFormacao} — Publicado
                         </h3>
-                        <p className="text-sm text-slate-600 mb-4 max-w-md">
+                        <p className="text-sm text-slate-600 max-w-md">
                           O Documento de Formalização da Demanda foi concluído e o PCA-TIC foi publicado. A versão está congelada.
                         </p>
-                        <div className="flex flex-col gap-2 items-center text-left w-full max-w-sm bg-white p-4 rounded-lg border border-green-100">
-                          <CampoLinkProad
-                            cicloId={ciclo.id}
-                            campo="proad_publicacao"
-                            valorOriginal={ciclo.proadPublicacao}
-                            estadoAtual={formacaoEstado}
-                            estadoEditavel="NONE"
-                            label="PROAD da Publicação"
-                            onSaved={(c) => setCiclo(c)}
-                          />
-                          <CampoLinkProad
-                            cicloId={ciclo.id}
-                            campo="link_dou"
-                            valorOriginal={ciclo.linkDou}
-                            estadoAtual={formacaoEstado}
-                            estadoEditavel="NONE"
-                            label="Link DOU"
-                            onSaved={(c) => setCiclo(c)}
-                          />
-                        </div>
                       </div>
                     )}
 
@@ -544,95 +537,134 @@ export default function FormacaoPca() {
         {/* Blocos só aparecem se já tiver PROAD instruído (ou seja, se a consulta foi liberada) e se tiver acesso à fase atual */}
         {ciclo && ciclo.proad && temAcessoFaseAtual && (
           <div className="space-y-8 mt-8">
-            {/* Bloco 1: Renovação */}
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between border-b bg-slate-50 px-5 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                    Bloco 1
-                  </span>
-                  <h2 className="text-base font-semibold text-slate-800">Renovação</h2>
-                </div>
-                <span className="text-sm text-slate-500 font-medium">
-                  {ifosRenovacao.length} {ifosRenovacao.length === 1 ? 'IFO' : 'IFOs'}
-                </span>
-              </div>
-              <div className="p-0">
-                {loadingBlocos ? (
-                  <div className="p-8 flex justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            {/* Helper para renderizar blocos continuados */}
+            {(() => {
+              const renderBlocoContinuado = (
+                titulo: string,
+                numeroBloco: number,
+                ifosList: Ifo[],
+                corTexto: string,
+                corBg: string
+              ) => (
+                <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between border-b bg-slate-50 px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-sm font-semibold ${corTexto} ${corBg} px-2 py-0.5 rounded`}>
+                        Bloco {numeroBloco}
+                      </span>
+                      <h2 className="text-base font-semibold text-slate-800">{titulo}</h2>
+                    </div>
+                    <span className="text-sm text-slate-500 font-medium">
+                      {ifosList.length} {ifosList.length === 1 ? 'IFO' : 'IFOs'}
+                    </span>
                   </div>
-                ) : ifosRenovacao.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-slate-500">
-                    Nenhum IFO de renovação encontrado para {anoFormacao}.
-                  </div>
-                ) : (
-                  <div className="p-4 space-y-6">
-                    {ifosRenovacao.map((ifo) => (
-                      <div key={ifo.id} className="border border-slate-200 rounded-lg overflow-hidden">
-                        {/* IFO Header */}
-                        <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
-                          <div className="flex flex-col">
-                            <span className="font-mono text-sm font-semibold text-slate-700">{ifo.codigo}</span>
-                            <span className="text-sm text-slate-900 font-medium">{ifo.objeto || "-"}</span>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-slate-600">
-                            <span>área <b className="text-slate-800">{ifo.areaDemandante || "-"}</b></span>
-                            <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado ? ifo.valorEstimado * 100 : 0)}</span>
-                          </div>
-                        </div>
-                        {/* Contratos Table */}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm text-left">
-                            <thead className="bg-white border-b text-slate-500">
-                              <tr>
-                                <th className="px-4 py-2 font-medium">Contrato</th>
-                                <th className="px-4 py-2 font-medium">Natureza</th>
-                                <th className="px-4 py-2 font-medium">Nat. despesa</th>
-                                <th className="px-4 py-2 font-medium text-right">Valor anual</th>
-                                <th className="px-4 py-2 font-medium">Vigência</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {ifo.contratos && ifo.contratos.map((contractId) => {
-                                const c = allContracts.find(ac => ac.id === contractId);
-                                if (!c) return null;
-                                return (
-                                  <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono">
-                                      {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
-                                    </td>
-                                    <td className="px-4 py-2 text-slate-600">
-                                      continuada
-                                    </td>
-                                    <td className="px-4 py-2 text-slate-600">
-                                      {(c as any).expenseNature || "-"}
-                                    </td>
-                                    <td className="px-4 py-2 text-right text-slate-700 font-medium">
-                                      {formatCurrency(c.totalValueCents || 0)}
-                                    </td>
-                                    <td className="px-4 py-2 text-slate-600">
-                                      {c.endDate ? `até ${new Date(c.endDate).toLocaleDateString('pt-BR')}` : "-"}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                  <div className="p-0">
+                    {loadingBlocos ? (
+                      <div className="p-8 flex justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                       </div>
-                    ))}
+                    ) : ifosList.length === 0 ? (
+                      <div className="p-8 text-center text-sm text-slate-500">
+                        Nenhum IFO de {titulo.toLowerCase()} encontrado para {anoFormacao}.
+                      </div>
+                    ) : (
+                      <div className="p-4 space-y-6">
+                        {ifosList.map((ifo) => (
+                          <div key={ifo.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                            <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+                              <div className="flex flex-col">
+                                <span className="font-mono text-sm font-semibold text-slate-700">{ifo.codigo}</span>
+                                <span className="text-sm text-slate-900 font-medium">{ifo.objeto || "-"}</span>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-slate-600">
+                                <span><b className="text-slate-800">{ifo.areaDemandante || "-"}</b></span>
+                                <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado ? ifo.valorEstimado * 100 : 0)}</span>
+                                <div className="flex items-center gap-1">
+                                  {ifo.bloco === "renovacao" && !ifo.interesseRenovacaoConfirmado && podeEditarIfo ? (
+                                    <div className="flex items-center gap-2 mr-2 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                                      <span className="text-xs font-medium text-blue-800">Pretende renovar?</span>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-100" onClick={() => handleDefinirInteresse(ifo.id, true)}>
+                                        <Check className="h-4 w-4" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-100" onClick={() => handleDefinirInteresse(ifo.id, false)}>
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ) : null}
+                                  {podeVincularContratos && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-blue-600" onClick={() => setIfoLinking(ifo)}>
+                                      <LinkIcon className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {podeEditarIfo && !(ifo.bloco === "renovacao" && !ifo.interesseRenovacaoConfirmado) && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-blue-600" onClick={() => setIfoEditing(ifo)}>
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {podeDeletarIfo && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-red-600" onClick={() => setIfoDeleting(ifo)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm text-left">
+                                <thead className="bg-white border-b text-slate-500">
+                                  <tr>
+                                    <th className="px-4 py-2 font-medium">Contrato</th>
+                                    <th className="px-4 py-2 font-medium">Natureza</th>
+                                    <th className="px-4 py-2 font-medium">Nat. despesa</th>
+                                    <th className="px-4 py-2 font-medium text-right">Valor anual</th>
+                                    <th className="px-4 py-2 font-medium">Vigência</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {ifo.contratos && ifo.contratos.map((contractId) => {
+                                    const c = allContracts.find(ac => ac.id === contractId);
+                                    if (!c) return null;
+                                    return (
+                                      <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono">
+                                          {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
+                                        </td>
+                                        <td className="px-4 py-2 text-slate-600">continuada</td>
+                                        <td className="px-4 py-2 text-slate-600">{(c as any).expenseNature || "-"}</td>
+                                        <td className="px-4 py-2 text-right text-slate-700 font-medium">
+                                          {formatCurrency(c.totalValueCents || 0)}
+                                        </td>
+                                        <td className="px-4 py-2 text-slate-600">
+                                          {c.endDate ? `até ${new Date(c.endDate).toLocaleDateString('pt-BR')}` : "-"}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              );
 
-            {/* Bloco 2: Nova Contratação */}
+              return (
+                <>
+                  {renderBlocoContinuado("Encerramento", 1, ifosEncerramento, "text-red-700", "bg-red-100")}
+                  {renderBlocoContinuado("Renovação", 2, ifosRenovacao, "text-blue-700", "bg-blue-100")}
+                  {renderBlocoContinuado("Plurianual", 3, ifosPlurianual, "text-purple-700", "bg-purple-100")}
+                </>
+              );
+            })()}
+            {/* Bloco 4: Nova Contratação */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
               <div className="flex items-center justify-between border-b bg-slate-50 px-5 py-3">
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                    Bloco 2
+                    Bloco 4
                   </span>
                   <h2 className="text-base font-semibold text-slate-800">Nova Contratação</h2>
                 </div>
@@ -675,8 +707,25 @@ export default function FormacaoPca() {
                               <td className="px-5 py-3 text-right text-slate-700 font-medium">
                                 {formatCurrency(ifo.valorEstimado || 0)}
                               </td>
-                              <td className="px-5 py-3 text-slate-600">
-                                {ifo.areaDemandante || "-"}
+                              <td className="px-5 py-3 text-slate-600 flex items-center justify-between">
+                                <span>{ifo.areaDemandante || "-"}</span>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {podeVincularContratos && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-blue-600" onClick={() => setIfoLinking(ifo)}>
+                                      <LinkIcon className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  {podeEditarIfo && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-blue-600" onClick={() => setIfoEditing(ifo)}>
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  {podeDeletarIfo && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-red-600" onClick={() => setIfoDeleting(ifo)}>
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -712,22 +761,21 @@ export default function FormacaoPca() {
         onSuccess={loadBlocos}
       />
 
-      {/* Modal de Publicação DG */}
+      {/* Modal de Publicação */}
       {isPublicarOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b bg-slate-50 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                📋 Registrar Publicação (DG)
+                📋 Publicar PCA-TIC {anoFormacao}
               </h2>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <p className="text-sm text-slate-600">
-                A publicação foi realizada no PROAD pela Diretoria-Geral. 
-                Confirma a publicação do PCA-TIC {anoFormacao}?
+                Confirma a publicação do PCA-TIC {anoFormacao}? O DFD será finalizado e a Versão 1 do PCA-TIC será gerada.
               </p>
-              
+
               <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm flex gap-2 items-start mt-4">
                 <span className="text-xl">⚠️</span>
                 <div>
@@ -735,19 +783,61 @@ export default function FormacaoPca() {
                 </div>
               </div>
             </div>
-            
+
             <div className="px-6 py-4 border-t bg-slate-50 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setIsPublicarOpen(false)} disabled={acaoEmCurso}>
                 Cancelar
               </Button>
-              <Button onClick={processarAvanco} disabled={acaoEmCurso || !proadPublicacao || !dataPublicacao} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button onClick={processarAvanco} disabled={acaoEmCurso} className="bg-blue-600 hover:bg-blue-700 text-white">
                 {acaoEmCurso ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Registrar Publicação
+                Publicar
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Modais de Edição e Vínculo */}
+      <DialogEditarIfo
+        open={!!ifoEditing}
+        onOpenChange={(open) => !open && setIfoEditing(null)}
+        ifo={ifoEditing}
+        onSuccess={loadBlocos}
+      />
+
+      <DialogVincularContratos
+        open={!!ifoLinking}
+        onOpenChange={(open) => !open && setIfoLinking(null)}
+        ifo={ifoLinking}
+        allContracts={allContracts}
+        onSuccess={loadBlocos}
+      />
+
+      {/* Modal de Confirmação de Exclusão */}
+      <Dialog open={!!ifoDeleting} onOpenChange={(open) => !open && setIfoDeleting(null)}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription className="text-slate-500">
+              Tem certeza que deseja excluir o IFO <span className="font-semibold text-slate-700">{ifoDeleting?.codigo}</span>?
+              <br /><br />
+              Esta ação é irreversível e o item será removido permanentemente do planejamento.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIfoDeleting(null)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button onClick={handleDeleteIfo} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

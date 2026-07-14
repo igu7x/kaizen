@@ -6,10 +6,8 @@ import {
   Scale,
   Gavel,
   ShieldCheck,
-  PackageCheck,
   Truck,
   Globe,
-  CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,11 +62,11 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
       atorText: "text-blue-700",
     },
   },
-  em_consulta: {
+  em_consulta_1: {
     icon: Users,
-    titulo: "Consulta às áreas demandantes",
+    titulo: "Consulta (1ª Validação)",
     descricao:
-      "As áreas demandantes estão analisando e validando os IFOs (Itens de Formação do Orçamento) do DFD. Cada unidade deve validar suas demandas em duas camadas e remeter sua partição.",
+      "As áreas demandantes estão analisando e validando os IFOs (Itens de Formação do Orçamento) do DFD. A Validação 1 deve ser realizada pelas Unidades Descentralizadas.",
     atorLabel: "Demandantes",
     color: {
       border: "border-emerald-200",
@@ -79,12 +77,12 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
       atorText: "text-emerald-700",
     },
   },
-  retorno_areas: {
+  em_consulta_2: {
     icon: Users,
-    titulo: "Retorno das áreas — Consulta em andamento",
+    titulo: "Consulta (2ª Validação)",
     descricao:
-      "As partições estão retornando das áreas demandantes. A CCA acompanha o recebimento das remessas para dar seguimento à consolidação do DFD.",
-    atorLabel: "Demandantes → CCA",
+      "As áreas demandantes estão realizando a Validação 2 dos IFOs pelas Diretorias/Secretarias e remetendo sua partição.",
+    atorLabel: "Demandantes",
     color: {
       border: "border-emerald-200",
       bg: "bg-emerald-50/60",
@@ -141,10 +139,10 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
   },
   em_comites: {
     icon: ShieldCheck,
-    titulo: "Deliberação nos Comitês",
+    titulo: "Comitês e Autorização",
     descricao:
-      "Os comitês CGTIC e CGovTIC deliberam sobre o DFD. As atas de deliberação devem ser registradas no PROAD. Após autorização, o DFD seguirá para instrução do produto final.",
-    atorLabel: "CGTIC · CGovTIC",
+      "Os comitês CGTIC e CGovTIC deliberam e autorizam o DFD. As atas de deliberação devem ser registradas no PROAD. Instrua o produto final nesta fase antes de encaminhar para remessa à DG.",
+    atorLabel: "CGovTIC",
     color: {
       border: "border-indigo-200",
       bg: "bg-indigo-50/60",
@@ -154,42 +152,12 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
       atorText: "text-indigo-700",
     },
   },
-  autorizado: {
-    icon: PackageCheck,
-    titulo: "Produto final do DFD — Autorizado",
-    descricao:
-      "O DFD foi autorizado pelos comitês. A CCA instrui o produto final e prepara para remessa à Diretoria-Geral.",
-    atorLabel: "CCA",
-    color: {
-      border: "border-blue-200",
-      bg: "bg-blue-50/60",
-      iconBg: "bg-blue-100",
-      iconText: "text-blue-600",
-      atorBadge: "bg-blue-100",
-      atorText: "text-blue-700",
-    },
-  },
-  ajuste_pre_publicacao: {
-    icon: PackageCheck,
-    titulo: "Ajuste pré-publicação",
-    descricao:
-      "Realize os ajustes finais no DFD antes da remessa à Diretoria-Geral. Corrija eventuais erros materiais e revise a formatação.",
-    atorLabel: "CCA",
-    color: {
-      border: "border-blue-200",
-      bg: "bg-blue-50/60",
-      iconBg: "bg-blue-100",
-      iconText: "text-blue-600",
-      atorBadge: "bg-blue-100",
-      atorText: "text-blue-700",
-    },
-  },
   remessa_dg: {
     icon: Truck,
     titulo: "Remessa à Diretoria-Geral",
     descricao:
-      "O DFD foi remetido à Diretoria-Geral para publicação no DOU. Registre os dados da publicação quando concluída.",
-    atorLabel: "CCA → DG",
+      "O DFD foi remetido à Diretoria-Geral. A CCA pode publicar o PCA-TIC quando autorizada.",
+    atorLabel: "CCA",
     color: {
       border: "border-slate-300",
       bg: "bg-slate-50/60",
