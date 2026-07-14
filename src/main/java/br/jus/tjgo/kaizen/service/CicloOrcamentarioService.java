@@ -53,11 +53,10 @@ public class CicloOrcamentarioService {
         return subtipo;
     }
 
-    /** RNF-07 — esteira determinística da Formação (11 estados, RF-19..41). */
+    /** Estados possíveis do rito de formação (Especificação v2, seção 8.8.1). */
     private static final List<String> ESTADOS_FORMACAO = List.of(
-            "aguardando_proad", "aberto", "em_consulta", "retorno_areas", "consolidacao_cca",
-            "validacao_gejut", "apreciacao_sgjt", "em_comites", "autorizado",
-            "ajuste_pre_publicacao", "remessa_dg", "publicado");
+            "aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca",
+            "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg", "publicado");
 
     /** RNF-07 — esteira determinística da Revisão (rito ágil, RF-60..75). */
     private static final List<String> ESTADOS_REVISAO = List.of(
@@ -103,12 +102,7 @@ public class CicloOrcamentarioService {
      */
     private static String estadoDerivadoPorData(CicloDto ciclo, LocalDate hoje) {
         MonthDay hm = MonthDay.of(hoje.getMonthValue(), hoje.getDayOfMonth());
-        if ("formacao".equals(ciclo.finalidade())) {
-            if (("em_consulta".equals(ciclo.estado()) || "retorno_areas".equals(ciclo.estado()))
-                    && !hm.isBefore(CORTE_FORMACAO)) {
-                return "consolidacao_cca";
-            }
-        } else if ("revisao".equals(ciclo.finalidade()) && "janela_aberta".equals(ciclo.estado())) {
+        if ("revisao".equals(ciclo.finalidade()) && "janela_aberta".equals(ciclo.estado())) {
             Janela j = janelaDaVersao(ciclo.versaoGerada());
             if (j != null && j.fim() != null && hm.isAfter(j.fim())) {
                 return "em_rito_validacao";
@@ -323,17 +317,26 @@ public class CicloOrcamentarioService {
     private static final Map<String, String> PAPEL_DO_ESTADO = Map.ofEntries(
             Map.entry("aguardando_proad", "cca"),   // registrar PROAD
             Map.entry("aberto", "cca"),             // encaminhar DFD-Consulta
-            Map.entry("em_consulta", "demandante"),         // unidades preenchem/validam/remetem
-            Map.entry("retorno_areas", "demandante"),
+            Map.entry("em_consulta_1", "demandante"),         // Demandante avança para validação 2
+            Map.entry("em_consulta_2", "demandante"),       // Demandante avança para consolidação
             Map.entry("consolidacao_cca", "cca"),           // consolidar pós-demandantes → GEJUT
             Map.entry("validacao_gejut", "gejut"),          // conferir → encaminhar à SGJT
             Map.entry("apreciacao_sgjt", "sgjt"),           // emitir produto / pautar / autorizar
-            Map.entry("em_comites", "sgjt"),                // juntar atas (Editor SGJT) / autorizar
-            Map.entry("autorizado", "cca"),                 // gerar produto final + instruir
-            Map.entry("ajuste_pre_publicacao", "cca"),
-            Map.entry("remessa_dg", "cca"),                 // registrar publicação (reflete a DG externa)
+            Map.entry("em_comites", "sgjt"),                // juntar atas + autorizar (absorve etapa Autorização)
+            Map.entry("remessa_dg", "cca"),                 // publicar PCA-TIC (CCA apenas)
             Map.entry("janela_aberta", "demandante"),
             Map.entry("em_rito_validacao", "demandante"));
+
+    /**
+     * Mapeamento de máquina de estados em apoio:
+     * i. [PROAD] PCA_REGISTRAR_PROAD
+     * ii. [Abertura] PCA_ENCAMINHAR_CONSULTA
+     * iii. [Consulta] PCA_VALIDAR_DEMANDA_1_CAMADA -> PCA_VALIDAR_DEMANDA_2_CAMADA
+     * iv. [Consolidação] PCA_CONSOLIDAR_ENCAMINHAR_GEJUT -> PCA_ENCAMINHAR_SGJT
+     * v. [Apreciação] PCA_PAUTAR_COMITES
+     * vi. [comitês] PCA_AUTORIZAR_COMITES
+     * vii. [Remessa à DG] PCA_REMETER_DG
+     */
 
     /**
      * Camada D — tag de Permissão de Ação exigida para transitar A PARTIR de cada estado.
@@ -344,13 +347,13 @@ public class CicloOrcamentarioService {
     private static final Map<String, String> TAG_DO_ESTADO = Map.ofEntries(
             Map.entry("aguardando_proad",      "PCA_REGISTRAR_PROAD"),
             Map.entry("aberto",               "PCA_ENCAMINHAR_CONSULTA"),
+            Map.entry("em_consulta_1",        "PCA_VALIDAR_DEMANDA_1_CAMADA"),
+            Map.entry("em_consulta_2",        "PCA_VALIDAR_DEMANDA_2_CAMADA"),
             Map.entry("consolidacao_cca",     "PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"),
             Map.entry("validacao_gejut",      "PCA_ENCAMINHAR_SGJT"),
             Map.entry("apreciacao_sgjt",      "PCA_PAUTAR_COMITES"),
             Map.entry("em_comites",           "PCA_AUTORIZAR_COMITES"),
-            Map.entry("autorizado",           "PCA_INSTRUIR_PRODUTO_FINAL"),
-            Map.entry("ajuste_pre_publicacao", "PCA_REMETER_DG"),
-            Map.entry("remessa_dg",           "PCA_REGISTRAR_PUBLICACAO"));
+            Map.entry("remessa_dg",           "PCA_REMETER_DG"));
 
     /** Escopo (cca/demandante/gejut/sgjt) responsável por transitar a partir de um estado (tabela 8.8). */
     private static String escopoDoEstado(String estado) {
@@ -546,9 +549,7 @@ public class CicloOrcamentarioService {
         "proad_gejut",         "validacao_gejut",
         "proad_sgjt",          "apreciacao_sgjt",
         "proad_ata_comites",   "em_comites",
-        "proad_produto_final", "autorizado",
-        "proad_publicacao",    "remessa_dg",
-        "link_dou",            "remessa_dg"
+        "proad_produto_final", "em_comites"
     );
 
     private static final java.util.Set<String> CAMPOS_LINK_VALIDOS = CAMPO_LINK_POR_ESTADO.keySet();

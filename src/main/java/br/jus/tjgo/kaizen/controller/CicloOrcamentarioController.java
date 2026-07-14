@@ -124,7 +124,7 @@ public class CicloOrcamentarioController {
 
     // POST /api/ciclo-orcamentario/:id/publicar — publicação pela DG (RF-41/75)
     @PostMapping("/{id:\\d+}/publicar")
-    @TagAcao("PCA_REGISTRAR_PUBLICACAO")
+    @TagAcao("PCA_REMETER_DG")
     public CicloDto publicar(@PathVariable long id,
                              @RequestHeader(value = "x-user-id", required = false) Long userId) {
         return service.publicar(id, resolveUserId(userId));
