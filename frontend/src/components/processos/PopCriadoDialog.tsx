@@ -17,6 +17,8 @@ import {
   PopCriado,
   PopCriadoInput,
 } from "@/services/popsCriadosApi";
+import { areasApi, Area } from "@/services/areasApi";
+import { processosNegocioApi } from "@/services/processosNegocioApi";
 
 interface Props {
   open: boolean;
@@ -59,6 +61,34 @@ export function PopCriadoDialog({
   const editId = pop?.id ?? null;
   const [form, setForm] = useState<PopCriadoInput>(VAZIO);
   const [salvando, setSalvando] = useState(false);
+
+  // Opções puxadas do que já existe no sistema.
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [unidades, setUnidades] = useState<string[]>([]);
+  const [macroprocessos, setMacroprocessos] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const uniq = (arr: (string | null | undefined)[]) =>
+      Array.from(new Set(arr.filter(Boolean) as string[])).sort((a, b) =>
+        a.localeCompare(b),
+      );
+    areasApi
+      .getAll()
+      .then(setAreas)
+      .catch(() => setAreas([]));
+    areasApi
+      .getAllUnidades()
+      .then((us) => setUnidades(uniq(us.map((u) => u.nome))))
+      .catch(() => setUnidades([]));
+    processosNegocioApi
+      .getAll()
+      .then((ps) => setMacroprocessos(uniq(ps.map((p) => p.macroprocesso))))
+      .catch(() => setMacroprocessos([]));
+  }, [open]);
+
+  const siglasAreas = areas.map((a) => a.sigla).filter(Boolean) as string[];
+  const nomesAreas = areas.map((a) => a.nome).filter(Boolean) as string[];
 
   useEffect(() => {
     if (!open) return;
@@ -127,31 +157,46 @@ export function PopCriadoDialog({
                   placeholder="Ex.: Elaboração do Termo de Referência (TR)"
                 />
               </Campo>
-              <Campo label="Macroprocesso">
-                <Input
+              <Campo label="Macroprocesso" hint="digite ou selecione">
+                <ComboboxLivre
                   value={form.macroprocesso ?? ""}
-                  onChange={(e) => set("macroprocesso", e.target.value)}
+                  onChange={(v) => set("macroprocesso", v)}
+                  options={macroprocessos}
                   placeholder="Ex.: Governança"
                 />
               </Campo>
-              <Campo label="Área (sigla)">
-                <Input
+              <Campo label="Área (sigla)" hint="das áreas cadastradas">
+                <ComboboxLivre
                   value={form.area ?? ""}
-                  onChange={(e) => set("area", e.target.value)}
+                  onChange={(v) => {
+                    // Ao escolher a sigla, preenche a diretoria (nome) se estiver vazia.
+                    const area = areas.find((a) => a.sigla === v);
+                    setForm((f) => ({
+                      ...f,
+                      area: v,
+                      diretoria_orgao:
+                        area && !f.diretoria_orgao?.trim()
+                          ? area.nome
+                          : f.diretoria_orgao,
+                    }));
+                  }}
+                  options={siglasAreas}
                   placeholder="Ex.: DIJUD"
                 />
               </Campo>
-              <Campo label="Diretoria (cabeçalho)">
-                <Input
+              <Campo label="Diretoria (cabeçalho)" hint="das áreas cadastradas">
+                <ComboboxLivre
                   value={form.diretoria_orgao ?? ""}
-                  onChange={(e) => set("diretoria_orgao", e.target.value)}
+                  onChange={(v) => set("diretoria_orgao", v)}
+                  options={nomesAreas}
                   placeholder="Ex.: Diretoria Administrativa"
                 />
               </Campo>
-              <Campo label="Unidade (cabeçalho)">
-                <Input
+              <Campo label="Unidade (cabeçalho)" hint="das unidades cadastradas">
+                <ComboboxLivre
                   value={form.unidade_orgao ?? ""}
-                  onChange={(e) => set("unidade_orgao", e.target.value)}
+                  onChange={(v) => set("unidade_orgao", v)}
+                  options={unidades}
                   placeholder="Ex.: Divisão de Material e Patrimônio"
                 />
               </Campo>
@@ -274,6 +319,58 @@ export function PopCriadoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Combobox que lista opções existentes ao digitar/focar, mas aceita valor livre.
+ *  Dropdown inline (sem portal) para funcionar dentro do Dialog modal. */
+function ComboboxLivre({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const q = value.trim().toLowerCase();
+  const filtrados = options
+    .filter((o) => !q || o.toLowerCase().includes(q))
+    .slice(0, 60);
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setAberto(true);
+        }}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setTimeout(() => setAberto(false), 150)}
+        placeholder={placeholder}
+      />
+      {aberto && filtrados.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+          {filtrados.map((o) => (
+            <div
+              key={o}
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 truncate"
+              title={o}
+              onMouseDown={() => {
+                onChange(o);
+                setAberto(false);
+              }}
+            >
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
