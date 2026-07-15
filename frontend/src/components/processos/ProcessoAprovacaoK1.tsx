@@ -164,18 +164,14 @@ export function ProcessoAprovacaoK1({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        {k1 ? (
+      {k1 && (
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
             <ShieldCheck className="h-3.5 w-3.5" />
             Modelo K1
           </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-slate-50 text-slate-600 border-slate-200">
-            Ainda não é Modelo K1
-          </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {faltam.length > 0 && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
