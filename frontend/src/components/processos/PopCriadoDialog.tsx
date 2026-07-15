@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, FileText, ListChecks, CheckCircle2 } from "lucide-react";
+import { Loader2, FileText, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import {
   popsCriadosApi,
@@ -253,32 +253,6 @@ export function PopCriadoDialog({
             </div>
           </Secao>
 
-          {/* Validação */}
-          <Secao
-            icone={<CheckCircle2 className="h-4 w-4" />}
-            titulo="10. Validação"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Campo label="Proposto por">
-                <Input
-                  value={form.proposto_por ?? ""}
-                  onChange={(e) => set("proposto_por", e.target.value)}
-                />
-              </Campo>
-              <Campo label="Analisado por">
-                <Input
-                  value={form.analisado_por ?? ""}
-                  onChange={(e) => set("analisado_por", e.target.value)}
-                />
-              </Campo>
-              <Campo label="Aprovado por">
-                <Input
-                  value={form.aprovado_por ?? ""}
-                  onChange={(e) => set("aprovado_por", e.target.value)}
-                />
-              </Campo>
-            </div>
-          </Secao>
         </div>
 
         <DialogFooter>
