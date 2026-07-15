@@ -964,7 +964,7 @@ export default function EscritorioProcessos() {
     artefatoTipo === "IT"
       ? "Instruções de Trabalho"
       : artefatoTipo === "POP"
-        ? "POPs"
+        ? "POPs Anexados em Processos"
         : artefatoTipo === "MPS"
           ? "MPS"
           : "Processos";
