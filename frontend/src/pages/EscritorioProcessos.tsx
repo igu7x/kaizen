@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
+import { PopsCriadosTable } from "@/components/processos/PopsCriadosTable";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
 import { areasApi, Area, Unidade } from "@/services/areasApi";
 import { toast } from "sonner";
@@ -1859,6 +1860,13 @@ export default function EscritorioProcessos() {
             </>
           )}
         </div>
+
+        {/* Segunda tabela: POPs criados dentro do Kaizen (só no filtro POP) */}
+        {filtroArtefato === "pop" && (
+          <div className="mt-6">
+            <PopsCriadosTable areaPadrao={user?.diretoria || undefined} />
+          </div>
+        )}
       </div>
 
       {/* Diálogos */}
