@@ -7,6 +7,9 @@ import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.TagAcao;
 import br.jus.tjgo.kaizen.service.CicloOrcamentarioService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -47,6 +50,18 @@ public class CicloOrcamentarioController {
     public CicloDto proad(@PathVariable long id, @RequestBody Map<String, Object> body,
                           @RequestHeader(value = "x-user-id", required = false) Long userId) {
         return service.informarProad(id, str(body.get("proad")), resolveUserId(userId));
+    }
+
+    // GET /api/ciclo-orcamentario/formacao/{ano}/pdf — gera o pdf da proposta dfd
+    @GetMapping("/formacao/{ano:\\d+}/pdf")
+    public ResponseEntity<byte[]> gerarPdfPropostaDfd(@PathVariable int ano) {
+        byte[] pdfBytes = service.gerarPdfPropostaDfd(ano);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "Proposta_DFD_TIC_" + ano + ".pdf");
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdfBytes);
     }
 
     // POST /api/ciclo-orcamentario/revisao { ano } — obtém/abre a revisão ordinária vigente (RF-60)

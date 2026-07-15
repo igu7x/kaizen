@@ -41,5 +41,6 @@ public record IfoDto(
         String priority,
         LocalDate estimatedDate,
         
-        List<Long> contratos
+        List<Long> contratos,
+        List<IfoContratoDto> ifoContratosDetalhes
 ) {}
