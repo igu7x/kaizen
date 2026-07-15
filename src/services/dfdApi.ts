@@ -61,6 +61,12 @@ export type EstadoIfo = "rascunho" | "enviado_cca" | "consolidado" | "publicado"
 /** §8.4 — estado de validação da demanda (IFO) nas 2 camadas. */
 export type ValidacaoDemanda = "em_edicao" | "validada_1a" | "validada_2a";
 
+export interface IfoContratoDetalhe {
+  contractId: number;
+  interesseRenovacao: boolean;
+  motivoReclassificacao: string | null;
+}
+
 export interface Ifo {
   id: number;
   codigo: string;
@@ -91,6 +97,7 @@ export interface Ifo {
   priority?: string | null;
   estimatedDate?: string | null;
   contratos: number[];
+  ifoContratosDetalhes?: IfoContratoDetalhe[];
 }
 
 export interface CriarIfoRequest {
@@ -179,6 +186,11 @@ export const ifoApi = {
   /** RF-07 — interesse na renovação; "Não" reclassifica o IFO para Encerramento (com motivo). */
   definirInteresseRenovacao(id: number, interesse: boolean, motivo?: string): Promise<Ifo> {
     return apiClient.patch<Ifo>(`/api/ifo/${id}/interesse-renovacao`, { interesse, motivo });
+  },
+
+  /** Define o interesse na renovação por contrato individualmente. */
+  definirInteresseRenovacaoContrato(id: number, contractId: number, interesse: boolean, motivo?: string): Promise<Ifo> {
+    return apiClient.patch<Ifo>(`/api/ifo/${id}/contratos/${contractId}/interesse-renovacao`, { interesse, motivo });
   },
 
   /** Remove um IFO. Requer tag de exclusão correspondente ao estado atual. */

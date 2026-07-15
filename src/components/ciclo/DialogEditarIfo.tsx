@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
+
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,12 +38,16 @@ export function DialogEditarIfo({
   ifo,
   onSuccess,
 }: DialogEditarIfoProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<AtualizarIfoRequest>>({});
   
   const [diretoriasList, setDiretoriasList] = useState<Area[]>([]);
   const [unidadesList, setUnidadesList] = useState<Unidade[]>([]);
   const [displayValue, setDisplayValue] = useState("");
+
+  const hasEspecialTags = user?.tags_acesso?.some(tag => tag === "PCA_MODIFICACAO_ESPECIAL" || tag === "PCA_MODIFICACAO_CCA") ?? false;
+
 
   useEffect(() => {
     if (open && ifo) {
@@ -124,7 +130,7 @@ export function DialogEditarIfo({
 
   if (!ifo) return null;
 
-  const isRestrictedBlock = ["plurianual", "encerramento", "renovacao"].includes(ifo.bloco);
+  const isRestrictedBlock = ["plurianual", "encerramento", "renovacao"].includes(ifo.bloco) && !hasEspecialTags && !(user as any)?.is_superadmin;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

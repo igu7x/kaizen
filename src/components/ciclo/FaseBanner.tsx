@@ -137,21 +137,7 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
       atorText: "text-amber-700",
     },
   },
-  em_comites: {
-    icon: ShieldCheck,
-    titulo: "Comitês e Autorização",
-    descricao:
-      "Os comitês CGTIC e CGovTIC deliberam e autorizam o DFD. As atas de deliberação devem ser registradas no PROAD. Instrua o produto final nesta fase antes de encaminhar para remessa à DG.",
-    atorLabel: "CGovTIC",
-    color: {
-      border: "border-indigo-200",
-      bg: "bg-indigo-50/60",
-      iconBg: "bg-indigo-100",
-      iconText: "text-indigo-600",
-      atorBadge: "bg-indigo-100",
-      atorText: "text-indigo-700",
-    },
-  },
+
   remessa_dg: {
     icon: Truck,
     titulo: "Remessa à Diretoria-Geral",
