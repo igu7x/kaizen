@@ -237,8 +237,8 @@ export default function ComiteMonitoramento() {
           const previstas = reunioesData.filter((r) => r.status === "Previsto");
           setReuniaoAtiva(
             realizadas[realizadas.length - 1] ||
-              previstas[0] ||
-              reunioesData[0],
+            previstas[0] ||
+            reunioesData[0],
           );
         }
       } else {
@@ -1169,8 +1169,8 @@ export default function ComiteMonitoramento() {
                                       className={cn(
                                         "text-sm",
                                         new Date(item.prazo) < new Date() &&
-                                          item.status !== "Concluída" &&
-                                          "text-red-600 font-medium",
+                                        item.status !== "Concluída" &&
+                                        "text-red-600 font-medium",
                                       )}
                                     >
                                       {new Date(item.prazo).toLocaleDateString(
@@ -1211,11 +1211,11 @@ export default function ComiteMonitoramento() {
                                         className={cn(
                                           "h-8 w-32",
                                           item.status === "Concluída" &&
-                                            "bg-green-100 text-green-700 border-green-300",
+                                          "bg-green-100 text-green-700 border-green-300",
                                           item.status === "Andamento" &&
-                                            "bg-amber-100 text-amber-700 border-amber-300",
+                                          "bg-amber-100 text-amber-700 border-amber-300",
                                           item.status === "Cancelada" &&
-                                            "bg-red-100 text-red-700 border-red-300",
+                                          "bg-red-100 text-red-700 border-red-300",
                                         )}
                                       >
                                         <SelectValue />
@@ -1237,11 +1237,11 @@ export default function ComiteMonitoramento() {
                                       variant="outline"
                                       className={cn(
                                         item.status === "Concluída" &&
-                                          "bg-green-100 text-green-700 border-green-300",
+                                        "bg-green-100 text-green-700 border-green-300",
                                         item.status === "Andamento" &&
-                                          "bg-amber-100 text-amber-700 border-amber-300",
+                                        "bg-amber-100 text-amber-700 border-amber-300",
                                         item.status === "Cancelada" &&
-                                          "bg-red-100 text-red-700 border-red-300 line-through",
+                                        "bg-red-100 text-red-700 border-red-300 line-through",
                                       )}
                                     >
                                       {item.status === "Concluída" && (

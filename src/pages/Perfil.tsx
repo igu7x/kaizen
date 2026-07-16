@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Loader2,
   Camera,
@@ -247,20 +248,12 @@ export default function Perfil() {
                       className="bg-gray-50 mt-1"
                     />
                   </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">Diretoria</Label>
+                  <div className="md:col-span-2">
+                    <Label className="text-xs text-gray-600">Lotação (Área / Unidade)</Label>
                     <Input
-                      value={profile.diretoria || "—"}
+                      value={profile.areaSigla || profile.unidadeSigla ? `${profile.areaSigla || "-"} / ${profile.unidadeSigla || "-"}` : "Sem lotação ativa"}
                       disabled
-                      className="bg-gray-50 mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">Unidade</Label>
-                    <Input
-                      value={unidadeLabel}
-                      disabled
-                      className={`mt-1 ${semUnidade ? "bg-amber-50 text-amber-700 italic" : "bg-gray-50"}`}
+                      className={`mt-1 ${!(profile.areaSigla || profile.unidadeSigla) ? "bg-amber-50 text-amber-700 italic" : "bg-gray-50"}`}
                     />
                   </div>
                 </div>

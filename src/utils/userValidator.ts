@@ -16,6 +16,7 @@ export interface DiretoriaValidation {
   isConsistent: boolean;
   diretoria?: string;
   directorate_code?: string;
+  cadastrosAreasId?: number;
   message?: string;
 }
 
@@ -124,6 +125,7 @@ export function syncUserDiretoria(user: Partial<User>): User {
     ...user,
     diretoria: diretoria || undefined,
     directorate_code: diretoria || undefined,
+    cadastrosAreasId: user.cadastrosAreasId || undefined,
   } as User;
 }
 

@@ -34,7 +34,7 @@ interface EstatisticasProjeto {
 
 export function SprintAtualNovo() {
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const { toast } = useToast();
 
   // Estados
@@ -57,7 +57,7 @@ export function SprintAtualNovo() {
 
       // Carregar planos da diretoria
       const planosData =
-        await gestaoEstrategicaApi.getPlanos(selectedDirectorate);
+        await gestaoEstrategicaApi.getPlanos(selectedAreaId);
       setPlanos(planosData);
 
       // Carregar todos os projetos
@@ -89,7 +89,7 @@ export function SprintAtualNovo() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDirectorate, toast]);
+  }, [selectedAreaId, toast]);
 
   useEffect(() => {
     carregarDados();

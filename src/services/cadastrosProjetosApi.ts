@@ -387,8 +387,8 @@ export interface CreateEntraveDto {
 
 export const cadastrosProjetosApi = {
   // Projetos
-  async getProjetos(diretoria?: string): Promise<Projeto[]> {
-    const response = await authFetch("/api/cadastros/projetos", { diretoria });
+  async getProjetos(cadastrosAreasId?: number): Promise<Projeto[]> {
+    const response = await authFetch("/api/cadastros/projetos", { cadastrosAreasId });
     if (!response.ok) throw new Error("Erro ao buscar projetos");
     return response.json();
   },

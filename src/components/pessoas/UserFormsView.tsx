@@ -9,20 +9,22 @@ import { formApi } from "@/services/formApi";
 import { Form, FormResponse } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDirectorate } from "@/contexts/DirectorateContext";
+import { areasApi, Area } from "@/services/areasApi";
 
 export function UserFormsView() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const [forms, setForms] = useState<Form[]>([]);
   const [filteredForms, setFilteredForms] = useState<Form[]>([]);
   const [responses, setResponses] = useState<FormResponse[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [areas, setAreas] = useState<Area[]>([]);
 
   useEffect(() => {
     loadData();
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   useEffect(() => {
     filterForms();
@@ -32,12 +34,18 @@ export function UserFormsView() {
     try {
       setLoading(true);
 
+      const loadedAreas = await areasApi.getAll();
+      setAreas(loadedAreas);
+
+      const area = loadedAreas.find((a) => a.sigla === selectedAreaId || a.nome === selectedAreaId);
+      const areaId = area?.id;
+
       const [formsData, responsesData] = await Promise.all([
-        formApi.getForms(selectedDirectorate, {
+        formApi.getForms(areaId, {
           filterByVisibility: true,
           isAdmin: false,
         }),
-        user ? formApi.getUserResponses(user.id, selectedDirectorate) : [],
+        user ? formApi.getUserResponses(user.id) : [],
       ]);
 
       const publishedForms = formsData.filter((f) => f.status === "PUBLISHED");

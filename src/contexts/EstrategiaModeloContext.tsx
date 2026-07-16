@@ -21,8 +21,9 @@ const EstrategiaModeloContext = createContext<
 
 const STORAGE_PREFIX = "estrategia-modelo-";
 
-function getModeloForDiretoria(diretoria: string): ModeloEstrategia {
-  const saved = localStorage.getItem(STORAGE_PREFIX + diretoria);
+function getModeloForArea(areaId: number | null): ModeloEstrategia {
+  if (!areaId) return "okrs";
+  const saved = localStorage.getItem(STORAGE_PREFIX + areaId);
   return saved === "metas" ? "metas" : "okrs";
 }
 
@@ -31,23 +32,25 @@ export function EstrategiaModeloProvider({
 }: {
   children: ReactNode;
 }) {
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
 
   const [modelo, setModeloState] = useState<ModeloEstrategia>(() =>
-    getModeloForDiretoria(selectedDirectorate),
+    getModeloForArea(selectedAreaId),
   );
 
-  // When directorate changes, load that directorate's saved model
+  // When area changes, load that area's saved model
   useEffect(() => {
-    setModeloState(getModeloForDiretoria(selectedDirectorate));
-  }, [selectedDirectorate]);
+    setModeloState(getModeloForArea(selectedAreaId));
+  }, [selectedAreaId]);
 
   const setModelo = useCallback(
     (m: ModeloEstrategia) => {
       setModeloState(m);
-      localStorage.setItem(STORAGE_PREFIX + selectedDirectorate, m);
+      if (selectedAreaId) {
+        localStorage.setItem(STORAGE_PREFIX + selectedAreaId, m);
+      }
     },
-    [selectedDirectorate],
+    [selectedAreaId],
   );
 
   return (

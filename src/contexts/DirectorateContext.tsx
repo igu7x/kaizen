@@ -10,12 +10,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { isDomainRoot } from "@/utils/domain";
 import { areasApi, Area } from "@/services/areasApi";
 
-// Diretoria agora é uma string dinâmica (carregada de cadastros_areas)
-type Directorate = string;
-
 interface DirectorateContextType {
-  selectedDirectorate: Directorate;
-  setSelectedDirectorate: (directorate: Directorate) => void;
+  selectedAreaId: number | null;
+  setSelectedAreaId: (id: number) => void;
+  selectedArea: Area | null;
   devEnvironment: string | null;
   setDevEnvironment: (env: string | null) => void;
 }
@@ -28,7 +26,7 @@ export function DirectorateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [areas, setAreas] = useState<Area[]>([]);
 
-  // Dev environment override — permite ao dev acessar qualquer ambiente
+  // Dev environment override — permite ao dev acessar qualquer ambiente (pela sigla, p/ facilitar digitação)
   const [devEnvironment, setDevEnvironmentRaw] = useLocalStorage<string | null>(
     "devEnvironment",
     null,
@@ -36,94 +34,104 @@ export function DirectorateProvider({ children }: { children: ReactNode }) {
 
   const setDevEnvironment = (env: string | null) => {
     setDevEnvironmentRaw(env);
-    if (env) {
-      // Ao entrar em um ambiente, setar a diretoria selecionada para a raiz dele
-      setSelectedDirectorate(env);
+    if (env && areas.length > 0) {
+      const area = areas.find((a) => a.sigla === env);
+      if (area) {
+        setSelectedAreaId(area.id);
+      }
     }
   };
 
-  // Carregar áreas para determinar isDomainRoot corretamente
+  // Carregar áreas para determinar domínios e root corretamente
   useEffect(() => {
     if (user) {
       areasApi.getAll().then(setAreas).catch(console.error);
     }
   }, [user]);
 
-  // Determina a diretoria inicial baseada no usuário
-  // diretoria_visibilidade sobrescreve diretoria para fins de visualização
-  const getUserDefaultDirectorate = (): Directorate => {
-    const userDiretoria = ((user as any)?.diretoria_visibilidade ||
-      (user as any)?.diretoria) as Directorate | undefined;
-    if (userDiretoria) {
-      return userDiretoria;
+  // Determina a ID inicial baseada no usuário
+  const getUserDefaultAreaId = (): number | null => {
+    const userAreaId = user?.cadastrosAreasId || null;
+    if (userAreaId) {
+      return userAreaId;
     }
-    // Se não tem diretoria definida, usar SGJT para admins
-    if (user?.role === "ADMIN") {
-      return "SGJT";
+    // Fallback: se o usuário é ADMIN e não tem area vinculada, tenta achar o ID da SGJT
+    if (user?.role === "ADMIN" && areas.length > 0) {
+      const sgjt = areas.find((a) => a.sigla === "SGJT");
+      return sgjt ? sgjt.id : null;
     }
-    // Fallback para SGJT
-    return "SGJT";
+    return null;
   };
 
-  // Usa useLocalStorage para persistir a diretoria selecionada
-  const [selectedDirectorate, setSelectedDirectorate] =
-    useLocalStorage<Directorate>(
-      "selectedDirectorate",
-      getUserDefaultDirectorate(),
-    );
+  // Usa useLocalStorage para persistir a área selecionada
+  const [selectedAreaId, setSelectedAreaId] = useLocalStorage<number | null>(
+    "selectedAreaId",
+    getUserDefaultAreaId(),
+  );
 
   // Verificar se é o dev
   const isDev = !!user?.is_developer;
 
-  // Força a diretoria correta quando o usuário muda ou faz login
+  // Força a área correta quando o usuário muda ou faz login
   useEffect(() => {
-    // Se o dev está em um ambiente override, não forçar nada
-    if (isDev && devEnvironment) return;
+    if (areas.length === 0) return;
 
-    const userDiretoria = ((user as any)?.diretoria_visibilidade ||
-      (user as any)?.diretoria) as Directorate | undefined;
-    // Usa areas para detecção correta de domain root (SGJT e CGJ)
+    // Se o dev está em um ambiente override, forçar o ID desse ambiente
+    if (isDev && devEnvironment) {
+      const devArea = areas.find((a) => a.sigla === devEnvironment);
+      if (devArea && selectedAreaId !== devArea.id) {
+        setSelectedAreaId(devArea.id);
+      }
+      return;
+    }
+
+    // O fallback prioriza a primeira área cadastrada se disponível (V4)
+    const userAreaId = user?.cadastrosAreasId;
     const isRoot = isDomainRoot(user, areas);
 
-    // Só forçar depois que as áreas carregaram (para não forçar incorretamente antes de saber se é root)
-    if (
-      areas.length > 0 &&
-      userDiretoria &&
-      !isRoot &&
-      selectedDirectorate !== userDiretoria
-    ) {
-      setSelectedDirectorate(userDiretoria);
+    // Se o usuário não é root, fixar a área dele
+    if (userAreaId && !isRoot && selectedAreaId !== userAreaId) {
+      setSelectedAreaId(userAreaId);
     }
 
-    // Domain root: garantir que selectedDirectorate está dentro do seu domínio
-    // (previne valor stale do localStorage de outro domínio, ex: SGJT salvo quando user é CGJ)
-    if (areas.length > 0 && isRoot && userDiretoria) {
-      const domainSiglas = areas.map((a) => a.sigla || a.nome);
-      if (!domainSiglas.includes(selectedDirectorate)) {
-        setSelectedDirectorate(userDiretoria);
+    // Domain root: garantir que selectedAreaId está dentro do seu domínio
+    if (isRoot && userAreaId) {
+      const userArea = areas.find((a) => a.id === userAreaId);
+      const currentSelectedArea = areas.find((a) => a.id === selectedAreaId);
+      
+      if (userArea && currentSelectedArea) {
+        // Se a área atualmente selecionada não pertencer ao mesmo domínio da área do usuário root, resetar.
+        if (currentSelectedArea.dominio !== userArea.dominio) {
+          setSelectedAreaId(userAreaId);
+        }
+      } else if (!currentSelectedArea) {
+        setSelectedAreaId(userAreaId);
       }
     }
-
-    // Limpar valor inválido do localStorage (ex: "SGJT: Secretaria de..." salvo por bug anterior)
-    if (selectedDirectorate && selectedDirectorate.includes(":")) {
-      const sigla = selectedDirectorate.split(":")[0].trim();
-
-      setSelectedDirectorate(sigla);
+    
+    // Se o initial load do localStorage veio nulo e agora temos as areas, 
+    // ou se o selectedAreaId não existe nas areas carregadas
+    if (selectedAreaId === null || (selectedAreaId !== null && !areas.some(a => a.id === selectedAreaId))) {
+      const def = getUserDefaultAreaId();
+      if (def) setSelectedAreaId(def);
     }
   }, [
     user,
     areas,
-    selectedDirectorate,
-    setSelectedDirectorate,
+    selectedAreaId,
+    setSelectedAreaId,
     isDev,
     devEnvironment,
   ]);
 
+  const selectedArea = areas.find((a) => a.id === selectedAreaId) || null;
+
   return (
     <DirectorateContext.Provider
       value={{
-        selectedDirectorate,
-        setSelectedDirectorate,
+        selectedAreaId,
+        setSelectedAreaId,
+        selectedArea,
         devEnvironment,
         setDevEnvironment,
       }}
