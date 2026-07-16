@@ -31,6 +31,11 @@ public class PermissoesAcoesInterceptor implements HandlerInterceptor {
                     return false;
                 }
                 
+                var optUser = AuthContext.getCurrentUser();
+                if (optUser.isPresent() && optUser.get().isSuperadmin()) {
+                    return true; // Bypass para superadmin (Camada C)
+                }
+                
                 if (classTag != null && !validateTag(classTag, userId)) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Acesso negado a este recurso (Restrição de Módulo).");
                     return false;

@@ -46,7 +46,7 @@ public class CicloOrcamentarioController {
 
     // PATCH /api/ciclo-orcamentario/:id/proad { proad } — registra o PROAD de instrução (RF-22)
     @PatchMapping("/{id:\\d+}/proad")
-    @TagAcao("PCA_REGISTRAR_PROAD")
+    @TagAcao("PCA_FOR_REGISTRAR_PROAD")
     public CicloDto proad(@PathVariable long id, @RequestBody Map<String, Object> body,
                           @RequestHeader(value = "x-user-id", required = false) Long userId) {
         return service.informarProad(id, str(body.get("proad")), resolveUserId(userId));
@@ -91,6 +91,13 @@ public class CicloOrcamentarioController {
                                                  @RequestBody Map<String, Object> body,
                                                  @RequestHeader(value = "x-user-id", required = false) Long userId) {
         return service.editarItemRevisao(itemId, body, resolveUserId(userId));
+    }
+
+    // POST /api/ciclo-orcamentario/revisao/item — adiciona um novo item PCA na revisão (Janela de Ajustes)
+    @PostMapping("/revisao/item")
+    public Map<String, Object> adicionarItemRevisao(@RequestBody Map<String, Object> body,
+                                                     @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        return service.adicionarItemRevisao(body, resolveUserId(userId));
     }
 
     // GET /api/ciclo-orcamentario/revisao/validacoes?ano=2026 — validação por item da revisão aberta (§8.4)
@@ -139,10 +146,11 @@ public class CicloOrcamentarioController {
 
     // POST /api/ciclo-orcamentario/:id/publicar — publicação pela DG (RF-41/75)
     @PostMapping("/{id:\\d+}/publicar")
-    @TagAcao("PCA_REMETER_DG")
+    @TagAcao("PCA_FOR_REMETER_DG")
     public CicloDto publicar(@PathVariable long id,
+                             @RequestBody(required = false) java.util.List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes,
                              @RequestHeader(value = "x-user-id", required = false) Long userId) {
-        return service.publicar(id, resolveUserId(userId));
+        return service.publicar(id, resolveUserId(userId), importacoes);
     }
 
     // PATCH /api/ciclo-orcamentario/:id/link { campo, valor }

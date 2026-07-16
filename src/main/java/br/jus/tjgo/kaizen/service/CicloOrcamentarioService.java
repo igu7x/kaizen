@@ -44,7 +44,7 @@ public class CicloOrcamentarioService {
     private final PermissoesAcoesService permissoesAcoesService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aguardando_proad";
-    private static final String ESTADO_REVISAO_JANELA = "janela_aberta";
+    private static final String ESTADO_REVISAO_INICIAL = "em_consulta_1";
     private static final String ESTADO_PUBLICADO = "publicado";
 
     // Domínios validados aqui no backend — os CHECK foram removidos do banco (migration 171).
@@ -74,8 +74,8 @@ public class CicloOrcamentarioService {
 
     /** RNF-07 — esteira determinística da Revisão (rito ágil, RF-60..75). */
     private static final List<String> ESTADOS_REVISAO = List.of(
-            "janela_aberta", "em_rito_validacao", "consolidacao_cca", "em_comites",
-            "remessa_dg", "publicado");
+            "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut",
+            "em_comites", "remessa_dg", "publicado");
 
     /** RF-76 — janelas ordinárias (início, fim, versão gerada). A 1ª abre pelo evento de publicação. */
     private record Janela(int ordem, int versao, MonthDay inicio, MonthDay fim) {}
@@ -116,10 +116,10 @@ public class CicloOrcamentarioService {
      */
     private static String estadoDerivadoPorData(CicloDto ciclo, LocalDate hoje) {
         MonthDay hm = MonthDay.of(hoje.getMonthValue(), hoje.getDayOfMonth());
-        if ("revisao".equals(ciclo.finalidade()) && "janela_aberta".equals(ciclo.estado())) {
+        if ("revisao".equals(ciclo.finalidade()) && "em_consulta_1".equals(ciclo.estado())) {
             Janela j = janelaDaVersao(ciclo.versaoGerada());
             if (j != null && j.fim() != null && hm.isAfter(j.fim())) {
-                return "em_rito_validacao";
+                return "em_consulta_2";
             }
         }
         return null;
@@ -244,7 +244,7 @@ public class CicloOrcamentarioService {
         var rows = jdbc.queryForList(
                 "INSERT INTO ciclo_orcamentario (ano, finalidade, subtipo, estado, versao_gerada, abertura_em, created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), ?, ?) RETURNING *",
-                anoVigente, exigirFinalidade("revisao"), exigirSubtipo("ordinaria"), ESTADO_REVISAO_JANELA, ativa.versao(), userId, userId);
+                anoVigente, exigirFinalidade("revisao"), exigirSubtipo("ordinaria"), ESTADO_REVISAO_INICIAL, ativa.versao(), userId, userId);
         return toDto(rows.get(0));
     }
 
@@ -258,7 +258,7 @@ public class CicloOrcamentarioService {
         var rows = jdbc.queryForList(
                 "INSERT INTO ciclo_orcamentario (ano, finalidade, subtipo, estado, versao_gerada, abertura_em, created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), ?, ?) RETURNING *",
-                anoVigente, exigirFinalidade("revisao"), exigirSubtipo("extraordinaria"), ESTADO_REVISAO_JANELA, proximaVersao, userId, userId);
+                anoVigente, exigirFinalidade("revisao"), exigirSubtipo("extraordinaria"), ESTADO_REVISAO_INICIAL, proximaVersao, userId, userId);
         return toDto(rows.get(0));
     }
 
@@ -267,8 +267,8 @@ public class CicloOrcamentarioService {
         if (estado == null || estado.isBlank()) {
             throw new ApiException(400, "Estado é obrigatório");
         }
-        // Validação da transição: Tag de Ação (Camada D) se existir, senão Autoridade do Escopo (Camada B).
-        exigirTagAcao(userId, getCiclo(id).estado(), id);
+        CicloDto cicloAtual = getCiclo(id);
+        exigirTagAcao(userId, cicloAtual.estado(), cicloAtual.finalidade(), id);
         var rows = jdbc.queryForList(
                 "UPDATE ciclo_orcamentario SET estado = ?, updated_at = NOW(), updated_by = ? WHERE id = ? RETURNING *",
                 estado.trim(), userId, id);
@@ -296,7 +296,7 @@ public class CicloOrcamentarioService {
         String proximo = esteira.get(idx + 1);
 
         if (ESTADO_PUBLICADO.equals(proximo)) {
-            return publicar(id, userId);
+            return publicar(id, userId, null);
         }
 
         CicloDto atualizado = atualizarEstado(id, proximo, userId);
@@ -344,19 +344,17 @@ public class CicloOrcamentarioService {
             Map.entry("validacao_gejut", "gejut"),          // conferir → encaminhar à SGJT
             Map.entry("apreciacao_sgjt", "sgjt"),           // emitir produto / pautar / autorizar
             Map.entry("em_comites", "sgjt"),                // juntar atas + autorizar (absorve etapa Autorização)
-            Map.entry("remessa_dg", "cca"),                 // publicar PCA-TIC (CCA apenas)
-            Map.entry("janela_aberta", "demandante"),
-            Map.entry("em_rito_validacao", "demandante"));
+            Map.entry("remessa_dg", "cca"));                // publicar PCA-TIC (CCA apenas)
 
     /**
      * Mapeamento de máquina de estados em apoio:
-     * i. [PROAD] PCA_REGISTRAR_PROAD
-     * ii. [Abertura] PCA_ENCAMINHAR_CONSULTA
-     * iii. [Consulta] PCA_VALIDAR_DEMANDA_1_CAMADA -> PCA_VALIDAR_DEMANDA_2_CAMADA
-     * iv. [Consolidação] PCA_CONSOLIDAR_ENCAMINHAR_GEJUT -> PCA_ENCAMINHAR_SGJT
-     * v. [Apreciação] PCA_PAUTAR_COMITES
-     * vi. [comitês] PCA_AUTORIZAR_COMITES
-     * vii. [Remessa à DG] PCA_REMETER_DG
+     * i. [PROAD] PCA_FOR_REGISTRAR_PROAD
+     * ii. [Abertura] PCA_FOR_ENCAMINHAR_CONSULTA
+     * iii. [Consulta] PCA_FOR_VALIDAR_DEMANDA_1_CAMADA -> PCA_FOR_VALIDAR_DEMANDA_2_CAMADA
+     * iv. [Consolidação] PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT -> PCA_FOR_ENCAMINHAR_SGJT
+     * v. [Apreciação] PCA_FOR_PAUTAR_COMITES
+     * vi. [comitês] PCA_FOR_AUTORIZAR_COMITES
+     * vii. [Remessa à DG] PCA_FOR_REMETER_DG
      */
 
     /**
@@ -365,16 +363,24 @@ public class CicloOrcamentarioService {
      * para um estado (null) significa proteção apenas pela Camada B.
      * Mapeamento derivado da Máquina de Transições (§8.8) e Matriz RACI (§8.9).
      */
-    private static final Map<String, String> TAG_DO_ESTADO = Map.ofEntries(
-            Map.entry("aguardando_proad",      "PCA_REGISTRAR_PROAD"),
-            Map.entry("aberto",               "PCA_ENCAMINHAR_CONSULTA"),
-            Map.entry("em_consulta_1",        "PCA_VALIDAR_DEMANDA_1_CAMADA"),
-            Map.entry("em_consulta_2",        "PCA_VALIDAR_DEMANDA_2_CAMADA"),
-            Map.entry("consolidacao_cca",     "PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"),
-            Map.entry("validacao_gejut",      "PCA_ENCAMINHAR_SGJT"),
-            Map.entry("apreciacao_sgjt",      "PCA_PAUTAR_COMITES"),
-            Map.entry("em_comites",           "PCA_AUTORIZAR_COMITES"),
-            Map.entry("remessa_dg",           "PCA_REMETER_DG"));
+    private static final Map<String, String> TAG_DO_ESTADO_FORMACAO = Map.ofEntries(
+            Map.entry("aguardando_proad",      "PCA_FOR_REGISTRAR_PROAD"),
+            Map.entry("aberto",               "PCA_FOR_ENCAMINHAR_CONSULTA"),
+            Map.entry("em_consulta_1",        "PCA_FOR_VALIDAR_DEMANDA_1_CAMADA"),
+            Map.entry("em_consulta_2",        "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA"),
+            Map.entry("consolidacao_cca",     "PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT"),
+            Map.entry("validacao_gejut",      "PCA_FOR_ENCAMINHAR_SGJT"),
+            Map.entry("apreciacao_sgjt",      "PCA_FOR_PAUTAR_COMITES"),
+            Map.entry("em_comites",           "PCA_FOR_AUTORIZAR_COMITES"),
+            Map.entry("remessa_dg",           "PCA_FOR_REMETER_DG"));
+
+    private static final Map<String, String> TAG_DO_ESTADO_REVISAO = Map.ofEntries(
+            Map.entry("em_consulta_1",        "PCA_RN_VALIDAR_DEMANDA_1_CAMADA"),
+            Map.entry("em_consulta_2",        "PCA_RN_VALIDAR_DEMANDA_2_CAMADA"),
+            Map.entry("consolidacao_cca",     "PCA_RN_CONSOLIDAR_ENCAMINHAR_GEJUT"),
+            Map.entry("validacao_gejut",      "PCA_RN_PAUTAR_COMITES"),
+            Map.entry("em_comites",           "PCA_RN_AUTORIZAR_COMITES"),
+            Map.entry("remessa_dg",           "PCA_RN_REMETER_DG"));
 
     /** Escopo (cca/demandante/gejut/sgjt) responsável por transitar a partir de um estado (tabela 8.8). */
     private static String escopoDoEstado(String estado) {
@@ -387,8 +393,14 @@ public class CicloOrcamentarioService {
      * Superadmin é bypass (Camada C). Se não há tag mapeada para o estado, a validação é
      * delegada exclusivamente à Camada B (OrcamentoPapelService).
      */
-    private void exigirTagAcao(Long userId, String estadoAtual, Long cicloId) {
-        String tag = TAG_DO_ESTADO.get(estadoAtual);
+    private void exigirTagAcao(Long userId, String estadoAtual, String finalidade, Long cicloId) {
+        String tag = null;
+        if ("formacao".equals(finalidade)) {
+            tag = TAG_DO_ESTADO_FORMACAO.get(estadoAtual);
+        } else if ("revisao".equals(finalidade)) {
+            tag = TAG_DO_ESTADO_REVISAO.get(estadoAtual);
+        }
+
         if (tag == null) {
             // Estado sem tag: protegido apenas pela Camada B
             if (cicloId != null) {
@@ -404,16 +416,35 @@ public class CicloOrcamentarioService {
         }
     }
 
+    private void verificarPermissaoAcaoRevisao(Long userId, String tagExigida) {
+        var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
+        if (optUser.isPresent() && optUser.get().isSuperadmin()) return;
+        List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
+        boolean isEspecial = userTags.contains("PCA_RN_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_RN_MODIFICACAO_CCA");
+        if (isEspecial && tagExigida.equals("PCA_RN_MODIFICAR_ITEM")) return;
+        if (!userTags.contains(tagExigida)) {
+            throw new ApiException(403, "Ação não autorizada. Permissão necessária: " + tagExigida);
+        }
+    }
+
     /**
-     * Estados da Revisão em que o demandante ainda pode editar seus itens. RF-67/69: só dentro da
-     * janela (`janela_aberta`); uma vez encerrada (`em_rito_validacao`) o demandante não ajusta mais.
+     * Estados da Revisão em que o demandante pode editar/adicionar itens.
+     * O usuário pode modificar em todas as etapas (controlado por permissões de ação).
      */
     private static final java.util.Set<String> ESTADOS_REVISAO_EDITAVEL =
-            java.util.Set.of("janela_aberta");
+            java.util.Set.of("em_consulta_1", "em_consulta_2", "consolidacao_cca",
+                    "validacao_gejut", "em_comites", "remessa_dg");
 
-    /** Campos do item do PCA-TIC editáveis durante a Revisão (RF-62/63). */
+    /** Estados em que é possível adicionar novos itens PCA (apenas Janela de Ajustes). */
+    private static final java.util.Set<String> ESTADOS_REVISAO_ADICIONAR =
+            java.util.Set.of("em_consulta_1", "em_consulta_2");
+
+    /** Todos os campos do item do PCA-TIC são editáveis durante a Revisão. */
     private static final java.util.Set<String> CAMPOS_REVISAVEIS =
-            java.util.Set.of("objeto", "valor_estimado", "status", "data_estimada_contratacao");
+            java.util.Set.of("objeto", "valor_estimado", "status", "data_estimada_contratacao",
+                    "description", "justification", "financial_resource_type", "priority",
+                    "step", "valor_formalizado", "process", "tipo", "id_diretoria",
+                    "id_area_demandante", "area_demandante");
 
     /**
      * RF-62..69 — edita os campos revisáveis de um item do PCA-TIC durante uma Revisão aberta.
@@ -435,6 +466,7 @@ public class CicloOrcamentarioService {
         }
         // Edição de conteúdo é ação compartilhada Autoridade + Editor do escopo Demandante (RN-GERAL-01).
         papelService.exigirEdicao("demandante", revisao.id());
+        verificarPermissaoAcaoRevisao(userId, "PCA_RN_MODIFICAR_ITEM");
         Map<String, Object> filtrado = new java.util.LinkedHashMap<>();
         for (Map.Entry<String, Object> e : campos.entrySet()) {
             if (CAMPOS_REVISAVEIS.contains(e.getKey())) {
@@ -444,10 +476,31 @@ public class CicloOrcamentarioService {
         if (filtrado.isEmpty()) {
             throw new ApiException(400, "Nenhum campo revisável informado");
         }
-        Map<String, Object> atualizado = pcaService.update(itemId, filtrado, userId);
+        Map<String, Object> atualizado = pcaService.update(itemId, campos, userId);
         // RN-GERAL-07 — editar a demanda (item) derruba as validações da revisão.
         invalidarValidacaoItem(revisao.id(), itemId);
         return atualizado;
+    }
+
+    /**
+     * Adiciona um novo item PCA durante a Revisão (apenas na Janela de Ajustes: em_consulta_1/em_consulta_2).
+     * Herda o ano do ciclo vigente.
+     */
+    @Transactional
+    public Map<String, Object> adicionarItemRevisao(Map<String, Object> campos, Long userId) {
+        int anoVigente = LocalDate.now().getYear();
+        CicloDto revisao = revisaoEditavelDoAno(anoVigente);
+        if (revisao != null) revisao = sincronizarPorData(revisao.id(), userId);
+        if (revisao == null || !ESTADOS_REVISAO_ADICIONAR.contains(revisao.estado())) {
+            throw new ApiException(409, "Novos itens só podem ser adicionados na Janela de Ajustes");
+        }
+        papelService.exigirEdicao("demandante", revisao.id());
+        verificarPermissaoAcaoRevisao(userId, "PCA_RN_MODIFICAR_ITEM");
+        campos.put("ano", anoVigente);
+        Map<String, Object> criado = pcaService.create(campos, userId);
+        long novoId = ((Number) criado.get("id")).longValue();
+        garantirLinhaValidacaoItem(revisao.id(), novoId);
+        return criado;
     }
 
     // ---------- validação por demanda dos itens na Revisão (§8.4) ----------
@@ -486,6 +539,7 @@ public class CicloOrcamentarioService {
     public Map<String, Object> validarItemRevisao(long itemId, int camada, Long userId) {
         CicloDto rev = revisaoDoItem(itemId);
         papelService.exigirTransicao("demandante", rev.id());
+        verificarPermissaoAcaoRevisao(userId, camada == 1 ? "PCA_RN_VALIDAR_DEMANDA_1_CAMADA" : "PCA_RN_VALIDAR_DEMANDA_2_CAMADA");
         garantirLinhaValidacaoItem(rev.id(), itemId);
         String atual = jdbc.queryForObject(
                 "SELECT validacao FROM revisao_item_validacao WHERE ciclo_id = ? AND pca_id = ?",
@@ -514,6 +568,7 @@ public class CicloOrcamentarioService {
     public Map<String, Object> devolverItemRevisao(long itemId, Long userId) {
         CicloDto rev = revisaoDoItem(itemId);
         papelService.exigirTransicao("demandante", rev.id());
+        verificarPermissaoAcaoRevisao(userId, "PCA_RN_MODIFICAR_ITEM");
         invalidarValidacaoItem(rev.id(), itemId);
         return jdbc.queryForMap(
                 "SELECT pca_id, validacao FROM revisao_item_validacao WHERE ciclo_id = ? AND pca_id = ?",
@@ -539,9 +594,10 @@ public class CicloOrcamentarioService {
     }
 
     @Transactional
-    public CicloDto publicar(long id, Long userId) {
+    public CicloDto publicar(long id, Long userId, List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes) {
         // RN-GERAL-01/04 — registrar a publicação é ato de Autoridade (Gestor CCA no estado remessa_dg).
-        exigirTagAcao(userId, getCiclo(id).estado(), id);
+        CicloDto cicloAtual = getCiclo(id);
+        exigirTagAcao(userId, cicloAtual.estado(), cicloAtual.finalidade(), id);
         var rows = jdbc.queryForList(
                 "UPDATE ciclo_orcamentario SET estado = 'publicado', publicado_em = NOW(), updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND estado <> 'publicado' RETURNING *",
@@ -555,7 +611,7 @@ public class CicloOrcamentarioService {
         if (ciclo.ano() != null) {
             // RF-41/49/58/75 — materializa cada IFO do ano como Item de PCA oficial (linha em `pcas`)
             // ANTES do snapshot, para que a versão publicada já contenha as inclusões da Formação/Revisão.
-            ifoService.converterNaPublicacao(ciclo.ano(), userId);
+            ifoService.converterNaPublicacao(ciclo.ano(), userId, importacoes);
             // RF-55 — carimba a origem (ciclo/PROAD/finalidade) em TODOS os itens do ano (inclusive os
             // recém-materializados) ANTES do snapshot, para que a versão imutável preserve a rastreabilidade.
             pcaService.stampOrigem(ciclo.ano(), ciclo.id(), ciclo.proad(), ciclo.finalidade(), userId);

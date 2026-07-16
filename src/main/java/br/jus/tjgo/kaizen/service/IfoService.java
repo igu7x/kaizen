@@ -35,16 +35,16 @@ public class IfoService {
     private static final List<String> NATUREZAS = List.of("continuada", "pontual");
 
     private static final Map<String, List<String>> TAGS_ACESSO_POR_ESTADO = Map.ofEntries(
-        Map.entry("aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA")),
-        Map.entry("aberto_aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA")),
-        Map.entry("aberto", List.of("PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA")),
-        Map.entry("em_consulta_1", List.of("PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO")),
-        Map.entry("em_consulta_2", List.of("PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO")),
-        Map.entry("consolidacao_cca", List.of("PCA_CONSOLIDAR_ENCAMINHAR_GEJUT")),
-        Map.entry("validacao_gejut", List.of("PCA_ENCAMINHAR_SGJT")),
-        Map.entry("apreciacao_sgjt", List.of("PCA_PAUTAR_COMITES")),
-        Map.entry("em_comites", List.of("PCA_AUTORIZAR_COMITES")),
-        Map.entry("remessa_dg", List.of("PCA_REMETER_DG")),
+        Map.entry("aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA")),
+        Map.entry("aberto_aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA")),
+        Map.entry("aberto", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA")),
+        Map.entry("em_consulta_1", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO")),
+        Map.entry("em_consulta_2", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO")),
+        Map.entry("consolidacao_cca", List.of("PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT")),
+        Map.entry("validacao_gejut", List.of("PCA_FOR_ENCAMINHAR_SGJT")),
+        Map.entry("apreciacao_sgjt", List.of("PCA_FOR_PAUTAR_COMITES")),
+        Map.entry("em_comites", List.of("PCA_FOR_AUTORIZAR_COMITES")),
+        Map.entry("remessa_dg", List.of("PCA_FOR_REMETER_DG")),
         Map.entry("publicado", List.of()) // sem restrição
     );
 
@@ -112,13 +112,12 @@ public class IfoService {
             throw new ApiException(403, "Não é possível alterar IFOs de um ciclo já publicado.");
         }
 
-        List<Map<String, Object>> rows = jdbc.queryForList("SELECT is_superadmin FROM users WHERE id = ?", userId);
-        boolean isSuperAdmin = !rows.isEmpty() && Boolean.TRUE.equals(rows.get(0).get("is_superadmin"));
-        if (isSuperAdmin) return;
+        var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
+        if (optUser.isPresent() && optUser.get().isSuperadmin()) return;
 
         List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
 
-        boolean isEspecial = (userTags.contains("PCA_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_MODIFICACAO_CCA")) && 
+        boolean isEspecial = (userTags.contains("PCA_FOR_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_FOR_MODIFICACAO_CCA")) && 
             List.of("aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg").contains(cicloEstado);
         
         if (isEspecial && ("MODIFICAR_IFO".equals(prefixoAcao) || "VINCULAR_CONTRATOS".equals(prefixoAcao))) {
@@ -126,7 +125,7 @@ public class IfoService {
         }
 
         String estadoMap = "aberto_aguardando_proad".equals(cicloEstado) ? "AGUARDANDO_PROAD" : cicloEstado.toUpperCase();
-        String tagNecessaria = "PCA_" + prefixoAcao + "_" + estadoMap;
+        String tagNecessaria = "PCA_FOR_" + prefixoAcao + "_" + estadoMap;
         
         if (!userTags.contains(tagNecessaria)) {
             throw new ApiException(403, "Permissão negada. Ação exige a tag: " + tagNecessaria);
@@ -147,11 +146,11 @@ public class IfoService {
         var info = jdbc.queryForList("SELECT c.estado as ciclo_estado FROM ifo i JOIN ciclo_orcamentario c ON i.ciclo_id = c.id WHERE i.id = ?", id);
         String cicloEstado = info.isEmpty() ? "" : (String) info.get(0).get("ciclo_estado");
         List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
-        boolean isEspecial = (userTags.contains("PCA_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_MODIFICACAO_CCA")) && 
+        boolean isEspecial = (userTags.contains("PCA_FOR_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_FOR_MODIFICACAO_CCA")) && 
             List.of("aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg").contains(cicloEstado);
         
-        List<Map<String, Object>> rows = jdbc.queryForList("SELECT is_superadmin FROM users WHERE id = ?", userId);
-        boolean isSuperAdmin = !rows.isEmpty() && Boolean.TRUE.equals(rows.get(0).get("is_superadmin"));
+        var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
+        boolean isSuperAdmin = optUser.isPresent() && optUser.get().isSuperadmin();
 
         if (!isSuperAdmin && !isEspecial && List.of("plurianual", "encerramento", "renovacao").contains(currentBloco)) {
             jdbc.update("UPDATE ifo SET valor_estimado_cents=?, updated_at=NOW(), updated_by=? WHERE id=?", cents, userId, id);
@@ -197,11 +196,12 @@ public class IfoService {
 
     /**
      * RF-41/49/75 — na publicação, converte 1:1 cada IFO não publicado do ano em código oficial de
-     * Item de PCA (numeração sequencial após o maior código já existente no PCA-TIC do ano) e marca
-     * o IFO como publicado. Retorna quantos IFOs foram convertidos.
+     * Item de PCA (numeração sequencial após o maior código já existente no PCA-TIC do ano, 
+     * ou usa os códigos enviados manualmente via importacoes) e marca o IFO como publicado. 
+     * Retorna quantos IFOs foram convertidos.
      */
     @Transactional
-    public int converterNaPublicacao(Integer ano, Long userId) {
+    public int converterNaPublicacao(Integer ano, Long userId, List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes) {
         if (ano == null) return 0;
         List<Map<String, Object>> ifos = jdbc.queryForList(
                 "SELECT * FROM ifo WHERE ano = ? AND estado <> 'publicado' ORDER BY codigo", ano);
@@ -211,9 +211,43 @@ public class IfoService {
                         "FROM pcas WHERE year = ?",
                 Integer.class, String.valueOf(ano));
         int prox = (base == null ? 0 : base) + 1;
+        
+        java.util.Map<Long, String> codigosManuais = new java.util.HashMap<>();
+        if (importacoes != null) {
+            for (br.jus.tjgo.kaizen.dto.ImportacaoPcaDto dto : importacoes) {
+                if (dto.codigoPca() != null && !dto.codigoPca().isBlank()) {
+                    codigosManuais.put(dto.ifoId(), dto.codigoPca().trim());
+                }
+            }
+        }
+
+        // Verifica duplicatas na lista recebida
+        java.util.Set<String> uniqueCodes = new java.util.HashSet<>();
+        for (String code : codigosManuais.values()) {
+            if (!uniqueCodes.add(code)) {
+                throw new ApiException(400, "Foram informados códigos de PCA duplicados: " + code);
+            }
+        }
+
         for (Map<String, Object> row : ifos) {
             Long id = asLong(row.get("id"));
-            String codigoOficial = String.valueOf(prox);
+            String codigoOficial;
+            if (codigosManuais.containsKey(id)) {
+                codigoOficial = codigosManuais.get(id);
+            } else {
+                codigoOficial = String.valueOf(prox);
+                prox++;
+            }
+
+            // Verifica se o código já existe no banco antes de tentar inserir para evitar exceção feia
+            Integer exists = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pcas WHERE code = ? AND year = ?",
+                Integer.class, codigoOficial, String.valueOf(ano)
+            );
+            if (exists != null && exists > 0) {
+                throw new ApiException(400, "O código de PCA '" + codigoOficial + "' já está em uso para o ano " + ano + ".");
+            }
+
             // RF-41/49/58 — materializa o IFO como Item de PCA oficial (linha viva em `pcas`) da versão
             // que está sendo publicada. contract_type derivado do bloco (Renovação vs demais → Nova Contratação).
             String contractType = "renovacao".equals(str(row.get("bloco"))) ? "RENOVACAO" : "NOVA_CONTRATACAO";
@@ -228,7 +262,6 @@ public class IfoService {
             jdbc.update(
                     "UPDATE ifo SET codigo_oficial = ?, estado = 'publicado', updated_at = NOW(), updated_by = ? WHERE id = ?",
                     codigoOficial, userId, id);
-            prox++;
         }
         return ifos.size();
     }
@@ -450,8 +483,8 @@ public class IfoService {
                 if ("formacao".equals(cicloMap.get("finalidade"))) {
                     String estado = (String) cicloMap.get("estado");
                     if (!"publicado".equals(estado)) {
-                        List<Map<String, Object>> rows = jdbc.queryForList("SELECT is_superadmin FROM users WHERE id = ?", userId);
-                        boolean isSuperAdmin = !rows.isEmpty() && Boolean.TRUE.equals(rows.get(0).get("is_superadmin"));
+                        var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
+                        boolean isSuperAdmin = optUser.isPresent() && optUser.get().isSuperadmin();
                         if (!isSuperAdmin) {
                             List<String> tagsPermitidas = TAGS_ACESSO_POR_ESTADO.getOrDefault(estado, List.of());
                             List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
