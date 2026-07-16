@@ -46,7 +46,7 @@ export function DialogEditarIfo({
   const [unidadesList, setUnidadesList] = useState<Unidade[]>([]);
   const [displayValue, setDisplayValue] = useState("");
 
-  const hasEspecialTags = user?.tags_acesso?.some(tag => tag === "PCA_MODIFICACAO_ESPECIAL" || tag === "PCA_MODIFICACAO_CCA") ?? false;
+  const hasEspecialTags = user?.tags_acesso?.some(tag => tag === "PCA_FOR_MODIFICACAO_ESPECIAL" || tag === "PCA_FOR_MODIFICACAO_CCA") ?? false;
 
 
   useEffect(() => {

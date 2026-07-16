@@ -12,6 +12,17 @@ export interface EdicaoItemRevisao {
   valor_estimado?: number;
   status?: string;
   data_estimada_contratacao?: string;
+  description?: string;
+  justification?: string;
+  financial_resource_type?: string;
+  priority?: string;
+  step?: string;
+  valor_formalizado?: number;
+  process?: string;
+  tipo?: string;
+  id_diretoria?: number;
+  id_area_demandante?: number;
+  area_demandante?: string;
 }
 
 /**
@@ -209,6 +220,11 @@ export const cicloOrcamentarioApi = {
     return apiClient.patch<PcaItem>(`${BASE}/revisao/item/${itemId}`, campos);
   },
 
+  /** Adiciona um novo item na revisão aberta (apenas Janela de Ajustes). */
+  adicionarItemRevisao(campos: Partial<PcaItem>): Promise<PcaItem> {
+    return apiClient.post<PcaItem>(`${BASE}/revisao/item`, campos);
+  },
+
   /** RF-60 — abre/obtém a revisão ordinária vigente (resolvida por data no backend). */
   getOuAbrirRevisao(ano: number): Promise<Ciclo> {
     return apiClient.post<Ciclo>(`${BASE}/revisao`, { ano });
@@ -220,7 +236,10 @@ export const cicloOrcamentarioApi = {
   },
 
   /** RF-41/75 — publicação pela DG: grava a próxima versão no PCA-TIC e converte IFO→código oficial. */
-  publicar(cicloId: number): Promise<Ciclo> {
+  publicar(cicloId: number, importacoes?: { ifoId: number; codigoPca: string }[]): Promise<Ciclo> {
+    if (importacoes && importacoes.length > 0) {
+      return apiClient.post<Ciclo>(`${BASE}/${cicloId}/publicar`, importacoes);
+    }
     return apiClient.post<Ciclo>(`${BASE}/${cicloId}/publicar`);
   },
 

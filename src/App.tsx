@@ -37,7 +37,7 @@ import Perfil from "./pages/Perfil";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
 import CicloOrcamentario from "./pages/CicloOrcamentario";
 import FormacaoPca from "./pages/FormacaoPca";
-
+import RevisaoPca from "./pages/RevisaoPca";
 import PermissoesAcoes from "./pages/PermissoesAcoes";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
 import { FormFiller } from "./components/pessoas/FormFiller";
@@ -180,7 +180,14 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-
+                  <Route
+                    path="/ciclo-orcamentario/revisao"
+                    element={
+                      <ProtectedRoute>
+                        <RevisaoPca />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/contratos-ti"
                     element={

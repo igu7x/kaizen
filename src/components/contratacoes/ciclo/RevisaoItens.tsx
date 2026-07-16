@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Loader2, Lock, CheckCircle2, Undo2 } from "lucide-react";
+import { Pencil, Loader2, Lock, Plus, Search as SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,59 +19,82 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { pcaApi } from "@/services/pcaApi";
-import { cicloOrcamentarioApi } from "@/services/cicloOrcamentarioApi";
-import type { ValidacaoDemanda } from "@/services/dfdApi";
+import { areasApi, type Area, type Unidade } from "@/services/areasApi";
+import { cicloOrcamentarioApi, type EdicaoItemRevisao } from "@/services/cicloOrcamentarioApi";
 import type { PcaItem } from "@/types";
 import { MESES_ORDENADOS } from "@/types";
 
 const STATUS_OPCOES = ["Não Iniciada", "Em andamento", "Concluída"];
 const TODAS = "todas";
 
-// §8.4 — validação por demanda (item) em 2 camadas.
-const VALIDACAO_LABEL: Record<string, string> = {
-  em_edicao: "Em edição",
-  validada_1a: "Validada 1ª",
-  validada_2a: "Validada 2ª",
-};
-const VALIDACAO_BADGE: Record<string, string> = {
-  em_edicao: "bg-slate-100 text-slate-600 border-slate-200",
-  validada_1a: "bg-amber-100 text-amber-700 border-amber-200",
-  validada_2a: "bg-emerald-100 text-emerald-700 border-emerald-200",
-};
-
-function formatBRL(v: number | null | undefined): string {
-  return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function formatValueBRL(val?: number | string) {
+  if (val === undefined || val === null || val === "") return "";
+  const num = Number(val);
+  if (isNaN(num)) return "";
+  return num.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-interface EdicaoState {
-  objeto: string;
-  valor_estimado: string;
-  status: string;
-  data_estimada_contratacao: string;
+function normalizePriority(val?: string) {
+  if (!val) return "";
+  const v = val.toUpperCase();
+  if (v === "ALTO" || v === "1") return "Alto";
+  if (v === "MEDIO" || v === "MÉDIO" || v === "2") return "Médio";
+  if (v === "BAIXO" || v === "3") return "Baixo";
+  return val;
 }
 
-/**
- * RF-62..69 — edição dos itens do PCA-TIC durante uma Revisão aberta. Lista os itens do exercício
- * vigente (filtráveis por área) e permite editar os campos revisáveis quando a janela está ativa;
- * fora da janela a lista fica somente leitura. O backend valida o estado da revisão.
- */
+function normalizeStep(val?: string) {
+  if (!val) return "";
+  const v = val.toUpperCase();
+  if (v === "PLANEJAMENTO_DA_CONTRATACAO" || v === "PLANEJAMENTO DA CONTRATAÇÃO") return "Planejamento da Contratação";
+  if (v === "SELECAO_DE_FORNECEDOR" || v === "SELEÇÃO DE FORNECEDOR") return "Seleção de Fornecedor";
+  if (v === "GESTAO_DO_CONTRATO" || v === "GESTÃO DO CONTRATO") return "Gestão do Contrato";
+  return val;
+}
+
+function normalizeResourceType(val?: string) {
+  if (!val) return "";
+  const v = val.toUpperCase();
+  if (v === "CUSTEIO") return "Custeio";
+  if (v === "INVESTIMENTO") return "Investimento";
+  return val;
+}
+
 export function RevisaoItens({
   anoVigente,
-  editavel,
+  podeEditarItem,
+  podeAdicionar,
+  estadoCiclo,
 }: {
   anoVigente: number;
-  editavel: boolean;
+  podeEditarItem: boolean;
+  podeAdicionar: boolean;
+  estadoCiclo?: string;
 }) {
   const [itens, setItens] = useState<PcaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [area, setArea] = useState<string>(TODAS);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [diretoriasList, setDiretoriasList] = useState<Area[]>([]);
+  const [unidadesList, setUnidadesList] = useState<Unidade[]>([]);
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editando, setEditando] = useState<PcaItem | null>(null);
-  const [form, setForm] = useState<EdicaoState | null>(null);
+
+  const [formData, setFormData] = useState<EdicaoItemRevisao & { item_pca?: string; ano?: number }>({});
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
-  const [validacoes, setValidacoes] = useState<Record<number, ValidacaoDemanda>>({});
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -82,110 +107,196 @@ export function RevisaoItens({
     }
   }, [anoVigente]);
 
-  const carregarValidacoes = useCallback(async () => {
-    try {
-      const rows = await cicloOrcamentarioApi.getValidacoesRevisao(anoVigente);
-      const map: Record<number, ValidacaoDemanda> = {};
-      for (const r of rows) map[r.pca_id] = r.validacao;
-      setValidacoes(map);
-    } catch {
-      setValidacoes({});
-    }
-  }, [anoVigente]);
-
   useEffect(() => {
     carregar();
-    carregarValidacoes();
-  }, [carregar, carregarValidacoes]);
+    areasApi.getAll().then(setDiretoriasList).catch(() => {});
+  }, [carregar]);
 
-  // §8.4 — valida a alteração do item (1ª = Gestor Demandante, 2ª = Diretor).
-  const validarItem = async (item: PcaItem, camada: 1 | 2) => {
-    try {
-      await cicloOrcamentarioApi.validarItemRevisao(item.id, camada);
-      toast.success(`Item ${item.item_pca} validado (${camada}ª camada).`);
-      carregarValidacoes();
-    } catch {
-      toast.error("Não foi possível validar (só a Autoridade Demandante; a 2ª exige a 1ª).");
+  useEffect(() => {
+    if (formData.id_diretoria) {
+      areasApi.getUnidades(formData.id_diretoria).then(setUnidadesList).catch(() => setUnidadesList([]));
+    } else {
+      setUnidadesList([]);
     }
-  };
-
-  const devolverItem = async (item: PcaItem) => {
-    try {
-      await cicloOrcamentarioApi.devolverItemRevisao(item.id);
-      toast.success(`Item ${item.item_pca} devolvido à edição.`);
-      carregarValidacoes();
-    } catch {
-      toast.error("Não foi possível devolver o item.");
-    }
-  };
+  }, [formData.id_diretoria]);
 
   const areas = useMemo(
     () => Array.from(new Set(itens.map((i) => i.area_demandante).filter(Boolean))).sort(),
     [itens],
   );
 
-  const visiveis = useMemo(
-    () => (area === TODAS ? itens : itens.filter((i) => i.area_demandante === area)),
-    [itens, area],
-  );
+  const visiveis = useMemo(() => {
+    let list = area === TODAS ? itens : itens.filter((i) => i.area_demandante === area);
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(
+        (i) =>
+          i.item_pca?.toLowerCase().includes(term) ||
+          i.objeto?.toLowerCase().includes(term) ||
+          i.area_demandante?.toLowerCase().includes(term)
+      );
+    }
+    return list;
+  }, [itens, area, searchTerm]);
 
-  const abrirEdicao = (item: PcaItem) => {
-    setEditando(item);
-    setForm({
-      objeto: item.objeto || "",
-      valor_estimado: String(item.valor_estimado ?? ""),
-      status: typeof item.status === "string" ? item.status : "Não Iniciada",
-      data_estimada_contratacao: item.data_estimada_contratacao || "",
+  function formatPcaCode(code?: string) {
+    if (!code) return "—";
+    const num = parseInt(code, 10);
+    return isNaN(num) ? code : `PCA ${num}`;
+  }
+
+  function handleCurrencyChange(field: "valor_estimado" | "valor_formalizado", value: string) {
+    const numericStr = value.replace(/\D/g, "");
+    const numericValue = numericStr ? parseInt(numericStr, 10) / 100 : 0;
+    setFormData((prev) => ({ ...prev, [field]: numericValue }));
+  }
+
+  function resetForm() {
+    setFormData({
+      item_pca: "",
+      tipo: "Contratação",
+      area_demandante: "",
+      id_diretoria: undefined,
+      id_area_demandante: undefined,
+      objeto: "",
+      valor_estimado: 0,
+      valor_formalizado: 0,
+      data_estimada_contratacao: "",
+      status: "Não Iniciada",
+      ano: anoVigente,
+      process: "",
+      description: "",
+      justification: "",
+      financial_resource_type: "",
+      priority: "",
+      step: "",
     });
-  };
+    setFormErrors([]);
+  }
 
-  const salvar = async () => {
-    if (!editando || !form) return;
+  function openAddModal() {
+    resetForm();
+    setIsAddModalOpen(true);
+  }
+
+  function openEditModal(item: PcaItem) {
+    setEditando(item);
+    setFormData({
+      item_pca: item.code || item.item_pca,
+      tipo: item.contract_type || item.tipo || "Contratação",
+      area_demandante: item.directory_acronym || item.area_demandante,
+      id_diretoria: item.id_diretoria,
+      id_area_demandante: item.id_area_demandante,
+      objeto: item.object_name || item.objeto,
+      valor_estimado: item.estimated_value_cents ? item.estimated_value_cents / 100 : item.valor_estimado,
+      valor_formalizado: item.valor_formalizado || 0,
+      data_estimada_contratacao: item.estimated_date || item.data_estimada_contratacao,
+      status: item.status || "Não Iniciada",
+      process: item.process || "",
+      description: item.description || "",
+      justification: item.justification || "",
+      financial_resource_type: normalizeResourceType(item.financial_resource_type) || "",
+      priority: normalizePriority(item.priority) || "",
+      step: normalizeStep(item.step) || "",
+    });
+    setFormErrors([]);
+    setIsEditModalOpen(true);
+  }
+
+  function validateForm(isEdit: boolean): boolean {
+    const errors: string[] = [];
+    if (!formData.item_pca?.trim()) {
+      errors.push("Item do PCA é obrigatório");
+    } else if (formData.item_pca.length > 50) {
+      errors.push("Item do PCA deve ter no máximo 50 caracteres");
+    }
+    if (!formData.valor_estimado || formData.valor_estimado <= 0) {
+      errors.push("Valor anual estimado deve ser maior que zero");
+    }
+    if (!formData.data_estimada_contratacao) {
+      errors.push("Data estimada de contratação é obrigatória");
+    }
+    setFormErrors(errors);
+    return errors.length === 0;
+  }
+
+  async function handleAdd() {
+    if (!validateForm(false)) return;
     setSalvando(true);
     try {
-      const atualizado = await cicloOrcamentarioApi.editarItemRevisao(editando.id, {
-        objeto: form.objeto,
-        valor_estimado: Number(form.valor_estimado) || 0,
-        status: form.status,
-        data_estimada_contratacao: form.data_estimada_contratacao || undefined,
-      });
-      setItens((prev) => prev.map((i) => (i.id === atualizado.id ? { ...i, ...atualizado } : i)));
-      toast.success("Item revisado.");
-      // RN-GERAL-07 — editar derruba as validações; reflete o novo estado.
-      carregarValidacoes();
-      setEditando(null);
-      setForm(null);
+      const created = await cicloOrcamentarioApi.adicionarItemRevisao(formData);
+      setItens((prev) => [...prev, created]);
+      toast.success("Novo item PCA adicionado.");
+      setIsAddModalOpen(false);
     } catch {
-      toast.error("Não foi possível salvar (revisão precisa estar aberta).");
+      toast.error("Não foi possível adicionar o item PCA.");
     } finally {
       setSalvando(false);
     }
-  };
+  }
+
+  async function handleEdit() {
+    if (!editando || !validateForm(true)) return;
+    setSalvando(true);
+    try {
+      const atualizado = await cicloOrcamentarioApi.editarItemRevisao(editando.id, formData);
+      setItens((prev) => prev.map((i) => (i.id === atualizado.id ? { ...i, ...atualizado } : i)));
+      toast.success("Item revisado.");
+      setIsEditModalOpen(false);
+      setEditando(null);
+    } catch {
+      toast.error("Não foi possível salvar a revisão deste item.");
+    } finally {
+      setSalvando(false);
+    }
+  }
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-700">
-          Itens do PCA-TIC {anoVigente}
-          {!editavel && (
-            <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-slate-400">
-              <Lock className="h-3 w-3" /> somente leitura (fora da janela)
-            </span>
-          )}
-        </h3>
-        <Select value={area} onValueChange={setArea}>
-          <SelectTrigger className="w-[220px] h-9 bg-white">
-            <SelectValue placeholder="Área" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={TODAS}>Todas as áreas</SelectItem>
-            {areas.map((a) => (
-              <SelectItem key={a} value={a}>
-                {a}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="space-y-4">
+      {/* Header com filtros e botões */}
+      <div className="flex flex-col gap-4 bg-gray-100 p-4 rounded-xl border border-gray-200">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-gray-800">
+              Itens do PCA-TIC {anoVigente}
+            </h3>
+            {!podeEditarItem && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-slate-400">
+                <Lock className="h-3 w-3" /> somente leitura
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-[240px]">
+              <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Pesquisar itens..."
+                className="pl-9 h-9 bg-white"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={area} onValueChange={setArea}>
+              <SelectTrigger className="w-[200px] h-9 bg-white">
+                <SelectValue placeholder="Área" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODAS}>Todas as áreas</SelectItem>
+                {areas.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {podeAdicionar && (
+              <Button onClick={openAddModal} className="h-9 bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -193,157 +304,329 @@ export function RevisaoItens({
           <LoadingSpinner />
         </div>
       ) : visiveis.length === 0 ? (
-        <p className="text-sm text-slate-400 py-4 text-center">Nenhum item para o exercício.</p>
+        <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center text-gray-500">
+          <p className="text-sm">Nenhum item encontrado para esta revisão.</p>
+        </div>
       ) : (
-        <div className="space-y-1.5">
-          {visiveis.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2"
-            >
-              <Badge variant="outline" className="shrink-0 font-mono text-xs bg-white border-slate-300 text-slate-600">
-                {item.item_pca}
-              </Badge>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-slate-800 truncate">{item.objeto || "—"}</p>
-                <p className="text-xs text-slate-500">
-                  {item.area_demandante} · {item.data_estimada_contratacao || "—"} ·{" "}
-                  {typeof item.status === "string" ? item.status : "—"}
-                </p>
+        <div className="space-y-3">
+          {visiveis.map((item) => {
+            const isRenovacao = item.tipo === "Renovação" || item.contract_type === "Renovação";
+            return (
+              <div
+                key={item.id}
+                className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-100 hover:shadow-md transition-all duration-200"
+              >
+
+                <div className="flex-1 min-w-0 flex gap-4">
+                  {/* Left Column: PCA Badge and Area */}
+                  <div className="w-24 shrink-0 flex flex-col gap-1 items-center justify-center">
+                    <Badge variant="secondary" className="font-mono bg-gray-100 text-gray-700 hover:bg-gray-200">
+                      {formatPcaCode(item.item_pca || item.code)}
+                    </Badge>
+                    <span className="text-xs font-bold text-gray-700 text-center">{item.area_demandante}</span>
+                  </div>
+
+                  {/* Right Column: Object and Status */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-gray-900 truncate pt-0.5">
+                      {item.objeto || "Sem objeto"}
+                    </span>
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <span>Status: {typeof item.status === "string" ? item.status : "Não Iniciada"}</span>
+                      <span>•</span>
+                      <span>Etapa: {normalizeStep(item.step) || "Não informada"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-1 px-4">
+                  <span className="text-sm font-bold text-gray-900">
+                    {formatValueBRL(item.valor_estimado)}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {item.data_estimada_contratacao || "Data não definida"}
+                  </span>
+                </div>
+
+                {podeEditarItem && (
+                  <div className="pl-4 border-l border-gray-100">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditModal(item)}>
+                      <Pencil className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  </div>
+                )}
               </div>
-              <span className="text-sm font-semibold text-slate-800">
-                {formatBRL(item.valor_estimado)}
-              </span>
-              {editavel && (
-                <>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${VALIDACAO_BADGE[validacoes[item.id] ?? "em_edicao"]}`}
-                    title="Validação por demanda (§8.4)"
-                  >
-                    {VALIDACAO_LABEL[validacoes[item.id] ?? "em_edicao"]}
-                  </Badge>
-                  <Button size="sm" variant="outline" className="h-8" onClick={() => abrirEdicao(item)}>
-                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                    Editar
-                  </Button>
-                  {(validacoes[item.id] ?? "em_edicao") === "em_edicao" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-amber-700 border-amber-200 hover:bg-amber-50"
-                      onClick={() => validarItem(item, 1)}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                      Validar 1ª
-                    </Button>
-                  )}
-                  {validacoes[item.id] === "validada_1a" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                      onClick={() => validarItem(item, 2)}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                      Validar 2ª (Diretor)
-                    </Button>
-                  )}
-                  {validacoes[item.id] != null && validacoes[item.id] !== "em_edicao" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-slate-500 hover:bg-slate-100"
-                      onClick={() => devolverItem(item)}
-                    >
-                      <Undo2 className="h-3.5 w-3.5 mr-1.5" />
-                      Devolver
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      <Dialog open={editando != null} onOpenChange={(o) => !o && setEditando(null)}>
-        <DialogContent className="bg-white">
+      {/* MODAL (Adicionar/Editar) reutiliza os mesmos campos */}
+      <Dialog
+        open={isAddModalOpen || isEditModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsAddModalOpen(false);
+            setIsEditModalOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle className="text-slate-800">
-              Revisar item {editando?.item_pca}
-            </DialogTitle>
+            <DialogTitle>{isAddModalOpen ? "Adicionar Item PCA" : `Editar Item ${formatPcaCode(editando?.item_pca)}`}</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do item. Campos com * são obrigatórios.
+            </DialogDescription>
           </DialogHeader>
-          {form && (
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">Objeto</label>
+
+          {formErrors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm font-medium text-red-800">Corrija os erros abaixo:</p>
+              <ul className="list-disc list-inside text-sm text-red-700 mt-1">
+                {formErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="grid gap-4 py-4">
+            {/* Linha 1 - 4 colunas */}
+            <div className="grid grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="item_pca">Item do PCA *</Label>
                 <Input
-                  value={form.objeto}
-                  onChange={(e) => setForm({ ...form, objeto: e.target.value })}
+                  id="item_pca"
+                  placeholder="Ex: 0230"
+                  value={formData.item_pca || ""}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    setFormData({ ...formData, item_pca: val });
+                  }}
+                  disabled={isEditModalOpen} // não permite alterar o código se for edição (só backend pode autorizar em tese, mas seguimos o padrão)
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-500">Valor estimado (R$)</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.valor_estimado}
-                    onChange={(e) => setForm({ ...form, valor_estimado: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-500">Mês estimado</label>
-                  <Select
-                    value={form.data_estimada_contratacao || ""}
-                    onValueChange={(v) => setForm({ ...form, data_estimada_contratacao: v })}
-                  >
-                    <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Mês" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MESES_ORDENADOS.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="ano">Ano *</Label>
+                <Input id="ano" type="number" value={formData.ano || anoVigente} disabled />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">Status</label>
+              <div className="space-y-2">
+                <Label htmlFor="tipo">Tipo *</Label>
                 <Select
-                  value={form.status}
-                  onValueChange={(v) => setForm({ ...form, status: v })}
+                  value={formData.tipo || "Contratação"}
+                  onValueChange={(v) => setFormData({ ...formData, tipo: v })}
                 >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {STATUS_OPCOES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
+                    <SelectItem value="Contratação">Nova</SelectItem>
+                    <SelectItem value="Renovação">Renovação</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="data_estimada">Data Estimada *</Label>
+                <Select
+                  value={formData.data_estimada_contratacao || ""}
+                  onValueChange={(value) => setFormData({ ...formData, data_estimada_contratacao: value })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
+                  <SelectContent>
+                    {MESES_ORDENADOS.map((mes) => (
+                      <SelectItem key={mes} value={mes}>{mes}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-          )}
+
+            {/* Linha 2 e 3 - Diretoria e Área */}
+            <div className="space-y-2">
+              <Label htmlFor="id_diretoria">Diretoria</Label>
+              <Select
+                value={formData.id_diretoria ? String(formData.id_diretoria) : undefined}
+                onValueChange={(v) => {
+                  const dirId = parseInt(v, 10);
+                  const unidade = diretoriasList.find(d => d.id === dirId);
+                  setFormData({
+                    ...formData,
+                    id_diretoria: dirId,
+                    area_demandante: unidade?.nome || "",
+                    id_area_demandante: undefined
+                  });
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione a Diretoria" /></SelectTrigger>
+                <SelectContent>
+                  {diretoriasList.map(dir => (
+                    <SelectItem key={dir.id} value={String(dir.id)}>
+                      {dir.sigla ? `${dir.sigla} - ${dir.nome}` : dir.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="id_area_demandante">Área Demandante</Label>
+              <Select
+                value={formData.id_area_demandante ? String(formData.id_area_demandante) : undefined}
+                onValueChange={(v) => setFormData({ ...formData, id_area_demandante: parseInt(v, 10) })}
+                disabled={!formData.id_diretoria}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecionar área responsável..." /></SelectTrigger>
+                <SelectContent>
+                  {unidadesList.map(u => {
+                    const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
+                    const sigla = dir?.sigla || dir?.nome;
+                    return (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.nome} {sigla ? `(${sigla})` : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Outros campos de texto */}
+            <div className="space-y-2">
+              <Label htmlFor="objeto">Objeto</Label>
+              <Input
+                id="objeto"
+                placeholder="Descrição detalhada da contratação"
+                value={formData.objeto || ""}
+                onChange={(e) => setFormData({ ...formData, objeto: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Demanda da Unidade</Label>
+              <Textarea
+                id="description"
+                rows={2}
+                value={formData.description || ""}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="justification">Justificativa</Label>
+              <Textarea
+                id="justification"
+                rows={2}
+                value={formData.justification || ""}
+                onChange={(e) => setFormData({ ...formData, justification: e.target.value })}
+              />
+            </div>
+
+            {/* Linha Recurso / Prioridade / Etapa */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de Recurso</Label>
+                <Select
+                  value={formData.financial_resource_type || undefined}
+                  onValueChange={(value) => setFormData({ ...formData, financial_resource_type: value })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Investimento">Investimento</SelectItem>
+                    <SelectItem value="Custeio">Custeio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Prioridade</Label>
+                <Select
+                  value={formData.priority || undefined}
+                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Alto">Alto</SelectItem>
+                    <SelectItem value="Médio">Médio</SelectItem>
+                    <SelectItem value="Baixo">Baixo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Etapa</Label>
+                <Select
+                  value={formData.step || undefined}
+                  onValueChange={(value) => setFormData({ ...formData, step: value })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
+                    <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
+                    <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Valores */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Valor Global Estimado (R$) *</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                  <Input
+                    className="pl-9"
+                    value={formData.valor_estimado ? formatValueBRL(formData.valor_estimado).replace("R$", "").trim() : ""}
+                    onChange={(e) => handleCurrencyChange("valor_estimado", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Valor {anoVigente} (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                  <Input
+                    className="pl-9"
+                    value={formData.valor_formalizado ? formatValueBRL(formData.valor_formalizado).replace("R$", "").trim() : ""}
+                    onChange={(e) => handleCurrencyChange("valor_formalizado", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>PROAD</Label>
+                <Input
+                  value={formData.process || ""}
+                  onChange={(e) => setFormData({ ...formData, process: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={formData.status || "Não Iniciada"}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPCOES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditando(null)} disabled={salvando}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddModalOpen(false);
+                setIsEditModalOpen(false);
+              }}
+              disabled={salvando}
+            >
               Cancelar
             </Button>
-            <Button
-              onClick={salvar}
-              disabled={salvando}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Salvar revisão
+            <Button onClick={isAddModalOpen ? handleAdd : handleEdit} disabled={salvando} className="bg-blue-600 hover:bg-blue-700 text-white">
+              {salvando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

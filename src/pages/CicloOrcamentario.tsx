@@ -18,13 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CicloTimeline } from "@/components/contratacoes/ciclo/CicloTimeline";
-import { RevisaoItens } from "@/components/contratacoes/ciclo/RevisaoItens";
-import {
-  NOS_FORMACAO,
-  nosRevisao,
-  rotuloVersao,
-} from "@/components/contratacoes/ciclo/cicloConstants";
+import { rotuloVersao } from "@/components/contratacoes/ciclo/cicloConstants";
 import {
   cicloOrcamentarioApi,
   resolverJanelaRevisao,
@@ -32,12 +26,6 @@ import {
   type Ciclo,
   type EntradaCiclo,
 } from "@/services/cicloOrcamentarioApi";
-import { ifoApi } from "@/services/dfdApi";
-import { getPcaComparison, getPcaVersoesInfo } from "@/services/pcaApi";
-import { generateDfdTicPDF } from "@/utils/generateDfdTicPDF";
-import { generateRevisaoPcaPDF } from "@/utils/generateRevisaoPcaPDF";
-import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
-import { EditoresPanel } from "@/components/contratacoes/ciclo/EditoresPanel";
 
 /**
  * Ciclo Orçamentário — a oficina onde se produz ou altera um PCA-TIC (RF-59/60).
@@ -61,16 +49,6 @@ const IDX_FORMACAO: Record<string, number> = {
   publicado: 10,
 };
 
-/** Índice do nó ativo na timeline da Revisão (4 nós) a partir do estado do ciclo. */
-const IDX_REVISAO: Record<string, number> = {
-  janela_aberta: 0,
-  em_rito_validacao: 1,
-  consolidacao_cca: 1,
-  em_comites: 2,
-  remessa_dg: 3,
-  publicado: 3,
-};
-
 const ESTADO_LABEL: Record<string, string> = {
   aberto: "Janela Inicial (DFD-Consulta)",
   em_consulta_1: "Consulta (1ª Validação)",
@@ -82,77 +60,11 @@ const ESTADO_LABEL: Record<string, string> = {
   autorizado: "Autorizado",
   ajuste_pre_publicacao: "Ajuste pré-publicação",
   remessa_dg: "Remessa à DG",
-  janela_aberta: "Janela aberta",
-  em_rito_validacao: "Em rito de validação",
   publicado: "Publicado",
 };
 
 function estadoLabel(e?: string | null): string {
   return e ? ESTADO_LABEL[e] ?? e : "";
-}
-
-/** RNF-04/07 — ator responsável em cada estado da esteira (quem age agora). */
-const ATOR_ESTADO: Record<string, string> = {
-  aberto: "CCA",
-  em_consulta_1: "Demandantes",
-  em_consulta_2: "Demandantes",
-  consolidacao_cca: "CCA",
-  validacao_gejut: "GEJUT",
-  apreciacao_sgjt: "SGJT",
-  em_comites: "Comitês",
-  autorizado: "CCA",
-  ajuste_pre_publicacao: "CCA",
-  remessa_dg: "DG",
-  janela_aberta: "Demandantes",
-  em_rito_validacao: "Validação",
-  publicado: "—",
-};
-
-/**
- * Controles da esteira (RNF-07): mostra o ator responsável pelo estado atual e permite encaminhar
- * ao próximo ator ou retornar ao anterior. O último passo (→ publicado) grava a versão no PCA-TIC.
- */
-function EsteiraControls({
-  ciclo,
-  onAvancar,
-  onRetroceder,
-  disabled,
-}: {
-  ciclo: Ciclo;
-  onAvancar: () => void;
-  onRetroceder: () => void;
-  disabled: boolean;
-}) {
-  if (ciclo.estado === "publicado") {
-    return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-        Ciclo publicado — versão gravada no PCA-TIC.
-      </div>
-    );
-  }
-  const proximaPublicacao = ciclo.estado === "remessa_dg";
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
-      <span className="text-xs text-slate-500">
-        Aguardando: <b className="text-slate-700">{ATOR_ESTADO[ciclo.estado] ?? "—"}</b>
-      </span>
-      <div className="ml-auto flex gap-2">
-        <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Retornar
-        </Button>
-        <Button
-          size="sm"
-          onClick={onAvancar}
-          disabled={disabled}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <ArrowRight className="h-4 w-4 mr-1.5" />
-          {proximaPublicacao ? "Publicar (DG)" : "Encaminhar ao próximo ator"}
-        </Button>
-      </div>
-    </div>
-  );
 }
 
 export default function CicloOrcamentario() {
@@ -192,97 +104,8 @@ export default function CicloOrcamentario() {
     navigate("/ciclo-orcamentario/formacao");
   };
 
-  const abrirRevisao = async () => {
-    setFinalidade("revisao");
-    setCiclo(entrada?.revisao ?? null);
-    if (!janela.ativa) return;
-    setAcaoEmCurso(true);
-    try {
-      const c = await cicloOrcamentarioApi.getOuAbrirRevisao(anoVigente);
-      setCiclo(c);
-    } catch {
-      /* backend off ou 409 sem janela: segue com a timeline estática */
-    } finally {
-      setAcaoEmCurso(false);
-    }
-  };
-
-  const registrarProad = async () => {
-    if (!ciclo || !proadInput.trim()) return;
-    setAcaoEmCurso(true);
-    try {
-      const c = await cicloOrcamentarioApi.informarProad(
-        ciclo.id,
-        proadInput.trim(),
-      );
-      setCiclo(c);
-      toast.success("PROAD registrado. Ciclo instruído.");
-    } catch {
-      toast.error("Não foi possível registrar o PROAD.");
-    } finally {
-      setAcaoEmCurso(false);
-    }
-  };
-
-  const avancarEsteira = async () => {
-    if (!ciclo) return;
-    setAcaoEmCurso(true);
-    try {
-      const c = await cicloOrcamentarioApi.avancar(ciclo.id);
-      setCiclo(c);
-      toast.success(
-        c.estado === "publicado" ? "Publicado. Versão gravada no PCA-TIC." : "Encaminhado ao próximo ator.",
-      );
-    } catch {
-      toast.error("Não foi possível encaminhar (verifique o estado atual).");
-    } finally {
-      setAcaoEmCurso(false);
-    }
-  };
-
-  const retrocederEsteira = async () => {
-    if (!ciclo) return;
-    setAcaoEmCurso(true);
-    try {
-      const c = await cicloOrcamentarioApi.retroceder(ciclo.id);
-      setCiclo(c);
-      toast.success("Retornado ao ator anterior.");
-    } catch {
-      toast.error("Não foi possível retroceder.");
-    } finally {
-      setAcaoEmCurso(false);
-    }
-  };
-
-  // RF-33 — emite a "Proposta de DFD-TIC" (Formação) com os IFOs do ciclo.
-  const gerarDfdPdf = async () => {
-    if (!ciclo) return;
-    try {
-      const ifos = await ifoApi.listar(ciclo.ano, ciclo.id);
-      generateDfdTicPDF(ciclo, ifos);
-    } catch {
-      toast.error("Não foi possível gerar a Proposta de DFD-TIC.");
-    }
-  };
-
-  // RF-71 — emite a "Proposta de Revisão do PCA-TIC" com a lista consolidada de alterações (RF-68).
-  const gerarRevisaoPdf = async () => {
-    if (!ciclo) return;
-    try {
-      const versoes = await getPcaVersoesInfo(anoVigente).catch(() => []);
-      const ultima = versoes.length ? Math.max(...versoes.map((v) => v.versao)) : undefined;
-      const cmp = await getPcaComparison(anoVigente, undefined, ultima);
-      generateRevisaoPcaPDF({
-        ano: anoVigente,
-        versao: ciclo.versaoGerada ?? janela.calendario.versao,
-        proad: ciclo.proad,
-        incluidos: cmp.incluidos,
-        alterados: cmp.alterados,
-        excluidos: cmp.excluidos,
-      });
-    } catch {
-      toast.error("Não foi possível gerar a Proposta de Revisão.");
-    }
+  const abrirRevisao = () => {
+    navigate("/ciclo-orcamentario/revisao");
   };
 
   const formacaoEstado = ciclo?.finalidade === "formacao" ? ciclo.estado : null;
@@ -317,32 +140,6 @@ export default function CicloOrcamentario() {
         {/* Entrada: dois botões por finalidade (RF-59) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <EntryCard
-            selecionado={finalidade === "formacao"}
-            onClick={abrirFormacao}
-            icon={<Plus className="h-6 w-6" />}
-            iconClass="bg-blue-50 text-blue-700"
-            titulo={
-              entrada?.formacao?.estado === "publicado"
-                ? `Revisão PCA ${anoFormacao}`
-                : `Formação PCA – ${anoFormacao}`
-            }
-            descricao={`Elaboração do plano do próximo exercício. Aberta automaticamente na virada de 1º de janeiro. Gera a Versão 1 de ${anoFormacao}.`}
-            metas={[
-              {
-                texto: entrada?.formacao
-                  ? estadoLabel(entrada.formacao.estado)
-                  : "Aberto · aguardando PROAD",
-                tom: "blue",
-              },
-              { texto: "rito ordinário · 31/01–31/03", tom: "plain" },
-            ]}
-            cta={
-              entrada?.formacao?.estado === "publicado"
-                ? "Abrir revisão"
-                : "Abrir formação"
-            }
-          />
-          <EntryCard
             selecionado={finalidade === "revisao"}
             onClick={abrirRevisao}
             icon={<RefreshCw className="h-6 w-6" />}
@@ -370,94 +167,33 @@ export default function CicloOrcamentario() {
             }
             cta="Abrir revisão"
           />
+          <EntryCard
+            selecionado={finalidade === "formacao"}
+            onClick={abrirFormacao}
+            icon={<Plus className="h-6 w-6" />}
+            iconClass="bg-blue-50 text-blue-700"
+            titulo={
+              entrada?.formacao?.estado === "publicado"
+                ? `Revisão PCA ${anoFormacao}`
+                : `Formação PCA – ${anoFormacao}`
+            }
+            descricao={`Elaboração do plano do próximo exercício. Aberta automaticamente na virada de 1º de janeiro. Gera a Versão 1 de ${anoFormacao}.`}
+            metas={[
+              {
+                texto: entrada?.formacao
+                  ? estadoLabel(entrada.formacao.estado)
+                  : "Aberto · aguardando PROAD",
+                tom: "blue",
+              },
+              { texto: "rito ordinário · 31/01–31/03", tom: "plain" },
+            ]}
+            cta={
+              entrada?.formacao?.estado === "publicado"
+                ? "Abrir revisão"
+                : "Abrir formação"
+            }
+          />
         </div>
-
-
-
-        {/* Revisão */}
-        {finalidade === "revisao" && (
-          <section className="space-y-2">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                {janela.ativa
-                  ? `Rito da ${janela.calendario.ordem}ª revisão · gera ${rotuloVersao(janela.calendario.versao)}`
-                  : "Revisão · nenhuma janela aberta"}
-              </h2>
-              <div className="flex items-center gap-2">
-                {ciclo?.finalidade === "revisao" && (
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    {estadoLabel(ciclo.estado)}
-                  </span>
-                )}
-                {ciclo?.finalidade === "revisao" && (
-                  <Button variant="outline" size="sm" onClick={gerarRevisaoPdf}>
-                    <FileDown className="h-4 w-4 mr-1.5" />
-                    Proposta de Revisão
-                  </Button>
-                )}
-              </div>
-            </div>
-            {janela.ativa ? (
-              <>
-                <CicloTimeline
-                  pernas={nosRevisao(janela.calendario)}
-                  activeIndex={
-                    ciclo?.finalidade === "revisao"
-                      ? IDX_REVISAO[ciclo.estado] ?? 0
-                      : 0
-                  }
-                />
-                <p className="text-xs text-slate-400">
-                  Rito ágil: dias 07 → 15 → 20 do mês de apuração (RF-70/RF-78).
-                </p>
-                {ciclo?.finalidade === "revisao" && (
-                  <EsteiraControls
-                    ciclo={ciclo}
-                    onAvancar={avancarEsteira}
-                    onRetroceder={retrocederEsteira}
-                    disabled={acaoEmCurso}
-                  />
-                )}
-                <RevisaoItens
-                  anoVigente={anoVigente}
-                  editavel={
-                    ciclo?.finalidade === "revisao" &&
-                    (ciclo.estado === "janela_aberta" ||
-                      ciclo.estado === "em_rito_validacao")
-                  }
-                />
-              </>
-            ) : (
-              <div className="rounded-xl border border-slate-200 bg-white">
-                <div className="flex flex-col items-center justify-center text-center px-6 py-12">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-                    <CalendarClock className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-base font-semibold text-slate-800">
-                    A próxima janela de revisão abre em{" "}
-                    {janela.proximaAberturaEm ?? "—"}
-                  </h3>
-                  <p className="mt-1 max-w-md text-sm text-slate-500">
-                    Fora das janelas, os itens permanecem como na versão vigente
-                    do PCA-TIC. Cronograma das ordinárias: 1ª · pub→31/01 (V2) ·
-                    2ª · 01–30/04 (V3) · 3ª · 01–31/07 (V4).
-                  </p>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Cap. 8 — juntada de atas dos comitês (RN-GERAL-04) e Editores por escopo (RN-GERAL-09) */}
-        {ciclo && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Governança do ciclo · Cap. 8
-            </h2>
-            <AtasComitesPanel cicloId={ciclo.id} />
-            <EditoresPanel cicloId={ciclo.id} />
-          </section>
-        )}
       </div>
     </Layout>
   );

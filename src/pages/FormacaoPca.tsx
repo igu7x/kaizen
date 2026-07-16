@@ -17,6 +17,7 @@ import { getApiBaseUrl } from "@/services/apiClient";
 import { DialogNovoIfo } from "@/components/ciclo/DialogNovoIfo";
 import { DialogEditarIfo } from "@/components/ciclo/DialogEditarIfo";
 import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContratos";
+import { DialogImportarPca } from "@/components/ciclo/DialogImportarPca";
 import { FaseBanner } from "@/components/ciclo/FaseBanner";
 import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -48,27 +49,27 @@ const PROXIMO_ATOR_LABELS: Record<string, string> = {
 };
 
 const TAG_POR_ESTADO: Record<string, string> = {
-  aberto: "PCA_ENCAMINHAR_CONSULTA",
-  em_consulta_1: "PCA_VALIDAR_DEMANDA_1_CAMADA",
-  em_consulta_2: "PCA_VALIDAR_DEMANDA_2_CAMADA",
-  consolidacao_cca: "PCA_CONSOLIDAR_ENCAMINHAR_GEJUT",
-  validacao_gejut: "PCA_ENCAMINHAR_SGJT",
-  apreciacao_sgjt: "PCA_PAUTAR_COMITES",
-  em_comites: "PCA_AUTORIZAR_COMITES",
-  remessa_dg: "PCA_REMETER_DG",
+  aberto: "PCA_FOR_ENCAMINHAR_CONSULTA",
+  em_consulta_1: "PCA_FOR_VALIDAR_DEMANDA_1_CAMADA",
+  em_consulta_2: "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA",
+  consolidacao_cca: "PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT",
+  validacao_gejut: "PCA_FOR_ENCAMINHAR_SGJT",
+  apreciacao_sgjt: "PCA_FOR_PAUTAR_COMITES",
+  em_comites: "PCA_FOR_AUTORIZAR_COMITES",
+  remessa_dg: "PCA_FOR_REMETER_DG",
 };
 
 const TAGS_ACESSO_POR_ESTADO: Record<string, string[]> = {
-  aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
-  aberto_aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
-  aberto: ["PCA_FORMACAO_ABERTURA", "PCA_REGISTRAR_PROAD", "PCA_ENCAMINHAR_CONSULTA"],
-  em_consulta_1: ["PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO"],
-  em_consulta_2: ["PCA_VALIDAR_DEMANDA_1_CAMADA", "PCA_VALIDAR_DEMANDA_2_CAMADA", "PCA_REMETER_PARTICAO"],
-  consolidacao_cca: ["PCA_CONSOLIDAR_ENCAMINHAR_GEJUT"],
-  validacao_gejut: ["PCA_ENCAMINHAR_SGJT"],
-  apreciacao_sgjt: ["PCA_PAUTAR_COMITES"],
-  em_comites: ["PCA_AUTORIZAR_COMITES"],
-  remessa_dg: ["PCA_REMETER_DG"],
+  aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
+  aberto_aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
+  aberto: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
+  em_consulta_1: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO"],
+  em_consulta_2: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO"],
+  consolidacao_cca: ["PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT"],
+  validacao_gejut: ["PCA_FOR_ENCAMINHAR_SGJT"],
+  apreciacao_sgjt: ["PCA_FOR_PAUTAR_COMITES"],
+  em_comites: ["PCA_FOR_AUTORIZAR_COMITES"],
+  remessa_dg: ["PCA_FOR_REMETER_DG"],
   publicado: [], // Sem restrição
 };
 
@@ -78,12 +79,14 @@ function EsteiraControls({
   onRetroceder,
   disabled,
   podeAvancar = true,
+  hideRetornar = false,
 }: {
   ciclo: Ciclo;
   onAvancar: () => void;
   onRetroceder: () => void;
   disabled?: boolean;
   podeAvancar?: boolean;
+  hideRetornar?: boolean;
 }) {
   const { user } = useAuth();
   const tags = user?.tags_acesso ?? [];
@@ -100,10 +103,12 @@ function EsteiraControls({
         Próxima ação:
       </span>
       <div className="ml-auto flex gap-2">
-        <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Retornar
-        </Button>
+        {!hideRetornar && (
+          <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Retornar
+          </Button>
+        )}
         {podeAvancarFinal && (
           <Button
             size="sm"
@@ -138,6 +143,7 @@ export default function FormacaoPca() {
   const [ifos, setIfos] = useState<Ifo[]>([]);
   const [loadingBlocos, setLoadingBlocos] = useState(false);
   const [isNovoIfoOpen, setIsNovoIfoOpen] = useState(false);
+  const [isImportarPcaOpen, setIsImportarPcaOpen] = useState(false);
 
   // Modals de edição
   const [ifoEditing, setIfoEditing] = useState<Ifo | null>(null);
@@ -179,7 +185,7 @@ export default function FormacaoPca() {
     try {
       // Se o ciclo está na fase de Consulta, restringimos a visibilidade
       const isSuper = (user as any)?.is_superadmin;
-      const hasSpecialAccess = user?.tags_acesso?.includes("PCA_MODIFICACAO_ESPECIAL") || user?.tags_acesso?.includes("PCA_MODIFICACAO_CCA");
+      const hasSpecialAccess = user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") || user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_CCA");
       const isEmConsulta = ciclo.estado === "em_consulta_1" || ciclo.estado === "em_consulta_2";
       const deveFiltrarMinhasDemandas = isEmConsulta && !isSuper && !hasSpecialAccess;
 
@@ -285,11 +291,11 @@ export default function FormacaoPca() {
     if (formacaoEstado === "publicado") return false;
     if ((user as any)?.is_superadmin) return true;
     const estadoMap = formacaoEstado === "aberto_aguardando_proad" ? "AGUARDANDO_PROAD" : formacaoEstado.toUpperCase();
-    const tagNecessaria = `PCA_${prefix}_${estadoMap}`;
+    const tagNecessaria = `PCA_FOR_${prefix}_${estadoMap}`;
     return user?.tags_acesso?.includes(tagNecessaria) ?? false;
   };
 
-  const temModificacaoEspecial = user?.tags_acesso?.includes("PCA_MODIFICACAO_ESPECIAL") || user?.tags_acesso?.includes("PCA_MODIFICACAO_CCA");
+  const temModificacaoEspecial = user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") || user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_CCA");
   const podeEditarIfo = hasEditTag("MODIFICAR_IFO") || temModificacaoEspecial;
   const podeVincularContratos = hasEditTag("VINCULAR_CONTRATOS");
   const podeDeletarIfo = hasEditTag("DELETAR_IFO");
@@ -366,7 +372,7 @@ export default function FormacaoPca() {
             ) : (
               <>
                 {/* Banner contextual da fase atual */}
-                {formacaoEstado && formacaoEstado !== "apreciacao_sgjt" && formacaoEstado !== "remessa_dg" && (
+                {formacaoEstado && !["aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "remessa_dg"].includes(formacaoEstado) && (
                   <FaseBanner estado={formacaoEstado} ano={anoFormacao} />
                 )}
 
@@ -413,40 +419,17 @@ export default function FormacaoPca() {
                 {!aguardandoProad && (
                   <>
                     {/* Fase: Consolidação (consolidacao_cca / validacao_gejut) — listagem consolidada */}
-                    {(formacaoEstado === "consolidacao_cca" || formacaoEstado === "validacao_gejut") && ciclo.proad && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-slate-800">
-                            Referência no PROAD
-                          </h3>
-                        </div>
-                        <p className="text-xs text-slate-500 mb-2">
-                          {formacaoEstado === "consolidacao_cca"
-                            ? "O DFD consolidado está sendo organizado pela CCA para encaminhamento à GEJUT."
-                            : "A GEJUT está analisando a conformidade jurídica do DFD consolidado."}
-                        </p>
-                        <CampoLinkProad
-                          cicloId={ciclo.id}
-                          campo="proad_gejut"
-                          valorOriginal={ciclo.proadGejut}
-                          estadoAtual={formacaoEstado}
-                          estadoEditavel="validacao_gejut"
-                          label="PROAD do Despacho GEJUT"
-                          onSaved={(c) => setCiclo(c)}
-                        />
-                      </div>
-                    )}
+                    {/* Painel de Referência PROAD / Despacho GEJUT removido */}
 
                     {/* Fase: Apreciação SGJT */}
                     {formacaoEstado === "apreciacao_sgjt" && ciclo.proad && (
                       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-semibold text-slate-800">
-                            Validação
+                            Proposta DFD
                           </h3>
                         </div>
                         <div className="flex flex-col gap-4">
-                          <span className="text-sm font-medium text-slate-700">Validar Proposta DFD:</span>
                           <div className="flex gap-2">
                             <Button
                               onClick={() => setValidacaoDfd('V')}
@@ -472,11 +455,10 @@ export default function FormacaoPca() {
                       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-semibold text-slate-800">
-                            Validação
+                            Proposta DFD
                           </h3>
                         </div>
                         <div className="flex flex-col gap-4">
-                          <span className="text-sm font-medium text-slate-700">Validar Proposta nos Comitês:</span>
                           <div className="flex gap-2">
                             <Button
                               onClick={() => setValidacaoComites('V')}
@@ -493,7 +475,7 @@ export default function FormacaoPca() {
                               <X className="h-4 w-4 mr-2" /> Rejeitar
                             </Button>
                           </div>
-                          
+
                           {validacaoComites === 'V' && (
                             <div className="mt-2 p-4 border rounded-lg bg-slate-50">
                               <h4 className="text-sm font-semibold text-slate-800 mb-3">Inserir Ata</h4>
@@ -507,7 +489,7 @@ export default function FormacaoPca() {
                                   label="PROAD da Ata dos Comitês (Link)"
                                   onSaved={(c) => setCiclo(c)}
                                 />
-                                
+
                                 <div>
                                   <span className="text-xs font-medium text-slate-500 mb-1 block">Upload de Arquivo (Em breve)</span>
                                   <Button disabled variant="outline" className="w-full sm:w-auto text-slate-400">
@@ -659,29 +641,16 @@ export default function FormacaoPca() {
                             </div>
                           )}
 
-                          {/* Se SIM validado → Importar PCA (upload PDF) */}
+                          {/* Se SIM validado → Importar PCA */}
                           {validacaoDg === 'V' && (
                             <div>
-                              <label className="cursor-pointer">
-                                <input
-                                  type="file"
-                                  accept="application/pdf"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    if (file.type !== "application/pdf") {
-                                      toast.error("Apenas arquivos PDF são permitidos.");
-                                      return;
-                                    }
-                                    toast.success(`PCA importado: ${file.name}`);
-                                  }}
-                                />
-                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer">
-                                  <Upload className="h-4 w-4" />
-                                  Importar PCA
-                                </div>
-                              </label>
+                              <div
+                                onClick={() => setIsImportarPcaOpen(true)}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
+                              >
+                                <Upload className="h-4 w-4" />
+                                Importar PCA
+                              </div>
                             </div>
                           )}
                         </div>
@@ -693,6 +662,7 @@ export default function FormacaoPca() {
                         onRetroceder={retrocederEsteira}
                         disabled={acaoEmCurso}
                         podeAvancar={podeAvancarParaConsulta}
+                        hideRetornar={formacaoEstado === "aberto"}
                       />
                     )}
                   </>
@@ -1013,6 +983,30 @@ export default function FormacaoPca() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {ciclo && (
+        <DialogImportarPca
+          open={isImportarPcaOpen}
+          onOpenChange={setIsImportarPcaOpen}
+          ifos={[...ifosEncerramento, ...ifosRenovacao, ...ifosPlurianual, ...ifos]}
+          anoFormacao={anoFormacao}
+          onEditIfo={setIfoEditing}
+          onConfirm={async (importacoes) => {
+            setAcaoEmCurso(true);
+            try {
+              const c = await cicloOrcamentarioApi.publicar(ciclo.id, importacoes);
+              setCiclo(c);
+              toast.success("Ciclo publicado e itens de PCA gerados com sucesso!");
+              loadBlocos();
+            } catch (err) {
+              console.error(err);
+              toast.error("Não foi possível importar os PCAs.");
+            } finally {
+              setAcaoEmCurso(false);
+            }
+          }}
+        />
+      )}
     </Layout>
   );
 }
