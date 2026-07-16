@@ -28,34 +28,25 @@ public class GestaoEstrategicaService {
     // PLANOS/PROGRAMAS
     // ============================================================
 
-    public List<Map<String, Object>> getAllPlanos(String diretoria) {
+    public List<Map<String, Object>> getAllPlanos(Long cadastrosAreasId) {
         StringBuilder sql = new StringBuilder(
-                "SELECT ip.id, ip.nome, COALESCE(ip.diretoria, 'SGJT') as diretoria, ip.tipo, ip.ativo, " +
+                "SELECT ip.id, ip.nome, ip.cadastros_areas_id, ip.tipo, ip.ativo, " +
                         "ip.created_at, ip.updated_at, ip.created_by, ip.updated_by, ip.areas_vinculadas_ids, " +
                         "TRUE as is_instrumento " +
                         "FROM cadastros_instrumentos_planejamento ip WHERE ip.ativo = TRUE");
         List<Object> params = new ArrayList<>();
 
-        if (diretoria != null) {
-            var domain = domainService.getDomainForDiretoria(diretoria);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
             if (domain.isDomainRoot()) {
-                List<Integer> areaIds = jdbc.queryForList(
-                        "SELECT id FROM cadastros_areas WHERE sigla = ANY(?::text[]) AND ativo IS NOT FALSE",
-                        Integer.class, textArray(domain.diretoriasInDomain()));
-                params.add(textArray(domain.diretoriasInDomain()));
-                params.add(intArray(areaIds.isEmpty() ? List.of(0) : areaIds));
-                sql.append(" AND (ip.diretoria = ANY(?::text[]) OR ip.areas_vinculadas_ids && ?::int[])");
+                List<Long> areaIds = domain.areasIdInDomain();
+                params.add(intArray(areaIds.isEmpty() ? List.of(0L) : areaIds));
+                params.add(intArray(areaIds.isEmpty() ? List.of(0L) : areaIds));
+                sql.append(" AND (ip.cadastros_areas_id = ANY(?::int[]) OR ip.areas_vinculadas_ids && ?::int[])");
             } else {
-                List<Integer> areaRows = jdbc.queryForList(
-                        "SELECT id FROM cadastros_areas WHERE sigla = ? AND ativo = TRUE", Integer.class, diretoria);
-                if (!areaRows.isEmpty()) {
-                    params.add(diretoria);
-                    params.add(areaRows.get(0));
-                    sql.append(" AND (ip.diretoria = ? OR ? = ANY(COALESCE(ip.areas_vinculadas_ids, '{}')))");
-                } else {
-                    params.add(diretoria);
-                    sql.append(" AND ip.diretoria = ?");
-                }
+                params.add(cadastrosAreasId);
+                params.add(cadastrosAreasId);
+                sql.append(" AND (ip.cadastros_areas_id = ? OR ? = ANY(COALESCE(ip.areas_vinculadas_ids, '{}')))");
             }
         }
         sql.append(" ORDER BY ip.nome");
@@ -64,7 +55,7 @@ public class GestaoEstrategicaService {
 
     public Map<String, Object> getPlanoById(long id) {
         var rows = jdbc.queryForList(
-                "SELECT id, nome, COALESCE(diretoria, 'SGJT') as diretoria, tipo, ativo, " +
+                "SELECT id, nome, cadastros_areas_id, tipo, ativo, " +
                         "created_at, updated_at, created_by, updated_by, TRUE as is_instrumento " +
                         "FROM cadastros_instrumentos_planejamento WHERE id = ? AND ativo = TRUE", id);
         return rows.isEmpty() ? null : rows.get(0);
@@ -117,15 +108,13 @@ public class GestaoEstrategicaService {
         return out;
     }
 
-    public Map<String, Object> createPlano(String nome, String diretoria, Long userId) {
-        String dir = (diretoria == null || diretoria.isEmpty()) ? "SGJT" : diretoria;
+    public Map<String, Object> createPlano(String nome, Long cadastrosAreasId, Long userId) {
         Map<String, Object> row = jdbc.queryForMap(
-                "INSERT INTO instrumentos_planejamento (nome, tipo, diretoria, created_by, updated_by) " +
+                "INSERT INTO instrumentos_planejamento (nome, tipo, cadastros_areas_id, created_by, updated_by) " +
                         "VALUES (?, 'plano', ?, ?, ?) " +
-                        "RETURNING id, nome, tipo, ativo, created_at, updated_at, created_by, updated_by",
-                nome, dir, userId, userId);
+                        "RETURNING id, nome, cadastros_areas_id, tipo, ativo, created_at, updated_at, created_by, updated_by",
+                nome, cadastrosAreasId, userId, userId);
         Map<String, Object> out = new LinkedHashMap<>(row);
-        out.put("diretoria", dir);
         out.put("is_instrumento", true);
         return out;
     }
@@ -138,13 +127,12 @@ public class GestaoEstrategicaService {
         var rows = jdbc.queryForList(
                 "UPDATE instrumentos_planejamento SET nome = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND ativo = TRUE " +
-                        "RETURNING id, nome, tipo, ativo, created_at, updated_at, created_by, updated_by",
+                        "RETURNING id, nome, cadastros_areas_id, tipo, ativo, created_at, updated_at, created_by, updated_by",
                 nome, userId, id);
         if (rows.isEmpty()) {
             return null;
         }
         Map<String, Object> out = new LinkedHashMap<>(rows.get(0));
-        out.put("diretoria", "SGJT");
         out.put("is_instrumento", true);
         return out;
     }
@@ -317,7 +305,7 @@ public class GestaoEstrategicaService {
     // ESTATÍSTICAS
     // ============================================================
 
-    public Map<String, Object> getEstatisticasPorDiretoria(String diretoria) {
+    public Map<String, Object> getEstatisticasPorDiretoria(Long cadastrosAreasId) {
         Map<String, Object> row = jdbc.queryForMap(
                 "SELECT COUNT(DISTINCT p.id) AS total_planos, COUNT(DISTINCT pr.id) AS total_projetos, " +
                         "COUNT(t.id) AS total_tarefas, " +
@@ -329,7 +317,7 @@ public class GestaoEstrategicaService {
                         "FROM gestao_planos_programas p " +
                         "LEFT JOIN gestao_krs_projetos pr ON pr.plano_id = p.id AND pr.ativo = TRUE " +
                         "LEFT JOIN gestao_tarefas t ON t.projeto_id = pr.id AND t.ativo = TRUE " +
-                        "WHERE p.ativo = TRUE AND p.diretoria = ?", diretoria);
+                        "WHERE p.ativo = TRUE AND (p.cadastros_areas_id = ? OR ? IS NULL)", cadastrosAreasId, cadastrosAreasId);
 
         Map<String, Object> tarefasPorStatus = new LinkedHashMap<>();
         tarefasPorStatus.put("backlog", toInt(row.get("backlog")));

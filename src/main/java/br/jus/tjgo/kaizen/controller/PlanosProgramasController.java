@@ -21,13 +21,13 @@ public class PlanosProgramasController {
     private final PlanosProgramasService service;
 
     @GetMapping("/instrumentos")
-    public List<Map<String, Object>> listInstrumentos(@RequestParam(value = "diretoria", required = false) String diretoria) {
-        return service.getAllInstrumentos(diretoria);
+    public List<Map<String, Object>> listInstrumentos(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return service.getAllInstrumentos(cadastrosAreasId);
     }
 
     @GetMapping("/instrumentos/ancoragem")
-    public List<Map<String, Object>> ancoragem(@RequestParam(value = "diretoria", required = false) String diretoria) {
-        return service.getInstrumentosParaAncoragem(diretoria);
+    public List<Map<String, Object>> ancoragem(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return service.getInstrumentosParaAncoragem(cadastrosAreasId);
     }
 
     @GetMapping("/instrumentos/{id:\\d+}")

@@ -33,21 +33,25 @@ public class AvaliacaoIntegradaController {
 
     // GET /api/avaliacao-integrada
     @GetMapping
-    public List<Map<String, Object>> list(@RequestParam(value = "diretoria", required = false) String diretoria,
+    public List<Map<String, Object>> list(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId,
                                            @RequestParam(value = "dominio", required = false) String dominio,
                                            @RequestParam(value = "tipo_inventario", required = false) String tipoInventario) {
-        if (diretoria == null && dominio == null) {
-            String userDiretoria = lookupUserDiretoria(currentUserId());
-            if (userDiretoria != null) {
-                var domain = domainService.getDomainForDiretoria(userDiretoria);
-                return service.findAllByDomain(domain.diretoriasInDomain(), tipoInventario);
+        if (cadastrosAreasId == null && dominio == null) {
+            Long userAreaId = lookupUserAreaId(currentUserId());
+            if (userAreaId != null) {
+                var domain = domainService.getDomainForArea(userAreaId);
+                return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
             }
         }
         if (dominio != null) {
             var domain = domainService.getDomainForDiretoria(dominio);
-            return service.findAllByDomain(domain.diretoriasInDomain(), tipoInventario);
+            return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
         }
-        return service.findAll(diretoria, tipoInventario);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
+            return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
+        }
+        return service.findAll(null, tipoInventario);
     }
 
     // GET /api/avaliacao-integrada/pendentes-colaborador
@@ -59,12 +63,13 @@ public class AvaliacaoIntegradaController {
     // GET /api/avaliacao-integrada/tem-elegiveis
     @GetMapping("/tem-elegiveis")
     public Map<String, Object> temElegiveis() {
-        String userDiretoria = lookupUserDiretoria(currentUserId());
-        if (userDiretoria == null) {
-            userDiretoria = "SGJT";
+        Long userAreaId = lookupUserAreaId(currentUserId());
+        if (userAreaId == null) {
+            var domain = domainService.getDomainForDiretoria("SGJT");
+            return service.temElegiveis(domain.areasIdInDomain());
         }
-        var domain = domainService.getDomainForDiretoria(userDiretoria);
-        return service.temElegiveis(domain.diretoriasInDomain());
+        var domain = domainService.getDomainForArea(userAreaId);
+        return service.temElegiveis(domain.areasIdInDomain());
     }
 
     // GET /api/avaliacao-integrada/elegiveis/:unidadeId
@@ -161,9 +166,9 @@ public class AvaliacaoIntegradaController {
         return Map.of("message", "Formulário removido com sucesso");
     }
 
-    private String lookupUserDiretoria(long userId) {
-        var rows = jdbc.queryForList("SELECT diretoria FROM users WHERE id = ?", userId);
-        return rows.isEmpty() ? null : (String) rows.get(0).get("diretoria");
+    private Long lookupUserAreaId(long userId) {
+        var rows = jdbc.queryForList("SELECT cadastros_areas_id FROM users WHERE id = ?", userId);
+        return rows.isEmpty() ? null : (Long) rows.get(0).get("cadastros_areas_id");
     }
 
     private String lookupUserName(long userId) {

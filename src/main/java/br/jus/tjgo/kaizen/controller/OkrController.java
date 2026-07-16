@@ -35,8 +35,8 @@ public class OkrController {
     // ============================================================
 
     @GetMapping("/objectives")
-    public List<Map<String, Object>> listObjectives(@RequestParam(value = "directorate", required = false) String directorate) {
-        return okrService.findAllObjectivesByDirectorate(directorate);
+    public List<Map<String, Object>> listObjectives(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return okrService.findAllObjectivesByDirectorate(cadastrosAreasId);
     }
 
     @PostMapping("/objectives")
@@ -44,13 +44,13 @@ public class OkrController {
         AuthContext.requireRole(List.of("ADMIN")); // middleware authorize roda antes do handler
         String code = str(body.get("code"));
         String title = str(body.get("title"));
-        String directorate = str(body.get("directorate"));
-        if (code == null || title == null || directorate == null) {
-            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: code, title, directorate"));
+        Long cadastrosAreasId = asLong(body.get("cadastrosAreasId"));
+        if (code == null || title == null || cadastrosAreasId == null) {
+            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: code, title, cadastrosAreasId"));
         }
         try {
             Map<String, Object> objective = okrService.createObjective(
-                    code, title, str(body.get("description")), directorate, currentUserId());
+                    code, title, str(body.get("description")), cadastrosAreasId, currentUserId());
             return ResponseEntity.status(HttpStatus.CREATED).body(objective);
         } catch (DataAccessException e) {
             if (PgErrors.is(e, "23505")) {
@@ -65,7 +65,7 @@ public class OkrController {
         AuthContext.requireRole(List.of("ADMIN"));
         Map<String, Object> objective = okrService.updateObjective(
                 id, str(body.get("code")), str(body.get("title")), str(body.get("description")),
-                str(body.get("directorate")), currentUserId());
+                asLong(body.get("cadastrosAreasId")), currentUserId());
         if (objective == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Objetivo não encontrado"));
         }
@@ -87,8 +87,8 @@ public class OkrController {
 
     @GetMapping("/key-results")
     public List<Map<String, Object>> listKeyResults(@RequestParam(value = "objectiveId", required = false) Integer objectiveId,
-                                                    @RequestParam(value = "directorate", required = false) String directorate) {
-        return okrService.findAllKeyResults(objectiveId, directorate);
+                                                    @RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return okrService.findAllKeyResults(objectiveId, cadastrosAreasId);
     }
 
     @PostMapping("/key-results")
@@ -97,17 +97,17 @@ public class OkrController {
         Integer objectiveId = asInt(body.get("objectiveId"));
         String code = str(body.get("code"));
         String description = str(body.get("description"));
-        String directorate = str(body.get("directorate"));
-        if (objectiveId == null || code == null || description == null || directorate == null) {
+        Long cadastrosAreasId = asLong(body.get("cadastrosAreasId"));
+        if (objectiveId == null || code == null || description == null || cadastrosAreasId == null) {
             return ResponseEntity.status(400).body(Map.of("error",
-                    "Campos obrigatórios: objectiveId, code, description, directorate"));
+                    "Campos obrigatórios: objectiveId, code, description, cadastrosAreasId"));
         }
         try {
             Map<String, Object> kr = okrService.createKeyResult(
                     objectiveId, code, description,
                     body.get("status") != null ? str(body.get("status")) : "NAO_INICIADO",
                     body.get("deadline") != null ? str(body.get("deadline")) : "",
-                    directorate, currentUserId());
+                    cadastrosAreasId, currentUserId());
             return ResponseEntity.status(HttpStatus.CREATED).body(kr);
         } catch (DataAccessException e) {
             if (PgErrors.is(e, "23503")) {
@@ -143,22 +143,22 @@ public class OkrController {
     // ============================================================
 
     @GetMapping("/initiatives")
-    public List<Map<String, Object>> listInitiatives(@RequestParam(value = "directorate", required = false) String directorate) {
-        return okrService.findAllInitiatives(directorate);
+    public List<Map<String, Object>> listInitiatives(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return okrService.findAllInitiatives(cadastrosAreasId);
     }
 
     @PostMapping("/initiatives")
     public ResponseEntity<?> createInitiative(@RequestBody Map<String, Object> body) {
         Object keyResultId = body.get("keyResultId");
         String title = str(body.get("title"));
-        String directorate = str(body.get("directorate"));
-        if (keyResultId == null || title == null || directorate == null) {
-            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: keyResultId, title, directorate"));
+        Long cadastrosAreasId = asLong(body.get("cadastrosAreasId"));
+        if (keyResultId == null || title == null || cadastrosAreasId == null) {
+            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: keyResultId, title, cadastrosAreasId"));
         }
         try {
             Map<String, Object> init = okrService.createInitiative(
                     keyResultId, title, str(body.get("description")), str(body.get("boardStatus")),
-                    str(body.get("location")), body.get("sprintId"), directorate, currentUserId());
+                    str(body.get("location")), body.get("sprintId"), cadastrosAreasId, currentUserId());
             return ResponseEntity.status(HttpStatus.CREATED).body(init);
         } catch (DataAccessException e) {
             if (PgErrors.is(e, "23503")) {
@@ -192,18 +192,18 @@ public class OkrController {
     // ============================================================
 
     @GetMapping("/programs")
-    public List<Map<String, Object>> listPrograms(@RequestParam(value = "directorate", required = false) String directorate) {
-        return okrService.findAllPrograms(directorate);
+    public List<Map<String, Object>> listPrograms(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return okrService.findAllPrograms(cadastrosAreasId);
     }
 
     @PostMapping("/programs")
     public ResponseEntity<?> createProgram(@RequestBody Map<String, Object> body) {
         String name = str(body.get("name"));
-        String directorate = str(body.get("directorate"));
-        if (name == null || directorate == null) {
-            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: name, directorate"));
+        Long cadastrosAreasId = asLong(body.get("cadastrosAreasId"));
+        if (name == null || cadastrosAreasId == null) {
+            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios: name, cadastrosAreasId"));
         }
-        Map<String, Object> program = okrService.createProgram(name, str(body.get("description")), directorate, currentUserId());
+        Map<String, Object> program = okrService.createProgram(name, str(body.get("description")), cadastrosAreasId, currentUserId());
         return ResponseEntity.status(HttpStatus.CREATED).body(program);
     }
 
@@ -286,22 +286,22 @@ public class OkrController {
     // ============================================================
 
     @GetMapping("/execution-controls")
-    public List<Map<String, Object>> listExecutionControls(@RequestParam(value = "directorate", required = false) String directorate) {
-        return okrService.findAllExecutionControls(directorate);
+    public List<Map<String, Object>> listExecutionControls(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return okrService.findAllExecutionControls(cadastrosAreasId);
     }
 
     @PostMapping("/execution-controls")
     public ResponseEntity<?> createExecutionControl(@RequestBody Map<String, Object> body) {
         String planProgram = str(body.get("planProgram"));
         String krProjectInitiative = str(body.get("krProjectInitiative"));
-        String directorate = str(body.get("directorate"));
-        if (planProgram == null || krProjectInitiative == null || directorate == null) {
+        Long cadastrosAreasId = asLong(body.get("cadastrosAreasId"));
+        if (planProgram == null || krProjectInitiative == null || cadastrosAreasId == null) {
             return ResponseEntity.status(400).body(Map.of("error",
-                    "Campos obrigatórios: planProgram, krProjectInitiative, directorate"));
+                    "Campos obrigatórios: planProgram, krProjectInitiative, cadastrosAreasId"));
         }
         Map<String, Object> ctrl = okrService.createExecutionControl(
                 planProgram, krProjectInitiative, str(body.get("backlogTasks")), str(body.get("sprintStatus")),
-                str(body.get("sprintTasks")), str(body.get("progress")), directorate, currentUserId());
+                str(body.get("sprintTasks")), str(body.get("progress")), cadastrosAreasId, currentUserId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ctrl);
     }
 
@@ -322,7 +322,7 @@ public class OkrController {
         Map<String, Object> ctrl = okrService.updateExecutionControl(
                 id, str(body.get("planProgram")), str(body.get("krProjectInitiative")), str(body.get("backlogTasks")),
                 str(body.get("sprintStatus")), str(body.get("sprintTasks")), str(body.get("progress")),
-                str(body.get("directorate")), currentUserId());
+                asLong(body.get("cadastrosAreasId")), currentUserId());
         if (ctrl == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Registro não encontrado"));
         }
@@ -343,6 +343,20 @@ public class OkrController {
 
     private static String str(Object v) {
         return v == null ? null : String.valueOf(v);
+    }
+
+    private static Long asLong(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Number n) {
+            return n.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(v));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static Integer asInt(Object v) {

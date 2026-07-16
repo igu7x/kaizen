@@ -69,7 +69,7 @@ public class KaizenCorsFilter extends OncePerRequestFilter {
 
         res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
         res.setHeader("Access-Control-Allow-Headers",
-                "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-User-Role, X-User-Id, X-User-Diretoria, X-Silent-Error");
+                "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-User-Role, X-User-Id, X-User-Diretoria, X-User-Area-Ids, X-Silent-Error");
         res.setHeader("Access-Control-Allow-Credentials", "true");
         res.setHeader("Access-Control-Expose-Headers", "X-Flash-Success, X-Flash-Notice, X-Flash-Error");
         res.setHeader("Access-Control-Max-Age", "86400");

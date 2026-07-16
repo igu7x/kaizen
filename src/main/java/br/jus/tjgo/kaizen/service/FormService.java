@@ -12,6 +12,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import br.jus.tjgo.kaizen.utils.SqlValue;
+
 /**
  * Porte fiel de form.service.ts (formulários dinâmicos: forms + sections + fields + responses + answers).
  * jsonb: allowed_directorates, form_fields.config, form_answers.value (Bug #3). Operador jsonb `?`
@@ -59,15 +61,14 @@ public class FormService {
 
     // ======================== FORMS ========================
 
-    public List<Map<String, Object>> findAllForms(String directorateCode, boolean isAdmin) {
+    public List<Map<String, Object>> findAllForms(Long cadastrosAreasId, boolean isAdmin) {
         StringBuilder sql = new StringBuilder("SELECT * FROM forms WHERE is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
-        if (!isAdmin && directorateCode != null) {
-            // jsonb `?` operador -> jsonb_exists() (evita colisao com placeholder JDBC)
-            sql.append(" AND (allowed_directorates IS NULL OR allowed_directorates = '[]' " +
-                    "OR jsonb_exists(allowed_directorates::jsonb, 'ALL') " +
-                    "OR jsonb_exists(allowed_directorates::jsonb, ?))");
-            params.add(directorateCode);
+        if (!isAdmin && cadastrosAreasId != null) {
+            sql.append(" AND (allowed_areas_ids IS NULL OR allowed_areas_ids = '[]' " +
+                    "OR allowed_areas_ids @> '[\"ALL\"]'::jsonb " +
+                    "OR allowed_areas_ids @> ?::jsonb)");
+            params.add("[" + cadastrosAreasId + "]");
         }
         sql.append(" ORDER BY created_at DESC");
         var rows = jdbc.queryForList(sql.toString(), params.toArray());
@@ -100,11 +101,11 @@ public class FormService {
     }
 
     public Map<String, Object> createForm(Map<String, Object> data, Long userId) {
-        Object allowed = data.get("allowed_directorates");
+        Object allowed = data.get("allowed_areas_ids");
         Map<String, Object> form = jdbc.queryForMap(
-                "INSERT INTO forms (title, description, directorate_code, allowed_directorates, created_by, status) " +
+                "INSERT INTO forms (title, description, cadastros_areas_id, allowed_areas_ids, created_by, status) " +
                         "VALUES (?, ?, ?, ?::jsonb, ?, ?) RETURNING *",
-                data.get("title"), orNull(data.get("description")), data.get("directorate_code"),
+                data.get("title"), orNull(data.get("description")), SqlValue.numeroOuNull(data.get("cadastros_areas_id")),
                 toJson(allowed != null ? allowed : List.of()), userId,
                 data.get("status") != null ? data.get("status") : "DRAFT");
         audit.log("forms", asLong(form.get("id")), "INSERT", userId, null, null, form);
@@ -131,9 +132,13 @@ public class FormService {
             updates.add("status = ?");
             values.add(data.get("status"));
         }
-        if (data.containsKey("allowed_directorates")) {
-            updates.add("allowed_directorates = ?::jsonb");
-            values.add(toJson(data.get("allowed_directorates")));
+        if (data.containsKey("allowed_areas_ids")) {
+            updates.add("allowed_areas_ids = ?::jsonb");
+            values.add(toJson(data.get("allowed_areas_ids")));
+        }
+        if (data.containsKey("cadastros_areas_id")) {
+            updates.add("cadastros_areas_id = ?");
+            values.add(SqlValue.numeroOuNull(data.get("cadastros_areas_id")));
         }
         if (updates.isEmpty()) {
             return findFormById(id);
@@ -316,8 +321,8 @@ public class FormService {
         dto.put("title", row.get("title"));
         dto.put("description", row.get("description"));
         dto.put("status", row.get("status"));
-        dto.put("directorate", row.get("directorate_code"));
-        dto.put("allowedDirectorates", row.get("allowed_directorates"));
+        dto.put("cadastrosAreasId", row.get("cadastros_areas_id"));
+        dto.put("allowedAreasIds", row.get("allowed_areas_ids"));
         dto.put("createdBy", row.get("created_by"));
         dto.put("createdAt", row.get("created_at"));
         dto.put("updatedAt", row.get("updated_at"));

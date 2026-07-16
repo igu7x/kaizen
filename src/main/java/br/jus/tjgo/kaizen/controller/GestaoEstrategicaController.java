@@ -37,8 +37,8 @@ public class GestaoEstrategicaController {
     // ---------- PLANOS ----------
 
     @GetMapping("/planos")
-    public List<Map<String, Object>> listPlanos(@RequestParam(value = "diretoria", required = false) String diretoria) {
-        return service.getAllPlanos(diretoria);
+    public List<Map<String, Object>> listPlanos(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return service.getAllPlanos(cadastrosAreasId);
     }
 
     @GetMapping("/planos/{id:\\d+}")
@@ -66,7 +66,7 @@ public class GestaoEstrategicaController {
         if (nome == null || nome.length() < 3) {
             return ResponseEntity.status(400).body(Map.of("error", "Nome é obrigatório e deve ter pelo menos 3 caracteres"));
         }
-        Map<String, Object> plano = service.createPlano(nome, str(body.get("diretoria")), getCurrentUserId(req));
+        Map<String, Object> plano = service.createPlano(nome, asLong(body.get("cadastrosAreasId")), getCurrentUserId(req));
         return ResponseEntity.status(HttpStatus.CREATED).body(plano);
     }
 
@@ -236,8 +236,8 @@ public class GestaoEstrategicaController {
     // ---------- ESTATÍSTICAS + MIGRATION ----------
 
     @GetMapping("/estatisticas")
-    public Map<String, Object> estatisticas(@RequestParam(value = "diretoria", required = false) String diretoria) {
-        return service.getEstatisticasPorDiretoria(diretoria != null ? diretoria : "SGJT");
+    public Map<String, Object> estatisticas(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
+        return service.getEstatisticasPorDiretoria(cadastrosAreasId);
     }
 
     @GetMapping("/run-migration-integrar")
@@ -251,6 +251,16 @@ public class GestaoEstrategicaController {
 
     private static String str(Object v) {
         return v == null ? null : String.valueOf(v);
+    }
+
+    private static Long asLong(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.longValue();
+        try {
+            return Long.parseLong(String.valueOf(v));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static String trimmed(Object v) {

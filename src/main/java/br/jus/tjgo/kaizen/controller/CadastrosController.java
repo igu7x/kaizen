@@ -126,19 +126,19 @@ public class CadastrosController {
 
     @GetMapping("/projetos")
     public ResponseEntity<?> listProjetos(HttpServletRequest req,
-                                          @RequestParam(value = "diretoria", required = false) String diretoria) {
+                                          @RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
         try {
-            // Se não veio diretoria, derivar do usuário logado (apenas req.userId, como o Node).
-            if (diretoria == null) {
+            // Se não veio cadastrosAreasId, derivar do usuário logado (apenas req.userId, como o Node).
+            if (cadastrosAreasId == null) {
                 Long userId = AuthContext.getCurrentUser().map(AuthenticatedUser::id).orElse(null);
                 if (userId != null) {
-                    String dir = service.lookupUserDiretoriaForProjetos(userId);
-                    if (dir != null) {
-                        diretoria = dir;
+                    Long areaId = service.lookupUserAreaIdForProjetos(userId);
+                    if (areaId != null) {
+                        cadastrosAreasId = areaId;
                     }
                 }
             }
-            return ResponseEntity.ok(service.getAllProjetos(diretoria));
+            return ResponseEntity.ok(service.getAllProjetos(cadastrosAreasId));
         } catch (Exception e) {
             return fail("Erro ao listar projetos", e);
         }

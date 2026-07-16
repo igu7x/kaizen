@@ -28,9 +28,9 @@ public class FormsController {
     }
 
     @GetMapping
-    public List<Map<String, Object>> list(@RequestParam(value = "directorate", required = false) String directorate,
+    public List<Map<String, Object>> list(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId,
                                           @RequestParam(value = "isAdmin", required = false) String isAdmin) {
-        return formService.findAllForms(directorate, "true".equals(isAdmin));
+        return formService.findAllForms(cadastrosAreasId, "true".equals(isAdmin));
     }
 
     @GetMapping("/{id:\\d+}")
@@ -50,8 +50,8 @@ public class FormsController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("title", body.get("title"));
         data.put("description", body.get("description"));
-        data.put("directorate_code", body.get("directorate"));
-        data.put("allowed_directorates", body.get("allowedDirectorates"));
+        data.put("cadastros_areas_id", body.get("cadastrosAreasId"));
+        data.put("allowed_areas_ids", body.get("allowedAreasIds"));
         data.put("status", body.get("status") != null ? body.get("status") : "DRAFT");
         return ResponseEntity.status(HttpStatus.CREATED).body(formService.createForm(data, currentUserId()));
     }
@@ -62,7 +62,7 @@ public class FormsController {
         if (body.containsKey("title")) data.put("title", body.get("title"));
         if (body.containsKey("description")) data.put("description", body.get("description"));
         if (body.containsKey("status")) data.put("status", body.get("status"));
-        if (body.containsKey("allowedDirectorates")) data.put("allowed_directorates", body.get("allowedDirectorates"));
+        if (body.containsKey("allowedAreasIds")) data.put("allowed_areas_ids", body.get("allowedAreasIds"));
         Map<String, Object> form = formService.updateForm(id, data, currentUserId());
         if (form == null) {
             return ResponseEntity.status(404).body(err("Formulário não encontrado"));
