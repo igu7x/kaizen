@@ -14,6 +14,8 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronRight,
+  Plus,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi } from "@/services/areasApi";
@@ -585,7 +587,7 @@ export function GestaoCompetencias() {
   if (currentView === "equipe_respostas") {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -595,8 +597,23 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Matriz de Competências da Equipe
+            Matriz de Competências da Equipe
           </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentView("equipe")}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+            </Button>
+            <Button
+              onClick={() => setCurrentView("equipe")}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+            </Button>
+          </div>
         </div>
         <CompetenciasGestorRespostas
           tipo="equipe"
@@ -717,7 +734,7 @@ export function GestaoCompetencias() {
   if (currentView === "gestor_respostas") {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -727,8 +744,23 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Matriz de Competências do Gestor
+            Matriz de Competências do Gestor
           </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentView("gestor")}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+            </Button>
+            <Button
+              onClick={() => setCurrentView("gestor")}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+            </Button>
+          </div>
         </div>
         <CompetenciasGestorRespostas
           tipo="gestor"

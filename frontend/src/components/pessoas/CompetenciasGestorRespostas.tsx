@@ -410,27 +410,11 @@ export function CompetenciasGestorRespostas({
         </CardContent>
       </Card>
 
-      {/* Contador */}
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary" className="text-sm px-3 py-1">
-          {formulariosFiltrados.length}{" "}
-          {formulariosFiltrados.length === 1 ? "resposta" : "respostas"}
-        </Badge>
-        {(filtroDiretoria !== "__all__" ||
-          filtroUnidade !== "__all__" ||
-          filtroNome.trim()) && (
-          <span className="text-xs text-gray-400">
-            (de {formularios.length} total)
-          </span>
-        )}
-      </div>
-
       {/* Tabela */}
       <Card className="border border-gray-200 shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
               <TableHead>Diretoria</TableHead>
               <TableHead>Unidade</TableHead>
               <TableHead className="text-center">Competências</TableHead>
@@ -444,7 +428,7 @@ export function CompetenciasGestorRespostas({
             {formulariosFiltrados.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="text-center text-gray-400 py-8"
                 >
                   Nenhum resultado para os filtros selecionados.
@@ -481,9 +465,6 @@ export function CompetenciasGestorRespostas({
                     : "-";
                 return (
                   <TableRow key={f.id}>
-                    <TableCell className="font-medium">
-                      {f.user_name || f.nome_completo}
-                    </TableCell>
                     <TableCell>{f.diretoria || "-"}</TableCell>
                     <TableCell>{f.unidade_nome || "-"}</TableCell>
                     <TableCell className="text-center">
@@ -604,6 +585,19 @@ export function CompetenciasGestorRespostas({
             )}
           </TableBody>
         </Table>
+        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60 rounded-b-lg">
+          <span className="text-sm font-medium text-gray-600">
+            {formulariosFiltrados.length}{" "}
+            {formulariosFiltrados.length === 1 ? "matriz" : "matrizes"}
+            {(filtroDiretoria !== "__all__" ||
+              filtroUnidade !== "__all__" ||
+              filtroNome.trim()) && (
+              <span className="ml-1 text-xs text-gray-400">
+                (de {formularios.length} total)
+              </span>
+            )}
+          </span>
+        </div>
       </Card>
 
       {/* Dialog: Histórico de versões */}
