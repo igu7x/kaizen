@@ -525,14 +525,14 @@ public class IfoService {
 
             if (userAreaIds.isEmpty()) {
                 try {
-                    var users = jdbc.queryForList("SELECT diretoria FROM users WHERE id = ? LIMIT 1", userId);
-                    if (!users.isEmpty() && users.get(0).get("diretoria") != null) {
-                        String diretoria = (String) users.get(0).get("diretoria");
-                        var areas = jdbc.queryForList("SELECT id FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) LIMIT 1", diretoria);
-                        if (!areas.isEmpty()) {
-                            userAreaIds.add(((Number) areas.get(0).get("id")).longValue());
+                    var users = jdbc.queryForList("SELECT cadastros_areas_id FROM users WHERE id = ? LIMIT 1", userId);
+                    if (!users.isEmpty() && users.get(0).get("cadastros_areas_id") != null) {
+                        Long fetchedAreaId = ((Number) users.get(0).get("cadastros_areas_id")).longValue();
+                        if (fetchedAreaId != null) {
+                            userAreaIds.add(fetchedAreaId);
                         }
                     }
+
                 } catch (Exception e) {}
             }
             
