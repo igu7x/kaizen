@@ -91,7 +91,7 @@ const colorPresets = [
 
 export default function Comites() {
   const navigate = useNavigate();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const { user } = useAuth();
   const [comites, setComites] = useState<Comite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +134,6 @@ export default function Comites() {
       setCreating(true);
       await comitesApi.update(editingComite.id, {
         nome: newComite.nome.trim(),
-        sigla: newComite.sigla.trim().toUpperCase(),
         descricao: newComite.descricao.trim() || undefined,
         cor: newComite.cor,
         icone: newComite.icone,
@@ -169,12 +168,12 @@ export default function Comites() {
 
   useEffect(() => {
     loadComites();
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   const loadComites = async () => {
     try {
       setLoading(true);
-      const data = await comitesApi.getAll(selectedDirectorate || undefined);
+      const data = await comitesApi.getAll(selectedArea?.dominio || undefined);
       setComites(data);
       setError(null);
     } catch (err: any) {
@@ -204,7 +203,7 @@ export default function Comites() {
         descricao: newComite.descricao.trim() || undefined,
         cor: newComite.cor,
         icone: newComite.icone,
-        dominio: selectedDirectorate || undefined,
+        dominio: selectedArea?.dominio || undefined,
       });
       setDialogOpen(false);
       setNewComite({
@@ -336,11 +335,10 @@ export default function Comites() {
                             onClick={() =>
                               setNewComite((prev) => ({ ...prev, cor: color }))
                             }
-                            className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                              newComite.cor === color
+                            className={`w-8 h-8 rounded-lg border-2 transition-all ${newComite.cor === color
                                 ? "border-gray-900 scale-110"
                                 : "border-transparent"
-                            }`}
+                              }`}
                             style={{ backgroundColor: color }}
                             title={color}
                           />

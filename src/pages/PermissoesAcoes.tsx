@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Trash2, Plus, Key, Check, ChevronsUpDown } from "lucide-react";
+import { Trash2, Plus, Key, Check, ChevronsUpDown, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -34,6 +34,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
 import {
   Accordion,
   AccordionContent,
@@ -67,6 +68,11 @@ export default function PermissoesAcoes() {
   const [openArea, setOpenArea] = useState(false);
   const [openUnidade, setOpenUnidade] = useState(false);
   const [openUser, setOpenUser] = useState(false);
+
+  // Modal Editar Tag
+  const [openEditTagModal, setOpenEditTagModal] = useState(false);
+  const [editTagId, setEditTagId] = useState("");
+  const [editTagName, setEditTagName] = useState("");
 
   useEffect(() => {
     loadData(true);
@@ -157,6 +163,38 @@ export default function PermissoesAcoes() {
     setUserId("none");
   };
 
+  const handleOpenEditTag = (e: React.MouseEvent, tag: TagAcao) => {
+    e.stopPropagation();
+    setEditTagId(tag.id);
+    setEditTagName(tag.name);
+    setOpenEditTagModal(true);
+  };
+
+  const handleEditTagSubmit = async () => {
+    if (!editTagName.trim()) {
+      toast.error("O nome da ação não pode estar vazio.");
+      return;
+    }
+
+    const nameExists = tags.some(
+      t => t.name.trim().toLowerCase() === editTagName.trim().toLowerCase() && t.id !== editTagId
+    );
+
+    if (nameExists) {
+      toast.error("Já existe uma ação cadastrada com este nome.");
+      return;
+    }
+
+    try {
+      await permissoesAcoesApi.atualizarTag(editTagId, editTagName.trim());
+      setOpenEditTagModal(false);
+      loadData(false);
+      toast.success("Ação renomeada com sucesso!");
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const permissoesPorTag = useMemo(() => {
     const mapa = new Map<string, PermissaoAcaoList[]>();
     tags.forEach(t => mapa.set(t.id, []));
@@ -231,7 +269,17 @@ export default function PermissoesAcoes() {
                   <AccordionTrigger className="hover:no-underline py-4">
                     <div className="flex items-center gap-4 text-left flex-1">
                       <div>
-                        <div className="font-semibold text-gray-900">{tag.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold text-gray-900">{tag.name}</div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-gray-400 hover:text-blue-600 z-10 relative"
+                            onClick={(e) => handleOpenEditTag(e, tag)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </div>
                         <div className="text-xs text-gray-400 font-mono mt-0.5">{tag.id}</div>
                       </div>
                       <Badge variant="secondary" className="ml-auto mr-4">
@@ -518,6 +566,36 @@ export default function PermissoesAcoes() {
             </Button>
             <Button onClick={handleCreate}>
               Conceder Permissão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditTagModal} onOpenChange={setOpenEditTagModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Nome da Ação</DialogTitle>
+            <DialogDescription>
+              Altere o nome amigável de exibição da ação <strong>{editTagId}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tagName">Nome da Ação</Label>
+              <Input
+                id="tagName"
+                value={editTagName}
+                onChange={(e) => setEditTagName(e.target.value)}
+                placeholder="Ex: Consolidar Relatório..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenEditTagModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditTagSubmit}>
+              Salvar Alterações
             </Button>
           </DialogFooter>
         </DialogContent>

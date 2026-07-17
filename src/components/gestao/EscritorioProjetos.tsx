@@ -212,12 +212,12 @@ function ehProjetoPtd(nome: string | null | undefined): boolean {
 
 export function EscritorioProjetos() {
   const { user } = useAuth();
-  const { selectedDirectorate, setSelectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea, setSelectedDirectorate } = useDirectorate();
   const { toast } = useToast();
   const location = useLocation();
   const currentUserId = user?.id ? parseInt(String(user.id)) : undefined;
   // Sempre enviar a diretoria — o backend filtra por domínio (multi-tenant)
-  const dirFiltro = selectedDirectorate || undefined;
+  const dirFiltro = selectedAreaId || undefined;
 
   // TAP Dialog
   const [tapDialogOpen, setTapDialogOpen] = useState(false);
@@ -421,6 +421,10 @@ export function EscritorioProjetos() {
     useState<PlanoComProjetos | null>(null);
   const [planoFiltroId, setPlanoFiltroId] = useState<number | null>(null); // Plano selecionado como filtro
   const [filtroUnidade, setFiltroUnidade] = useState<string>("todos");
+  // Filtro por diretoria — exposto apenas para superadmin (Gestor do Escritório de Projetos).
+  const [filtroDiretoria, setFiltroDiretoria] = useState<string>("todos");
+  const isSuperadmin =
+    (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const [todosProjetos, setTodosProjetos] = useState<ProjetoCadastro[]>([]); // Todos os projetos da diretoria
   const [projetosVinculados, setProjetosVinculados] = useState<
     ProjetoCadastro[]
@@ -684,7 +688,7 @@ export function EscritorioProjetos() {
 
       // Carregar usuários da Administração separadamente para não bloquear a página se falhar
       try {
-        const usersData = await getUsers(selectedDirectorate || undefined);
+        const usersData = await getUsers(selectedArea?.dominio || undefined);
         // Filtrar apenas usuários ativos
         setUsuarios(usersData.filter((u) => u.status === "ACTIVE"));
       } catch (usersError) {
@@ -705,7 +709,7 @@ export function EscritorioProjetos() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDirectorate, toast]);
+  }, [selectedAreaId, toast]);
 
   const carregarProjetosDoPlano = useCallback(
     async (planoId: number) => {
@@ -798,14 +802,14 @@ export function EscritorioProjetos() {
     const carregarAreas = async () => {
       try {
         const areasData =
-          await cadastrosProjetosApi.getAreas(selectedDirectorate);
+          await cadastrosProjetosApi.getAreas(selectedAreaId);
         setAreas(areasData);
       } catch (error) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       }
     };
     carregarAreas();
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   // Resetar visualização quando clicar no menu "Escritório de Projetos" (mesmo já estando na página)
   useEffect(() => {
@@ -995,17 +999,62 @@ export function EscritorioProjetos() {
         : todosProjetos
   ).filter((p) => !ehProjetoPtd(p.nome));
 
-  // O backend já filtra por diretoria em ambos os endpoints (getProjetos e getProjetosByInstrumentoId)
+  // O backend já filtra por diretoria em ambos os endpoints (getProjetos e getProjetosByInstrumentoId).
+  // Filtro adicional de diretoria (só superadmin) — recorta o portfólio pela diretoria do projeto.
+  const projetosDaDiretoria =
+    filtroDiretoria !== "todos"
+      ? projetosBase.filter((p) => {
+        const dirsStr = (p as any).diretorias_nomes || "";
+        return dirsStr
+          .split(", ")
+          .some((d: string) => d.trim() === filtroDiretoria);
+      })
+      : projetosBase;
+
   // Filtrar por unidade se selecionada
   const projetosPorDiretoria =
     filtroUnidade !== "todos"
-      ? projetosBase.filter((p) => {
+      ? projetosDaDiretoria.filter((p) => {
         const areasStr = (p as any).areas_execucao_diretorias || "";
         return areasStr
           .split(", ")
           .some((a: string) => a.trim() === filtroUnidade);
       })
-      : projetosBase;
+      : projetosDaDiretoria;
+
+  // ---- Opções dos selects de filtro (extraídas dos projetos carregados) ----
+  const projetosParaOpcoes = planoFiltroId ? projetosVinculados : todosProjetos;
+
+  const nomesDe = (p: ProjetoCadastro, campo: string): string[] =>
+    ((p as any)[campo] || "")
+      .split(", ")
+      .map((n: string) => n.trim())
+      .filter((n: string) => n && !n.startsWith("auto:"));
+
+  const diretoriasDisponiveis = Array.from(
+    new Set(
+      projetosParaOpcoes.flatMap((p) => nomesDe(p, "diretorias_nomes")),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  // Áreas restritas à diretoria selecionada: só aparecem as áreas dos projetos daquela diretoria.
+  const areasDisponiveis = Array.from(
+    new Set(
+      projetosParaOpcoes
+        .filter(
+          (p) =>
+            filtroDiretoria === "todos" ||
+            nomesDe(p, "diretorias_nomes").includes(filtroDiretoria),
+        )
+        .flatMap((p) => nomesDe(p, "areas_execucao_diretorias")),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  // Trocar de diretoria reseta a Área: a anterior pode não pertencer à nova diretoria.
+  const handleFiltroDiretoria = (valor: string) => {
+    setFiltroDiretoria(valor);
+    setFiltroUnidade("todos");
+  };
 
   // Gestores únicos dos projetos (para o filtro)
   const gestoresDeProjetos = [
@@ -1237,7 +1286,7 @@ export function EscritorioProjetos() {
     try {
       await gestaoEstrategicaApi.createPlano({
         nome: novoPlanoNome.trim(),
-        diretoria: selectedDirectorate,
+        cadastrosAreasId: selectedAreaId,
       });
 
       setNovoPlanoNome("");
@@ -2253,6 +2302,31 @@ export function EscritorioProjetos() {
                 </SelectContent>
               </Select>
             </div>
+            {/* Diretoria — só para o superadmin (Gestor do Escritório de Projetos).
+                Vem ANTES de "Área": escolher a diretoria restringe as áreas listadas. */}
+            {isSuperadmin && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Diretoria
+                </label>
+                <Select
+                  value={filtroDiretoria}
+                  onValueChange={handleFiltroDiretoria}
+                >
+                  <SelectTrigger className="h-10 w-[320px] bg-white">
+                    <SelectValue placeholder="Todas as Diretorias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas as Diretorias</SelectItem>
+                    {diretoriasDisponiveis.map((nomeDir) => (
+                      <SelectItem key={nomeDir} value={nomeDir}>
+                        {nomeDir}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Área
@@ -2263,29 +2337,11 @@ export function EscritorioProjetos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todas as Áreas</SelectItem>
-                  {(() => {
-                    // Extrair áreas únicas diretamente dos projetos carregados
-                    const projetosRef = planoFiltroId
-                      ? projetosVinculados
-                      : todosProjetos;
-                    const areasUnicas = new Set<string>();
-                    projetosRef.forEach((p) => {
-                      const areasStr =
-                        (p as any).areas_execucao_diretorias || "";
-                      areasStr.split(", ").forEach((nome: string) => {
-                        const trimmed = nome.trim();
-                        if (trimmed && !trimmed.startsWith("auto:"))
-                          areasUnicas.add(trimmed);
-                      });
-                    });
-                    return Array.from(areasUnicas)
-                      .sort((a, b) => a.localeCompare(b, "pt-BR"))
-                      .map((nomeArea) => (
-                        <SelectItem key={nomeArea} value={nomeArea}>
-                          {nomeArea}
-                        </SelectItem>
-                      ));
-                  })()}
+                  {areasDisponiveis.map((nomeArea) => (
+                    <SelectItem key={nomeArea} value={nomeArea}>
+                      {nomeArea}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -2293,7 +2349,7 @@ export function EscritorioProjetos() {
 
           {/* Conteúdo com animações - key força remount ao trocar filtros */}
           <div
-            key={`dashboard-${planoFiltroId || "all"}-${filtroUnidade}`}
+            key={`dashboard-${planoFiltroId || "all"}-${filtroUnidade}-${filtroDiretoria}`}
             className="space-y-6"
           >
             {/* Header do Portfólio/Programa */}
@@ -3009,39 +3065,10 @@ export function EscritorioProjetos() {
     const tapVigenteProjeto = !!projetoDetalhes.tap_validado_patrocinador_em;
     const tepVigenteProjeto = !!projetoTep?.tep_validado_patrocinador_em;
 
-    // Abertura → abre a edição do projeto (mesma lógica do botão "Editar Projeto").
-    // Com permissão (ADMIN/Gestor ou Permissão TAP) abre editável; senão, em leitura.
-    const abrirEdicaoProjetoEAP = () => {
-      setProjetoEditDialogSlim(false);
-      if (podeEditarEntregas || podeEditarTap) {
-        setProjetoEditDialogMode("edit");
-        setProjetoEditDialogTapMode(!podeEditarEntregas && podeEditarTap);
-      } else {
-        setProjetoEditDialogMode("view");
-        setProjetoEditDialogTapMode(false);
-      }
-      setProjetoEditDialogOpen(true);
-    };
-
     // Ícone TAP → abre o PDF do TAP quando vigente.
     const abrirTapPdfEAP = (e: React.MouseEvent) => {
       e.stopPropagation();
       if (tapVigenteProjeto) void generateTAPPdf(projetoDetalhes);
-    };
-
-    // Encerramento → mesmo fluxo do botão TEP em "Andamento do Projeto".
-    const abrirEncerramentoEAP = () => {
-      const tepBloqueadoSemTap = !projetoTep && !tapVigenteProjeto;
-      if (tepBloqueadoSemTap) {
-        toast({
-          title: "TAP precisa estar vigente",
-          description:
-            "Conclua o ciclo de validação do TAP (gestor → diretor → patrocinador) antes de finalizar o projeto.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setShowTepDialog(true);
     };
 
     // Ícone TEP → abre o PDF do TEP quando vigente.
@@ -3119,10 +3146,15 @@ export function EscritorioProjetos() {
         uid !== null &&
         Number((projetoDetalhes as any).gestor_user_id) === uid;
       const destacar = tepPendenteUsuario || tepRecusadoParaGestor;
-      // TEP só pode ser gerado se o TAP estiver vigente.
+      // TEP só pode ser gerado se o TAP estiver vigente E todas as entregas concluídas.
       // (Quando o TEP já existe, deixamos abrir pra visualizar/validar mesmo assim.)
       const tapVigente = !!projetoDetalhes.tap_validado_patrocinador_em;
       const tepBloqueadoSemTap = !projetoTep && !tapVigente;
+      const entregasPendentes = entregas.filter(
+        (e) => e.status !== "concluida",
+      ).length;
+      const tepBloqueadoEntregas = !projetoTep && entregasPendentes > 0;
+      const tepBloqueado = tepBloqueadoSemTap || tepBloqueadoEntregas;
       return (
         <Button
           onClick={() => {
@@ -3135,14 +3167,22 @@ export function EscritorioProjetos() {
               });
               return;
             }
+            if (tepBloqueadoEntregas) {
+              toast({
+                title: "Entregas pendentes",
+                description: `Conclua todas as entregas antes de finalizar o projeto. Ainda ${entregasPendentes === 1 ? "há 1 entrega pendente" : `há ${entregasPendentes} entregas pendentes`}.`,
+                variant: "destructive",
+              });
+              return;
+            }
             setShowTepDialog(true);
           }}
           variant="outline"
           size="sm"
-          disabled={tepBloqueadoSemTap}
+          disabled={tepBloqueado}
           className={cn(
             "w-full",
-            tepBloqueadoSemTap
+            tepBloqueado
               ? "border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed hover:bg-gray-50"
               : tepRecusadoParaGestor
                 ? "border-2 border-red-400 bg-red-50 text-red-900 hover:bg-red-100 animate-pulse shadow-md shadow-red-200"
@@ -3155,7 +3195,9 @@ export function EscritorioProjetos() {
           title={
             tepBloqueadoSemTap
               ? "Conclua a validação do TAP antes de finalizar o projeto"
-              : undefined
+              : tepBloqueadoEntregas
+                ? "Conclua todas as entregas antes de finalizar o projeto"
+                : undefined
           }
         >
           {destacar ? (
@@ -3377,30 +3419,15 @@ export function EscritorioProjetos() {
             </div>
 
             {/* BLOCO 1 — Abertura (Termo de Abertura de Projeto / TAP) */}
-            <div
-              onClick={abrirEdicaoProjetoEAP}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") abrirEdicaoProjetoEAP();
-              }}
-              className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer flex-shrink-0 shadow-sm"
-            >
+            {/* Linha NÃO clicável: as ações ficam só nos botões "Gerenciar TAP" / ícone TAP. */}
+            <div className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 flex-shrink-0 shadow-sm">
               <span className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-900 text-white text-sm font-bold">
                 1
               </span>
-              <span className="text-lg font-bold text-gray-900 flex-shrink-0">
-                Abertura
+              <span className="flex-1 text-lg font-bold text-gray-900 min-w-0 truncate">
+                Abertura - Termo de Abertura de Projeto
               </span>
-              <span className="flex-1 text-gray-700 text-base min-w-0 truncate">
-                Termo de Abertura de Projeto
-              </span>
-              <div
-                className="flex-shrink-0 w-56"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {tapAcaoButton}
-              </div>
+              <div className="flex-shrink-0 w-56">{tapAcaoButton}</div>
               <button
                 type="button"
                 onClick={abrirTapPdfEAP}
@@ -3733,30 +3760,15 @@ export function EscritorioProjetos() {
             </div>
 
             {/* BLOCO 3 — Encerramento (Termo de Encerramento de Projeto / TEP) */}
-            <div
-              onClick={abrirEncerramentoEAP}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") abrirEncerramentoEAP();
-              }}
-              className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 hover:bg-indigo-50 hover:border-indigo-300 transition-colors cursor-pointer flex-shrink-0 shadow-sm"
-            >
+            {/* Linha NÃO clicável: as ações ficam só nos botões "Gerenciar TEP" / ícone TEP. */}
+            <div className="w-full bg-white border border-gray-200 rounded-lg px-6 py-4 flex items-center gap-4 flex-shrink-0 shadow-sm">
               <span className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-900 text-white text-sm font-bold">
                 3
               </span>
-              <span className="text-lg font-bold text-gray-900 flex-shrink-0">
-                Encerramento
+              <span className="flex-1 text-lg font-bold text-gray-900 min-w-0 truncate">
+                Encerramento - Termo de Encerramento de Projeto
               </span>
-              <span className="flex-1 text-gray-700 text-base min-w-0 truncate">
-                Termo de Encerramento de Projeto
-              </span>
-              <div
-                className="flex-shrink-0 w-56"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {tepAcaoButton}
-              </div>
+              <div className="flex-shrink-0 w-56">{tepAcaoButton}</div>
               <button
                 type="button"
                 onClick={abrirTepPdfEAP}
@@ -6295,7 +6307,7 @@ export function EscritorioProjetos() {
             setProjetoEditDialogTapMode(!podeEditarEntregas && podeEditarTap);
           }}
           projetoId={projetoDetalhes.id}
-          diretoria={selectedDirectorate || projetoDetalhes.diretoria}
+          diretoria={selectedAreaId || projetoDetalhes.diretoria}
           onSaved={async (projetoSalvo) => {
             try {
               const updated = await cadastrosProjetosApi.getProjetoById(

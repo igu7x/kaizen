@@ -36,7 +36,7 @@ type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
 
 export function ControleExecucao() {
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const { toast } = useToast();
   const [executionData, setExecutionData] = useState<ExecutionControl[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -74,9 +74,9 @@ export function ControleExecucao() {
   // Filtrar por diretoria
   const filteredData = useMemo(() => {
     return executionData.filter(
-      (item) => item.directorate === selectedDirectorate,
+      (item) => Number(item.cadastrosAreasId) === selectedAreaId,
     );
-  }, [executionData, selectedDirectorate]);
+  }, [executionData, selectedAreaId]);
 
   // Obter lista única de Planos/Programas
   const planPrograms = useMemo(() => {
@@ -207,16 +207,27 @@ export function ControleExecucao() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    setSaving(true);
 
-    const data: ExecutionControl = {
-      id: editingItem?.id || Date.now().toString(),
-      planProgram: formData.get("planProgram") as string,
-      krProjectInitiative: formData.get("krProjectInitiative") as string,
-      backlogTasks: formData.get("backlogTasks") as string,
+    let cadastrosAreasId = 0;
+    try {
+      const dirs = await api.getDirectorates();
+      const dirInfo = dirs.find((d) => d.code === selectedAreaId);
+      if (dirInfo) cadastrosAreasId = dirInfo.id;
+    } catch(e) {}
+
+    const data = {
+      planProgram: String(formData.get("planProgram")).trim(),
+      krProjectInitiative: String(formData.get("krProjectInitiative")).trim(),
+      backlogTasks: String(formData.get("backlogTasks")).trim(),
       sprintStatus: formData.get("sprintStatus") as InitiativeLocation,
-      sprintTasks: formData.get("sprintTasks") as string,
+      sprintTasks: String(formData.get("sprintTasks")).trim(),
       progress: formData.get("progress") as ExecutionProgress,
-      directorate: selectedDirectorate,
+      cadastrosAreasId,
+      ordemLinha:
+        editingItem?.ordemLinha ??
+        filteredData.filter((d) => d.ordemLinha !== undefined).length,
+      ordemPosicao: editingItem?.ordemPosicao ?? filteredData.length,
     };
 
     try {

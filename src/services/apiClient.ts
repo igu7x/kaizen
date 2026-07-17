@@ -197,6 +197,28 @@ export class ApiClient {
   }
 
   /**
+   * Igual a {@link request}, mas devolve `null` quando o servidor responde com corpo VAZIO.
+   *
+   * Necessário porque `request()` converte corpo vazio em `{}` — e `{}` é *truthy*. Handlers
+   * Spring que retornam `Map<String,Object>` = null (ex.: "esse usuário ainda não preencheu o
+   * formulário") não escrevem corpo algum ("Nothing to write: null body"), então o front recebia
+   * um objeto vazio e concluía que o recurso EXISTIA. Sintoma clássico: telas de "já enviado"
+   * aparecendo para quem nunca enviou, com "Invalid Date" no lugar da data.
+   *
+   * Use em todo endpoint cujo contrato seja `T | null`.
+   */
+  async requestNullable<T>(
+    endpoint: string,
+    options?: RequestInit,
+  ): Promise<T | null> {
+    const r = await this.request<T | Record<string, never>>(endpoint, options);
+    if (r == null) {
+      return null;
+    }
+    return Object.keys(r).length === 0 ? null : (r as T);
+  }
+
+  /**
    * Executa requisição HTTP com retry automático
    */
   async request<T>(

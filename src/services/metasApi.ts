@@ -4,7 +4,7 @@ export interface Meta {
   id: number;
   titulo: string;
   descricao: string | null;
-  areaId: number;
+  cadastrosAreasId: number;
   areaNome?: string;
   areaSigla?: string;
   status: string;
@@ -17,16 +17,16 @@ export interface Meta {
 export interface CreateMetaDto {
   titulo: string;
   descricao?: string;
-  areaId: number;
-  status?: string;
-  situacao?: string;
-  prazo?: string;
+  cadastrosAreasId: number;
+  status: string;
+  situacao: string;
+  prazo: string;
 }
 
 export interface UpdateMetaDto {
   titulo?: string;
   descricao?: string;
-  areaId?: number;
+  cadastrosAreasId?: number;
   status?: string;
   situacao?: string;
   prazo?: string;

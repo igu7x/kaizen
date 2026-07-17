@@ -364,12 +364,6 @@ export function generateAvaliacaoGestorPDF(
     dadosItems.push({ label: "Cargo/Função", value: formulario.pessoa_cargo });
   if (formulario.pessoa_email)
     dadosItems.push({ label: "E-mail", value: formulario.pessoa_email });
-  if (formulario.validado_por_nome) {
-    dadosItems.push({
-      label: "Validado em",
-      value: `${formulario.validado_por_nome} — ${formulario.validado_em ? formatDate(formulario.validado_em) : ""}`,
-    });
-  }
   y = drawValidationBlock(doc, dadosItems, "Dados da Avaliação", y);
 
   // ============================================================
@@ -414,6 +408,21 @@ export function generateAvaliacaoGestorPDF(
         y,
       });
     }
+  }
+
+  // ============================================================
+  // BLOCO - Histórico de Validação (ao final do documento)
+  // ============================================================
+  if (formulario.validado_por_nome) {
+    const validationItems = [
+      {
+        label: "Validado em",
+        value: `${formulario.validado_por_nome} — ${formulario.validado_em ? formatDate(formulario.validado_em) : ""}`,
+      },
+    ];
+    y += 6;
+    y = pageBreak(doc, y, 16 + validationItems.length * 9);
+    y = drawValidationBlock(doc, validationItems, "Histórico de Validação", y);
   }
 
   // Footer sem data/hora — refletindo só identificação e versão

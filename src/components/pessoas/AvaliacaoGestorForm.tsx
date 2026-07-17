@@ -9,6 +9,7 @@ import {
 import {
   avaliacaoGestorApi,
   AvaliacaoGestorFormulario,
+  GestorDaUnidade,
 } from "@/services/avaliacaoGestorApi";
 import { autoavaliacaoApi } from "@/services/autoavaliacaoApi";
 import {
@@ -53,6 +54,8 @@ interface RespostaComportamentalState {
 
 interface FormState {
   pessoa_id: string;
+  /** user_id da pessoa avaliada (gestor da unidade) quando não há autoavaliação. */
+  pessoa_user_id: string;
   pessoa_nome: string;
   pessoa_cargo: string;
   pessoa_email: string;
@@ -114,6 +117,10 @@ export function AvaliacaoGestorForm({
     }[]
   >([]);
   const [loadingPessoas, setLoadingPessoas] = useState(false);
+  // Gestor da unidade (do cadastro) como avaliável, mesmo sem autoavaliação — só no inventário "gestor".
+  const [gestorUnidade, setGestorUnidade] = useState<GestorDaUnidade | null>(
+    null,
+  );
 
   // Competências padrão carregadas da API (com fallback para constantes)
   const [compComportamentais, setCompComportamentais] = useState(
@@ -190,6 +197,7 @@ export function AvaliacaoGestorForm({
 
   const [form, setForm] = useState<FormState>({
     pessoa_id: "",
+    pessoa_user_id: "",
     pessoa_nome: "",
     pessoa_cargo: "",
     pessoa_email: "",
@@ -223,16 +231,20 @@ export function AvaliacaoGestorForm({
       unidade_id: value,
       unidade_path: [value],
       pessoa_id: "",
+      pessoa_user_id: "",
       pessoa_nome: "",
       pessoa_cargo: "",
       pessoa_email: "",
       respostas: [],
     }));
+    setGestorUnidade(null);
     loadCompetencias(Number(value));
     loadPessoas(Number(value));
   };
 
-  // Carregar autoavaliações da unidade selecionada
+  // Carregar avaliáveis da unidade.
+  // - Equipe: lista as autoavaliações (o avaliador escolhe o colaborador).
+  // - Gestor: só existe UM gestor por unidade, então já vem auto-selecionado (não há dropdown).
   const loadPessoas = async (unidadeId: number) => {
     setLoadingPessoas(true);
     try {
@@ -241,6 +253,44 @@ export function AvaliacaoGestorForm({
         tipoInventario || "equipe",
       );
       setAutoavaliacoes(avals);
+
+      if (tipoInventario === "gestor") {
+        let g: GestorDaUnidade | null = null;
+        try {
+          g = await avaliacaoGestorApi.getGestorDaUnidade(unidadeId, "gestor");
+        } catch {
+          g = null;
+        }
+        setGestorUnidade(g);
+        if (g) {
+          // Auto-seleciona o gestor da unidade como avaliado. Usa a autoavaliação (pessoa_id) se
+          // ele já se autoavaliou; senão, a chave estável (pessoa_user_id).
+          const usaAuto = g.autoavaliacao_id != null;
+          setForm((prev) => ({
+            ...prev,
+            pessoa_id: usaAuto ? String(g!.autoavaliacao_id) : "",
+            pessoa_user_id: usaAuto ? "" : String(g!.pessoa_user_id),
+            pessoa_nome: g!.nome || "",
+            pessoa_cargo: g!.cargo || "",
+            pessoa_email: g!.email || "",
+          }));
+          try {
+            const existente = usaAuto
+              ? await avaliacaoGestorApi.getByPessoaAndUnidade(
+                  g.autoavaliacao_id!,
+                  unidadeId,
+                )
+              : await avaliacaoGestorApi.getByPessoaAndUnidade(
+                  g.pessoa_user_id,
+                  unidadeId,
+                  "user",
+                );
+            setAvaliacaoExistente(existente);
+          } catch {
+            setAvaliacaoExistente(null);
+          }
+        }
+      }
     } catch (err) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
@@ -254,6 +304,37 @@ export function AvaliacaoGestorForm({
   const [avaliacaoExistente, setAvaliacaoExistente] =
     useState<AvaliacaoGestorFormulario | null>(null);
 
+  // Dispatcher do dropdown: "auto:<id>" = a partir de uma autoavaliação; "user:<userId>" = o gestor
+  // da unidade (sem autoavaliação).
+  const handleAvaliavelSelect = (key: string) => {
+    if (key.startsWith("user:")) {
+      if (gestorUnidade) handleGestorSelect(gestorUnidade);
+    } else {
+      handlePessoaSelect(key.replace(/^auto:/, ""));
+    }
+  };
+
+  const handleGestorSelect = async (g: GestorDaUnidade) => {
+    setForm((prev) => ({
+      ...prev,
+      pessoa_id: "",
+      pessoa_user_id: String(g.pessoa_user_id),
+      pessoa_nome: g.nome || "",
+      pessoa_cargo: g.cargo || "",
+      pessoa_email: g.email || "",
+    }));
+    try {
+      const existente = await avaliacaoGestorApi.getByPessoaAndUnidade(
+        g.pessoa_user_id,
+        Number(form.unidade_id),
+        "user",
+      );
+      setAvaliacaoExistente(existente);
+    } catch {
+      setAvaliacaoExistente(null);
+    }
+  };
+
   const handlePessoaSelect = async (avalId: string) => {
     const aval = autoavaliacoes.find((a) => String(a.id) === avalId);
     if (!aval) return;
@@ -261,6 +342,7 @@ export function AvaliacaoGestorForm({
     setForm((prev) => ({
       ...prev,
       pessoa_id: avalId,
+      pessoa_user_id: "",
       pessoa_nome: aval.nome_completo,
       pessoa_cargo: aval.cargo_funcao || "",
       pessoa_email: aval.email_institucional || "",
@@ -554,9 +636,10 @@ export function AvaliacaoGestorForm({
             ? competenciasGestorApi.getUnidadesLideranca()
             : competenciasGestorApi.getMinhasUnidadesGestor();
 
-        const [allAreas, autorizadas] = await Promise.all([
+        const [allAreas, autorizadas, idsComMatriz] = await Promise.all([
           areasApi.getAll(),
           fetchUnidades,
+          competenciasGestorApi.getUnidadesComMatriz(tipoInventario || "gestor"),
         ]);
 
         if (allAreas.length > 0) {
@@ -567,7 +650,17 @@ export function AvaliacaoGestorForm({
           setDiretoriaUsuario(userArea?.sigla || userArea?.nome || "");
         }
 
-        setUnidadesAutorizadas(autorizadas);
+        // Só unidades com a Matriz de Competências validada (há referencial para avaliar).
+        // Em modo edição, preserva a unidade do formulário mesmo que não esteja na lista.
+        // Coage ambos os lados para número: o backend serializa bigint como string e int4
+        // como número, então a interseção falharia por tipo (Set<string> vs id number).
+        const idsSet = new Set(idsComMatriz.map((id) => Number(id)));
+        const unidadesFiltradas = autorizadas.filter(
+          (u) =>
+            idsSet.has(Number(u.id)) ||
+            Number(u.id) === Number(formularioEdit?.unidade_id),
+        );
+        setUnidadesAutorizadas(unidadesFiltradas);
 
         if (isEditMode && formularioEdit) {
           const tecnicas = (formularioEdit.respostas || []).filter(
@@ -659,7 +752,12 @@ export function AvaliacaoGestorForm({
 
           setForm((prev) => ({
             ...prev,
-            pessoa_id: String(formularioEdit.pessoa_id),
+            pessoa_id: formularioEdit.pessoa_id
+              ? String(formularioEdit.pessoa_id)
+              : "",
+            pessoa_user_id: formularioEdit.pessoa_user_id
+              ? String(formularioEdit.pessoa_user_id)
+              : "",
             pessoa_nome: formularioEdit.pessoa_nome,
             pessoa_cargo: formularioEdit.pessoa_cargo || "",
             pessoa_email: formularioEdit.pessoa_email || "",
@@ -718,8 +816,11 @@ export function AvaliacaoGestorForm({
             }
             setChangedCompKeys(changedPadrao);
           }
-        } else if (autorizadas.length === 1) {
-          const u = autorizadas[0];
+        } else if (unidadesFiltradas.length === 1) {
+          // Auto-seleciona quando só há UMA unidade com matriz validada — mesmo que o
+          // usuário lidere várias unidades (só uma tem referencial p/ avaliar). Sem isso,
+          // a unidade aparece read-only mas o gestor/competências não carregam.
+          const u = unidadesFiltradas[0];
           setForm((prev) => ({
             ...prev,
             unidade_id: String(u.id),
@@ -798,7 +899,7 @@ export function AvaliacaoGestorForm({
   const handleSubmit = async () => {
     // Validacao
     if (!form.unidade_id) return toast.error("Selecione a unidade.");
-    if (!form.pessoa_id)
+    if (!form.pessoa_id && !form.pessoa_user_id)
       return toast.error("Selecione o colaborador a ser avaliado.");
 
     if (form.respostas.length === 0) {
@@ -889,7 +990,10 @@ export function AvaliacaoGestorForm({
           : [];
 
       const payload = {
-        pessoa_id: Number(form.pessoa_id),
+        pessoa_id: form.pessoa_id ? Number(form.pessoa_id) : undefined,
+        pessoa_user_id: form.pessoa_user_id
+          ? Number(form.pessoa_user_id)
+          : undefined,
         pessoa_nome: form.pessoa_nome.trim(),
         pessoa_cargo: form.pessoa_cargo.trim() || undefined,
         pessoa_email: form.pessoa_email.trim() || undefined,
@@ -957,19 +1061,11 @@ export function AvaliacaoGestorForm({
           <CardTitle className="text-lg">Avaliador</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-500">Nome do Avaliador</span>
-              <p className="font-medium text-gray-800 mt-0.5">
-                {user?.name || "-"}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-500">Perfil</span>
-              <p className="font-medium text-gray-800 mt-0.5">
-                {user?.role || "-"}
-              </p>
-            </div>
+          <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+            <span className="text-sm text-gray-500">Nome do Avaliador</span>
+            <p className="font-medium text-gray-800 mt-0.5">
+              {user?.name || "-"}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -1059,7 +1155,9 @@ export function AvaliacaoGestorForm({
           </CardHeader>
           <CardContent className="space-y-3">
             <Label>
-              Selecione o colaborador a ser avaliado{" "}
+              {tipoInventario === "gestor"
+                ? "Gestor da unidade (avaliado)"
+                : "Selecione o colaborador a ser avaliado"}{" "}
               {!isEditMode && <span className="text-red-500">*</span>}
             </Label>
             {isEditMode ? (
@@ -1080,8 +1178,34 @@ export function AvaliacaoGestorForm({
             ) : loadingPessoas ? (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando colaboradores com autoavaliação...
+                Carregando…
               </div>
+            ) : tipoInventario === "gestor" ? (
+              // Só um gestor por unidade → auto-selecionado (sem dropdown).
+              gestorUnidade ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+                    <span className="text-sm text-gray-500">Nome</span>
+                    <p className="font-medium text-gray-800 mt-0.5">
+                      {form.pessoa_nome || gestorUnidade.nome}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+                    <span className="text-sm text-gray-500">Cargo/Função</span>
+                    <p className="font-medium text-gray-800 mt-0.5">
+                      {form.pessoa_cargo || "-"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-700">
+                    Esta unidade não tem gestor cadastrado (defina o responsável
+                    no cadastro da unidade).
+                  </p>
+                </div>
+              )
             ) : autoavaliacoes.length === 0 ? (
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -1093,15 +1217,30 @@ export function AvaliacaoGestorForm({
             ) : (
               <>
                 <Select
-                  value={form.pessoa_id}
-                  onValueChange={handlePessoaSelect}
+                  value={
+                    form.pessoa_user_id
+                      ? `user:${form.pessoa_user_id}`
+                      : form.pessoa_id
+                        ? `auto:${form.pessoa_id}`
+                        : ""
+                  }
+                  onValueChange={handleAvaliavelSelect}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o colaborador" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
+                    {gestorUnidade && (
+                      <SelectItem
+                        value={`user:${gestorUnidade.pessoa_user_id}`}
+                      >
+                        {gestorUnidade.nome}
+                        {gestorUnidade.cargo ? ` — ${gestorUnidade.cargo}` : ""}
+                        {" (gestor — sem autoavaliação)"}
+                      </SelectItem>
+                    )}
                     {autoavaliacoes.map((a) => (
-                      <SelectItem key={a.id} value={String(a.id)}>
+                      <SelectItem key={a.id} value={`auto:${a.id}`}>
                         {a.nome_completo}
                         {a.cargo_funcao ? ` — ${a.cargo_funcao}` : ""}
                       </SelectItem>
@@ -1109,7 +1248,7 @@ export function AvaliacaoGestorForm({
                   </SelectContent>
                 </Select>
 
-                {form.pessoa_id && (
+                {(form.pessoa_id || form.pessoa_user_id) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
                       <span className="text-sm text-gray-500">Nome</span>
@@ -1134,7 +1273,9 @@ export function AvaliacaoGestorForm({
       )}
 
       {/* Secao 5 - Competencias Tecnicas */}
-      {form.unidade_id && form.pessoa_id && (
+      {/* pessoa_id OU pessoa_user_id: no fluxo de avaliar o gestor sem autoavaliacao so ha
+          pessoa_user_id, e a secao (com a matriz da unidade) precisa aparecer igual. */}
+      {form.unidade_id && (form.pessoa_id || form.pessoa_user_id) && (
         <>
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-8">
             <div className="flex gap-4">

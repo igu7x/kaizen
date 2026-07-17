@@ -11,7 +11,8 @@ export interface RespostaGestorItem {
 
 export interface AvaliacaoGestorFormulario {
   id: number;
-  pessoa_id: number;
+  pessoa_id: number | null;
+  pessoa_user_id?: number | null;
   pessoa_nome: string;
   pessoa_cargo?: string;
   pessoa_email?: string;
@@ -43,7 +44,10 @@ export interface VersaoHistoricoGestor {
 }
 
 export interface CreateAvaliacaoGestorDto {
-  pessoa_id: number;
+  /** Id da autoavaliação da pessoa (quando ela já se autoavaliou). */
+  pessoa_id?: number;
+  /** Chave estável da pessoa avaliada (gestor da unidade), usada quando ainda não há autoavaliação. */
+  pessoa_user_id?: number;
   pessoa_nome: string;
   pessoa_cargo?: string;
   pessoa_email?: string;
@@ -52,6 +56,16 @@ export interface CreateAvaliacaoGestorDto {
   unidade_id?: number;
   tipo_inventario?: "equipe" | "gestor";
   respostas: RespostaGestorItem[];
+}
+
+/** Gestor da unidade como avaliável (mesmo sem autoavaliação). */
+export interface GestorDaUnidade {
+  pessoa_user_id: number;
+  nome: string;
+  cargo?: string | null;
+  email?: string | null;
+  /** Id da autoavaliação, se o gestor já se autoavaliou nessa unidade/tipo (senão null). */
+  autoavaliacao_id: number | null;
 }
 
 const BASE_URL = "/api/avaliacao-gestor";
@@ -73,13 +87,29 @@ export const avaliacaoGestorApi = {
     return apiClient.request<AvaliacaoGestorFormulario>(`${BASE_URL}/${id}`);
   },
 
-  /** Buscar avaliação existente por pessoa+unidade (para auto-detecção em modo edição) */
+  /** Gestor da unidade como avaliável (mesmo sem autoavaliação). `null` se a unidade não tem responsável. */
+  getGestorDaUnidade(
+    unidadeId: number,
+    tipoInventario: string = "gestor",
+  ): Promise<GestorDaUnidade | null> {
+    return apiClient.requestNullable<GestorDaUnidade>(
+      `${BASE_URL}/gestor-da-unidade/${unidadeId}?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
+    );
+  },
+
+  /**
+   * Buscar avaliação existente por pessoa+unidade (para auto-detecção em modo edição).
+   * `by="user"` → `pessoaId` é o user_id da pessoa (gestor sem autoavaliação).
+   * `null` quando não existe — o backend responde com corpo vazio.
+   */
   getByPessoaAndUnidade(
     pessoaId: number,
     unidadeId: number,
+    by?: "user",
   ): Promise<AvaliacaoGestorFormulario | null> {
-    return apiClient.request<AvaliacaoGestorFormulario | null>(
-      `${BASE_URL}/by-pessoa/${pessoaId}?unidade_id=${unidadeId}`,
+    const byQs = by ? `&by=${by}` : "";
+    return apiClient.requestNullable<AvaliacaoGestorFormulario>(
+      `${BASE_URL}/by-pessoa/${pessoaId}?unidade_id=${unidadeId}${byQs}`,
     );
   },
 

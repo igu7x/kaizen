@@ -58,8 +58,8 @@ export default function AuthCallback() {
           localStorage.setItem("id_token", tokens.idToken);
         }
 
-        // Limpar selectedDirectorate para que o DirectorateContext use a diretoria do usuário
-        localStorage.removeItem("selectedDirectorate");
+        // Limpar selectedAreaId para que o DirectorateContext use a área do usuário
+        localStorage.removeItem("selectedAreaId");
 
         // Redirecionar para a página desejada
         // Usar window.location para garantir reload do AuthContext

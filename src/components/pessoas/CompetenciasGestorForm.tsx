@@ -60,12 +60,18 @@ interface CompetenciasGestorFormProps {
   onSubmitted?: (formulario: FormularioCompetencias) => void;
   editFormulario?: FormularioCompetencias;
   validationMode?: boolean;
+  /**
+   * Superior (Diretoria/Final) editando pelo resumo: ao salvar, JÁ valida essa camada — em vez de
+   * só atualizar e depois ter que clicar em "Validar". Não devolve o formulário ao 1º membro.
+   */
+  validarCamadaAoSalvar?: "diretoria" | "final" | null;
 }
 
 export function CompetenciasGestorForm({
   onSubmitted,
   editFormulario,
   validationMode,
+  validarCamadaAoSalvar,
 }: CompetenciasGestorFormProps) {
   const { user } = useAuth();
 
@@ -265,13 +271,18 @@ export function CompetenciasGestorForm({
       let result: FormularioCompetencias;
       if (editingId) {
         result = await competenciasGestorApi.update(editingId, payload);
-        if (validationMode) {
+        if (validarCamadaAoSalvar === "diretoria") {
+          // Superior da Diretoria editou pelo resumo → valida a camada Diretoria direto.
+          result = await competenciasGestorApi.validarDiretoria(editingId);
+        } else if (validarCamadaAoSalvar === "final") {
+          // Validador Final editou pelo resumo → valida a camada Final direto.
+          result = await competenciasGestorApi.validarFinal(editingId);
+        } else if (validationMode) {
           // Gestor: validação diretoria (1a camada). Equipe: validação autor (1a camada)
           const isGestor = editFormulario?.tipo === "gestor";
           result = isGestor
             ? await competenciasGestorApi.validarDiretoria(editingId)
             : await competenciasGestorApi.validarAutor(editingId);
-        } else {
         }
       } else {
         result = await competenciasGestorApi.create(payload);
@@ -339,7 +350,8 @@ export function CompetenciasGestorForm({
               Identificação da Diretoria
             </span>
             <p className="font-medium text-gray-800 mt-0.5">
-              {diretoriaUsuario || "Carregando..."}
+              {/* Ao editar, a diretoria é a do formulário (macroárea da unidade), não a de quem edita. */}
+              {editFormulario?.diretoria || diretoriaUsuario || "Carregando..."}
             </p>
           </div>
         </CardContent>
@@ -652,7 +664,7 @@ export function CompetenciasGestorForm({
           onClick={handleSubmit}
           disabled={saving}
           className={
-            validationMode
+            validationMode || validarCamadaAoSalvar
               ? "bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 text-base"
               : "bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 text-base"
           }
@@ -660,11 +672,18 @@ export function CompetenciasGestorForm({
           {saving ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {validationMode
+              {validationMode || validarCamadaAoSalvar
                 ? "Validando..."
                 : editingId
                   ? "Atualizando..."
                   : "Enviando..."}
+            </>
+          ) : validarCamadaAoSalvar ? (
+            <>
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              {validarCamadaAoSalvar === "final"
+                ? "Salvar e Validação Final"
+                : "Salvar e Validar Diretoria"}
             </>
           ) : validationMode ? (
             <>

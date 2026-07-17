@@ -69,21 +69,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ...(prev || savedUser),
               diretoria:
                 fresh.diretoria ?? prev?.diretoria ?? savedUser?.diretoria,
+              cadastrosAreasId:
+                fresh.cadastrosAreasId ??
+                prev?.cadastrosAreasId ??
+                savedUser?.cadastrosAreasId,
               dominio:
-                (fresh as any).dominio ??
-                (prev as any)?.dominio ??
-                (savedUser as any)?.dominio,
-              directorate_code:
-                (fresh as any).directorate_code ??
-                (prev as any)?.directorate_code ??
-                (savedUser as any)?.directorate_code,
+                fresh.dominio ??
+                prev?.dominio ??
+                savedUser?.dominio,
               foto_perfil: fresh.foto_perfil ?? null,
               matricula: fresh.matricula ?? null,
               cargo_funcao: fresh.cargo_funcao ?? null,
               unidade_nome: fresh.unidade_nome ?? null,
               cargo_efetivo: fresh.cargo_efetivo ?? null,
+              cc_fc_classe: fresh.cc_fc_classe ?? null,
               codigo: fresh.codigo ?? null,
               tags_acesso: fresh.tags_acesso ?? prev?.tags_acesso ?? [],
+              cadastrosUnidadesId: fresh.cadastrosUnidadesId ?? prev?.cadastrosUnidadesId ?? savedUser?.cadastrosUnidadesId,
+              areaSigla: fresh.areaSigla ?? prev?.areaSigla ?? savedUser?.areaSigla,
+              unidadeSigla: fresh.unidadeSigla ?? prev?.unidadeSigla ?? savedUser?.unidadeSigla,
             };
             Storage.save("user", merged);
             return merged;

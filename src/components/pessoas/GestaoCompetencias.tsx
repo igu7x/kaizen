@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,10 @@ import {
   Scale,
   GitCompare,
   ShieldAlert,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi } from "@/services/areasApi";
@@ -46,9 +50,159 @@ import { AvaliacaoIntegradaResumo } from "./AvaliacaoIntegradaResumo";
 import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
-import { CompetenciasPadraoView } from "./CompetenciasPadraoView";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
 import { Settings, Wrench } from "lucide-react";
+
+/** Corpo colapsável animado (grid-rows 0fr→1fr para transição de altura suave). */
+function Collapsible({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={`grid transition-all duration-300 ease-out ${
+        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+      }`}
+    >
+      <div className="overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+/** Seção principal do hub (módulo que se desdobra). */
+function HubSection({
+  open,
+  onToggle,
+  icon,
+  iconBg,
+  title,
+  description,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: ReactNode;
+  iconBg: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-4 p-5 text-left hover:bg-gray-50 transition-colors"
+      >
+        <div
+          className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}
+        >
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-gray-900 text-lg">{title}</h3>
+          <p className="text-sm text-gray-500">{description}</p>
+        </div>
+        <ChevronDown
+          className={`h-5 w-5 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      <Collapsible open={open}>
+        <div className="px-5 pb-5">{children}</div>
+      </Collapsible>
+    </div>
+  );
+}
+
+/** Sub-seção do hub (nível aninhado dentro de uma seção). */
+function HubSubSection({
+  open,
+  onToggle,
+  icon,
+  iconBg,
+  title,
+  description,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: ReactNode;
+  iconBg: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50/60 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-100/70 transition-colors"
+      >
+        <div
+          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg}`}
+        >
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-gray-800">{title}</h4>
+          <p className="text-xs text-gray-500">{description}</p>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      <Collapsible open={open}>
+        <div className="p-4 pt-0">{children}</div>
+      </Collapsible>
+    </div>
+  );
+}
+
+// Paleta dos cards. Azul é o padrão; as demais cores ficam só nos 3 cards do
+// Inventário de Competências do Gestor.
+const CARD_CORES = {
+  blue: "bg-blue-100 text-blue-600",
+  teal: "bg-teal-100 text-teal-600",
+  amber: "bg-amber-100 text-amber-600",
+  violet: "bg-violet-100 text-violet-600",
+} as const;
+
+/** Card padronizado do hub: mesmo layout, tamanho, espaçamento e fontes em todos. */
+function HubCard({
+  icon,
+  cor = "blue",
+  title,
+  description,
+  onClick,
+}: {
+  icon: ReactNode;
+  cor?: keyof typeof CARD_CORES;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-full w-full text-left rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group flex items-start gap-4"
+    >
+      <div
+        className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${CARD_CORES[cor]}`}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
+          {title}
+        </h3>
+        <p className="text-sm text-gray-500 mt-1 leading-snug">{description}</p>
+      </div>
+    </button>
+  );
+}
 
 type View =
   | "inventario"
@@ -94,6 +248,10 @@ export function GestaoCompetencias() {
   const [formularioEdit, setFormularioEdit] =
     useState<FormularioCompetencias | null>(null);
   const [editFromResumo, setEditFromResumo] = useState(false);
+  // Camada que o superior (Diretoria/Final) validará ao salvar a edição feita pelo resumo.
+  const [validarCamadaEdit, setValidarCamadaEdit] = useState<
+    "diretoria" | "final" | null
+  >(null);
   const [autoavaliacaoResumo, setAutoavaliacaoResumo] =
     useState<AutoavaliacaoFormulario | null>(null);
   const [autoavaliacaoEditMode, setAutoavaliacaoEditMode] = useState(false);
@@ -125,6 +283,20 @@ export function GestaoCompetencias() {
     useState(false);
   const [temReferencialGerenciavel, setTemReferencialGerenciavel] =
     useState(false);
+
+  // Estado do acordeão do hub. Persiste enquanto o componente estiver montado,
+  // então voltar de um formulário mantém a seção aberta. Tudo aberto por padrão:
+  // é uma página única onde os módulos já vêm desdobrados.
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    () => new Set(["matriz", "inventario", "inv_equipe", "inv_gestor"]),
+  );
+  const toggleSection = (key: string) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // Verificar se há elegíveis para avaliação integrada (1 chamada ao backend)
   const checkElegiveis = async () => {
@@ -400,9 +572,10 @@ export function GestaoCompetencias() {
         <CompetenciasGestorResumo
           formulario={formularioResumo}
           onValidated={(f) => setFormularioResumo(f)}
-          onEdit={(f) => {
+          onEdit={(f, validarCamada) => {
             setFormularioEdit(f);
             setEditFromResumo(true);
+            setValidarCamadaEdit(validarCamada ?? null);
             setCurrentView("equipe_edit");
           }}
         />
@@ -413,7 +586,7 @@ export function GestaoCompetencias() {
   if (currentView === "equipe_respostas") {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -423,8 +596,23 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Matriz de Competências da Equipe
+            Matriz de Competências da Equipe
           </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentView("equipe")}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+            </Button>
+            <Button
+              onClick={() => setCurrentView("equipe")}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+            </Button>
+          </div>
         </div>
         <CompetenciasGestorRespostas
           tipo="equipe"
@@ -436,6 +624,7 @@ export function GestaoCompetencias() {
           }}
           onEditFormulario={(f) => {
             setFormularioEdit(f);
+            setValidarCamadaEdit(null);
             setCurrentView("equipe_edit");
           }}
         />
@@ -451,10 +640,12 @@ export function GestaoCompetencias() {
             variant="ghost"
             size="sm"
             onClick={() => {
+              const voltarPara = editFromResumo
+                ? "equipe_resumo"
+                : "equipe_respostas";
               setEditFromResumo(false);
-              setCurrentView(
-                editFromResumo ? "equipe_resumo" : "equipe_respostas",
-              );
+              setValidarCamadaEdit(null);
+              setCurrentView(voltarPara);
             }}
             className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
           >
@@ -469,8 +660,10 @@ export function GestaoCompetencias() {
           validationMode={
             !editFromResumo && formularioEdit.status === "enviado"
           }
+          validarCamadaAoSalvar={validarCamadaEdit}
           onSubmitted={(formulario) => {
             setEditFromResumo(false);
+            setValidarCamadaEdit(null);
             setFormularioResumo(formulario);
             setCurrentView("equipe_resumo");
           }}
@@ -526,9 +719,10 @@ export function GestaoCompetencias() {
         <CompetenciasGestorResumo
           formulario={formularioResumo}
           onValidated={(f) => setFormularioResumo(f)}
-          onEdit={(f) => {
+          onEdit={(f, validarCamada) => {
             setFormularioEdit(f);
             setEditFromResumo(true);
+            setValidarCamadaEdit(validarCamada ?? null);
             setCurrentView("gestor_edit");
           }}
         />
@@ -539,7 +733,7 @@ export function GestaoCompetencias() {
   if (currentView === "gestor_respostas") {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -549,8 +743,23 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Matriz de Competências do Gestor
+            Matriz de Competências do Gestor
           </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentView("gestor")}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+            </Button>
+            <Button
+              onClick={() => setCurrentView("gestor")}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+            </Button>
+          </div>
         </div>
         <CompetenciasGestorRespostas
           tipo="gestor"
@@ -562,6 +771,7 @@ export function GestaoCompetencias() {
           }}
           onEditFormulario={(f) => {
             setFormularioEdit(f);
+            setValidarCamadaEdit(null);
             setCurrentView("gestor_edit");
           }}
         />
@@ -577,10 +787,12 @@ export function GestaoCompetencias() {
             variant="ghost"
             size="sm"
             onClick={() => {
+              const voltarPara = editFromResumo
+                ? "gestor_resumo"
+                : "gestor_respostas";
               setEditFromResumo(false);
-              setCurrentView(
-                editFromResumo ? "gestor_resumo" : "gestor_respostas",
-              );
+              setValidarCamadaEdit(null);
+              setCurrentView(voltarPara);
             }}
             className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
           >
@@ -595,8 +807,10 @@ export function GestaoCompetencias() {
           validationMode={
             !editFromResumo && formularioEdit.status === "enviado"
           }
+          validarCamadaAoSalvar={validarCamadaEdit}
           onSubmitted={(formulario) => {
             setEditFromResumo(false);
+            setValidarCamadaEdit(null);
             setFormularioResumo(formulario);
             setCurrentView("gestor_resumo");
           }}
@@ -1152,324 +1366,76 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Matriz de Competências (sub-página) ─────────────────
-  if (currentView === "referencial_home") {
-    // Acesso negado para usuários não autorizados (exceto SGJT)
-    if (!isSGJT && referencialAutorizado === false) {
-      return (
-        <div className="p-6 space-y-6">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCurrentView("inventario")}
-              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-            </Button>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Matriz de Competências
-            </h2>
-          </div>
-          <Card className="border border-red-200 bg-red-50">
-            <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                <ShieldAlert className="h-8 w-8 text-red-500" />
-              </div>
-              <h3 className="text-xl font-bold text-red-700">Acesso Negado</h3>
-              <p className="text-red-600 max-w-md">
-                Você não possui autorização para acessar o Matriz de
-                Competências. Entre em contato com a SGJT caso acredite que
-                deveria ter acesso.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
+  // ── Matriz de Competências (cards padronizados, azul; clique vai para a tabela de Respostas) ──
+  const matrizCards = (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+      <HubCard
+        icon={<Users className="h-6 w-6" />}
+        title="Competências da Equipe"
+        description="Mapeamento de competências dos colaboradores"
+        onClick={() => setCurrentView("equipe_respostas")}
+      />
 
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Matriz de Competências
-          </h2>
-        </div>
+      {(isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) && (
+        <HubCard
+          icon={<UserCog className="h-6 w-6" />}
+          title="Competências do Gestor"
+          description="Mapeamento de competências dos gestores"
+          onClick={() => setCurrentView("gestor_respostas")}
+        />
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Matriz de Competências da Equipe */}
-          <Card
-            className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-            onClick={() => setCurrentView("equipe")}
-          >
-            <CardContent className="p-6 space-y-3">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-                  <Users className="h-6 w-6 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                    Matriz de Competências da Equipe
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    Mapeamento de competências dos colaboradores
-                  </p>
-                </div>
-              </div>
-              {(isAdminOrManager || isSGJT) && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentView("equipe_respostas");
-                  }}
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-16 border border-transparent hover:border-blue-200"
-                >
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </button>
-              )}
-            </CardContent>
-          </Card>
+      {(isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) && (
+        <HubCard
+          icon={<BookOpen className="h-6 w-6" />}
+          title="Competências Padrão"
+          description="Catálogo de competências padrão"
+          onClick={() => setCurrentView("competencias_padrao_view")}
+        />
+      )}
 
-          {/* Matriz de Competências do Gestor — gestor/sub-diretor da macroárea, SGJT ou avaliador da liderança podem preencher */}
-          {(isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("gestor")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                    <UserCog className="h-6 w-6 text-violet-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                      Matriz de Competências do Gestor
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Mapeamento de competências dos gestores
-                    </p>
-                  </div>
-                </div>
-                {(isAdminOrManager || isSGJT) && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentView("gestor_respostas");
-                    }}
-                    className="flex items-center gap-2 text-sm text-violet-600 hover:text-violet-800 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-all ml-16 border border-transparent hover:border-violet-200"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Gerenciar Competências Técnicas (versionamento/edição) — dev/staging only, só com referenciais preenchidos */}
-          {temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-orange-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("competencias_tecnicas_admin")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                    <Wrench className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-orange-600 transition-colors">
-                      Gerenciar Competências Técnicas
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Editar competências técnicas das suas unidades
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Visualizar Competências Padrão — disponível para gestores e diretores. Read-only.
-              Diretor/subdiretor da macroárea pode alternar entre padrão da equipe (comportamentais)
-              e padrão do gestor (comportamentais + estratégicas + gerenciais). */}
-          {(isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("competencias_padrao_view")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                      Visualizar Competências Padrão
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {ehGestorOuSubdiretorMacro
-                        ? "Catálogo dos formulários de equipe e gestor"
-                        : "Catálogo do formulário da equipe"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-    );
-  }
+      {/* Gerenciar Competências Técnicas — só superadmin, com referenciais preenchidos */}
+      {isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
+        <HubCard
+          icon={<Wrench className="h-6 w-6" />}
+          title="Gerenciar Competências Técnicas"
+          description="Editar competências técnicas das suas unidades"
+          onClick={() => setCurrentView("competencias_tecnicas_admin")}
+        />
+      )}
+    </div>
+  );
 
   // ── Visualizar Competências Padrão (read-only) ─────────────────
   if (currentView === "competencias_padrao_view") {
+    // Tela unificada: todos visualizam + Gerar PDF; superadmin também edita/publica.
     return (
-      <CompetenciasPadraoView
-        podeAlternarTipo={ehGestorOuSubdiretorMacro}
+      <CompetenciasPadraoAdmin
+        isSuperadmin={isSGJT}
         onVoltar={() => setCurrentView("referencial_home")}
       />
     );
   }
 
   // ── Inventário de Competências — HOME (2 cards) ─────────────────
-  if (currentView === "inventario_home") {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Inventário de Competências
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(() => {
-            // Mostra "Matriz de Competências da Equipe" apenas se:
-            // - Está cadastrado como colaborador em alguma unidade (pode preencher autoavaliação)
-            // - É gestor de alguma unidade (pode preencher avaliação do gestor / integrada)
-            // - É admin SGJT (visualiza tudo)
-            // - Tem alguma avaliação integrada tipo='equipe' pendente para validar
-            const temIntegradaEquipePendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "equipe",
-            );
-            return (
-              temUnidadeColaborador ||
-              isGestorDeUnidade ||
-              isSGJTAdmin ||
-              temIntegradaEquipePendente
-            );
-          })() && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inventario_equipe_home")}
-            >
-              <CardContent className="p-6 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                  <Users className="h-6 w-6 text-teal-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
-                    Inventário de Competências da Equipe
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Inventário de competências técnicas e comportamentais.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {(() => {
-            // Mostra "Matriz de Competências do Gestor" apenas se:
-            // - É avaliador da liderança (preenche para outros gestores)
-            // - É admin SGJT (visualiza tudo)
-            // - Tem alguma avaliação integrada tipo='gestor' pendente para validar
-            const temIntegradaGestorPendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "gestor",
-            );
-            return (
-              isAvaliadorLideranca ||
-              isSGJTAdmin ||
-              isGestorDeUnidade ||
-              temIntegradaGestorPendente
-            );
-          })() && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inventario_gestor_home")}
-            >
-              <CardContent className="p-6 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                  <UserCog className="h-6 w-6 text-violet-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
-                    Inventário de Competências do Gestor
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Inventário de competências técnicas, comportamentais,
-                    estratégicas e gerenciais.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Inventário → Matriz de Competências da Equipe (3 cards) ──────────────
-  if (currentView === "inventario_equipe_home") {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario_home")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Inventário de Competências da Equipe
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  // ── Inventário → Matriz de Competências da Equipe (cards) ──────────────
+  const invEquipeCards = (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Autoavaliação do Colaborador — apenas viewers (e admins/managers colaboradores de unidade que NÃO sejam gestor de unidade nem avaliador da liderança); SGJT admins têm card próprio */}
           {(!isAdminOrManager || (temUnidadeColaborador && !isSGJTAdmin)) &&
             !isGestorDeUnidade &&
             !isAvaliadorLideranca && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("autoavaliacao")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                      <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Autoavaliação do Colaborador
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1483,16 +1449,16 @@ export function GestaoCompetencias() {
             )}
           {isSGJTAdmin && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("autoavaliacao_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                    <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <ClipboardCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Autoavaliação do Colaborador
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1501,7 +1467,7 @@ export function GestaoCompetencias() {
                     </p>
                   </div>
                 </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
                 </span>
@@ -1583,16 +1549,16 @@ export function GestaoCompetencias() {
           {/* Avaliação do Gestor — só aparece quando há autoavaliações validadas ou já preenchidas */}
           {isGestorDeUnidade && temAvgestorEquipe && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("avgestor")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1606,7 +1572,7 @@ export function GestaoCompetencias() {
                     e.stopPropagation();
                     setCurrentView("avgestor_respostas");
                   }}
-                  className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
                 >
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
@@ -1616,16 +1582,16 @@ export function GestaoCompetencias() {
           )}
           {isSGJTAdmin && !isGestorDeUnidade && temAvgestorEquipe && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("avgestor_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1647,16 +1613,16 @@ export function GestaoCompetencias() {
             temElegiveisEquipe &&
             !temNovosElegiveisEquipe && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("integrada_respostas")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <Scale className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1664,7 +1630,7 @@ export function GestaoCompetencias() {
                       </p>
                     </div>
                   </div>
-                  <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                  <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                     <Eye className="h-4 w-4" />
                     Visualizar respostas
                   </span>
@@ -1677,16 +1643,16 @@ export function GestaoCompetencias() {
             temElegiveisEquipe &&
             temNovosElegiveisEquipe && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("integrada")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <Scale className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1699,7 +1665,7 @@ export function GestaoCompetencias() {
                       e.stopPropagation();
                       setCurrentView("integrada_respostas");
                     }}
-                    className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
                   >
                     <Eye className="h-4 w-4" />
                     Visualizar respostas
@@ -1709,16 +1675,16 @@ export function GestaoCompetencias() {
             )}
           {isSGJTAdmin && !isGestorDeUnidade && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("integrada_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                    <Scale className="h-5 w-5 text-violet-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <Scale className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação Integrada
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1726,37 +1692,19 @@ export function GestaoCompetencias() {
                     </p>
                   </div>
                 </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
                 </span>
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
-  // ── Inventário → Matriz de Competências do Gestor (3 cards) ──────────────
-  if (currentView === "inventario_gestor_home") {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario_home")}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Inventário de Competências do Gestor
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  // ── Inventário → Matriz de Competências do Gestor (cards) ──────────────
+  const invGestorCards = (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Autoavaliação do Gestor — gestor de unidade SEMPRE preenche (mesmo se também for avaliador da liderança); admin/manager preenche se não for avaliador da liderança; SGJT admins só visualizam */}
           {((isAdminOrManager && !isAvaliadorLideranca) || isGestorDeUnidade) &&
             !isSGJTAdmin && (
@@ -1770,7 +1718,7 @@ export function GestaoCompetencias() {
                       <ClipboardCheck className="h-5 w-5 text-teal-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Autoavaliação do Gestor
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1792,7 +1740,7 @@ export function GestaoCompetencias() {
                     <ClipboardCheck className="h-5 w-5 text-teal-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Autoavaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1879,8 +1827,10 @@ export function GestaoCompetencias() {
               );
             })()}
 
-          {/* Avaliação da Liderança — 4 superusuários preenchem, SGJT admins só visualizam */}
-          {isAvaliadorLideranca && !isSGJTAdmin && temAvgestorGestor && (
+          {/* Avaliação da Liderança — gestores/subdiretores de macroárea preenchem.
+              Sem exigir temAvgestorGestor: o avaliador pode avaliar o gestor da unidade ANTES
+              da autoavaliação existir (o form lista o gestor da unidade). */}
+          {isAvaliadorLideranca && !isSGJTAdmin && (
             <Card
               className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("inv_gestor_lideranca")}
@@ -1891,7 +1841,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1913,7 +1863,7 @@ export function GestaoCompetencias() {
               </CardContent>
             </Card>
           )}
-          {isAvaliadorLideranca && isSGJTAdmin && temAvgestorGestor && (
+          {isAvaliadorLideranca && isSGJTAdmin && (
             <Card
               className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("inv_gestor_lideranca")}
@@ -1924,7 +1874,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1957,7 +1907,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1995,7 +1945,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2028,7 +1978,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2067,7 +2017,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2106,7 +2056,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2121,30 +2071,16 @@ export function GestaoCompetencias() {
                 </CardContent>
               </Card>
             )}
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
-  // ── Competências Padrão (admin) ─────────────────────
+  // ── Competências Padrão (tela unificada) ─────────────────────
   if (currentView === "competencias_padrao_admin") {
     return (
-      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario")}
-            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Editar Competências Padrão
-          </h2>
-        </div>
-        <CompetenciasPadraoAdmin />
-      </div>
+      <CompetenciasPadraoAdmin
+        isSuperadmin={isSGJT}
+        onVoltar={() => setCurrentView("inventario")}
+      />
     );
   }
 
@@ -2170,79 +2106,95 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Inventário (view principal — 2 cards) ─────────────────────
+  // ── Hub (página única — módulos se desdobram em acordeão) ─────────────
+  // Todas as regras de visibilidade são idênticas às das antigas telas de menu:
+  // cada seção/sub-seção só aparece se o gate correspondente for verdadeiro.
+  const showMatriz = isSGJT || referencialAutorizado;
+  const temIntegradaEquipePendente = integradaPendentes.some(
+    (p) => (p.tipo_inventario || "equipe") === "equipe",
+  );
+  const temIntegradaGestorPendente = integradaPendentes.some(
+    (p) => (p.tipo_inventario || "equipe") === "gestor",
+  );
+  const showInvEquipe =
+    temUnidadeColaborador ||
+    isGestorDeUnidade ||
+    isSGJTAdmin ||
+    temIntegradaEquipePendente;
+  const showInvGestor =
+    isAvaliadorLideranca ||
+    isSGJTAdmin ||
+    isGestorDeUnidade ||
+    temIntegradaGestorPendente;
 
   return (
-    <div className="p-6 space-y-10">
-      <h2 className="text-2xl font-bold text-gray-800 border-l-4 border-blue-500 pl-4">
-        Gestão por Competências
-      </h2>
+    <div className="p-6 space-y-6 max-w-5xl">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
+          Gestão por Competências
+        </h2>
+        <p className="text-sm text-gray-500 mt-2 pl-5">
+          Selecione um módulo para expandir e acessar as ações disponíveis para
+          o seu perfil.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Matriz de Competências — só aparece para quem tem permissão ou SGJT */}
-        {(isSGJT || referencialAutorizado) && (
-          <Card
-            className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => setCurrentView("referencial_home")}
+      <div className="space-y-4">
+        {/* Matriz de Competências — só para quem tem permissão ou SGJT */}
+        {showMatriz && (
+          <HubSection
+            open={openSections.has("matriz")}
+            onToggle={() => toggleSection("matriz")}
+            icon={<BookOpen className="h-6 w-6 text-blue-600" />}
+            iconBg="bg-blue-100"
+            title="Matriz de Competências"
+            description="Competências da equipe e do gestor"
           >
-            <CardContent className="p-8 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                <BookOpen className="h-7 w-7 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-xl group-hover:text-blue-600 transition-colors">
-                  Matriz de Competências
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Competências da equipe e do gestor
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            {matrizCards}
+          </HubSection>
         )}
 
         {/* Inventário de Competências */}
-        <Card
-          className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-lg transition-all cursor-pointer group"
-          onClick={() => setCurrentView("inventario_home")}
+        <HubSection
+          open={openSections.has("inventario")}
+          onToggle={() => toggleSection("inventario")}
+          icon={<ClipboardCheck className="h-6 w-6 text-blue-600" />}
+          iconBg="bg-blue-100"
+          title="Inventário de Competências"
+          description="Autoavaliação, avaliação do gestor e integrada"
         >
-          <CardContent className="p-8 flex items-center gap-5">
-            <div className="w-14 h-14 rounded-xl bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
-              <ClipboardCheck className="h-7 w-7 text-teal-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-800 text-xl group-hover:text-teal-600 transition-colors">
-                Inventário de Competências
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Autoavaliação, avaliação do gestor e integrada
+          <div className="space-y-4">
+            {showInvEquipe && (
+              <HubSubSection
+                open={openSections.has("inv_equipe")}
+                onToggle={() => toggleSection("inv_equipe")}
+                icon={<Users className="h-5 w-5 text-blue-600" />}
+                iconBg="bg-blue-100"
+                title="Inventário de Competências da Equipe"
+                description="Competências técnicas e comportamentais"
+              >
+                {invEquipeCards}
+              </HubSubSection>
+            )}
+            {showInvGestor && (
+              <HubSubSection
+                open={openSections.has("inv_gestor")}
+                onToggle={() => toggleSection("inv_gestor")}
+                icon={<UserCog className="h-5 w-5 text-blue-600" />}
+                iconBg="bg-blue-100"
+                title="Inventário de Competências do Gestor"
+                description="Técnicas, comportamentais, estratégicas e gerenciais"
+              >
+                {invGestorCards}
+              </HubSubSection>
+            )}
+            {!showInvEquipe && !showInvGestor && (
+              <p className="text-sm text-gray-500 px-1 py-2">
+                Nenhum inventário disponível para o seu perfil no momento.
               </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Competências Padrão — superadmin + dev/staging only */}
-        {isSGJT && isCompetenciasPadraoEnabled() && (
-          <Card
-            className="bg-gray-50 border border-gray-300 shadow-sm hover:border-purple-400 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => setCurrentView("competencias_padrao_admin")}
-          >
-            <CardContent className="p-8 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                <Settings className="h-7 w-7 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-xl group-hover:text-purple-600 transition-colors">
-                  Editar Competências Padrão
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Gerenciar competências comportamentais, estratégicas e
-                  gerenciais
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </div>
+        </HubSection>
       </div>
     </div>
   );

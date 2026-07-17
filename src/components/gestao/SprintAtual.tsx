@@ -36,7 +36,7 @@ import { SprintStatsCards } from "./SprintStatsCards";
 export function SprintAtual() {
   const { keyResults, initiatives, refreshData } = useGestao();
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInitiative, setEditingInitiative] = useState<Initiative | null>(
     null,
@@ -68,19 +68,19 @@ export function SprintAtual() {
   // Filtrar por diretoria
   const filteredInitiatives = useMemo(
     () =>
-      initiatives.filter((init) => init.directorate === selectedDirectorate),
-    [initiatives, selectedDirectorate],
+      initiatives.filter((init) => Number(init.cadastrosAreasId) === selectedAreaId),
+    [initiatives, selectedAreaId],
   );
 
   const filteredKeyResults = useMemo(
-    () => keyResults.filter((kr) => kr.directorate === selectedDirectorate),
-    [keyResults, selectedDirectorate],
+    () => keyResults.filter((kr) => Number(kr.cadastrosAreasId) === selectedAreaId),
+    [keyResults, selectedAreaId],
   );
 
   const filteredExecutionData = useMemo(
     () =>
-      executionData.filter((item) => item.directorate === selectedDirectorate),
-    [executionData, selectedDirectorate],
+      executionData.filter((item) => Number(item.cadastrosAreasId) === selectedAreaId),
+    [executionData, selectedAreaId],
   );
 
   const sprintInitiatives = useMemo(
@@ -172,16 +172,23 @@ export function SprintAtual() {
       return;
     }
 
+    setSaving(true);
+
+    let cadastrosAreasId = 0;
+    try {
+      const dirs = await api.getDirectorates();
+      const dirInfo = dirs.find((d) => d.code === selectedAreaId);
+      if (dirInfo) cadastrosAreasId = dirInfo.id;
+    } catch(e) {}
+
     const data = {
       keyResultId: formKeyResultId,
       title: title.trim(),
       description: description?.trim() || "",
       boardStatus: formBoardStatus,
       location: "SPRINT_ATUAL" as InitiativeLocation,
-      directorate: selectedDirectorate,
+      cadastrosAreasId,
     };
-
-    setSaving(true);
 
     try {
       if (editingInitiative) {

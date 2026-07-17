@@ -41,5 +41,9 @@ export const permissoesAcoesApi = {
 
     remover: async (id: number): Promise<void> => {
         await apiClient.delete(`/api/permissoes-acoes/${id}`);
+    },
+
+    atualizarTag: async (id: string, name: string): Promise<void> => {
+        await apiClient.put(`/api/permissoes-acoes/tags/${id}`, { id, name });
     }
 };

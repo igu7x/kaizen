@@ -54,7 +54,7 @@ type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
 export function MonitoramentoOKRs() {
   const { objectives, keyResults, refreshData } = useGestao();
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [krDialogOpen, setKrDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -138,10 +138,10 @@ export function MonitoramentoOKRs() {
   const filteredMetas = useMemo(() => {
     return metas.filter(
       (m) =>
-        m.areaSigla === selectedDirectorate ||
-        m.areaNome === selectedDirectorate,
+        m.areaSigla === selectedAreaId ||
+        m.areaNome === selectedAreaId,
     );
-  }, [metas, selectedDirectorate]);
+  }, [metas, selectedAreaId]);
 
   const metaStats = useMemo(() => {
     const total = filteredMetas.length;
@@ -240,8 +240,8 @@ export function MonitoramentoOKRs() {
   };
 
   const selectedDirectorateInfo = useMemo(() => {
-    return directorates.find((d) => d.code === selectedDirectorate) || null;
-  }, [directorates, selectedDirectorate]);
+    return directorates.find((d) => d.code === selectedAreaId) || null;
+  }, [directorates, selectedAreaId]);
 
   const proadLink = (selectedDirectorateInfo?.proad_link || "")
     .toString()
@@ -250,8 +250,10 @@ export function MonitoramentoOKRs() {
   // Filtrar por diretoria e ordenar por código para manter posição consistente
   // "KRs Transversais" deve aparecer por último
   const filteredObjectives = useMemo(() => {
+    console.log("OBJECTIVES FROM CONTEXT:", objectives);
+    console.log("SELECTED AREA ID:", selectedAreaId);
     return objectives
-      .filter((obj) => obj.directorate === selectedDirectorate)
+      .filter((obj) => Number(obj.cadastrosAreasId) === selectedAreaId)
       .sort((a, b) => {
         // KRs Transversais sempre por último
         const aIsTransversal =
@@ -266,11 +268,11 @@ export function MonitoramentoOKRs() {
 
         return a.code.localeCompare(b.code);
       });
-  }, [objectives, selectedDirectorate]);
+  }, [objectives, selectedAreaId]);
 
   const filteredKeyResults = useMemo(() => {
-    return keyResults.filter((kr) => kr.directorate === selectedDirectorate);
-  }, [keyResults, selectedDirectorate]);
+    return keyResults.filter((kr) => Number(kr.cadastrosAreasId) === selectedAreaId);
+  }, [keyResults, selectedAreaId]);
 
   const situacaoOKRs = useMemo(() => {
     const noPrazo = filteredKeyResults.filter(
@@ -331,11 +333,14 @@ export function MonitoramentoOKRs() {
       return;
     }
 
+    const dirInfo = directorates.find(d => d.code === selectedAreaId);
+    const cadastrosAreasId = dirInfo ? dirInfo.id : 0;
+
     const data = {
       code: code.trim(),
       title: title.trim(),
       description: description?.trim() || "",
-      directorate: selectedDirectorate,
+      cadastrosAreasId,
     };
 
     setSavingObjective(true);
@@ -393,6 +398,9 @@ export function MonitoramentoOKRs() {
       return;
     }
 
+    const dirInfo = directorates.find(d => d.code === selectedAreaId);
+    const cadastrosAreasId = dirInfo ? dirInfo.id : 0;
+
     const data = {
       objectiveId,
       code: code.trim(),
@@ -400,7 +408,7 @@ export function MonitoramentoOKRs() {
       status: formData.get("status") as OKRStatus,
       situation: (formData.get("situation") as OKRSituation) || "NO_PRAZO",
       deadline: formData.get("deadline") as string,
-      directorate: selectedDirectorate,
+      cadastrosAreasId,
     };
 
     setSavingKR(true);
@@ -820,7 +828,7 @@ export function MonitoramentoOKRs() {
             >
               {!loadingMetas && (
                 <GraficoRosca
-                  key={`metas-rosca-${activeView}-${filteredMetas.length}-${selectedDirectorate}`}
+                  key={`metas-rosca-${activeView}-${filteredMetas.length}-${selectedArea?.sigla || selectedAreaId}`}
                   title="Situação das Metas"
                   data={situacaoMetas}
                   colors={["#3b82f6", "#22c55e", "#ef4444"]}
@@ -1187,7 +1195,7 @@ export function MonitoramentoOKRs() {
                 const payload = value ? value : null;
 
                 await api.updateDirectorateProadLink(
-                  selectedDirectorate,
+                  selectedAreaId,
                   payload,
                 );
 
@@ -1205,7 +1213,7 @@ export function MonitoramentoOKRs() {
             <DialogHeader>
               <DialogTitle>Link do PROAD</DialogTitle>
               <DialogDescription>
-                Informe o link do PROAD para a diretoria {selectedDirectorate}.
+                Informe o link do PROAD para a diretoria {selectedArea?.sigla || selectedAreaId}.
               </DialogDescription>
             </DialogHeader>
 

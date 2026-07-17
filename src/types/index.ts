@@ -8,17 +8,29 @@ export interface User {
   role: UserRole;
   status: "ACTIVE" | "INACTIVE";
   diretoria?: Directorate;
+  cadastrosAreasId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  areaSigla?: string | null;
+  unidadeSigla?: string | null;
+  areaFormatada?: string | null;
+  unidadeFormatada?: string | null;
   dominio?: string;
   is_domain_root?: boolean;
   password?: string;
   // Campos de perfil pessoal — preenchidos pelo próprio usuário em /perfil
   matricula?: string | null;
   cargo_funcao?: string | null;
+  situacao_funcional?: string | null;
+  classe_efetivo?: string | null;
+  cargo_efetivo?: string | null;
+  cc_fc?: string | null;
+  nome_cc_fc?: string | null;
+  classe_cc_fc?: string | null;
   foto_perfil?: string | null;
-  // Unidade onde o usuário está lotado (via cadastros_pessoas) — só vem de GET /me/perfil
+  unidade_lotacao?: string | null;
   unidade_nome?: string | null;
   // Cargo efetivo e código (cc_fc_classe — "Código" da tabela do painel) — só vem de GET /me/perfil
-  cargo_efetivo?: string | null;
+  cc_fc_classe?: string | null;
   codigo?: string | null;
   is_developer?: boolean;
   // Camada D — tags de Permissão de Ação concedidas (Ciclo Orçamentário)
@@ -37,6 +49,7 @@ export interface AuthContextType {
 export type Directorate = string;
 
 export interface DirectorateInfo {
+  id: number;
   code: string;
   name: string;
   description?: string | null;
@@ -61,7 +74,9 @@ export interface Objective {
   code: string;
   title: string;
   description: string;
-  directorate: Directorate;
+  diretoria: string;
+  cadastrosAreasId?: number | string | null;
+  area?: { sigla: string; nome: string };
 }
 
 export interface KeyResult {
@@ -72,7 +87,9 @@ export interface KeyResult {
   status: OKRStatus;
   situation: OKRSituation;
   deadline: string;
-  directorate: Directorate;
+  diretoria: string;
+  cadastrosAreasId?: number | string | null;
+  area?: { sigla: string; nome: string };
 }
 
 export interface Initiative {
@@ -83,7 +100,7 @@ export interface Initiative {
   boardStatus: BoardStatus;
   location: InitiativeLocation;
   sprintId?: string;
-  directorate: Directorate;
+  diretoria: string;
 }
 
 // Novo tipo para Controle de Execução
@@ -95,7 +112,7 @@ export interface ExecutionControl {
   sprintStatus: InitiativeLocation;
   sprintTasks: string;
   progress: ExecutionProgress;
-  directorate: Directorate;
+  diretoria: string;
   ordemLinha?: number;
   ordemPosicao?: number;
 }
@@ -104,7 +121,7 @@ export interface Program {
   id: string;
   name: string;
   description: string;
-  directorate: Directorate;
+  diretoria: string;
 }
 
 export interface ProgramInitiative {
@@ -114,7 +131,7 @@ export interface ProgramInitiative {
   description: string;
   boardStatus: BoardStatus;
   priority: Priority;
-  directorate: Directorate;
+  diretoria: string;
 }
 
 // Tipos para estatísticas dos dashboards
@@ -200,7 +217,7 @@ export interface Form {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  directorate: Directorate;
+  directorate?: Directorate;
   allowedDirectorates?: (Directorate | "ALL")[];
 }
 
@@ -851,8 +868,8 @@ export type GestaoTarefaProgresso = "a_fazer" | "fazendo" | "feito";
 export interface PlanoPrograma {
   id: number;
   nome: string;
-  diretoria: string;
-  tipo?: string;
+  cadastros_areas_id: number;
+  tipo: "plano" | "programa";
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -910,12 +927,12 @@ export interface PlanoComProjetos extends PlanoPrograma {
 
 export interface CreatePlanoDto {
   nome: string;
-  diretoria?: string;
+  cadastrosAreasId?: number;
 }
 
 export interface UpdatePlanoDto {
   nome?: string;
-  diretoria?: string;
+  cadastrosAreasId?: number;
 }
 
 export interface CreateProjetoDto {

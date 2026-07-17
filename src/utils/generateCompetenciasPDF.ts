@@ -77,6 +77,19 @@ function formatDate(dateStr: string): string {
   }
 }
 
+/** Só a data (sem horário) — usado na Vigência do cabeçalho. */
+function formatDateOnly(dateStr: string): string {
+  try {
+    return new Date(dateStr).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 function addFooter(
   doc: jsPDF,
   pageNum: number,
@@ -309,11 +322,14 @@ function drawCompetenciaCard(
   doc.setFillColor(...WHITE);
   doc.rect(MARGIN_LEFT, y, CONTENT_WIDTH, totalBodyH, "F");
 
-  // Descrição
+  // Descrição — justificada (jsPDF quebra pelo maxWidth e deixa a última linha à esquerda)
   doc.setFontSize(9.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...TEXT_GRAY);
-  doc.text(descLines, MARGIN_LEFT + 4, y + descPadding + 3);
+  doc.text(descricao || "", MARGIN_LEFT + 4, y + descPadding + 3, {
+    align: "justify",
+    maxWidth: CONTENT_WIDTH - 8,
+  });
 
   // Linha de Aplicabilidade (apenas quando solicitado)
   if (showAplicabilidade) {
@@ -515,21 +531,15 @@ export async function generateCompetenciasPDF(
   // Lado esquerdo - textos em branco
   const leftMaxW = PAGE_WIDTH * 0.6 - (MARGIN_LEFT + 5) - 4;
 
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("Matriz de Competências", MARGIN_LEFT + 5, headerY + 18, {
-    maxWidth: leftMaxW,
-  });
-
+  // Título único: "Matriz de Competências - Gestor" / "- Equipe" (sem o subtítulo redundante).
   const tipoLabel =
     formulario.tipo === "gestor"
-      ? "Matriz de Competências do Gestor"
-      : "Matriz de Competências da Equipe";
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
+      ? "Matriz de Competências - Gestor"
+      : "Matriz de Competências - Equipe";
+  doc.setFontSize(17);
+  doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text(tipoLabel, MARGIN_LEFT + 5, headerY + 27, { maxWidth: leftMaxW });
+  doc.text(tipoLabel, MARGIN_LEFT + 5, headerY + 20, { maxWidth: leftMaxW });
 
   doc.setFontSize(10);
   doc.setTextColor(200, 210, 230);
@@ -538,13 +548,13 @@ export async function generateCompetenciasPDF(
   doc.text(lotacaoLines, MARGIN_LEFT + 5, headerY + 36);
   const lotacaoEndY = headerY + 36 + (lotacaoLines.length - 1) * 4;
 
-  const validacaoDate = formulario.validado_final_em
-    ? formatDate(formulario.validado_final_em)
+  const vigenciaDate = formulario.validado_final_em
+    ? formatDateOnly(formulario.validado_final_em)
     : formulario.validado_por_diretoria_em
-      ? formatDate(formulario.validado_por_diretoria_em)
+      ? formatDateOnly(formulario.validado_por_diretoria_em)
       : "";
-  const statusText = validacaoDate
-    ? `Status: Validado em ${validacaoDate}`
+  const statusText = vigenciaDate
+    ? `Vigência: ${vigenciaDate}`
     : `Status: ${formulario.status || "Enviado"}`;
   doc.setFontSize(9);
   doc.setTextColor(180, 195, 220);
@@ -586,30 +596,6 @@ export async function generateCompetenciasPDF(
   );
 
   y = headerY + headerH + 8;
-
-  // ============================================================
-  // BLOCO - Histórico de Validação
-  // ============================================================
-  const validationItems: Array<{ label: string; value: string }> = [];
-  if (formulario.validado_por_autor_nome) {
-    validationItems.push({
-      label: "Validação do Autor",
-      value: `${formulario.validado_por_autor_nome} — ${formulario.validado_por_autor_em ? formatDate(formulario.validado_por_autor_em) : ""}`,
-    });
-  }
-  if (formulario.validado_por_diretoria_nome) {
-    validationItems.push({
-      label: "Validação da Diretoria",
-      value: `${formulario.validado_por_diretoria_nome} — ${formulario.validado_por_diretoria_em ? formatDate(formulario.validado_por_diretoria_em) : ""}`,
-    });
-  }
-  if (formulario.validado_final_nome) {
-    validationItems.push({
-      label: "Validação Final",
-      value: `${formulario.validado_final_nome} — ${formulario.validado_final_em ? formatDate(formulario.validado_final_em) : ""}`,
-    });
-  }
-  y = drawValidationBlock(doc, validationItems, y);
 
   // ============================================================
   // SEÇÃO - Competências Técnicas
@@ -693,6 +679,34 @@ export async function generateCompetenciasPDF(
       `Competências Gerenciais (${gerenciaisPadrao.length})`,
       gerenciaisPadrao,
     );
+  }
+
+  // ============================================================
+  // BLOCO - Histórico de Validação (ao final do documento)
+  // ============================================================
+  const validationItems: Array<{ label: string; value: string }> = [];
+  if (formulario.validado_por_autor_nome) {
+    validationItems.push({
+      label: "Validação do Autor",
+      value: `${formulario.validado_por_autor_nome} — ${formulario.validado_por_autor_em ? formatDate(formulario.validado_por_autor_em) : ""}`,
+    });
+  }
+  if (formulario.validado_por_diretoria_nome) {
+    validationItems.push({
+      label: "Validação da Diretoria",
+      value: `${formulario.validado_por_diretoria_nome} — ${formulario.validado_por_diretoria_em ? formatDate(formulario.validado_por_diretoria_em) : ""}`,
+    });
+  }
+  if (formulario.validado_final_nome) {
+    validationItems.push({
+      label: "Validação Final",
+      value: `${formulario.validado_final_nome} — ${formulario.validado_final_em ? formatDate(formulario.validado_final_em) : ""}`,
+    });
+  }
+  if (validationItems.length > 0) {
+    y += 6;
+    y = checkPageBreak(doc, y, 16 + validationItems.length * 9);
+    y = drawValidationBlock(doc, validationItems, y);
   }
 
   // ============================================================

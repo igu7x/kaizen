@@ -75,11 +75,11 @@ export async function logout(): Promise<void> {
 // API DE USUÁRIOS
 // ============================================================
 
-export async function getUsers(dominio?: string): Promise<User[]> {
-  const url = dominio
-    ? `/api/users?dominio=${encodeURIComponent(dominio)}`
-    : "/api/users";
-  return apiClient.get<User[]>(url);
+export async function getUsers(cadastrosAreasId?: number): Promise<User[]> {
+  const params = cadastrosAreasId
+    ? `?cadastrosAreasId=${cadastrosAreasId}`
+    : "";
+  return apiClient.get<User[]>(`/api/users${params}`);
 }
 
 export async function getUserById(id: string): Promise<User | null> {
@@ -126,10 +126,10 @@ export async function updateMeuPerfil(data: {
 // ============================================================
 
 export async function getObjectives(
-  directorate?: string,
+  cadastrosAreasId?: number,
 ): Promise<Objective[]> {
-  const params = directorate
-    ? `?directorate=${encodeURIComponent(directorate)}`
+  const params = cadastrosAreasId
+    ? `?cadastrosAreasId=${cadastrosAreasId}`
     : "";
   return apiClient.get<Objective[]>(`/api/objectives${params}`);
 }
@@ -165,10 +165,10 @@ export async function deleteObjective(id: string): Promise<void> {
 // ============================================================
 
 export async function getKeyResults(
-  directorate?: string,
+  cadastrosAreasId?: number,
 ): Promise<KeyResult[]> {
-  const params = directorate
-    ? `?directorate=${encodeURIComponent(directorate)}`
+  const params = cadastrosAreasId
+    ? `?cadastrosAreasId=${cadastrosAreasId}`
     : "";
   return apiClient.get<KeyResult[]>(`/api/key-results${params}`);
 }
@@ -204,10 +204,10 @@ export async function deleteKeyResult(id: string): Promise<void> {
 // ============================================================
 
 export async function getInitiatives(
-  directorate?: string,
+  cadastrosAreasId?: number,
 ): Promise<Initiative[]> {
-  const params = directorate
-    ? `?directorate=${encodeURIComponent(directorate)}`
+  const params = cadastrosAreasId
+    ? `?cadastrosAreasId=${cadastrosAreasId}`
     : "";
   return apiClient.get<Initiative[]>(`/api/initiatives${params}`);
 }
@@ -244,9 +244,9 @@ export async function deleteInitiative(id: string): Promise<void> {
 // API DE PROGRAMS
 // ============================================================
 
-export async function getPrograms(directorate?: string): Promise<Program[]> {
-  const params = directorate
-    ? `?directorate=${encodeURIComponent(directorate)}`
+export async function getPrograms(cadastrosAreasId?: number): Promise<Program[]> {
+  const params = cadastrosAreasId
+    ? `?cadastrosAreasId=${cadastrosAreasId}`
     : "";
   return apiClient.get<Program[]>(`/api/programs${params}`);
 }
@@ -327,10 +327,10 @@ export async function deleteProgramInitiative(id: string): Promise<void> {
 // ============================================================
 
 export async function getExecutionControls(
-  directorate?: string,
+  cadastrosAreasId?: number,
 ): Promise<ExecutionControl[]> {
-  const params = directorate
-    ? `?directorate=${encodeURIComponent(directorate)}`
+  const params = cadastrosAreasId
+    ? `?cadastrosAreasId=${cadastrosAreasId}`
     : "";
   return apiClient.get<ExecutionControl[]>(`/api/execution-controls${params}`);
 }

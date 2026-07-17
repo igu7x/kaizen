@@ -26,6 +26,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -519,47 +524,35 @@ export function ProjetoFormDialog({
     return tapMissingFields.some((f) => tapFieldMap[f] === fieldKey);
   };
 
+  // Área Responsável: seleção ÚNICA — escolher outra substitui a atual; escolher a mesma remove.
   const toggleAreaExecucao = (areaId: number) => {
-    const current = formData.areas_execucao || [];
-    if (current.includes(areaId)) {
-      setFormData({
-        ...formData,
-        areas_execucao: current.filter((id) => id !== areaId),
-      });
-    } else {
-      setFormData({ ...formData, areas_execucao: [...current, areaId] });
-    }
+    setFormData((prev) => ({
+      ...prev,
+      areas_execucao: (prev.areas_execucao || []).includes(areaId)
+        ? []
+        : [areaId],
+    }));
   };
 
+  // Diretoria: seleção ÚNICA — trocar substitui a atual e limpa a área responsável
+  // (as unidades disponíveis dependem da diretoria escolhida).
   const handleAdicionarDiretoria = (value: string) => {
     const areaId = parseInt(value);
     if (!areaId || formData.areas_vinculadas_ids?.includes(areaId)) return;
     setFormData((prev) => ({
       ...prev,
-      areas_vinculadas_ids: [...(prev.areas_vinculadas_ids || []), areaId],
+      areas_vinculadas_ids: [areaId],
+      areas_execucao: [],
     }));
   };
 
-  const handleRemoverDiretoria = (areaId: number) => {
-    setFormData((prev) => {
-      const novosIds = (prev.areas_vinculadas_ids || []).filter(
-        (id) => id !== areaId,
-      );
-      const unidadesDaDiretoria = unidadesDiretorias
-        .filter((u) => {
-          const dir = diretorias.find((d) => d.id === areaId);
-          return u.diretoria_sigla === (dir?.sigla || dir?.nome);
-        })
-        .map((u) => u.id);
-      const novasExecucao = (prev.areas_execucao || []).filter(
-        (id) => !unidadesDaDiretoria.includes(id),
-      );
-      return {
-        ...prev,
-        areas_vinculadas_ids: novosIds,
-        areas_execucao: novasExecucao,
-      };
-    });
+  // Remover a diretoria do projeto (limpa também a área responsável vinculada a ela)
+  const handleRemoverDiretoria = (_areaId: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      areas_vinculadas_ids: [],
+      areas_execucao: [],
+    }));
   };
 
   const handleAddEntrega = () => {
@@ -1551,7 +1544,7 @@ export function ProjetoFormDialog({
 
                         <div className="md:col-span-2">
                           <Label className="text-blue-700 font-semibold mb-2 block">
-                            Diretorias
+                            Diretoria
                           </Label>
                           {formData.areas_vinculadas_ids &&
                             formData.areas_vinculadas_ids.length > 0 && (
@@ -1594,7 +1587,7 @@ export function ProjetoFormDialog({
                                   <Plus className="h-4 w-4" />
                                   <span>
                                     {formData.areas_vinculadas_ids?.length
-                                      ? "Adicionar outra diretoria"
+                                      ? "Trocar diretoria"
                                       : "Selecione a diretoria do projeto"}
                                   </span>
                                 </div>
@@ -1622,14 +1615,14 @@ export function ProjetoFormDialog({
                                     ),
                                 ).length === 0 && (
                                   <SelectItem value="none" disabled>
-                                    Todas as diretorias já foram adicionadas
+                                    Nenhuma outra diretoria disponível
                                   </SelectItem>
                                 )}
                               </SelectContent>
                             </Select>
                           )}
                           <p className="text-xs text-gray-500 mt-1">
-                            Selecione uma ou mais diretorias do projeto
+                            Selecione a diretoria do projeto (apenas uma)
                           </p>
                         </div>
 
@@ -1684,7 +1677,9 @@ export function ProjetoFormDialog({
                                   >
                                     <SelectTrigger className="w-full bg-white border-gray-300">
                                       <span className="text-gray-500 text-sm">
-                                        Selecionar áreas responsáveis...
+                                        {formData.areas_execucao?.length
+                                          ? "Trocar área responsável..."
+                                          : "Selecionar área responsável..."}
                                       </span>
                                     </SelectTrigger>
                                     <SelectContent className="max-h-60">
@@ -2190,53 +2185,65 @@ export function ProjetoFormDialog({
                                         Nenhum item do PCA selecionado
                                       </span>
                                     ) : (
-                                      <>
-                                        <Input
-                                          placeholder="Adicionar o item do PCA..."
-                                          value={buscaPca}
-                                          onChange={(e) => {
-                                            setBuscaPca(e.target.value);
-                                            setShowPcaList(true);
-                                          }}
-                                          onFocus={() => setShowPcaList(true)}
-                                          onBlur={() =>
-                                            setTimeout(
-                                              () => setShowPcaList(false),
-                                              200,
-                                            )
+                                      // Popover (portal) em vez de um <div absolute>: o
+                                      // AccordionContent tem overflow-hidden e o corpo do
+                                      // Dialog rola, então a lista ancorada ficava recortada
+                                      // e atrás do conteúdo. O portal escapa desses clips.
+                                      <Popover
+                                        open={showPcaList}
+                                        onOpenChange={setShowPcaList}
+                                      >
+                                        <PopoverAnchor asChild>
+                                          <Input
+                                            placeholder="Adicionar o item do PCA..."
+                                            value={buscaPca}
+                                            onChange={(e) => {
+                                              setBuscaPca(e.target.value);
+                                              setShowPcaList(true);
+                                            }}
+                                            onFocus={() => setShowPcaList(true)}
+                                          />
+                                        </PopoverAnchor>
+                                        <PopoverContent
+                                          align="start"
+                                          sideOffset={4}
+                                          className="w-[340px] max-w-[80vw] max-h-60 overflow-y-auto p-0"
+                                          // Mantém o cursor no input enquanto a lista está aberta.
+                                          onOpenAutoFocus={(e) =>
+                                            e.preventDefault()
                                           }
-                                        />
-                                        {showPcaList && (
-                                          <div className="absolute z-50 mt-1 w-[340px] max-w-[80vw] rounded-md border bg-white shadow-lg max-h-60 overflow-y-auto">
-                                            {pcaItens.length === 0 ? (
-                                              <div className="px-3 py-2 text-sm text-gray-500">
-                                                Nenhum item do PCA cadastrado.
+                                          onCloseAutoFocus={(e) =>
+                                            e.preventDefault()
+                                          }
+                                        >
+                                          {pcaItens.length === 0 ? (
+                                            <div className="px-3 py-2 text-sm text-gray-500">
+                                              Nenhum item do PCA cadastrado.
+                                            </div>
+                                          ) : pcaFiltrados.length === 0 ? (
+                                            <div className="px-3 py-2 text-sm text-gray-500">
+                                              Nenhum item encontrado.
+                                            </div>
+                                          ) : (
+                                            pcaFiltrados.map((item) => (
+                                              <div
+                                                key={item.id}
+                                                className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                                                onMouseDown={() => {
+                                                  setFormData({
+                                                    ...formData,
+                                                    pca_item_id: item.id,
+                                                  });
+                                                  setBuscaPca("");
+                                                  setShowPcaList(false);
+                                                }}
+                                              >
+                                                {labelPcaItem(item)}
                                               </div>
-                                            ) : pcaFiltrados.length === 0 ? (
-                                              <div className="px-3 py-2 text-sm text-gray-500">
-                                                Nenhum item encontrado.
-                                              </div>
-                                            ) : (
-                                              pcaFiltrados.map((item) => (
-                                                <div
-                                                  key={item.id}
-                                                  className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
-                                                  onMouseDown={() => {
-                                                    setFormData({
-                                                      ...formData,
-                                                      pca_item_id: item.id,
-                                                    });
-                                                    setBuscaPca("");
-                                                    setShowPcaList(false);
-                                                  }}
-                                                >
-                                                  {labelPcaItem(item)}
-                                                </div>
-                                              ))
-                                            )}
-                                          </div>
-                                        )}
-                                      </>
+                                            ))
+                                          )}
+                                        </PopoverContent>
+                                      </Popover>
                                     )}
                                   </div>
                                 );

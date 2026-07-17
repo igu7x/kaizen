@@ -21,6 +21,7 @@ import {
   DollarSign,
   Building2,
   BookOpen,
+  GraduationCap,
   Database,
   Code,
   Home,
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui/tooltip";
 import { getModulosPermitidosMenu, Diretoria } from "@/services/permissoesApi";
 import { areasApi, Area } from "@/services/areasApi";
-import { isDomainRoot } from "@/utils/domain";
+import { isDomainRoot, getUserDominio } from "@/utils/domain";
 import { isProduction } from "@/utils/environment";
 import { useEstrategiaModelo } from "@/contexts/EstrategiaModeloContext";
 
@@ -155,16 +156,32 @@ const menuItemsCompleto: MenuItem[] = [
     icon: Users,
     children: [
       {
+        // Escondido apenas em produção (stagingOnly); segue visível em local e staging.
         title: "Painel",
         icon: LayoutDashboard,
         path: "/pessoas/painel",
         permissaoCodigo: "pessoas_painel",
+        stagingOnly: true,
       },
       {
         title: "Gestão por Competências",
         icon: BookOpen,
         path: "/pessoas/competencias",
         permissaoCodigo: "pessoas_competencias",
+      },
+      {
+        title: "Plano Anual de Capacitação",
+        icon: GraduationCap,
+        children: [
+          {
+            title: "Tecnologia da Informação",
+            path: "/pessoas/pac/tecnologia-da-informacao",
+          },
+          {
+            title: "Apoio Judiciário",
+            path: "/pessoas/pac/apoio-judiciario",
+          },
+        ],
       },
     ],
   },
@@ -574,20 +591,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   // Carregar permissões da diretoria do usuário
   useEffect(() => {
     const carregarPermissoes = async () => {
-      // Buscar diretoria de múltiplas fontes possíveis
-      // diretoria_visibilidade sobrescreve para fins de visibilidade
-      const userDiretoria = ((user as any)?.diretoria_visibilidade ||
-        (user as any)?.diretoria ||
-        (user as any)?.directorate_code) as Diretoria | undefined;
-
-      if (!userDiretoria) {
-        // Sem diretoria definida: por segurança, não veem nada
-        console.warn("[Sidebar] Usuário sem diretoria definida:", user?.email);
-        setPermissoesUsuario([]);
-        setPermissoesCarregadas(true);
-        return;
-      }
-
       // Carregar áreas da API para verificar is_domain_root (fallback robusto)
       let loadedAreas: Area[] = [];
       try {
@@ -598,7 +601,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       }
 
       // Verificar se é domain root (admin do domínio, ex: SGJT ou CGJ)
-      // Passa áreas como fallback caso user.is_domain_root não esteja definido
       const isRoot = isDomainRoot(user, loadedAreas);
 
       // Domain root tem acesso a todos os módulos
@@ -619,15 +621,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         return;
       }
 
-      // Para outras diretorias, buscar permissões da API
+      // Para outras diretorias, buscar permissões da API (união de todos os domínios do usuário)
       try {
-        const response = await getModulosPermitidosMenu(userDiretoria);
-        const codigos = response.modulos_permitidos.map((m) => m.codigo);
+        const dominios = (user as any).dominios && (user as any).dominios.length > 0 
+          ? (user as any).dominios 
+          : [getUserDominio(user, loadedAreas)];
+          
+        const todosCodigos = new Set<string>();
+        for (const dom of dominios) {
+          const response = await getModulosPermitidosMenu(dom as Diretoria);
+          response.modulos_permitidos.forEach((m) => todosCodigos.add(m.codigo));
+        }
 
-        setPermissoesUsuario(codigos);
+        setPermissoesUsuario(Array.from(todosCodigos));
       } catch (error) {
         // SEGURANÇA: Em caso de erro, NÃO liberar acesso - manter vazio
-        // Isso força o usuário a recarregar a página ou fazer login novamente
         setPermissoesUsuario([]);
       } finally {
         setPermissoesCarregadas(true);

@@ -35,7 +35,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDirectorate } from "@/contexts/DirectorateContext";
 import { User, UserRole } from "@/types";
 import { DIRETORIAS_LABELS, Diretoria } from "@/services/permissoesApi";
-import { areasApi, Area } from "@/services/areasApi";
+import { areasApi, Area, Unidade } from "@/services/areasApi";
+import Storage from "@/utils/storage";
 import { isDomainRoot } from "@/utils/domain";
 
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
@@ -62,6 +63,14 @@ export default function Administracao() {
   const [domainAreas, setDomainAreas] = useState<Area[]>([]);
   // Todas as áreas globais (para dropdown de diretoria — admin SGJT pode atribuir qualquer diretoria)
   const [globalAreas, setGlobalAreas] = useState<Area[]>([]);
+  const [globalUnidades, setGlobalUnidades] = useState<Unidade[]>([]);
+  const [selectedFormAreaId, setSelectedFormAreaId] = useState<number | null>(null);
+  const [selectedFormUnidadeId, setSelectedFormUnidadeId] = useState<string>("");
+
+  const formUnidades = useMemo(() => {
+    if (!selectedFormAreaId) return [];
+    return globalUnidades.filter(u => Number(u.area_id) === Number(selectedFormAreaId));
+  }, [globalUnidades, selectedFormAreaId]);
 
   // Domain root (SGJT, CGJ) pode selecionar diretoria
   const canSelectDiretoria = isDomainRoot(currentUser, allAreas);
@@ -87,6 +96,13 @@ export default function Administracao() {
         setGlobalAreas(areas);
       })
       .catch((err) => undefined);
+
+    const loadUnits = devEnvironment
+      ? areasApi.getAllUnidades(devEnvironment)
+      : areasApi.getAllUnidades();
+    loadUnits
+      .then((unidades) => setGlobalUnidades(unidades))
+      .catch(() => undefined);
   }, [currentUser, adminDiretoria, devEnvironment]);
 
   // Áreas disponíveis no dropdown: apenas as do domínio atual (mesmo para superadmin)
@@ -170,17 +186,19 @@ export default function Administracao() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
-    const data: any = {
+    const areaId = selectedFormAreaId;
+    const selectedArea = globalAreas.find(a => a.id === areaId);
+    const diretoriaStr = selectedArea ? (selectedArea.sigla || selectedArea.nome) : adminDiretoria;
+
+    const payload: Partial<User> & { password?: string } = {
       name: formData.get("name") as string,
       email: formData.get("email") as string,
       role: formData.get("role") as UserRole,
       status: (formData.get("status") as "ACTIVE" | "INACTIVE") || "ACTIVE",
-      // Domain root pode escolher diretoria do domínio, outros ficam na própria
-      diretoria: canSelectDiretoria
-        ? (formData.get("diretoria") as Diretoria) || adminDiretoria
-        : adminDiretoria,
+      diretoria: diretoriaStr as Diretoria,
+      cadastrosAreasId: areaId || null,
+      cadastrosUnidadesId: selectedFormUnidadeId ? Number(selectedFormUnidadeId) : null,
       situacao_funcional: formData.get("situacao_funcional") as string,
-      unidade_lotacao: formData.get("unidade_lotacao") as string,
       cargo_efetivo: formData.get("cargo_efetivo") as string,
       classe_efetivo: formData.get("classe_efetivo") as string,
       nome_cc_fc: formData.get("nome_cc_fc") as string,
@@ -199,12 +217,12 @@ export default function Administracao() {
       const hashHex = hashArray
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
-      data.password = hashHex;
+      payload.password = hashHex;
     }
 
     try {
       if (editingUser) {
-        const updatedUser = await api.updateUser(editingUser.id, data);
+        const updatedUser = await api.updateUser(editingUser.id, payload as any);
         // Se o usuário editou a si mesmo (ex: mudou sua própria diretoria), atualiza a sessão local
         if (currentUser && currentUser.id === editingUser.id) {
           const merged = { ...currentUser, ...updatedUser };
@@ -212,11 +230,13 @@ export default function Administracao() {
           Storage.save("user", merged);
         }
       } else {
-        await api.createUser(data);
+        await api.createUser(payload as any);
       }
       await loadUsers();
       setDialogOpen(false);
       setEditingUser(null);
+      setSelectedFormAreaId(null);
+      setSelectedFormUnidadeId("");
     } catch (error) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
@@ -288,6 +308,8 @@ export default function Administracao() {
           <Button
             onClick={() => {
               setEditingUser(null);
+              setSelectedFormAreaId(null);
+              setSelectedFormUnidadeId("");
               setDialogOpen(true);
             }}
           >
@@ -322,23 +344,7 @@ export default function Administracao() {
                     Todos
                   </button>
                 </div>
-                {/* Filtro de Diretoria */}
-                <Select
-                  value={diretoriaFilter}
-                  onValueChange={setDiretoriaFilter}
-                >
-                  <SelectTrigger className="w-[160px] h-9">
-                    <SelectValue placeholder="Diretoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todas Diretorias</SelectItem>
-                    {diretoriasDisponiveis.map((dir) => (
-                      <SelectItem key={dir} value={dir}>
-                        {dir}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Filtros ocultos por hora para simplificar a visão de múltiplas lotações */}
                 {/* Campo de Busca */}
                 <div className="relative w-full sm:w-72">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -385,7 +391,7 @@ export default function Administracao() {
                   <tr className="border-b">
                     <th className="text-left p-4">Nome</th>
                     <th className="text-left p-4">E-mail</th>
-                    <th className="text-left p-4">Diretoria</th>
+                    <th className="text-left p-4">Lotação (Área/Unidade)</th>
                     <th className="text-left p-4">Perfil</th>
                     <th className="text-left p-4">Status</th>
                     <th className="text-left p-4">Ações</th>
@@ -416,9 +422,13 @@ export default function Administracao() {
                         <td className="p-4">{user.name}</td>
                         <td className="p-4">{user.email}</td>
                         <td className="p-4">
-                          <Badge variant="outline" className="font-medium">
-                            {(user as any).diretoria || "SGJT"}
-                          </Badge>
+                          {user.areaSigla || user.unidadeSigla ? (
+                            <Badge variant="outline" className="font-medium truncate max-w-[200px]">
+                              {user.areaSigla || "-"} / {user.unidadeSigla || "-"}
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
                         </td>
                         <td className="p-4">{getRoleBadge(user.role)}</td>
                         <td className="p-4">{getStatusBadge(user.status)}</td>
@@ -429,6 +439,8 @@ export default function Administracao() {
                               variant="ghost"
                               onClick={() => {
                                 setEditingUser(user);
+                                setSelectedFormAreaId(user.cadastrosAreasId || null);
+                                setSelectedFormUnidadeId(user.cadastrosUnidadesId ? String(user.cadastrosUnidadesId) : "");
                                 setDialogOpen(true);
                               }}
                             >
@@ -538,59 +550,51 @@ export default function Administracao() {
                     </SelectContent>
                   </Select>
                 </div>
-                {canSelectDiretoria ? (
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="diretoria">Diretoria</Label>
+                    <Label htmlFor="cadastrosAreasId">Área (Diretoria)</Label>
                     <Select
-                      name="diretoria"
-                      defaultValue={
-                        (editingUser as any)?.diretoria || adminDiretoria
-                      }
-                      required
+                      name="cadastrosAreasId"
+                      value={selectedFormAreaId ? String(selectedFormAreaId) : undefined}
+                      onValueChange={(val) => {
+                        setSelectedFormAreaId(Number(val));
+                        setSelectedFormUnidadeId("");
+                      }}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione a área" />
                       </SelectTrigger>
                       <SelectContent>
-                        {areasParaDropdown.map((area) => {
-                          const sigla = area.sigla || area.nome;
-                          return (
-                            <SelectItem key={area.id} value={sigla}>
-                              {sigla}
-                              {area.nome !== sigla
-                                ? ` - ${area.nome}`
-                                : DIRETORIAS_LABELS[sigla]
-                                  ? ` - ${DIRETORIAS_LABELS[sigla]}`
-                                  : ""}
-                            </SelectItem>
-                          );
-                        })}
+                        {globalAreas.map((area) => (
+                          <SelectItem key={area.id} value={String(area.id)}>
+                            {area.sigla || area.nome}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                ) : (
                   <div>
-                    <Label>Diretoria</Label>
-                    <Input
-                      value={`${adminDiretoria}${getAreaLabel(adminDiretoria) ? ` - ${getAreaLabel(adminDiretoria)}` : ""}`}
-                      disabled
-                    />
+                    <Label htmlFor="cadastrosUnidadesId">Unidade</Label>
+                    <Select
+                      key={selectedFormAreaId || "empty"}
+                      name="cadastrosUnidadesId"
+                      value={selectedFormUnidadeId || undefined}
+                      onValueChange={setSelectedFormUnidadeId}
+                      disabled={!selectedFormAreaId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {formUnidades.map((unidade) => (
+                          <SelectItem key={unidade.id} value={String(unidade.id)}>
+                            {unidade.sigla} - {unidade.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
-
-                {/* Lotação (Apenas exibição) */}
-                <div>
-                  <Label>Unidade</Label>
-                  <Input
-                    name="unidade_lotacao"
-                    value={(editingUser as any)?.unidade_lotacao || ""}
-                    readOnly
-                    disabled
-                    className="bg-gray-100 text-gray-500 cursor-not-allowed"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">Este dado vem do vínculo de lotação em Pessoas/Áreas.</p>
                 </div>
-
                 <div>
                   <Label htmlFor="status">Status</Label>
                   <Select

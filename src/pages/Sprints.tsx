@@ -91,11 +91,11 @@ type TabType = "lista" | "backlog" | "sprint-atual";
 
 export default function Sprints() {
   const { toast } = useToast();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const { user } = useAuth();
   const location = useLocation();
   // Sempre enviar a diretoria — o backend filtra por domínio (multi-tenant)
-  const dirFiltro = selectedDirectorate || undefined;
+  const dirFiltro = selectedAreaId || undefined;
 
   // Áreas para isDomainRoot
   const [domainAreas, setDomainAreas] = useState<Area[]>([]);
@@ -198,7 +198,7 @@ export default function Sprints() {
       }
     };
     loadProjetos();
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   // Carregar entregas quando projeto é selecionado
   useEffect(() => {
@@ -234,7 +234,7 @@ export default function Sprints() {
         const filters: any = {};
 
         // Backend lida com filtragem de domínio automaticamente
-        filters.diretoria = selectedDirectorate;
+        filters.diretoria = selectedArea?.sigla;
 
         if (projetoFilter !== "todos") {
           filters.projeto_id = parseInt(projetoFilter);
@@ -253,7 +253,7 @@ export default function Sprints() {
       }
     };
     loadSprints();
-  }, [selectedDirectorate, projetoFilter, entregaFilter, toast]);
+  }, [selectedAreaId, projetoFilter, entregaFilter, toast]);
 
   // Carregar lista de sprints e usuários para os dropdowns do backlog
   useEffect(() => {
@@ -267,7 +267,7 @@ export default function Sprints() {
     };
     const loadUsuarios = async () => {
       try {
-        const usersData = await getUsers(selectedDirectorate || undefined);
+        const usersData = await getUsers(selectedAreaId || undefined);
         setUsuariosDisponiveis(usersData.filter((u) => u.status === "ACTIVE"));
       } catch (error) {
         console.warn("Erro ao carregar usuários:", error);
@@ -275,7 +275,7 @@ export default function Sprints() {
     };
     loadSprintsLista();
     loadUsuarios();
-  }, []);
+  }, [selectedAreaId]);
 
   // Carregar entregas e tarefas quando projeto é selecionado no Backlog
   useEffect(() => {
@@ -396,20 +396,9 @@ export default function Sprints() {
   const projetosBacklogPorDiretoria = isDomainRoot(user, domainAreas)
     ? projetos
     : projetos.filter((p) => {
-        // Verificar se o projeto tem áreas de execução que pertencem à diretoria selecionada
-        if (p.areasExecucao && p.areasExecucao.length > 0) {
-          return p.areasExecucao.some(
-            (area) => area.diretoria === selectedDirectorate,
-          );
+        if (p.areas_vinculadas_ids && selectedAreaId) {
+          return p.areas_vinculadas_ids.includes(selectedAreaId);
         }
-        // Fallback: usar o campo areas_execucao_diretorias (string com siglas separadas por vírgula)
-        if (p.areas_execucao_diretorias) {
-          return p.areas_execucao_diretorias
-            .split(",")
-            .map((d) => d.trim())
-            .includes(selectedDirectorate);
-        }
-        // Se não tem áreas de execução definidas, não mostrar para diretorias específicas
         return false;
       });
 

@@ -19,7 +19,7 @@ export interface InstrumentoPlanejamento {
   versao: string;
   historico_alteracoes: string | null;
   observacoes_gerais: string | null;
-  diretoria: string;
+  cadastros_areas_id?: number;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -56,7 +56,7 @@ export interface CreateInstrumentoDto {
   versao?: string;
   historico_alteracoes?: string;
   observacoes_gerais?: string;
-  diretoria?: string;
+  cadastrosAreasId?: number;
   projetos_ids?: number[];
   areas_vinculadas_ids?: number[];
 }
@@ -74,9 +74,9 @@ export interface InstrumentoAncoragem {
 export const planosProgramasApi = {
   // Listar todos os instrumentos
   async getInstrumentos(
-    diretoria?: string,
+    cadastrosAreasId?: number,
   ): Promise<InstrumentoPlanejamento[]> {
-    const params = diretoria ? `?diretoria=${diretoria}` : "";
+    const params = cadastrosAreasId ? `?cadastrosAreasId=${cadastrosAreasId}` : "";
     return apiClient.get<InstrumentoPlanejamento[]>(
       `/api/planos-programas/instrumentos${params}`,
     );
@@ -117,9 +117,9 @@ export const planosProgramasApi = {
 
   // Para uso em selects de ancoragem estratégica
   async getInstrumentosParaAncoragem(
-    diretoria?: string,
+    cadastrosAreasId?: number,
   ): Promise<InstrumentoAncoragem[]> {
-    const params = diretoria ? `?diretoria=${diretoria}` : "";
+    const params = cadastrosAreasId ? `?cadastrosAreasId=${cadastrosAreasId}` : "";
     return apiClient.get<InstrumentoAncoragem[]>(
       `/api/planos-programas/instrumentos/ancoragem${params}`,
     );

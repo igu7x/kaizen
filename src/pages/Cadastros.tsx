@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PcaItemPicker } from "@/components/projetos/PcaItemPicker";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -232,10 +233,10 @@ export default function Cadastros() {
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const currentUserId = user?.id ? parseInt(String(user.id)) : undefined;
   // Sempre enviar a diretoria — o backend filtra por domínio (multi-tenant)
-  const dirFiltro = selectedDirectorate || undefined;
+  const dirFiltro = selectedAreaId || undefined;
 
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -348,6 +349,7 @@ export default function Cadastros() {
     abrangencia: "uma_unidade",
     havera_contratacao: false,
     valor_estimado_contratacao: undefined,
+    pca_item_id: undefined,
     saude: "verde",
     saude_justificativa: "",
     tap_vinculado: "",
@@ -390,7 +392,7 @@ export default function Cadastros() {
   useEffect(() => {
     loadProjetos();
     loadAuxiliares();
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   // Carrega permissão TAP do usuário logado (uma vez)
   useEffect(() => {
@@ -436,7 +438,7 @@ export default function Cadastros() {
 
   const loadAuxiliares = async () => {
     // Backend lida com filtragem de domínio automaticamente
-    const dirParam = selectedDirectorate;
+    const dirParam = selectedAreaId;
 
     // Carregar cada recurso independentemente para não falhar tudo se um falhar
     try {
@@ -481,7 +483,7 @@ export default function Cadastros() {
     }
 
     try {
-      const usersData = await getUsers(selectedDirectorate || undefined);
+      const usersData = await getUsers(selectedArea?.dominio || undefined);
       setUsuariosDisponiveis(usersData.filter((u) => u.status === "ACTIVE"));
     } catch (error) {
       console.warn("Erro ao carregar usuários:", error);
@@ -767,6 +769,7 @@ export default function Cadastros() {
           havera_contratacao: projetoCompleto.havera_contratacao,
           valor_estimado_contratacao:
             projetoCompleto.valor_estimado_contratacao || undefined,
+          pca_item_id: projetoCompleto.pca_item_id ?? undefined,
           saude: projetoCompleto.saude,
           saude_justificativa: projetoCompleto.saude_justificativa || "",
           tap_vinculado: projetoCompleto.tap_vinculado || "",
@@ -861,6 +864,7 @@ export default function Cadastros() {
         abrangencia: "uma_unidade",
         havera_contratacao: false,
         valor_estimado_contratacao: undefined,
+        pca_item_id: undefined,
         saude: "verde",
         saude_justificativa: "",
         tap_vinculado: "",
@@ -890,7 +894,7 @@ export default function Cadastros() {
     if (modalMode === "edit") {
       const camposFaltando: string[] = [];
       if (!formData.nome?.trim()) camposFaltando.push("Nome do Projeto");
-      if (!selectedDirectorate) camposFaltando.push("Diretoria");
+      if (!selectedAreaId) camposFaltando.push("Diretoria");
       if (!formData.areas_execucao || formData.areas_execucao.length === 0)
         camposFaltando.push("Área Responsável");
 
@@ -956,7 +960,7 @@ export default function Cadastros() {
 
       let dataToSend: any = {
         ...formData,
-        diretoria: selectedDirectorate,
+        cadastrosAreasId: selectedAreaId,
         entregas: entregasParaSalvar,
         riscos: riscosParaSalvar,
         entraves: entravesParaSalvar,
@@ -1161,50 +1165,35 @@ export default function Cadastros() {
   };
 
   // Toggle área de execução
+  // Área Responsável: seleção ÚNICA — escolher outra substitui a atual; escolher a mesma remove.
   const toggleAreaExecucao = (areaId: number) => {
-    const current = formData.areas_execucao || [];
-    if (current.includes(areaId)) {
-      setFormData({
-        ...formData,
-        areas_execucao: current.filter((id) => id !== areaId),
-      });
-    } else {
-      setFormData({ ...formData, areas_execucao: [...current, areaId] });
-    }
+    setFormData((prev) => ({
+      ...prev,
+      areas_execucao: (prev.areas_execucao || []).includes(areaId)
+        ? []
+        : [areaId],
+    }));
   };
 
-  // Adicionar diretoria ao projeto
+  // Diretoria: seleção ÚNICA — trocar substitui a atual e limpa a área responsável
+  // (as unidades disponíveis dependem da diretoria escolhida).
   const handleAdicionarDiretoria = (value: string) => {
     const areaId = parseInt(value);
     if (!areaId || formData.areas_vinculadas_ids?.includes(areaId)) return;
     setFormData((prev) => ({
       ...prev,
-      areas_vinculadas_ids: [...(prev.areas_vinculadas_ids || []), areaId],
+      areas_vinculadas_ids: [areaId],
+      areas_execucao: [],
     }));
   };
 
-  // Remover diretoria do projeto
-  const handleRemoverDiretoria = (areaId: number) => {
-    setFormData((prev) => {
-      const novosIds = (prev.areas_vinculadas_ids || []).filter(
-        (id) => id !== areaId,
-      );
-      // Remover também as unidades (areas_execucao) que pertencem à diretoria removida
-      const unidadesDaDiretoria = unidadesDiretorias
-        .filter((u) => {
-          const dir = diretorias.find((d) => d.id === areaId);
-          return u.diretoria_sigla === (dir?.sigla || dir?.nome);
-        })
-        .map((u) => u.id);
-      const novasExecucao = (prev.areas_execucao || []).filter(
-        (id) => !unidadesDaDiretoria.includes(id),
-      );
-      return {
-        ...prev,
-        areas_vinculadas_ids: novosIds,
-        areas_execucao: novasExecucao,
-      };
-    });
+  // Remover a diretoria do projeto (limpa também a área responsável vinculada a ela)
+  const handleRemoverDiretoria = (_areaId: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      areas_vinculadas_ids: [],
+      areas_execucao: [],
+    }));
   };
 
   // Abrir visualização de detalhes do projeto
@@ -3671,9 +3660,9 @@ export default function Cadastros() {
                       </div>
                       <div className="md:col-span-2">
                         <Label className="text-blue-700 font-semibold mb-2 block">
-                          Diretorias
+                          Diretoria
                         </Label>
-                        {/* Diretorias selecionadas */}
+                        {/* Diretoria selecionada */}
                         {formData.areas_vinculadas_ids &&
                           formData.areas_vinculadas_ids.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-2">
@@ -3714,7 +3703,7 @@ export default function Cadastros() {
                                 <Plus className="h-4 w-4" />
                                 <span>
                                   {formData.areas_vinculadas_ids?.length
-                                    ? "Adicionar outra diretoria"
+                                    ? "Trocar diretoria"
                                     : "Selecione a diretoria do projeto"}
                                 </span>
                               </div>
@@ -3742,14 +3731,14 @@ export default function Cadastros() {
                                   ),
                               ).length === 0 && (
                                 <SelectItem value="none" disabled>
-                                  Todas as diretorias já foram adicionadas
+                                  Nenhuma outra diretoria disponível
                                 </SelectItem>
                               )}
                             </SelectContent>
                           </Select>
                         )}
                         <p className="text-xs text-gray-500 mt-1">
-                          Selecione uma ou mais diretorias do projeto
+                          Selecione a diretoria do projeto (apenas uma)
                         </p>
                       </div>
 
@@ -3806,7 +3795,9 @@ export default function Cadastros() {
                                 >
                                   <SelectTrigger className="w-full bg-white border-gray-300">
                                     <span className="text-gray-500 text-sm">
-                                      Selecionar áreas responsáveis...
+                                      {formData.areas_execucao?.length
+                                        ? "Trocar área responsável..."
+                                        : "Selecionar área responsável..."}
                                     </span>
                                   </SelectTrigger>
                                   <SelectContent className="max-h-60">
@@ -4236,6 +4227,8 @@ export default function Cadastros() {
                                 setFormData({
                                   ...formData,
                                   havera_contratacao: !!checked,
+                                  // Ao desmarcar, limpa o item do PCA vinculado.
+                                  ...(checked ? {} : { pca_item_id: undefined }),
                                 })
                               }
                               disabled={modalMode === "view"}
@@ -4243,19 +4236,13 @@ export default function Cadastros() {
                             <span>Sim</span>
                           </label>
                           {formData.havera_contratacao && (
-                            <Input
-                              type="number"
-                              placeholder="Item do PCA"
-                              value={formData.valor_estimado_contratacao || ""}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  valor_estimado_contratacao:
-                                    parseFloat(e.target.value) || undefined,
-                                })
+                            <PcaItemPicker
+                              value={formData.pca_item_id}
+                              onChange={(id) =>
+                                setFormData({ ...formData, pca_item_id: id })
                               }
                               disabled={modalMode === "view"}
-                              className="w-40"
+                              fallbackLabel={selectedProjeto?.pca_item_label}
                             />
                           )}
                         </div>

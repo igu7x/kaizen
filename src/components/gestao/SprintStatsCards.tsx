@@ -9,11 +9,11 @@ interface SprintStatsCardsProps {
 }
 
 export function SprintStatsCards({ executionData }: SprintStatsCardsProps) {
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
 
   const stats = useMemo(() => {
     const filteredData = executionData.filter(
-      (item) => item.directorate === selectedDirectorate,
+      (item) => Number(item.cadastrosAreasId) === selectedAreaId,
     );
 
     // Backlog = total de tarefas planejadas (todas as linhas com conteúdo em backlogTasks)
@@ -40,7 +40,7 @@ export function SprintStatsCards({ executionData }: SprintStatsCardsProps) {
     const progresso = backlog > 0 ? Math.round((concluido / backlog) * 100) : 0;
 
     return { backlog, emFila, concluido, sprintAtual, progresso };
-  }, [executionData, selectedDirectorate]);
+  }, [executionData, selectedAreaId]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 xl:gap-5 2xl:gap-6">

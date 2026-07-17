@@ -220,8 +220,12 @@ function drawNumberedSectionHeader(
   numero: number,
   title: string,
   y: number,
+  minContentH: number = 20,
 ): number {
   const h = 10;
+  // Evita título órfão no rodapé: se o cabeçalho + o início do conteúdo do tópico não
+  // couberem na página atual, empurra o título inteiro para a próxima página.
+  y = checkPageBreak(doc, y, h + minContentH);
   const numberSquareW = 12;
   doc.setFillColor(...ACCENT);
   doc.rect(MARGIN_LEFT, y, numberSquareW, h, "F");
@@ -590,11 +594,24 @@ function drawRodapeInstitucional(
 ) {
   // 4 campos inline ("LABEL: valor") distribuídos com espaçamento uniforme ao longo da
   // largura útil. Label em cinza, valor em negrito escuro, com um respiro entre eles.
-  const modeloLabel = isK1(processo)
-    ? "K1"
-    : temDocumentoPrimario(processo)
-      ? "Doc. Primário"
-      : "—";
+
+  // Fase de proposta = enquanto não finalizado (status ≠ validado_final). Neste PDF o
+  // formulário já corresponde ao Modelo K1, então:
+  //  - MODELO: sempre "K1" (mesmo antes da aprovação);
+  //  - VERSÃO: última versão aprovada + 1, com sufixo "(Proposta)".
+  const isProposta = processo.status !== "validado_final";
+  const versaoBase = (processo.versao || "1").replace(/\.0$/, "");
+  const versaoNum = parseInt(versaoBase, 10);
+  const versaoValue =
+    isProposta && Number.isFinite(versaoNum)
+      ? `${versaoNum + 1} (Proposta)`
+      : versaoBase;
+  const modeloLabel =
+    isProposta || isK1(processo)
+      ? "K1"
+      : temDocumentoPrimario(processo)
+        ? "Doc. Primário"
+        : "—";
 
   const GAP_LABEL_VALUE = 1.6; // respiro entre o label e o valor
   const footerFields = [
@@ -602,7 +619,7 @@ function drawRodapeInstitucional(
     { label: "ID:", value: processo.codigo || "—" },
     {
       label: "VERSÃO:",
-      value: (processo.versao || "1").replace(/\.0$/, ""),
+      value: versaoValue,
     },
     { label: "DATA DA PROPOSTA:", value: formatDate(processo.updated_at) },
   ].map((f) => {
@@ -660,8 +677,7 @@ export function generateProcessoNegocioPDF(
   y += 6;
 
   // 1. Descrição
-  y = checkPageBreak(doc, y, 20);
-  y = drawNumberedSectionHeader(doc, 1, "Descrição do Processo", y);
+  y = drawNumberedSectionHeader(doc, 1, "Descrição do Processo", y, 22);
   y = drawMultilineContent(doc, processo.descricao || "", y, 22);
   y += 6;
 
@@ -765,8 +781,7 @@ export function generateProcessoNegocioPDF(
   y += infRowH + 6;
 
   // 4. Estrutura do Processo
-  y = checkPageBreak(doc, y, 22);
-  y = drawNumberedSectionHeader(doc, 4, "Estrutura do Processo", y);
+  y = drawNumberedSectionHeader(doc, 4, "Estrutura do Processo", y, 25);
   y = drawMultilineContent(doc, processo.detalhamento || "", y, 25);
   y += 6;
 
@@ -1025,14 +1040,15 @@ export function generateProcessoNegocioPDF(
           : "Pendente",
     },
     // Uma linha por comitê exigido (Modelo K1). Sem comitês, nenhuma linha é adicionada.
+    // Label = nome do comitê; valor = "Aprovado — Ata <SIGLA> - <data>" (ou "Pendente").
     ...exigidos.map((comite) => {
       const aprov = aprovacaoDoComite(processo, comite);
       const nome = COMITES_APROVACAO[comite] || comite;
       return {
-        label: `Aprovado por (${comite}):`,
+        label: nome,
         valor: aprov
-          ? `${nome}${aprov.em ? ` — ${formatDate(aprov.em)}` : ""}`
-          : `${nome} — Pendente`,
+          ? `Aprovado — Ata ${comite}${aprov.em ? ` - ${formatDate(aprov.em)}` : ""}`
+          : "Pendente",
       };
     }),
   ];

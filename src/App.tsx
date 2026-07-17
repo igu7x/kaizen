@@ -34,6 +34,8 @@ import CadastroHub from "./pages/CadastroHub";
 import PermissoesTap from "./pages/PermissoesTap";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
+import EmDesenvolvimento from "./pages/EmDesenvolvimento";
+import PacCapacitacao from "./pages/PacCapacitacao";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
 import CicloOrcamentario from "./pages/CicloOrcamentario";
 import FormacaoPca from "./pages/FormacaoPca";
@@ -244,7 +246,7 @@ function App() {
                     path="/pessoas"
                     element={
                       <ProtectedRoute>
-                        <Navigate to="/pessoas/painel" replace />
+                        <Navigate to="/pessoas/competencias" replace />
                       </ProtectedRoute>
                     }
                   />
@@ -269,6 +271,25 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Pessoas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/pessoas/pac/tecnologia-da-informacao"
+                    element={
+                      <ProtectedRoute>
+                        <PacCapacitacao
+                          titulo="Plano Anual de Capacitação — Tecnologia da Informação"
+                          modulo="ti"
+                        />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/pessoas/pac/apoio-judiciario"
+                    element={
+                      <ProtectedRoute>
+                        <EmDesenvolvimento titulo="Plano Anual de Capacitação — Apoio Judiciário" />
                       </ProtectedRoute>
                     }
                   />
