@@ -168,10 +168,10 @@ public class UserService {
                                 "LEFT JOIN cadastros_areas a ON u.cadastros_areas_id = a.id " +
                                 "LEFT JOIN cadastros_unidades cu ON u.cadastros_unidades_id = cu.id " +
                                 "WHERE u.is_deleted = FALSE " +
-                                "AND u.cadastros_areas_id IN (SELECT id FROM cadastros_areas " +
-                                "WHERE dominio = ? AND COALESCE(ativo, TRUE) = TRUE) " +
+                                "AND (u.cadastros_areas_id IN (SELECT id FROM cadastros_areas " +
+                                "WHERE dominio = ? AND COALESCE(ativo, TRUE) = TRUE) OR u.dominio = ?) " +
                                 "ORDER BY u." + safeOrder,
-                        dominio);
+                        dominio, dominio);
             } catch (Exception e) {
                 rows = jdbc.queryForList(
                         "SELECT u.*, " +
