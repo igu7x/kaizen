@@ -169,6 +169,13 @@ public class CicloOrcamentarioController {
         return service.excluirLink(id, str(body.get("campo")), resolveUserId(userId));
     }
 
+    // DELETE /api/ciclo-orcamentario/formacao/{ano} — reinicia a formação do ano
+    @DeleteMapping("/formacao/{ano:\\d+}")
+    public void reiniciarFormacao(@PathVariable int ano,
+                                  @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        service.reiniciarFormacao(ano, resolveUserId(userId));
+    }
+
     private Long resolveUserId(Long headerUserId) {
         if (headerUserId != null) {
             return headerUserId;

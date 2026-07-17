@@ -655,6 +655,27 @@ public class CicloOrcamentarioService {
         return salvarLink(id, campo, null, userId);
     }
 
+    @Transactional
+    public void reiniciarFormacao(int anoFormacao, Long userId) {
+        var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
+        if (optUser.isEmpty() || !optUser.get().isSuperadmin()) {
+            throw new ApiException(403, "Acesso Negado: Apenas administradores podem reiniciar a formação do PCA.");
+        }
+
+        CicloDto ciclo = findCicloMaisRecente(anoFormacao, "formacao");
+        if (ciclo == null) {
+            throw new ApiException(404, "Ciclo de formação não encontrado para o ano " + anoFormacao);
+        }
+
+        if (!"publicado".equals(ciclo.estado())) {
+            throw new ApiException(400, "O ciclo de formação precisa estar concluído (publicado) para ser reiniciado.");
+        }
+
+        jdbc.update("DELETE FROM ifo WHERE ciclo_id = ?", ciclo.id());
+        jdbc.update("DELETE FROM pcas_snapshots WHERE year = ?", String.valueOf(anoFormacao));
+        jdbc.update("DELETE FROM ciclo_orcamentario WHERE id = ?", ciclo.id());
+    }
+
     // ---------- mapper ----------
 
     private CicloDto toDto(Map<String, Object> r) {
