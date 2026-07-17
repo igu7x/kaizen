@@ -248,6 +248,11 @@ export const cicloOrcamentarioApi = {
     return apiClient.post<Ciclo>(`${BASE}/${cicloId}/sincronizar-data`);
   },
 
+  /** Reinicia a formação do PCA do ano, limpando os dados. */
+  reiniciarFormacao(ano: number): Promise<void> {
+    return apiClient.delete<void>(`${BASE}/formacao/${ano}`);
+  },
+
   /** §8.4 — estado de validação por item (pca_id → validacao) da revisão aberta do exercício. */
   getValidacoesRevisao(ano: number): Promise<{ pca_id: number; validacao: ValidacaoDemanda }[]> {
     return apiClient.get<{ pca_id: number; validacao: ValidacaoDemanda }[]>(

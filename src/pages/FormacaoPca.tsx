@@ -159,6 +159,24 @@ export default function FormacaoPca() {
   const [validacaoDg, setValidacaoDg] = useState<"V" | "X" | null>(null);
   const [dfdBaixado, setDfdBaixado] = useState(false);
 
+  // Reinício do ciclo
+  const [isReiniciarOpen, setIsReiniciarOpen] = useState(false);
+  const [isReiniciando, setIsReiniciando] = useState(false);
+
+  const handleReiniciarFormacao = async () => {
+    setIsReiniciando(true);
+    try {
+      await cicloOrcamentarioApi.reiniciarFormacao(anoFormacao);
+      toast.success("Formação do PCA reiniciada com sucesso.");
+      setIsReiniciarOpen(false);
+      window.location.reload();
+    } catch {
+      toast.error("Erro ao tentar reiniciar a formação.");
+    } finally {
+      setIsReiniciando(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     setAcaoEmCurso(true);
@@ -516,6 +534,16 @@ export default function FormacaoPca() {
                         <p className="text-sm text-slate-600 max-w-md">
                           O Documento de Formalização da Demanda foi concluído e o PCA-TIC foi publicado. A versão está congelada.
                         </p>
+                        {(user as any)?.is_superadmin && (
+                          <Button
+                            variant="outline"
+                            className="mt-6 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => setIsReiniciarOpen(true)}
+                          >
+                            <AlertTriangle className="h-4 w-4 mr-2" />
+                            Reiniciar Formação
+                          </Button>
+                        )}
                       </div>
                     )}
 
@@ -1007,6 +1035,32 @@ export default function FormacaoPca() {
           }}
         />
       )}
+
+      {/* Modal de Reiniciar Formação */}
+      <Dialog open={isReiniciarOpen} onOpenChange={setIsReiniciarOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Reiniciar Formação
+            </DialogTitle>
+            <DialogDescription className="text-slate-500">
+              você realmente pretende reiniciar a formação PCA?
+              <br /><br />
+              Isso excluirá os IFOs e os dados desta formação, permitindo iniciar o ciclo novamente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsReiniciarOpen(false)} disabled={isReiniciando}>
+              Cancelar
+            </Button>
+            <Button onClick={handleReiniciarFormacao} disabled={isReiniciando} className="bg-red-600 hover:bg-red-700 text-white">
+              {isReiniciando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <AlertTriangle className="h-4 w-4 mr-2" />}
+              Reiniciar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
