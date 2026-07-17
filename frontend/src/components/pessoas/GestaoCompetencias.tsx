@@ -1426,16 +1426,16 @@ export function GestaoCompetencias() {
             !isGestorDeUnidade &&
             !isAvaliadorLideranca && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("autoavaliacao")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                      <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Autoavaliação do Colaborador
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1449,16 +1449,16 @@ export function GestaoCompetencias() {
             )}
           {isSGJTAdmin && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("autoavaliacao_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                    <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <ClipboardCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Autoavaliação do Colaborador
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1467,7 +1467,7 @@ export function GestaoCompetencias() {
                     </p>
                   </div>
                 </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
                 </span>
@@ -1549,16 +1549,16 @@ export function GestaoCompetencias() {
           {/* Avaliação do Gestor — só aparece quando há autoavaliações validadas ou já preenchidas */}
           {isGestorDeUnidade && temAvgestorEquipe && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("avgestor")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1572,7 +1572,7 @@ export function GestaoCompetencias() {
                     e.stopPropagation();
                     setCurrentView("avgestor_respostas");
                   }}
-                  className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
                 >
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
@@ -1582,16 +1582,16 @@ export function GestaoCompetencias() {
           )}
           {isSGJTAdmin && !isGestorDeUnidade && temAvgestorEquipe && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("avgestor_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1613,16 +1613,16 @@ export function GestaoCompetencias() {
             temElegiveisEquipe &&
             !temNovosElegiveisEquipe && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("integrada_respostas")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <Scale className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1630,7 +1630,7 @@ export function GestaoCompetencias() {
                       </p>
                     </div>
                   </div>
-                  <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                  <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                     <Eye className="h-4 w-4" />
                     Visualizar respostas
                   </span>
@@ -1643,16 +1643,16 @@ export function GestaoCompetencias() {
             temElegiveisEquipe &&
             temNovosElegiveisEquipe && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("integrada")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <Scale className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1665,7 +1665,7 @@ export function GestaoCompetencias() {
                       e.stopPropagation();
                       setCurrentView("integrada_respostas");
                     }}
-                    className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
                   >
                     <Eye className="h-4 w-4" />
                     Visualizar respostas
@@ -1675,16 +1675,16 @@ export function GestaoCompetencias() {
             )}
           {isSGJTAdmin && !isGestorDeUnidade && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("integrada_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                    <Scale className="h-5 w-5 text-violet-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <Scale className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação Integrada
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1692,7 +1692,7 @@ export function GestaoCompetencias() {
                     </p>
                   </div>
                 </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
                 </span>
