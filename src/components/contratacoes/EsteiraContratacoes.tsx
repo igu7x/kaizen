@@ -227,7 +227,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       .then(setDiretoriasList)
       .catch(() => { });
     pessoasApi
-      .getAll(selectedAreaId || undefined)
+      .getAll(selectedArea?.sigla || undefined)
       .then(setPessoasList)
       .catch(() => { });
   }, [anoSelecionado, selectedAreaId, selectedVersion]);
@@ -254,7 +254,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
           const allAreas = await areasApi.getAll();
           setAreasList(allAreas);
           const matchedArea = allAreas.find(
-            (a) => a.sigla === selectedAreaId || a.nome === selectedAreaId
+            (a) => a.id === selectedAreaId
           );
           if (matchedArea) {
             diretoriaId = matchedArea.id;
@@ -265,8 +265,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       }
 
       const [itemsData, statsData, filtersData, versionsData] = await Promise.all([
-        pcaApi.getPcaItems(anoSelecionado, selectedAreaId || undefined, selectedVersion),
-        pcaApi.getPcaStats(anoSelecionado, selectedAreaId || undefined, selectedVersion),
+        pcaApi.getPcaItems(anoSelecionado, selectedArea?.sigla || undefined, selectedVersion),
+        pcaApi.getPcaStats(anoSelecionado, selectedArea?.sigla || undefined, selectedVersion),
         pcaApi.getPcaFilters(),
         pcaApi.getPcaVersions(anoSelecionado)
       ]);
@@ -384,7 +384,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   const chartDataFaseAtual = useMemo(() => {
     const faseCounts: Record<string, number> = {};
     filteredItems.forEach(item => {
-      let rawFase = item.step || item.status || "Não Iniciada";
+      let rawFase = String(item.step || item.status || "Não Iniciada");
       if (item.status === "Concluída") rawFase = "Concluído";
 
       const fase = normalizeStep(rawFase) || rawFase;
@@ -734,7 +734,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   }
 
   // Renderizar status badge
-  function renderStatusBadge(status: PcaStatus) {
+  function renderStatusBadge(status: PcaStatus | string | number) {
     if (status === "Concluída") return null;
     const label = status === "Em andamento" ? "Demanda em Andamento" : status;
     return (

@@ -25,7 +25,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const IDX_FORMACAO: Record<string, number> = {
   aguardando_proad: 0,
-  aberto_aguardando_proad: 0,
   aberto: 0,
   em_consulta_1: 1,
   em_consulta_2: 1,
@@ -61,7 +60,6 @@ const TAG_POR_ESTADO: Record<string, string> = {
 
 const TAGS_ACESSO_POR_ESTADO: Record<string, string[]> = {
   aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
-  aberto_aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
   aberto: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
   em_consulta_1: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO"],
   em_consulta_2: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO"],
@@ -291,7 +289,7 @@ export default function FormacaoPca() {
   };
 
   const formacaoEstado = ciclo?.finalidade === "formacao" ? ciclo.estado : null;
-  const aguardandoProad = (formacaoEstado === "aguardando_proad" || formacaoEstado === "aberto_aguardando_proad") && !ciclo?.proad;
+  const aguardandoProad = formacaoEstado === "aguardando_proad" && !ciclo?.proad;
 
   const podeAvancarParaConsulta = true; // Validação ocorre integralmente por TAG no EsteiraControls
 
@@ -308,7 +306,7 @@ export default function FormacaoPca() {
     if (!formacaoEstado) return false;
     if (formacaoEstado === "publicado") return false;
     if ((user as any)?.is_superadmin) return true;
-    const estadoMap = formacaoEstado === "aberto_aguardando_proad" ? "AGUARDANDO_PROAD" : formacaoEstado.toUpperCase();
+    const estadoMap = formacaoEstado === "aguardando_proad" ? "AGUARDANDO_PROAD" : formacaoEstado.toUpperCase();
     const tagNecessaria = `PCA_FOR_${prefix}_${estadoMap}`;
     return user?.tags_acesso?.includes(tagNecessaria) ?? false;
   };
@@ -390,7 +388,7 @@ export default function FormacaoPca() {
             ) : (
               <>
                 {/* Banner contextual da fase atual */}
-                {formacaoEstado && !["aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "remessa_dg"].includes(formacaoEstado) && (
+                {formacaoEstado && !["aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "remessa_dg"].includes(formacaoEstado) && (
                   <FaseBanner estado={formacaoEstado} ano={anoFormacao} />
                 )}
 
@@ -690,7 +688,7 @@ export default function FormacaoPca() {
                         onRetroceder={retrocederEsteira}
                         disabled={acaoEmCurso}
                         podeAvancar={podeAvancarParaConsulta}
-                        hideRetornar={formacaoEstado === "aberto"}
+                        hideRetornar={formacaoEstado === "aguardando_proad" || formacaoEstado === "aberto"}
                       />
                     )}
                   </>
