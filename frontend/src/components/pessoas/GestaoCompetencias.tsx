@@ -50,7 +50,6 @@ import { AvaliacaoIntegradaResumo } from "./AvaliacaoIntegradaResumo";
 import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
-import { CompetenciasPadraoView } from "./CompetenciasPadraoView";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
 import { Settings, Wrench } from "lucide-react";
 
@@ -1409,9 +1408,10 @@ export function GestaoCompetencias() {
 
   // ── Visualizar Competências Padrão (read-only) ─────────────────
   if (currentView === "competencias_padrao_view") {
+    // Tela unificada: todos visualizam + Gerar PDF; superadmin também edita/publica.
     return (
-      <CompetenciasPadraoView
-        podeAlternarTipo={ehGestorOuSubdiretorMacro}
+      <CompetenciasPadraoAdmin
+        isSuperadmin={isSGJT}
         onVoltar={() => setCurrentView("referencial_home")}
       />
     );
@@ -2074,25 +2074,13 @@ export function GestaoCompetencias() {
     </div>
   );
 
-  // ── Competências Padrão (admin) ─────────────────────
+  // ── Competências Padrão (tela unificada) ─────────────────────
   if (currentView === "competencias_padrao_admin") {
     return (
-      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario")}
-            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Editar Competências Padrão
-          </h2>
-        </div>
-        <CompetenciasPadraoAdmin />
-      </div>
+      <CompetenciasPadraoAdmin
+        isSuperadmin={isSGJT}
+        onVoltar={() => setCurrentView("inventario")}
+      />
     );
   }
 
@@ -2207,28 +2195,6 @@ export function GestaoCompetencias() {
             )}
           </div>
         </HubSection>
-
-        {/* Editar Competências Padrão — superadmin + dev/staging only */}
-        {isSGJT && isCompetenciasPadraoEnabled() && (
-          <button
-            type="button"
-            onClick={() => setCurrentView("competencias_padrao_admin")}
-            className="w-full rounded-2xl border border-gray-200 bg-white shadow-sm hover:border-purple-300 hover:shadow-md transition-all flex items-center gap-4 p-5 text-left group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-              <Settings className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 text-lg group-hover:text-purple-600 transition-colors">
-                Editar Competências Padrão
-              </h3>
-              <p className="text-sm text-gray-500">
-                Gerenciar competências comportamentais, estratégicas e gerenciais
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
-          </button>
-        )}
       </div>
     </div>
   );
