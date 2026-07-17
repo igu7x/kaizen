@@ -25,29 +25,29 @@ public class AvaliacaoIntegradaService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
 
-    public List<Map<String, Object>> findAllByDomain(List<String> diretorias, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE AND f.diretoria = ANY(?::text[])");
+    public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
+        String where = "f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])";
         List<Object> params = new ArrayList<>();
-        params.add(textArray(diretorias));
+        params.add(bigintArray(areasIds));
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     public List<Map<String, Object>> findAll(String diretoria, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE");
+        String where = "f.is_deleted = FALSE";
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             params.add(diretoria);
-            where.append(" AND f.diretoria = ?");
+            where += " AND f.cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)";
         }
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     private static String listSql(String whereClauses) {
@@ -87,8 +87,8 @@ public class AvaliacaoIntegradaService {
     }
 
     /** Verifica se há elegíveis/preenchidas por tipo para um domínio (porte do inline da rota tem-elegiveis). */
-    public Map<String, Object> temElegiveis(List<String> diretorias) {
-        String dirArr = textArray(diretorias);
+    public Map<String, Object> temElegiveis(List<Long> areasIds) {
+        String dirArr = bigintArray(areasIds);
 
         Map<String, Object> equipe = jdbc.queryForMap(
                 "SELECT " +
@@ -97,13 +97,13 @@ public class AvaliacaoIntegradaService {
                         "    INNER JOIN autoavaliacao_formularios af ON af.id = ag.pessoa_id AND af.is_deleted = FALSE " +
                         "      AND COALESCE(af.tipo_inventario, 'equipe') = 'equipe' AND af.validado_em IS NOT NULL " +
                         "    WHERE ag.is_deleted = FALSE AND COALESCE(ag.tipo_inventario, 'equipe') = 'equipe' " +
-                        "      AND ag.validado_em IS NOT NULL AND ag.diretoria = ANY(?::text[]) " +
+                        "      AND ag.validado_em IS NOT NULL AND ag.cadastros_areas_id = ANY(?::bigint[]) " +
                         "      AND NOT EXISTS (SELECT 1 FROM avaliacao_integrada_formularios ai WHERE ai.autoavaliacao_id = af.id AND ai.avaliacao_gestor_id = ag.id AND ai.is_deleted = FALSE) " +
                         "  ) as tem_elegiveis, " +
                         "  EXISTS ( " +
                         "    SELECT 1 FROM avaliacao_integrada_formularios ai " +
                         "    WHERE ai.is_deleted = FALSE AND COALESCE(ai.tipo_inventario, 'equipe') = 'equipe' " +
-                        "      AND ai.diretoria = ANY(?::text[]) " +
+                        "      AND ai.cadastros_areas_id = ANY(?::bigint[]) " +
                         "  ) as tem_preenchidas",
                 dirArr, dirArr);
 
@@ -114,13 +114,13 @@ public class AvaliacaoIntegradaService {
                         "    INNER JOIN autoavaliacao_formularios af ON af.id = ag.pessoa_id AND af.is_deleted = FALSE " +
                         "      AND COALESCE(af.tipo_inventario, 'equipe') = 'gestor' AND af.validado_em IS NOT NULL " +
                         "    WHERE ag.is_deleted = FALSE AND COALESCE(ag.tipo_inventario, 'equipe') = 'gestor' " +
-                        "      AND ag.validado_em IS NOT NULL AND ag.diretoria = ANY(?::text[]) " +
+                        "      AND ag.validado_em IS NOT NULL AND ag.cadastros_areas_id = ANY(?::bigint[]) " +
                         "      AND NOT EXISTS (SELECT 1 FROM avaliacao_integrada_formularios ai WHERE ai.autoavaliacao_id = af.id AND ai.avaliacao_gestor_id = ag.id AND ai.is_deleted = FALSE) " +
                         "  ) as tem_elegiveis, " +
                         "  EXISTS ( " +
                         "    SELECT 1 FROM avaliacao_integrada_formularios ai " +
                         "    WHERE ai.is_deleted = FALSE AND COALESCE(ai.tipo_inventario, 'equipe') = 'gestor' " +
-                        "      AND ai.diretoria = ANY(?::text[]) " +
+                        "      AND ai.cadastros_areas_id = ANY(?::bigint[]) " +
                         "  ) as tem_preenchidas",
                 dirArr, dirArr);
 
@@ -129,13 +129,13 @@ public class AvaliacaoIntegradaService {
                         "  EXISTS ( " +
                         "    SELECT 1 FROM autoavaliacao_formularios af " +
                         "    WHERE af.is_deleted = FALSE AND COALESCE(af.tipo_inventario, 'equipe') = 'equipe' " +
-                        "      AND af.validado_em IS NOT NULL AND af.diretoria = ANY(?::text[]) " +
+                        "      AND af.validado_em IS NOT NULL AND af.cadastros_areas_id = ANY(?::bigint[]) " +
                         "      AND NOT EXISTS (SELECT 1 FROM avaliacao_gestor_formularios ag WHERE ag.pessoa_id = af.id AND ag.is_deleted = FALSE) " +
                         "  ) as tem_elegiveis, " +
                         "  EXISTS ( " +
                         "    SELECT 1 FROM avaliacao_gestor_formularios ag " +
                         "    WHERE ag.is_deleted = FALSE AND COALESCE(ag.tipo_inventario, 'equipe') = 'equipe' " +
-                        "      AND ag.diretoria = ANY(?::text[]) " +
+                        "      AND ag.cadastros_areas_id = ANY(?::bigint[]) " +
                         "  ) as tem_preenchidas",
                 dirArr, dirArr);
 
@@ -144,13 +144,13 @@ public class AvaliacaoIntegradaService {
                         "  EXISTS ( " +
                         "    SELECT 1 FROM autoavaliacao_formularios af " +
                         "    WHERE af.is_deleted = FALSE AND COALESCE(af.tipo_inventario, 'equipe') = 'gestor' " +
-                        "      AND af.validado_em IS NOT NULL AND af.diretoria = ANY(?::text[]) " +
+                        "      AND af.validado_em IS NOT NULL AND af.cadastros_areas_id = ANY(?::bigint[]) " +
                         "      AND NOT EXISTS (SELECT 1 FROM avaliacao_gestor_formularios ag WHERE ag.pessoa_id = af.id AND ag.is_deleted = FALSE) " +
                         "  ) as tem_elegiveis, " +
                         "  EXISTS ( " +
                         "    SELECT 1 FROM avaliacao_gestor_formularios ag " +
                         "    WHERE ag.is_deleted = FALSE AND COALESCE(ag.tipo_inventario, 'equipe') = 'gestor' " +
-                        "      AND ag.diretoria = ANY(?::text[]) " +
+                        "      AND ag.cadastros_areas_id = ANY(?::bigint[]) " +
                         "  ) as tem_preenchidas",
                 dirArr, dirArr);
 
@@ -315,23 +315,23 @@ public class AvaliacaoIntegradaService {
             jdbc.update(
                     "UPDATE avaliacao_integrada_formularios SET " +
                             "  pessoa_nome = ?, avaliador_user_id = ?, avaliador_nome = ?, " +
-                            "  diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', tecnicas_versao = ?, competencias_versao = ?, " +
                             "  validado_gestor_id = NULL, validado_gestor_nome = NULL, validado_gestor_em = NULL, " +
                             "  validado_colaborador_id = NULL, validado_colaborador_nome = NULL, validado_colaborador_em = NULL, " +
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     str(data.get("pessoa_nome")), userId, str(data.get("avaliador_nome")),
-                    str(data.get("diretoria")), unidadeId, tipoInv, tecnicasVersao, competenciasVersao, userId, formularioId);
+                    str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv, tecnicasVersao, competenciasVersao, userId, formularioId);
             jdbc.update("DELETE FROM avaliacao_integrada_respostas WHERE formulario_id = ?", formularioId);
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_integrada_formularios " +
-                            "  (autoavaliacao_id, avaliacao_gestor_id, pessoa_id, pessoa_nome, avaliador_user_id, avaliador_nome, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
+                            "  (autoavaliacao_id, avaliacao_gestor_id, pessoa_id, pessoa_nome, avaliador_user_id, avaliador_nome, cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
                             "RETURNING id",
                     autoavaliacaoId, avaliacaoGestorId, pessoaId, str(data.get("pessoa_nome")), userId,
-                    str(data.get("avaliador_nome")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
@@ -516,6 +516,12 @@ public class AvaliacaoIntegradaService {
     }
 
     private static String textArray(List<String> values) {
+        if (values == null || values.isEmpty()) return "{}";
         return "{" + String.join(",", values) + "}";
+    }
+
+    private static String bigintArray(List<Long> values) {
+        if (values == null || values.isEmpty()) return "{}";
+        return "{" + values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}";
     }
 }

@@ -33,11 +33,11 @@ public class PermissoesAcoesService {
         String sql = """
                 SELECT 1 
                 FROM permissoes_acoes pm
-                INNER JOIN cadastros_pessoas cp ON cp.user_id = :user_id
+                INNER JOIN users u ON u.id = :user_id
                 WHERE pm.tag_acoes_id = :tag_definida_na_acao
-                  AND pm.area_id = cp.area_id
-                  AND (pm.unidade_id = cp.unidade_id OR pm.unidade_id IS NULL)
-                  AND (pm.user_id = cp.user_id OR pm.user_id IS NULL)
+                  AND pm.area_id = u.cadastros_areas_id
+                  AND (pm.unidade_id = u.cadastros_unidades_id OR pm.unidade_id IS NULL)
+                  AND (pm.user_id = u.id OR pm.user_id IS NULL)
                 LIMIT 1;
                 """;
 
@@ -64,10 +64,10 @@ public class PermissoesAcoesService {
         String sql = """
                 SELECT DISTINCT pm.tag_acoes_id 
                 FROM permissoes_acoes pm
-                INNER JOIN cadastros_pessoas cp ON cp.user_id = :user_id
-                WHERE pm.area_id = cp.area_id
-                  AND (pm.unidade_id = cp.unidade_id OR pm.unidade_id IS NULL)
-                  AND (pm.user_id = cp.user_id OR pm.user_id IS NULL);
+                INNER JOIN users u ON u.id = :user_id
+                WHERE pm.area_id = u.cadastros_areas_id
+                  AND (pm.unidade_id = u.cadastros_unidades_id OR pm.unidade_id IS NULL)
+                  AND (pm.user_id = u.id OR pm.user_id IS NULL);
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()

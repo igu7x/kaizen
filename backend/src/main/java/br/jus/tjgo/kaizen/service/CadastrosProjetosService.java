@@ -113,7 +113,7 @@ public class CadastrosProjetosService {
     // PROJETOS
     // ============================================================
 
-    public List<Map<String, Object>> getAllProjetos(String diretoria) {
+    public List<Map<String, Object>> getAllProjetos(Long cadastrosAreasId) {
         // `diretorias_nomes` (siglas das diretorias vinculadas) não existe na view; é montado aqui,
         // igual em getProjetosByInstrumentoId, para o front filtrar o portfólio por diretoria.
         boolean hasSigla = hasColumn("cadastros_areas", "sigla");
@@ -125,17 +125,16 @@ public class CadastrosProjetosService {
                         "WHERE ca.id = ANY(p.areas_vinculadas_ids)), p.diretoria) AS diretorias_nomes " +
                         "FROM vw_cadastros_projetos_completo p WHERE 1=1");
         List<Object> params = new ArrayList<>();
-        if (diretoria != null) {
-            var domain = domainService.getDomainForDiretoria(diretoria);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
             if (domain.isDomainRoot()) {
                 params.add(domain.dominio());
                 sql.append(" AND (p.areas_vinculadas_ids IS NULL OR array_length(p.areas_vinculadas_ids, 1) IS NULL " +
                         "OR EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(p.areas_vinculadas_ids) " +
                         "AND (ca.dominio = ? OR ca.dominio IS NULL)))");
             } else {
-                params.add(diretoria);
-                sql.append(" AND EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(p.areas_vinculadas_ids) " +
-                        "AND ca.sigla = ?)");
+                params.add(cadastrosAreasId);
+                sql.append(" AND ? = ANY(p.areas_vinculadas_ids)");
             }
         }
         sql.append(" ORDER BY p.codigo DESC");
@@ -652,7 +651,7 @@ public class CadastrosProjetosService {
         }
         if (data.containsKey("area_responsavel_id") && hasColumn("cadastros_projetos_entregas", "area_responsavel_id")) {
             fields.add("area_responsavel_id = ?");
-            values.add(data.get("area_responsavel_id"));
+            values.add(numOrNull(data.get("area_responsavel_id")));
         }
         if (data.containsKey("prazo_estimado")) {
             fields.add("prazo_estimado = ?");
@@ -1143,10 +1142,10 @@ public class CadastrosProjetosService {
         return rows.isEmpty() ? null : (String) rows.get(0).get("name");
     }
 
-    /** SELECT diretoria FROM users WHERE id = ? (derivação multi-tenant da listagem de projetos). */
-    public String lookupUserDiretoriaForProjetos(long userId) {
-        var rows = jdbc.queryForList("SELECT diretoria FROM users WHERE id = ?", userId);
-        return rows.isEmpty() ? null : (String) rows.get(0).get("diretoria");
+    /** SELECT cadastros_areas_id FROM users WHERE id = ? (derivação multi-tenant da listagem de projetos). */
+    public Long lookupUserAreaIdForProjetos(long userId) {
+        var rows = jdbc.queryForList("SELECT cadastros_areas_id FROM users WHERE id = ?", userId);
+        return rows.isEmpty() ? null : (Long) rows.get(0).get("cadastros_areas_id");
     }
 
     private static boolean eq(Object col, Long userId) {

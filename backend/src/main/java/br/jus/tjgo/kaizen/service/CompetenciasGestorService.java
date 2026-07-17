@@ -45,11 +45,11 @@ public class CompetenciasGestorService {
     private final ObjectMapper objectMapper;
     private final CompetenciasTecnicasAdminService tecnicasAdminService;
 
-    public List<Map<String, Object>> findAllByDomain(List<String> diretorias, String tipo) {
+    public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipo) {
         StringBuilder sql = new StringBuilder(listSelect())
-                .append(" WHERE f.is_deleted = FALSE AND f.diretoria = ANY(?::text[])");
+                .append(" WHERE f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])");
         List<Object> params = new ArrayList<>();
-        params.add(textArray(diretorias));
+        params.add(bigintArray(areasIds));
         if (tipo != null) {
             params.add(tipo);
             sql.append(" AND f.tipo = ?");
@@ -63,7 +63,7 @@ public class CompetenciasGestorService {
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             params.add(diretoria);
-            sql.append(" AND f.diretoria = ?");
+            sql.append(" AND f.cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)");
         }
         if (tipo != null) {
             params.add(tipo);
@@ -964,6 +964,12 @@ public class CompetenciasGestorService {
     }
 
     private static String textArray(List<String> values) {
+        if (values == null || values.isEmpty()) return "{}";
         return "{" + String.join(",", values) + "}";
+    }
+
+    private static String bigintArray(List<Long> values) {
+        if (values == null || values.isEmpty()) return "{}";
+        return "{" + values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}";
     }
 }

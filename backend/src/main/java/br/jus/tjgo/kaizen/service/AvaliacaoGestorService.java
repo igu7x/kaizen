@@ -26,29 +26,29 @@ public class AvaliacaoGestorService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
 
-    public List<Map<String, Object>> findAllByDomain(List<String> diretorias, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE AND f.diretoria = ANY(?::text[])");
+    public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
+        String where = "f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])";
         List<Object> params = new ArrayList<>();
-        params.add(textArray(diretorias));
+        params.add(bigintArray(areasIds));
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     public List<Map<String, Object>> findAll(String diretoria, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE");
+        String where = "f.is_deleted = FALSE";
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             params.add(diretoria);
-            where.append(" AND f.diretoria = ?");
+            where += " AND f.cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)";
         }
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     private static String listSql(String whereClauses) {
@@ -232,24 +232,24 @@ public class AvaliacaoGestorService {
                     "UPDATE avaliacao_gestor_formularios SET " +
                             "  pessoa_id = COALESCE(?, pessoa_id), pessoa_user_id = COALESCE(?, pessoa_user_id), " +
                             "  pessoa_nome = ?, pessoa_cargo = ?, pessoa_email = ?, " +
-                            "  avaliador_user_id = ?, avaliador_nome = ?, diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  avaliador_user_id = ?, avaliador_nome = ?, cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', tecnicas_versao = ?, competencias_versao = ?, " +
                             "  validado_em = NULL, validado_por_id = NULL, validado_por_nome = NULL, " +
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     pessoaId, pessoaUserId,
                     str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, formularioId);
             jdbc.update("DELETE FROM avaliacao_gestor_respostas WHERE formulario_id = ?", formularioId);
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_gestor_formularios " +
-                            "  (pessoa_id, pessoa_user_id, pessoa_nome, pessoa_cargo, pessoa_email, avaliador_user_id, avaliador_nome, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
+                            "  (pessoa_id, pessoa_user_id, pessoa_nome, pessoa_cargo, pessoa_email, avaliador_user_id, avaliador_nome, cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
                             "RETURNING id",
                     pessoaId, pessoaUserId, str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
@@ -410,6 +410,12 @@ public class AvaliacaoGestorService {
     }
 
     private static String textArray(List<String> values) {
+        if (values == null || values.isEmpty()) return "{}";
         return "{" + String.join(",", values) + "}";
+    }
+
+    private static String bigintArray(List<Long> values) {
+        if (values == null || values.isEmpty()) return "{}";
+        return "{" + values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}";
     }
 }

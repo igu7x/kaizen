@@ -17,8 +17,10 @@ import java.util.Set;
 
 /**
  * Porte fiel de user.service.ts + base.service.ts (parte de users).
- * Usa JdbcTemplate (SQL bruto, como o Node). Respostas via LinkedHashMap para preservar
- * a ordem e a presença condicional de campos (paridade byte-a-byte com toResponseDto).
+ * Usa JdbcTemplate (SQL bruto, como o Node). Respostas via LinkedHashMap para
+ * preservar
+ * a ordem e a presença condicional de campos (paridade byte-a-byte com
+ * toResponseDto).
  */
 @Slf4j
 @Service
@@ -39,6 +41,10 @@ public class UserService {
         dto.put("email", u.get("email"));
         dto.put("role", u.get("role"));
         dto.put("status", u.get("status"));
+        dto.put("cadastrosAreasId", u.get("cadastros_areas_id"));
+        dto.put("cadastrosUnidadesId", u.get("cadastros_unidades_id"));
+        dto.put("areaSigla", u.get("area_sigla"));
+        dto.put("unidadeSigla", u.get("unidade_sigla"));
         dto.put("diretoria", blankToDefault(u.get("diretoria"), "SGJT"));
         dto.put("dominio", blankToDefault(u.get("dominio"), "SGJT"));
         dto.put("is_superadmin", Boolean.TRUE.equals(u.get("is_superadmin")));
@@ -64,7 +70,12 @@ public class UserService {
     }
 
     public List<Map<String, Object>> getDevelopers() {
-        var rows = jdbc.queryForList("SELECT u.*, (SELECT cu.nome FROM cadastros_pessoas cp JOIN cadastros_unidades cu ON cp.unidade_id = cu.id WHERE cp.user_id = u.id LIMIT 1) as unidade_lotacao_atual FROM users u WHERE u.is_developer = TRUE AND u.is_deleted = FALSE ORDER BY u.name");
+        var rows = jdbc.queryForList("SELECT u.*, " +
+                "a.sigla as area_sigla, cu.sigla as unidade_sigla " +
+                "FROM users u " +
+                "LEFT JOIN cadastros_areas a ON u.cadastros_areas_id = a.id " +
+                "LEFT JOIN cadastros_unidades cu ON u.cadastros_unidades_id = cu.id " +
+                "WHERE u.is_developer = TRUE AND u.is_deleted = FALSE ORDER BY u.name");
         return rows.stream().map(this::toResponseDto).toList();
     }
 
@@ -93,17 +104,24 @@ public class UserService {
         }
         String email = String.valueOf(user.get("email"));
         if ("ifccupertino@tjgo.jus.br".equals(email) ||
-            "acandrade@tjgo.jus.br".equals(email) ||
-            "sgrocha@tjgo.jus.br".equals(email)) {
+                "acandrade@tjgo.jus.br".equals(email) ||
+                "sgrocha@tjgo.jus.br".equals(email)) {
             throw new ApiException(400, "Não é possível remover o status de desenvolvedor destes e-mails nativos.");
         }
-        return jdbc.update("UPDATE users SET is_developer = FALSE, updated_at = NOW() WHERE id = ? AND is_deleted = FALSE", userId) > 0;
+        return jdbc.update(
+                "UPDATE users SET is_developer = FALSE, updated_at = NOW() WHERE id = ? AND is_deleted = FALSE",
+                userId) > 0;
     }
 
     // ---------- leitura ----------
 
     private Map<String, Object> findOneRaw(long id) {
-        var rows = jdbc.queryForList("SELECT u.*, (SELECT cu.nome FROM cadastros_pessoas cp JOIN cadastros_unidades cu ON cp.unidade_id = cu.id WHERE cp.user_id = u.id LIMIT 1) as unidade_lotacao_atual FROM users u WHERE u.id = ? AND u.is_deleted = FALSE", id);
+        var rows = jdbc.queryForList("SELECT u.*, " +
+                "a.sigla as area_sigla, cu.sigla as unidade_sigla " +
+                "FROM users u " +
+                "LEFT JOIN cadastros_areas a ON u.cadastros_areas_id = a.id " +
+                "LEFT JOIN cadastros_unidades cu ON u.cadastros_unidades_id = cu.id " +
+                "WHERE u.id = ? AND u.is_deleted = FALSE", id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -118,7 +136,7 @@ public class UserService {
     }
 
     private Map<String, Object> findByEmailRaw(String email) {
-        var rows = jdbc.queryForList("SELECT u.*, (SELECT cu.nome FROM cadastros_pessoas cp JOIN cadastros_unidades cu ON cp.unidade_id = cu.id WHERE cp.user_id = u.id LIMIT 1) as unidade_lotacao_atual FROM users u WHERE u.email = ? AND u.is_deleted = FALSE", email);
+        var rows = jdbc.queryForList("SELECT u.* FROM users u WHERE u.email = ? AND u.is_deleted = FALSE", email);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -135,25 +153,42 @@ public class UserService {
         return !rows.isEmpty();
     }
 
-    /** Lista usuários (sem senha). Se dominio informado, filtra via cadastros_areas. */
+    /**
+     * Lista usuários (sem senha). Se dominio informado, filtra via cadastros_areas.
+     */
     public List<Map<String, Object>> findAllUsers(String orderBy, String dominio) {
         String safeOrder = "name".equals(orderBy) || "id".equals(orderBy) ? orderBy : "name";
         List<Map<String, Object>> rows;
         if (dominio != null && !dominio.isBlank()) {
             try {
                 rows = jdbc.queryForList(
-                        "SELECT u.*, (SELECT cu.nome FROM cadastros_pessoas cp JOIN cadastros_unidades cu ON cp.unidade_id = cu.id WHERE cp.user_id = u.id LIMIT 1) as unidade_lotacao_atual FROM users u WHERE u.is_deleted = FALSE " +
-                                "AND u.diretoria IN (SELECT sigla FROM cadastros_areas " +
-                                "WHERE dominio = ? AND COALESCE(ativo, TRUE) = TRUE AND sigla IS NOT NULL) " +
+                        "SELECT u.*, " +
+                                "a.sigla as area_sigla, cu.sigla as unidade_sigla " +
+                                "FROM users u " +
+                                "LEFT JOIN cadastros_areas a ON u.cadastros_areas_id = a.id " +
+                                "LEFT JOIN cadastros_unidades cu ON u.cadastros_unidades_id = cu.id " +
+                                "WHERE u.is_deleted = FALSE " +
+                                "AND u.cadastros_areas_id IN (SELECT id FROM cadastros_areas " +
+                                "WHERE dominio = ? AND COALESCE(ativo, TRUE) = TRUE) " +
                                 "ORDER BY u." + safeOrder,
                         dominio);
             } catch (Exception e) {
                 rows = jdbc.queryForList(
-                        "SELECT u.*, (SELECT cu.nome FROM cadastros_pessoas cp JOIN cadastros_unidades cu ON cp.unidade_id = cu.id WHERE cp.user_id = u.id LIMIT 1) as unidade_lotacao_atual FROM users u WHERE u.is_deleted = FALSE AND u.dominio = ? ORDER BY u." + safeOrder,
+                        "SELECT u.*, " +
+                                "a.sigla as area_sigla, cu.sigla as unidade_sigla " +
+                                "FROM users u " +
+                                "LEFT JOIN cadastros_areas a ON u.cadastros_areas_id = a.id " +
+                                "LEFT JOIN cadastros_unidades cu ON u.cadastros_unidades_id = cu.id " +
+                                "WHERE u.is_deleted = FALSE AND u.dominio = ? ORDER BY u." + safeOrder,
                         dominio);
             }
         } else {
-            rows = jdbc.queryForList("SELECT u.*, (SELECT cu.nome FROM cadastros_pessoas cp JOIN cadastros_unidades cu ON cp.unidade_id = cu.id WHERE cp.user_id = u.id LIMIT 1) as unidade_lotacao_atual FROM users u WHERE u.is_deleted = FALSE ORDER BY u." + safeOrder);
+            rows = jdbc.queryForList("SELECT u.*, " +
+                    "a.sigla as area_sigla, cu.sigla as unidade_sigla " +
+                    "FROM users u " +
+                    "LEFT JOIN cadastros_areas a ON u.cadastros_areas_id = a.id " +
+                    "LEFT JOIN cadastros_unidades cu ON u.cadastros_unidades_id = cu.id " +
+                    "WHERE u.is_deleted = FALSE ORDER BY u." + safeOrder);
         }
         List<Map<String, Object>> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
@@ -164,7 +199,10 @@ public class UserService {
 
     // ---------- autenticação ----------
 
-    /** authenticate: compara o hash recebido (frontend já hasheia) com o do banco; enriquece com domínio. */
+    /**
+     * authenticate: compara o hash recebido (frontend já hasheia) com o do banco;
+     * enriquece com domínio.
+     */
     public Map<String, Object> authenticate(String email, String passwordHash) {
         Map<String, Object> user = findByEmailRaw(email);
         if (user == null) {
@@ -184,16 +222,27 @@ public class UserService {
         auditService.log("users", id, "LOGIN", id);
 
         Map<String, Object> dto = toResponseDto(user);
-        String dirVis = strOrNull(user.get("diretoria_visibilidade"));
-        String effectiveDiretoria = dirVis != null && !dirVis.isBlank()
-                ? dirVis
-                : String.valueOf(dto.get("diretoria"));
-        var domainInfo = domainService.getDomainForDiretoria(effectiveDiretoria);
-        dto.put("is_domain_root", domainInfo.isDomainRoot());
-        dto.put("dominio", domainInfo.dominio());
-        if (dirVis != null && !dirVis.isBlank()) {
-            dto.put("diretoria_visibilidade", dirVis);
+
+        Long areaId = (Long) dto.get("cadastrosAreasId");
+        boolean isDomainRoot = false;
+        String domainStr = "SGJT";
+
+        if (areaId != null) {
+            try {
+                Map<String, Object> areaInfo = jdbc.queryForMap(
+                        "SELECT dominio, is_domain_root FROM cadastros_areas WHERE id = ?", areaId);
+                if (areaInfo.get("dominio") != null) {
+                    domainStr = (String) areaInfo.get("dominio");
+                }
+                if (Boolean.TRUE.equals(areaInfo.get("is_domain_root"))) {
+                    isDomainRoot = true;
+                }
+            } catch (Exception e) {
+            }
         }
+
+        dto.put("is_domain_root", isDomainRoot);
+        dto.put("dominio", domainStr);
         return dto;
     }
 
@@ -221,32 +270,40 @@ public class UserService {
 
         Map<String, Object> user;
         try {
+            String roleVal = strOrNull(data.get("role"));
+            if (roleVal != null) roleVal = roleVal.toUpperCase();
+
             user = jdbc.queryForMap(
                     "INSERT INTO users (name, email, password_hash, role, status, diretoria, dominio, is_sso_user, " +
-                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, matricula) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
-                    strOrNull(data.get("name")), email, passwordHash, strOrNull(data.get("role")),
-                    status, diretoria, dominio, password == null,
+                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, matricula, cadastros_areas_id, cadastros_unidades_id) "
+                            +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?) RETURNING *",
+                    strOrNull(data.get("name")), email, passwordHash, roleVal,
+                    status.toUpperCase(), diretoria, dominio, password == null,
                     strOrNull(data.get("situacao_funcional")),
                     strOrNull(data.get("nome_cc_fc")), strOrNull(data.get("classe_cc_fc")),
                     strOrNull(data.get("cargo_efetivo")), strOrNull(data.get("classe_efetivo")),
-                    strOrNull(data.get("matricula")));
+                    strOrNull(data.get("matricula")), diretoria, parseLongOrNull(data.get("cadastrosUnidadesId")));
         } catch (DuplicateKeyException dup) {
             Map<String, Object> existingDeleted = findDeletedByEmailRaw(email);
             if (existingDeleted != null) {
                 return reactivateUser(((Number) existingDeleted.get("id")).longValue(), data, createdByUserId);
             }
             // Fallback p/ schema antigo (sem dominio/is_sso_user)
+            String roleVal = strOrNull(data.get("role"));
+            if (roleVal != null) roleVal = roleVal.toUpperCase();
+            
             user = jdbc.queryForMap(
                     "INSERT INTO users (name, email, password_hash, role, status, diretoria, " +
-                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, matricula) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
-                    strOrNull(data.get("name")), email, passwordHash, strOrNull(data.get("role")),
-                    status, diretoria,
+                            "situacao_funcional, nome_cc_fc, classe_cc_fc, cargo_efetivo, classe_efetivo, matricula, cadastros_areas_id, cadastros_unidades_id) "
+                            +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?) RETURNING *",
+                    strOrNull(data.get("name")), email, passwordHash, roleVal,
+                    status.toUpperCase(), diretoria,
                     strOrNull(data.get("situacao_funcional")),
                     strOrNull(data.get("nome_cc_fc")), strOrNull(data.get("classe_cc_fc")),
                     strOrNull(data.get("cargo_efetivo")), strOrNull(data.get("classe_efetivo")),
-                    strOrNull(data.get("matricula")));
+                    strOrNull(data.get("matricula")), diretoria, parseLongOrNull(data.get("cadastrosUnidadesId")));
         }
 
         long id = ((Number) user.get("id")).longValue();
@@ -262,12 +319,19 @@ public class UserService {
                 ? PasswordHasher.ensureHash(password)
                 : PasswordHasher.generateRandomPasswordHash();
 
+        String roleVal = strOrNull(data.get("role"));
+        if (roleVal != null) roleVal = roleVal.toUpperCase();
+        String statusVal = blankToDefault(data.get("status"), "ACTIVE").toUpperCase();
+
         Map<String, Object> user = jdbc.queryForMap(
                 "UPDATE users SET name = ?, password_hash = ?, role = ?, status = ?, diretoria = ?, " +
+                        "cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), " +
+                        "cadastros_unidades_id = ?, " +
                         "is_deleted = FALSE, deleted_at = NULL, deleted_by = NULL, updated_at = NOW() " +
                         "WHERE id = ? RETURNING *",
-                strOrNull(data.get("name")), passwordHash, strOrNull(data.get("role")),
-                blankToDefault(data.get("status"), "ACTIVE"), blankToDefault(data.get("diretoria"), "SGJT"), id);
+                strOrNull(data.get("name")), passwordHash, roleVal,
+                statusVal, blankToDefault(data.get("diretoria"), "SGJT"),
+                blankToDefault(data.get("diretoria"), "SGJT"), parseLongOrNull(data.get("cadastrosUnidadesId")), id);
 
         auditService.log("users", id, "RESTORE", reactivatedByUserId, null, null, hidePassword(user));
         syncToCadastrosPessoas(user);
@@ -305,17 +369,19 @@ public class UserService {
         }
         if (data.containsKey("role")) {
             sets.add("role = ?");
-            values.add(strOrNull(data.get("role")));
+            String roleVal = strOrNull(data.get("role"));
+            values.add(roleVal != null ? roleVal.toUpperCase() : null);
         }
         if (data.containsKey("status")) {
             sets.add("status = ?");
-            values.add(strOrNull(data.get("status")));
+            String statusVal = strOrNull(data.get("status"));
+            values.add(statusVal != null ? statusVal.toUpperCase() : null);
         }
         if (data.containsKey("diretoria")) {
             String diretoria = strOrNull(data.get("diretoria"));
             String newDominio = domainService.getDomainForDiretoria(diretoria == null ? "SGJT" : diretoria).dominio();
             String currentDominio = strOrNull(existing.get("dominio"));
-            
+
             if (currentDominio != null && !currentDominio.equals(newDominio)) {
                 Map<String, Object> updater = findOneRaw(updatedByUserId);
                 boolean isSuperadmin = updater != null && Boolean.TRUE.equals(updater.get("is_superadmin"));
@@ -326,11 +392,29 @@ public class UserService {
 
             sets.add("diretoria = ?");
             values.add(diretoria);
+
+            if (data.containsKey("cadastrosAreasId")) {
+                sets.add("cadastros_areas_id = ?");
+                values.add(parseLongOrNull(data.get("cadastrosAreasId")));
+            } else {
+                sets.add("cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)");
+                values.add(diretoria);
+            }
+
             sets.add("dominio = ?");
             values.add(newDominio);
+        } else if (data.containsKey("cadastrosAreasId")) {
+            sets.add("cadastros_areas_id = ?");
+            values.add(parseLongOrNull(data.get("cadastrosAreasId")));
         }
-        
-        String[] hrFields = {"situacao_funcional", "nome_cc_fc", "classe_cc_fc", "cargo_efetivo", "classe_efetivo", "matricula"};
+
+        if (data.containsKey("cadastrosUnidadesId")) {
+            sets.add("cadastros_unidades_id = ?");
+            values.add(parseLongOrNull(data.get("cadastrosUnidadesId")));
+        }
+
+        String[] hrFields = { "situacao_funcional", "nome_cc_fc", "classe_cc_fc", "cargo_efetivo", "classe_efetivo",
+                "matricula" };
         for (String field : hrFields) {
             if (data.containsKey(field)) {
                 sets.add(field + " = ?");
@@ -440,14 +524,20 @@ public class UserService {
 
     public void syncToCadastrosPessoas(Map<String, Object> user) {
         try {
-            String diretoria = blankToDefault(user.get("diretoria"), "SGJT");
-            var areaRows = jdbc.queryForList(
-                    "SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1", diretoria);
-            if (areaRows.isEmpty()) {
-                log.warn("[syncToCadastrosPessoas] Área não encontrada para sigla: {}", diretoria);
-                return;
+            Object areaId = null;
+            if (user.containsKey("cadastrosAreasId") && user.get("cadastrosAreasId") != null) {
+                areaId = user.get("cadastrosAreasId");
+            } else if (user.containsKey("cadastros_areas_id") && user.get("cadastros_areas_id") != null) {
+                areaId = user.get("cadastros_areas_id");
+            } else {
+                String diretoria = blankToDefault(user.get("diretoria"), "SGJT");
+                var areaRows = jdbc.queryForList("SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1", diretoria);
+                if (areaRows.isEmpty()) {
+                    log.warn("[syncToCadastrosPessoas] Área não encontrada para sigla: {}", diretoria);
+                    return;
+                }
+                areaId = areaRows.get(0).get("id");
             }
-            Object areaId = areaRows.get(0).get("id");
             String email = strOrNull(user.get("email"));
             Object userId = user.get("id");
             String name = strOrNull(user.get("name"));
@@ -503,5 +593,15 @@ public class UserService {
             copy.put("password_hash", "[HIDDEN]");
         }
         return copy;
+    }
+
+    private static Long parseLongOrNull(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.longValue();
+        if (v instanceof String s) {
+            if (s.trim().isEmpty()) return null;
+            try { return Long.parseLong(s.trim()); } catch (Exception e) { return null; }
+        }
+        return null;
     }
 }

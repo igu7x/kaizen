@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import br.jus.tjgo.kaizen.utils.SqlValue;
+
 /**
  * Porte fiel de comites.service.ts (comitês + membros + reuniões + pauta + quadro de controle + ata).
  * Comitês filtrados por domínio. Reuniões/pauta/quadro são hard-DELETE; comitês/membros soft (ativo).
@@ -358,7 +360,11 @@ public class ComitesService {
             if (data.containsKey(key)) {
                 updates.add(key + ("prazo".equals(key) ? " = ?::date" : " = ?"));
                 Object value = data.get(key);
-                values.add("".equals(value) ? null : value); // string vazia -> null (Node)
+                if ("reuniao_id".equals(key) || "item_pauta_id".equals(key)) {
+                    values.add(SqlValue.numeroOuNull(value));
+                } else {
+                    values.add("".equals(value) ? null : value); // string vazia -> null (Node)
+                }
             }
         }
         updates.add("updated_by = ?");
@@ -401,12 +407,12 @@ public class ComitesService {
         return v;
     }
 
-    /** toNullId do Node: '' | null | undefined -> null. */
+    /** toNullId do Node: '' | null | undefined -> null. Coage strings para Number para o JDBC */
     private static Object toNullId(Object v) {
         if (v == null || "".equals(v)) {
             return null;
         }
-        return v;
+        return SqlValue.numeroOuNull(v);
     }
 
     private static Long asLong(Object v) {

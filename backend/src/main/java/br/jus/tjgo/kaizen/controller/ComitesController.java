@@ -25,9 +25,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Porte fiel de comites.ts. Auth header-based: X-User-Role obrigatório (401 se ausente);
- * X-User-Diretoria='SGJT' tem bypass total; senão role em [GESTOR,ADMIN,MANAGER] (uppercase).
- * userId via X-User-Id (default 1). Upload de ata em PDF (uploadAta -> comites/atas/{sigla}/{ano}).
+ * Porte fiel de comites.ts. Auth header-based: X-User-Role obrigatório (401 se
+ * ausente);
+ * X-User-Diretoria='SGJT' tem bypass total; senão role em
+ * [GESTOR,ADMIN,MANAGER] (uppercase).
+ * userId via X-User-Id (default 1). Upload de ata em PDF (uploadAta ->
+ * comites/atas/{sigla}/{ano}).
  */
 @Slf4j
 @RestController
@@ -43,8 +46,12 @@ public class ComitesController {
     private void requireGestorOrAdmin(HttpServletRequest req) {
         String role = req.getHeader("x-user-role");
         String diretoria = req.getHeader("x-user-diretoria");
+        String areaIds = req.getHeader("x-user-area-ids");
         if (role == null) {
             throw new ApiException(401, "Não autenticado");
+        }
+        if (areaIds != null && List.of(areaIds.split(",")).contains("1")) {
+            return;
         }
         if (diretoria != null && "SGJT".equals(diretoria.toUpperCase())) {
             return;
@@ -70,7 +77,8 @@ public class ComitesController {
     // ======================== COMITÊS ========================
 
     @GetMapping
-    public ResponseEntity<?> list(HttpServletRequest req, @RequestParam(value = "dominio", required = false) String dominio) {
+    public ResponseEntity<?> list(HttpServletRequest req,
+            @RequestParam(value = "dominio", required = false) String dominio) {
         try {
             String d = dominio;
             if (d == null) {
@@ -114,7 +122,8 @@ public class ComitesController {
     }
 
     @PutMapping("/{id:\\d+}")
-    public ResponseEntity<?> update(HttpServletRequest req, @PathVariable long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> update(HttpServletRequest req, @PathVariable long id,
+            @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         Map<String, Object> updated = service.update(id, body, userId(req));
         if (updated == null) {
@@ -156,7 +165,8 @@ public class ComitesController {
     }
 
     @PostMapping("/{comiteId:\\d+}/membros")
-    public ResponseEntity<?> createMembro(HttpServletRequest req, @PathVariable long comiteId, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> createMembro(HttpServletRequest req, @PathVariable long comiteId,
+            @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         if (isBlank(body.get("nome")) || isBlank(body.get("cargo"))) {
             return ResponseEntity.status(400).body(err("Nome e cargo são obrigatórios"));
@@ -165,7 +175,8 @@ public class ComitesController {
     }
 
     @PutMapping("/{comiteId:\\d+}/membros/{id:\\d+}")
-    public ResponseEntity<?> updateMembro(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> updateMembro(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long id,
+            @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         Map<String, Object> updated = service.updateMembro(id, body, userId(req));
         if (updated == null) {
@@ -186,7 +197,8 @@ public class ComitesController {
     // ======================== REUNIÕES ========================
 
     @GetMapping("/{comiteId:\\d+}/reunioes")
-    public List<Map<String, Object>> listReunioes(@PathVariable long comiteId, @RequestParam(value = "ano", required = false) Integer ano) {
+    public List<Map<String, Object>> listReunioes(@PathVariable long comiteId,
+            @RequestParam(value = "ano", required = false) Integer ano) {
         return service.findReunioes(comiteId, ano);
     }
 
@@ -200,7 +212,8 @@ public class ComitesController {
     }
 
     @PostMapping("/{comiteId:\\d+}/reunioes")
-    public ResponseEntity<?> createReuniao(HttpServletRequest req, @PathVariable long comiteId, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> createReuniao(HttpServletRequest req, @PathVariable long comiteId,
+            @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         if (body.get("numero") == null || body.get("ano") == null || body.get("data") == null) {
             return ResponseEntity.status(400).body(err("Número, ano e data são obrigatórios"));
@@ -216,7 +229,8 @@ public class ComitesController {
     }
 
     @PutMapping("/{comiteId:\\d+}/reunioes/{id:\\d+}")
-    public ResponseEntity<?> updateReuniao(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> updateReuniao(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long id,
+            @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         Map<String, Object> updated = service.updateReuniao(id, body, userId(req));
         if (updated == null) {
@@ -242,7 +256,8 @@ public class ComitesController {
     }
 
     @PostMapping("/{comiteId:\\d+}/reunioes/{reuniaoId:\\d+}/pauta")
-    public ResponseEntity<?> createPauta(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long reuniaoId, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> createPauta(HttpServletRequest req, @PathVariable long comiteId,
+            @PathVariable long reuniaoId, @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         if (body.get("numero_item") == null || isBlank(body.get("descricao"))) {
             return ResponseEntity.status(400).body(err("Número do item e descrição são obrigatórios"));
@@ -258,7 +273,8 @@ public class ComitesController {
     }
 
     @PutMapping("/{comiteId:\\d+}/reunioes/{reuniaoId:\\d+}/pauta/{id:\\d+}")
-    public ResponseEntity<?> updatePauta(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long reuniaoId, @PathVariable long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> updatePauta(HttpServletRequest req, @PathVariable long comiteId,
+            @PathVariable long reuniaoId, @PathVariable long id, @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         Map<String, Object> updated = service.updatePauta(id, body, userId(req));
         if (updated == null) {
@@ -268,7 +284,8 @@ public class ComitesController {
     }
 
     @DeleteMapping("/{comiteId:\\d+}/reunioes/{reuniaoId:\\d+}/pauta/{id:\\d+}")
-    public ResponseEntity<?> deletePauta(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long reuniaoId, @PathVariable long id) {
+    public ResponseEntity<?> deletePauta(HttpServletRequest req, @PathVariable long comiteId,
+            @PathVariable long reuniaoId, @PathVariable long id) {
         requireGestorOrAdmin(req);
         if (!service.deletePauta(id, userId(req))) {
             return ResponseEntity.status(404).body(err("Item não encontrado"));
@@ -284,16 +301,19 @@ public class ComitesController {
     }
 
     @PostMapping("/{comiteId:\\d+}/quadro-controle")
-    public ResponseEntity<?> createQuadro(HttpServletRequest req, @PathVariable long comiteId, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> createQuadro(HttpServletRequest req, @PathVariable long comiteId,
+            @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         if (isBlank(body.get("item"))) {
             return ResponseEntity.status(400).body(err("Item (título) é obrigatório"));
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.createQuadroControle(comiteId, body, userId(req)));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(service.createQuadroControle(comiteId, body, userId(req)));
     }
 
     @PutMapping("/{comiteId:\\d+}/quadro-controle/{id:\\d+}")
-    public ResponseEntity<?> updateQuadro(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> updateQuadro(HttpServletRequest req, @PathVariable long comiteId, @PathVariable long id,
+            @RequestBody Map<String, Object> body) {
         requireGestorOrAdmin(req);
         Map<String, Object> updated = service.updateQuadroControle(id, body, userId(req));
         if (updated == null) {
@@ -315,9 +335,9 @@ public class ComitesController {
 
     @PostMapping("/{sigla}/reunioes/{reuniaoId:\\d+}/upload-ata")
     public ResponseEntity<?> uploadAta(HttpServletRequest req, @PathVariable String sigla, @PathVariable long reuniaoId,
-                                       @RequestParam(value = "ata", required = false) MultipartFile ata,
-                                       @RequestParam(value = "numero", required = false) String numero,
-                                       @RequestParam(value = "ano", required = false) String ano) {
+            @RequestParam(value = "ata", required = false) MultipartFile ata,
+            @RequestParam(value = "numero", required = false) String numero,
+            @RequestParam(value = "ano", required = false) String ano) {
         requireGestorOrAdmin(req);
         Path saved = null;
         try {
@@ -402,7 +422,8 @@ public class ComitesController {
     }
 
     @DeleteMapping("/{sigla}/reunioes/{reuniaoId:\\d+}/ata")
-    public ResponseEntity<?> deleteAta(HttpServletRequest req, @PathVariable String sigla, @PathVariable long reuniaoId) {
+    public ResponseEntity<?> deleteAta(HttpServletRequest req, @PathVariable String sigla,
+            @PathVariable long reuniaoId) {
         requireGestorOrAdmin(req);
         Map<String, Object> reuniao = service.findReuniaoById(reuniaoId);
         if (reuniao == null) {

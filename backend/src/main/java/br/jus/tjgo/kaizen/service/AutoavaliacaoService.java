@@ -29,15 +29,15 @@ public class AutoavaliacaoService {
     private final ObjectMapper objectMapper;
 
     /** Buscar todos os formulários filtrados por domínio (múltiplas diretorias). */
-    public List<Map<String, Object>> findAllByDomain(List<String> diretorias, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE AND f.diretoria = ANY(?::text[])");
+    public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
+        String where = "f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])";
         List<Object> params = new ArrayList<>();
-        params.add(textArray(diretorias));
+        params.add(bigintArray(areasIds));
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     public List<Map<String, Object>> findByUnidade(long unidadeId, String tipoInventario) {
@@ -57,17 +57,17 @@ public class AutoavaliacaoService {
     }
 
     public List<Map<String, Object>> findAll(String diretoria, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE");
+        String where = "f.is_deleted = FALSE";
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             params.add(diretoria);
-            where.append(" AND f.diretoria = ?");
+            where += " AND f.cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)";
         }
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     private static String listSql(String whereClauses) {
@@ -168,7 +168,7 @@ public class AutoavaliacaoService {
             jdbc.update(
                     "UPDATE autoavaliacao_formularios SET " +
                             "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
-                            "  diretoria = ?, unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
+                            "  cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', " +
                             "  competencias_versao = ?, versao_anterior = ?, update_keys = ?::jsonb, " +
                             "  tecnicas_versao = ?, " +
@@ -182,8 +182,8 @@ public class AutoavaliacaoService {
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO autoavaliacao_formularios " +
-                            "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, diretoria, unidade_id, pessoa_id, tipo_inventario, status, competencias_versao, versao_anterior, update_keys, tecnicas_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
+                            "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, cadastros_areas_id, unidade_id, pessoa_id, tipo_inventario, status, competencias_versao, versao_anterior, update_keys, tecnicas_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
                             "RETURNING id",
                     userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
                     str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
@@ -374,6 +374,12 @@ public class AutoavaliacaoService {
     }
 
     private static String textArray(List<String> values) {
+        if (values == null || values.isEmpty()) return "{}";
         return "{" + String.join(",", values) + "}";
+    }
+
+    private static String bigintArray(List<Long> values) {
+        if (values == null || values.isEmpty()) return "{}";
+        return "{" + values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}";
     }
 }

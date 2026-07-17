@@ -239,9 +239,9 @@ public class PermissoesController {
         Object abasCount = jdbc.queryForList("SELECT COUNT(*) as total FROM " + tableName).get(0).get("total");
         Object permCount = jdbc.queryForList("SELECT COUNT(*) as total FROM permissoes_diretoria").get(0).get("total");
         List<String> diretorias = jdbc.queryForList(
-                "SELECT DISTINCT diretoria FROM permissoes_diretoria ORDER BY diretoria", String.class);
+                "SELECT DISTINCT a.sigla FROM permissoes_diretoria pd JOIN cadastros_areas a ON pd.cadastros_areas_id = a.id ORDER BY a.sigla", String.class);
         var amostra = jdbc.queryForList(
-                "SELECT diretoria, aba_codigo, pode_acessar FROM permissoes_diretoria ORDER BY diretoria, aba_codigo LIMIT 50");
+                "SELECT a.sigla as diretoria, pd.aba_codigo, pd.pode_acessar FROM permissoes_diretoria pd JOIN cadastros_areas a ON pd.cadastros_areas_id = a.id ORDER BY a.sigla, pd.aba_codigo LIMIT 50");
         var sgjUsers = jdbc.queryForList(
                 "SELECT id, name, email, diretoria FROM users WHERE diretoria = 'SGJT' LIMIT 5");
 
