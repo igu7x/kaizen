@@ -209,9 +209,9 @@ public class HomeService {
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
                     "SELECT p.id FROM cadastros_projetos p " +
-                            "JOIN cadastros_pessoas pat ON pat.id = p.patrocinador_id " +
+                            "JOIN users pat ON pat.id = p.patrocinador_id " +
                             "WHERE p.ativo = TRUE AND p.tap_id IS NOT NULL AND p.tap_validado_diretor_em IS NOT NULL " +
-                            "  AND p.tap_validado_patrocinador_em IS NULL AND pat.user_id = ? " +
+                            "  AND p.tap_validado_patrocinador_em IS NULL AND pat.id = ? " +
                             "ORDER BY p.created_at ASC",
                     userId);
             if (!rows.isEmpty()) {
@@ -229,8 +229,8 @@ public class HomeService {
             List<Map<String, Object>> rows = jdbc.queryForList(
                     "SELECT p.id FROM tep_termos_encerramento t " +
                             "JOIN cadastros_projetos p ON p.id = t.projeto_id " +
-                            "JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
-                            "WHERE p.ativo = TRUE AND t.tep_validado_gestor_em IS NULL AND ges.user_id = ? " +
+                            "JOIN users ges ON ges.id = p.gestor_id " +
+                            "WHERE p.ativo = TRUE AND t.tep_validado_gestor_em IS NULL AND ges.id = ? " +
                             "ORDER BY t.created_at ASC",
                     userId);
             if (!rows.isEmpty()) {

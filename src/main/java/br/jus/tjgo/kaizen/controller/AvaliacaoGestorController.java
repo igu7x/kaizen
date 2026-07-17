@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -31,31 +32,48 @@ public class AvaliacaoGestorController {
 
     // GET /api/avaliacao-gestor
     @GetMapping
-    public List<Map<String, Object>> list(@RequestParam(value = "diretoria", required = false) String diretoria,
+    public List<Map<String, Object>> list(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId,
                                            @RequestParam(value = "dominio", required = false) String dominio,
                                            @RequestParam(value = "tipo_inventario", required = false) String tipoInventario) {
-        if (diretoria == null && dominio == null) {
-            String userDiretoria = lookupUserDiretoria(currentUserId());
-            if (userDiretoria != null) {
-                var domain = domainService.getDomainForDiretoria(userDiretoria);
-                return service.findAllByDomain(domain.diretoriasInDomain(), tipoInventario);
+        if (cadastrosAreasId == null && dominio == null) {
+            Long userAreaId = lookupUserAreaId(currentUserId());
+            if (userAreaId != null) {
+                var domain = domainService.getDomainForArea(userAreaId);
+                return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
             }
         }
         if (dominio != null) {
             var domain = domainService.getDomainForDiretoria(dominio);
-            return service.findAllByDomain(domain.diretoriasInDomain(), tipoInventario);
+            return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
         }
-        return service.findAll(diretoria, tipoInventario);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
+            return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
+        }
+        return service.findAll(null, tipoInventario);
     }
 
     // GET /api/avaliacao-gestor/by-pessoa/:pessoaId?unidade_id=
     @GetMapping("/by-pessoa/{pessoaId:\\d+}")
     public ResponseEntity<?> byPessoa(@PathVariable long pessoaId,
-                                      @RequestParam(value = "unidade_id", required = false) Long unidadeId) {
+                                      @RequestParam(value = "unidade_id", required = false) Long unidadeId,
+                                      @RequestParam(value = "by", required = false) String by) {
         if (unidadeId == null || unidadeId == 0) {
             return ResponseEntity.status(400).body(Map.of("error", "unidade_id é obrigatório"));
         }
-        return ResponseEntity.ok(service.findByPessoaAndUnidade(pessoaId, unidadeId));
+        // by=user → pessoaId é o user_id da pessoa (gestor sem autoavaliação); senão é o id da
+        // autoavaliação (comportamento legado).
+        Map<String, Object> found = "user".equals(by)
+                ? service.findByPessoaUserIdAndUnidade(pessoaId, unidadeId)
+                : service.findByPessoaAndUnidade(pessoaId, unidadeId);
+        return ResponseEntity.ok(found);
+    }
+
+    // GET /api/avaliacao-gestor/gestor-da-unidade/:unidadeId — o gestor da unidade como avaliável
+    @GetMapping("/gestor-da-unidade/{unidadeId:\\d+}")
+    public ResponseEntity<?> gestorDaUnidade(@PathVariable long unidadeId,
+                                             @RequestParam(value = "tipo_inventario", required = false, defaultValue = "gestor") String tipoInventario) {
+        return ResponseEntity.ok(service.gestorDaUnidade(unidadeId, tipoInventario));
     }
 
     // GET /api/avaliacao-gestor/:id/versoes
@@ -88,9 +106,27 @@ public class AvaliacaoGestorController {
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
         long userId = currentUserId();
-        if (body.get("pessoa_id") == null || isBlank(body.get("pessoa_nome")) || isBlank(body.get("avaliador_nome"))
-                || isBlank(body.get("diretoria")) || isEmptyList(body.get("respostas"))) {
-            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios faltando"));
+        // A pessoa avaliada pode vir por pessoa_id (autoavaliação) OU pessoa_user_id (gestor da
+        // unidade avaliado antes da autoavaliação). Lista os campos faltando com precisão.
+        List<String> faltando = new ArrayList<>();
+        if (body.get("pessoa_id") == null && body.get("pessoa_user_id") == null) {
+            faltando.add("colaborador a ser avaliado");
+        }
+        if (isBlank(body.get("pessoa_nome"))) {
+            faltando.add("nome do colaborador");
+        }
+        if (isBlank(body.get("avaliador_nome"))) {
+            faltando.add("nome do avaliador");
+        }
+        if (isBlank(body.get("diretoria"))) {
+            faltando.add("diretoria");
+        }
+        if (isEmptyList(body.get("respostas"))) {
+            faltando.add("notas das competências");
+        }
+        if (!faltando.isEmpty()) {
+            return ResponseEntity.status(400).body(Map.of(
+                    "error", "Campos obrigatórios faltando: " + String.join(", ", faltando)));
         }
         Map<String, Object> formulario = service.create(body, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(formulario);
@@ -116,9 +152,9 @@ public class AvaliacaoGestorController {
         return Map.of("message", "Formulário removido com sucesso");
     }
 
-    private String lookupUserDiretoria(long userId) {
-        var rows = jdbc.queryForList("SELECT diretoria FROM users WHERE id = ?", userId);
-        return rows.isEmpty() ? null : (String) rows.get(0).get("diretoria");
+    private Long lookupUserAreaId(long userId) {
+        var rows = jdbc.queryForList("SELECT cadastros_areas_id FROM users WHERE id = ?", userId);
+        return rows.isEmpty() ? null : (Long) rows.get(0).get("cadastros_areas_id");
     }
 
     private String lookupUserName(long userId) {

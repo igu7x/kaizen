@@ -121,46 +121,50 @@ public class OkrService {
     // OBJECTIVES
     // ============================================================
 
-    public List<Map<String, Object>> findAllObjectivesByDirectorate(String directorateCode) {
+    public List<Map<String, Object>> findAllObjectivesByDirectorate(Long cadastrosAreasId) {
         List<Map<String, Object>> rows;
-        if (directorateCode != null) {
+        if (cadastrosAreasId != null) {
             rows = jdbc.queryForList(
-                    "SELECT * FROM objectives WHERE is_deleted = FALSE AND directorate_code = ? " +
-                            "ORDER BY directorate_code, code", directorateCode);
+                    "SELECT o.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM objectives o LEFT JOIN cadastros_areas a ON o.cadastros_areas_id = a.id " +
+                            "WHERE o.is_deleted = FALSE AND o.cadastros_areas_id = ? " +
+                            "ORDER BY o.cadastros_areas_id, o.code", cadastrosAreasId);
         } else {
             rows = jdbc.queryForList(
-                    "SELECT * FROM objectives WHERE is_deleted = FALSE ORDER BY directorate_code, code");
+                    "SELECT o.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM objectives o LEFT JOIN cadastros_areas a ON o.cadastros_areas_id = a.id " +
+                            "WHERE o.is_deleted = FALSE ORDER BY o.cadastros_areas_id, o.code");
         }
         return rows.stream().map(OkrService::toObjectiveDto).toList();
     }
 
     public Map<String, Object> createObjective(String code, String title, String description,
-                                               String directorateCode, Long userId) {
+                                               Long cadastrosAreasId, Long userId) {
         Map<String, Object> obj = jdbc.queryForMap(
-                "INSERT INTO objectives (code, title, description, directorate_code) " +
+                "INSERT INTO objectives (code, title, description, cadastros_areas_id) " +
                         "VALUES (?, ?, ?, ?) RETURNING *",
-                code, title, emptyToNull(description), directorateCode); // Node: data.description || null
+                code, title, emptyToNull(description), cadastrosAreasId); // Node: data.description || null
         audit.log("objectives", asLong(obj.get("id")), "INSERT", userId, null, null, obj);
-        return toObjectiveDto(obj);
+        return toObjectiveDto(appendAreaInfo(obj));
     }
 
     public Map<String, Object> updateObjective(long id, String code, String title, String description,
-                                               String directorateCode, Long userId) {
+                                               Long cadastrosAreasId, Long userId) {
         Map<String, Object> existing = findOne("objectives", id);
         if (existing == null) {
             return null;
         }
         var rows = jdbc.queryForList(
                 "UPDATE objectives SET code = COALESCE(?, code), title = COALESCE(?, title), " +
-                        "description = COALESCE(?, description), directorate_code = COALESCE(?, directorate_code), " +
+                        "description = COALESCE(?, description), cadastros_areas_id = COALESCE(?, cadastros_areas_id), " +
                         "updated_at = NOW() WHERE id = ? AND is_deleted = FALSE RETURNING *",
-                code, title, description, directorateCode, id);
+                code, title, description, cadastrosAreasId, id);
         if (rows.isEmpty()) {
             return null;
         }
         Map<String, Object> obj = rows.get(0);
         audit.log("objectives", id, "UPDATE", userId, null, existing, obj);
-        return toObjectiveDto(obj);
+        return toObjectiveDto(appendAreaInfo(obj));
     }
 
     public boolean deleteObjective(long id, Long userId) {
@@ -173,7 +177,11 @@ public class OkrService {
         dto.put("code", o.get("code"));
         dto.put("title", o.get("title"));
         dto.put("description", o.get("description"));
-        dto.put("directorate", o.get("directorate_code"));
+        dto.put("cadastrosAreasId", o.get("cadastros_areas_id"));
+        Map<String, Object> area = new LinkedHashMap<>();
+        area.put("sigla", o.get("area_sigla"));
+        area.put("nome", o.get("area_nome"));
+        dto.put("area", area);
         dto.put("createdAt", o.get("created_at"));
         dto.put("updatedAt", o.get("updated_at"));
         return dto;
@@ -183,34 +191,37 @@ public class OkrService {
     // KEY RESULTS
     // ============================================================
 
-    public List<Map<String, Object>> findAllKeyResults(Integer objectiveId, String directorateCode) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM key_results WHERE is_deleted = FALSE");
+    public List<Map<String, Object>> findAllKeyResults(Integer objectiveId, Long cadastrosAreasId) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT kr.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                "FROM key_results kr LEFT JOIN cadastros_areas a ON kr.cadastros_areas_id = a.id " +
+                "WHERE kr.is_deleted = FALSE");
         java.util.List<Object> params = new java.util.ArrayList<>();
         if (objectiveId != null) {
-            sql.append(" AND objective_id = ?");
+            sql.append(" AND kr.objective_id = ?");
             params.add(objectiveId);
         }
-        if (directorateCode != null) {
-            sql.append(" AND directorate_code = ?");
-            params.add(directorateCode);
+        if (cadastrosAreasId != null) {
+            sql.append(" AND kr.cadastros_areas_id = ?");
+            params.add(cadastrosAreasId);
         }
-        sql.append(" ORDER BY objective_id, code");
+        sql.append(" ORDER BY kr.objective_id, kr.code");
         var rows = jdbc.queryForList(sql.toString(), params.toArray());
         return rows.stream().map(OkrService::toKeyResultDto).toList();
     }
 
     public Map<String, Object> createKeyResult(Integer objectiveId, String code, String description,
-                                               String status, String deadline, String directorateCode,
+                                               String status, String deadline, Long cadastrosAreasId,
                                                Long userId) {
         String st = status != null ? status : "NAO_INICIADO";
         String dl = deadline != null ? deadline : "";
         String situation = calculateSituation(st, dl);
         Map<String, Object> kr = jdbc.queryForMap(
-                "INSERT INTO key_results (objective_id, code, description, status, situation, deadline, directorate_code) " +
+                "INSERT INTO key_results (objective_id, code, description, status, situation, deadline, cadastros_areas_id) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *",
-                objectiveId, code, description, st, situation, dl, directorateCode);
+                objectiveId, code, description, st, situation, dl, cadastrosAreasId);
         audit.log("key_results", asLong(kr.get("id")), "INSERT", userId, null, null, kr);
-        return toKeyResultDto(kr, situation);
+        return toKeyResultDto(appendAreaInfo(kr), situation);
     }
 
     public Map<String, Object> updateKeyResult(long id, String code, String description,
@@ -232,7 +243,7 @@ public class OkrService {
         }
         Map<String, Object> kr = rows.get(0);
         audit.log("key_results", id, "UPDATE", userId, null, existing, kr);
-        return toKeyResultDto(kr, situation);
+        return toKeyResultDto(appendAreaInfo(kr), situation);
     }
 
     public boolean deleteKeyResult(long id, Long userId) {
@@ -252,7 +263,11 @@ public class OkrService {
         dto.put("status", kr.get("status"));
         dto.put("situation", situation);
         dto.put("deadline", kr.get("deadline"));
-        dto.put("directorate", kr.get("directorate_code"));
+        dto.put("cadastrosAreasId", kr.get("cadastros_areas_id"));
+        Map<String, Object> area = new LinkedHashMap<>();
+        area.put("sigla", kr.get("area_sigla"));
+        area.put("nome", kr.get("area_nome"));
+        dto.put("area", area);
         dto.put("createdAt", kr.get("created_at"));
         dto.put("updatedAt", kr.get("updated_at"));
         return dto;
@@ -262,25 +277,29 @@ public class OkrService {
     // INITIATIVES
     // ============================================================
 
-    public List<Map<String, Object>> findAllInitiatives(String directorateCode) {
+    public List<Map<String, Object>> findAllInitiatives(Long cadastrosAreasId) {
         List<Map<String, Object>> rows;
-        if (directorateCode != null) {
+        if (cadastrosAreasId != null) {
             rows = jdbc.queryForList(
-                    "SELECT * FROM initiatives WHERE is_deleted = FALSE AND directorate_code = ? " +
-                            "ORDER BY directorate_code, location, board_status", directorateCode);
+                    "SELECT i.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM initiatives i LEFT JOIN cadastros_areas a ON i.cadastros_areas_id = a.id " +
+                            "WHERE i.is_deleted = FALSE AND i.cadastros_areas_id = ? " +
+                            "ORDER BY i.cadastros_areas_id, i.location, i.board_status", cadastrosAreasId);
         } else {
             rows = jdbc.queryForList(
-                    "SELECT * FROM initiatives WHERE is_deleted = FALSE " +
-                            "ORDER BY directorate_code, location, board_status");
+                    "SELECT i.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM initiatives i LEFT JOIN cadastros_areas a ON i.cadastros_areas_id = a.id " +
+                            "WHERE i.is_deleted = FALSE " +
+                            "ORDER BY i.cadastros_areas_id, i.location, i.board_status");
         }
         return rows.stream().map(OkrService::toInitiativeDto).toList();
     }
 
     public Map<String, Object> createInitiative(Object keyResultId, String title, String description,
                                                 String boardStatus, String location, Object sprintId,
-                                                String directorate, Long userId) {
+                                                Long cadastrosAreasId, Long userId) {
         Map<String, Object> init = jdbc.queryForMap(
-                "INSERT INTO initiatives (key_result_id, title, description, board_status, location, sprint_id, directorate_code) " +
+                "INSERT INTO initiatives (key_result_id, title, description, board_status, location, sprint_id, cadastros_areas_id) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 keyResultId,
                 title,
@@ -288,9 +307,9 @@ public class OkrService {
                 boardStatus != null ? boardStatus : "A_FAZER",
                 location != null ? location : "BACKLOG",
                 sprintId,
-                directorate);
+                cadastrosAreasId);
         audit.log("initiatives", asLong(init.get("id")), "INSERT", userId, null, null, init);
-        return toInitiativeDto(init);
+        return toInitiativeDto(appendAreaInfo(init));
     }
 
     public Map<String, Object> updateInitiative(long id, String title, String description,
@@ -311,7 +330,7 @@ public class OkrService {
         }
         Map<String, Object> init = rows.get(0);
         audit.log("initiatives", id, "UPDATE", userId, null, existing, init);
-        return toInitiativeDto(init);
+        return toInitiativeDto(appendAreaInfo(init));
     }
 
     public boolean deleteInitiative(long id, Long userId) {
@@ -327,7 +346,11 @@ public class OkrService {
         dto.put("boardStatus", init.get("board_status"));
         dto.put("location", init.get("location"));
         dto.put("sprintId", init.get("sprint_id"));
-        dto.put("directorate", init.get("directorate_code"));
+        dto.put("cadastrosAreasId", init.get("cadastros_areas_id"));
+        Map<String, Object> area = new LinkedHashMap<>();
+        area.put("sigla", init.get("area_sigla"));
+        area.put("nome", init.get("area_nome"));
+        dto.put("area", area);
         dto.put("createdAt", init.get("created_at"));
         dto.put("updatedAt", init.get("updated_at"));
         return dto;
@@ -337,25 +360,29 @@ public class OkrService {
     // PROGRAMS
     // ============================================================
 
-    public List<Map<String, Object>> findAllPrograms(String directorateCode) {
+    public List<Map<String, Object>> findAllPrograms(Long cadastrosAreasId) {
         List<Map<String, Object>> rows;
-        if (directorateCode != null) {
+        if (cadastrosAreasId != null) {
             rows = jdbc.queryForList(
-                    "SELECT * FROM programs WHERE is_deleted = FALSE AND directorate_code = ? " +
-                            "ORDER BY directorate_code, name", directorateCode);
+                    "SELECT p.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM programs p LEFT JOIN cadastros_areas a ON p.cadastros_areas_id = a.id " +
+                            "WHERE p.is_deleted = FALSE AND p.cadastros_areas_id = ? " +
+                            "ORDER BY p.cadastros_areas_id, p.name", cadastrosAreasId);
         } else {
             rows = jdbc.queryForList(
-                    "SELECT * FROM programs WHERE is_deleted = FALSE ORDER BY directorate_code, name");
+                    "SELECT p.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM programs p LEFT JOIN cadastros_areas a ON p.cadastros_areas_id = a.id " +
+                            "WHERE p.is_deleted = FALSE ORDER BY p.cadastros_areas_id, p.name");
         }
         return rows.stream().map(OkrService::toProgramDto).toList();
     }
 
-    public Map<String, Object> createProgram(String name, String description, String directorate, Long userId) {
+    public Map<String, Object> createProgram(String name, String description, Long cadastrosAreasId, Long userId) {
         Map<String, Object> prog = jdbc.queryForMap(
-                "INSERT INTO programs (name, description, directorate_code) VALUES (?, ?, ?) RETURNING *",
-                name, description != null ? description : "", directorate);
+                "INSERT INTO programs (name, description, cadastros_areas_id) VALUES (?, ?, ?) RETURNING *",
+                name, description != null ? description : "", cadastrosAreasId);
         audit.log("programs", asLong(prog.get("id")), "INSERT", userId, null, null, prog);
-        return toProgramDto(prog);
+        return toProgramDto(appendAreaInfo(prog));
     }
 
     public Map<String, Object> updateProgram(long id, String name, String description, Long userId) {
@@ -372,7 +399,7 @@ public class OkrService {
         }
         Map<String, Object> prog = rows.get(0);
         audit.log("programs", id, "UPDATE", userId, null, existing, prog);
-        return toProgramDto(prog);
+        return toProgramDto(appendAreaInfo(prog));
     }
 
     public boolean deleteProgram(long id, Long userId) {
@@ -384,7 +411,11 @@ public class OkrService {
         dto.put("id", prog.get("id"));
         dto.put("name", prog.get("name"));
         dto.put("description", prog.get("description"));
-        dto.put("directorate", prog.get("directorate_code"));
+        dto.put("cadastrosAreasId", prog.get("cadastros_areas_id"));
+        Map<String, Object> area = new LinkedHashMap<>();
+        area.put("sigla", prog.get("area_sigla"));
+        area.put("nome", prog.get("area_nome"));
+        dto.put("area", area);
         dto.put("createdAt", prog.get("created_at"));
         dto.put("updatedAt", prog.get("updated_at"));
         return dto;
@@ -469,35 +500,39 @@ public class OkrService {
     // EXECUTION CONTROLS
     // ============================================================
 
-    public List<Map<String, Object>> findAllExecutionControls(String directorateCode) {
+    public List<Map<String, Object>> findAllExecutionControls(Long cadastrosAreasId) {
         List<Map<String, Object>> rows;
-        if (directorateCode != null) {
+        if (cadastrosAreasId != null) {
             rows = jdbc.queryForList(
-                    "SELECT * FROM execution_controls WHERE is_deleted = FALSE AND directorate_code = ? " +
-                            "ORDER BY ordem_linha, ordem_posicao, created_at DESC", directorateCode);
+                    "SELECT ec.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM execution_controls ec LEFT JOIN cadastros_areas a ON ec.cadastros_areas_id = a.id " +
+                            "WHERE ec.is_deleted = FALSE AND ec.cadastros_areas_id = ? " +
+                            "ORDER BY ec.ordem_linha, ec.ordem_posicao, ec.created_at DESC", cadastrosAreasId);
         } else {
             rows = jdbc.queryForList(
-                    "SELECT * FROM execution_controls WHERE is_deleted = FALSE " +
-                            "ORDER BY ordem_linha, ordem_posicao, created_at DESC");
+                    "SELECT ec.*, a.sigla AS area_sigla, a.nome AS area_nome " +
+                            "FROM execution_controls ec LEFT JOIN cadastros_areas a ON ec.cadastros_areas_id = a.id " +
+                            "WHERE ec.is_deleted = FALSE " +
+                            "ORDER BY ec.ordem_linha, ec.ordem_posicao, ec.created_at DESC");
         }
         return rows.stream().map(OkrService::toExecutionControlListDto).toList();
     }
 
     public Map<String, Object> createExecutionControl(String planProgram, String krProjectInitiative,
                                                       String backlogTasks, String sprintStatus, String sprintTasks,
-                                                      String progress, String directorate, Long userId) {
+                                                      String progress, Long cadastrosAreasId, Long userId) {
         Map<String, Object> ctrl = jdbc.queryForMap(
                 "INSERT INTO execution_controls (plan_program, kr_project_initiative, backlog_tasks, " +
-                        "sprint_status, sprint_tasks, progress, directorate_code) " +
+                        "sprint_status, sprint_tasks, progress, cadastros_areas_id) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *",
-                planProgram, krProjectInitiative, backlogTasks, sprintStatus, sprintTasks, progress, directorate);
+                planProgram, krProjectInitiative, backlogTasks, sprintStatus, sprintTasks, progress, cadastrosAreasId);
         audit.log("execution_controls", asLong(ctrl.get("id")), "INSERT", userId, null, null, ctrl);
-        return toExecutionControlDto(ctrl);
+        return toExecutionControlDto(appendAreaInfo(ctrl));
     }
 
     public Map<String, Object> updateExecutionControl(long id, String planProgram, String krProjectInitiative,
                                                       String backlogTasks, String sprintStatus, String sprintTasks,
-                                                      String progress, String directorate, Long userId) {
+                                                      String progress, Long cadastrosAreasId, Long userId) {
         Map<String, Object> existing = findOne("execution_controls", id);
         if (existing == null) {
             return null;
@@ -507,15 +542,15 @@ public class OkrService {
                         "kr_project_initiative = COALESCE(?, kr_project_initiative), " +
                         "backlog_tasks = COALESCE(?, backlog_tasks), sprint_status = COALESCE(?, sprint_status), " +
                         "sprint_tasks = COALESCE(?, sprint_tasks), progress = COALESCE(?, progress), " +
-                        "directorate_code = COALESCE(?, directorate_code), updated_at = NOW() " +
+                        "cadastros_areas_id = COALESCE(?, cadastros_areas_id), updated_at = NOW() " +
                         "WHERE id = ? AND is_deleted = FALSE RETURNING *",
-                planProgram, krProjectInitiative, backlogTasks, sprintStatus, sprintTasks, progress, directorate, id);
+                planProgram, krProjectInitiative, backlogTasks, sprintStatus, sprintTasks, progress, cadastrosAreasId, id);
         if (rows.isEmpty()) {
             return null;
         }
         Map<String, Object> ctrl = rows.get(0);
         audit.log("execution_controls", id, "UPDATE", userId, null, existing, ctrl);
-        return toExecutionControlDto(ctrl);
+        return toExecutionControlDto(appendAreaInfo(ctrl));
     }
 
     public boolean deleteExecutionControl(long id, Long userId) {
@@ -544,7 +579,11 @@ public class OkrService {
         dto.put("sprintStatus", ctrl.get("sprint_status"));
         dto.put("sprintTasks", ctrl.get("sprint_tasks"));
         dto.put("progress", ctrl.get("progress"));
-        dto.put("directorate", ctrl.get("directorate_code"));
+        dto.put("cadastrosAreasId", ctrl.get("cadastros_areas_id"));
+        Map<String, Object> area = new LinkedHashMap<>();
+        area.put("sigla", ctrl.get("area_sigla"));
+        area.put("nome", ctrl.get("area_nome"));
+        dto.put("area", area);
         dto.put("ordemLinha", ctrl.get("ordem_linha") != null ? ctrl.get("ordem_linha") : 0);
         dto.put("ordemPosicao", ctrl.get("ordem_posicao") != null ? ctrl.get("ordem_posicao") : 0);
         dto.put("createdAt", ctrl.get("created_at"));
@@ -561,9 +600,24 @@ public class OkrService {
         dto.put("sprintStatus", ctrl.get("sprint_status"));
         dto.put("sprintTasks", ctrl.get("sprint_tasks"));
         dto.put("progress", ctrl.get("progress"));
-        dto.put("directorate", ctrl.get("directorate_code"));
+        dto.put("cadastrosAreasId", ctrl.get("cadastros_areas_id"));
+        Map<String, Object> area = new LinkedHashMap<>();
+        area.put("sigla", ctrl.get("area_sigla"));
+        area.put("nome", ctrl.get("area_nome"));
+        dto.put("area", area);
         dto.put("createdAt", ctrl.get("created_at"));
         return dto;
+    }
+
+    private Map<String, Object> appendAreaInfo(Map<String, Object> entity) {
+        if (entity.get("cadastros_areas_id") != null) {
+            var rows = jdbc.queryForList("SELECT sigla, nome FROM cadastros_areas WHERE id = ?", entity.get("cadastros_areas_id"));
+            if (!rows.isEmpty()) {
+                entity.put("area_sigla", rows.get(0).get("sigla"));
+                entity.put("area_nome", rows.get(0).get("nome"));
+            }
+        }
+        return entity;
     }
 
     private static Long asLong(Object v) {

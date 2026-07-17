@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Date;
 import java.time.LocalDate;
 import br.jus.tjgo.kaizen.utils.DateHelper;
+import br.jus.tjgo.kaizen.utils.SqlValue;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -42,6 +43,15 @@ public class CadastrosProjetosService {
     private final ObjectMapper objectMapper;
 
     private static final Set<String> STATUS_MANUAIS = Set.of("concluido", "cancelado", "suspenso");
+
+    /**
+     * Colunas nao-texto de cadastros_projetos (integer / bigint / numeric) no UPDATE.
+     * O Jackson serializa numeric (BigDecimal) e bigint (Long) como STRING, por paridade com o
+     * driver pg do Node; o front devolve essas strings no PUT. O pgjdbc binda String como VARCHAR
+     * e o Postgres recusa a atribuicao. Precisam passar por numOrNull(), como ja faz o INSERT.
+     */
+    private static final Set<String> COLUNAS_NUMERICAS = Set.of(
+            "patrocinador_id", "gestor_id", "valor_estimado_contratacao", "pca_item_id");
 
     // Códigos de diretoria/macro área centralizados em OrgCodigos (compartilhado com processos).
 
@@ -103,28 +113,50 @@ public class CadastrosProjetosService {
     // PROJETOS
     // ============================================================
 
-    public List<Map<String, Object>> getAllProjetos(String diretoria) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM vw_cadastros_projetos_completo WHERE 1=1");
+    public List<Map<String, Object>> getAllProjetos(Long cadastrosAreasId) {
+        // `diretorias_nomes` (siglas das diretorias vinculadas) não existe na view; é montado aqui,
+        // igual em getProjetosByInstrumentoId, para o front filtrar o portfólio por diretoria.
+        boolean hasSigla = hasColumn("cadastros_areas", "sigla");
+        String colunaExpressao = hasSigla
+                ? "ca.sigla"
+                : "COALESCE(SUBSTRING(ca.nome FROM '\\(([^)]+)\\)'), ca.nome)";
+        StringBuilder sql = new StringBuilder(
+                "SELECT p.*, COALESCE((SELECT STRING_AGG(" + colunaExpressao + ", ', ') FROM cadastros_areas ca " +
+                        "WHERE ca.id = ANY(p.areas_vinculadas_ids)), p.diretoria) AS diretorias_nomes " +
+                        "FROM vw_cadastros_projetos_completo p WHERE 1=1");
         List<Object> params = new ArrayList<>();
-        if (diretoria != null) {
-            var domain = domainService.getDomainForDiretoria(diretoria);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
             if (domain.isDomainRoot()) {
                 params.add(domain.dominio());
-                sql.append(" AND (areas_vinculadas_ids IS NULL OR array_length(areas_vinculadas_ids, 1) IS NULL " +
-                        "OR EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(areas_vinculadas_ids) " +
+                sql.append(" AND (p.areas_vinculadas_ids IS NULL OR array_length(p.areas_vinculadas_ids, 1) IS NULL " +
+                        "OR EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(p.areas_vinculadas_ids) " +
                         "AND (ca.dominio = ? OR ca.dominio IS NULL)))");
             } else {
-                params.add(diretoria);
-                sql.append(" AND EXISTS (SELECT 1 FROM cadastros_areas ca WHERE ca.id = ANY(areas_vinculadas_ids) " +
-                        "AND ca.sigla = ?)");
+                params.add(cadastrosAreasId);
+                sql.append(" AND ? = ANY(p.areas_vinculadas_ids)");
             }
         }
-        sql.append(" ORDER BY codigo DESC");
+        sql.append(" ORDER BY p.codigo DESC");
         var projetos = jdbc.queryForList(sql.toString(), params.toArray());
         for (Map<String, Object> projeto : projetos) {
             projeto.put("areasExecucao", getAreasExecucao(((Number) projeto.get("id")).longValue()));
         }
         return projetos;
+    }
+
+    /**
+     * O usuário é o Gestor deste projeto?
+     *
+     * Atenção: {@code cadastros_projetos.gestor_id} referencia {@code cadastros_pessoas}, NÃO
+     * {@code users}. O id do usuário é {@code cadastros_pessoas.user_id} (é o que a view expõe
+     * como {@code gestor_user_id}). Comparar gestor_id com users.id barraria todos os gestores.
+     */
+    public boolean isGestorDoProjeto(long projetoId, long userId) {
+        return !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_projetos p " +
+                        "WHERE p.id = ? AND p.gestor_id = ? AND p.ativo = TRUE LIMIT 1",
+                projetoId, userId).isEmpty();
     }
 
     public Map<String, Object> getProjetoById(long id) {
@@ -328,6 +360,9 @@ public class CadastrosProjetosService {
                 } else if ("data_prevista_inicio".equals(key) || "data_prevista_conclusao".equals(key)) {
                     fields.add(key + " = ?");
                     values.add(DateHelper.toSqlDate(value));
+                } else if (COLUNAS_NUMERICAS.contains(key)) {
+                    fields.add(key + " = ?");
+                    values.add(SqlValue.numeroOuNull(value));
                 } else {
                     fields.add(key + " = ?");
                     values.add(value);
@@ -615,7 +650,7 @@ public class CadastrosProjetosService {
         }
         if (data.containsKey("area_responsavel_id") && hasColumn("cadastros_projetos_entregas", "area_responsavel_id")) {
             fields.add("area_responsavel_id = ?");
-            values.add(data.get("area_responsavel_id"));
+            values.add(numOrNull(data.get("area_responsavel_id")));
         }
         if (data.containsKey("prazo_estimado")) {
             fields.add("prazo_estimado = ?");
@@ -1052,15 +1087,15 @@ public class CadastrosProjetosService {
         // Camada 2 = diretor da diretoria indicada na Governança do projeto (1ª de
         // areas_vinculadas_ids). Fallback para p.diretoria quando não há diretoria vinculada.
         var rows = jdbc.queryForList(
-                "SELECT p.*, ges.user_id AS gestor_user_id, pat.user_id AS patrocinador_user_id, " +
+                "SELECT p.*, ges.id AS gestor_user_id, pat.id AS patrocinador_user_id, " +
                         "area.gestor_user_id AS diretor_user_id, area.sigla AS diretor_diretoria_sigla " +
                         "FROM cadastros_projetos p " +
-                        "LEFT JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
-                        "LEFT JOIN cadastros_pessoas pat ON pat.id = p.patrocinador_id " +
+                        "LEFT JOIN users ges ON ges.id = p.gestor_id " +
+                        "LEFT JOIN users pat ON pat.id = p.patrocinador_id " +
                         "LEFT JOIN cadastros_areas area ON area.ativo = TRUE AND (" +
                         "  (array_length(p.areas_vinculadas_ids, 1) >= 1 AND area.id = p.areas_vinculadas_ids[1]) " +
                         "  OR ((p.areas_vinculadas_ids IS NULL OR array_length(p.areas_vinculadas_ids, 1) IS NULL) " +
-                        "      AND area.sigla = p.diretoria)" +
+                        "      AND area.id = p.cadastros_areas_id)" +
                         ") " +
                         "WHERE p.id = ? AND p.ativo = TRUE", projetoId);
         return rows.isEmpty() ? null : rows.get(0);
@@ -1077,8 +1112,8 @@ public class CadastrosProjetosService {
             return true;
         }
         var rows = jdbc.queryForList(
-                "SELECT ges.user_id AS gestor_user_id FROM cadastros_projetos p " +
-                        "LEFT JOIN cadastros_pessoas ges ON ges.id = p.gestor_id WHERE p.id = ?", projetoId);
+                "SELECT p.gestor_id AS gestor_user_id FROM cadastros_projetos p " +
+                        "WHERE p.id = ?", projetoId);
         if (rows.isEmpty()) {
             return false;
         }
@@ -1106,10 +1141,10 @@ public class CadastrosProjetosService {
         return rows.isEmpty() ? null : (String) rows.get(0).get("name");
     }
 
-    /** SELECT diretoria FROM users WHERE id = ? (derivação multi-tenant da listagem de projetos). */
-    public String lookupUserDiretoriaForProjetos(long userId) {
-        var rows = jdbc.queryForList("SELECT diretoria FROM users WHERE id = ?", userId);
-        return rows.isEmpty() ? null : (String) rows.get(0).get("diretoria");
+    /** SELECT cadastros_areas_id FROM users WHERE id = ? (derivação multi-tenant da listagem de projetos). */
+    public Long lookupUserAreaIdForProjetos(long userId) {
+        var rows = jdbc.queryForList("SELECT cadastros_areas_id FROM users WHERE id = ?", userId);
+        return rows.isEmpty() ? null : (Long) rows.get(0).get("cadastros_areas_id");
     }
 
     private static boolean eq(Object col, Long userId) {

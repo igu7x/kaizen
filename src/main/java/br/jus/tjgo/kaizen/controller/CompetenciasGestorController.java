@@ -38,21 +38,25 @@ public class CompetenciasGestorController {
 
     // GET /api/competencias-gestor
     @GetMapping
-    public List<Map<String, Object>> list(@RequestParam(value = "diretoria", required = false) String diretoria,
+    public List<Map<String, Object>> list(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId,
                                            @RequestParam(value = "dominio", required = false) String dominio,
                                            @RequestParam(value = "tipo", required = false) String tipo) {
-        if (diretoria == null && dominio == null) {
-            String userDiretoria = lookupUserDiretoria(currentUserId());
-            if (userDiretoria != null) {
-                var domain = domainService.getDomainForDiretoria(userDiretoria);
-                return service.findAllByDomain(domain.diretoriasInDomain(), tipo);
+        if (cadastrosAreasId == null && dominio == null) {
+            Long userAreaId = lookupUserAreaId(currentUserId());
+            if (userAreaId != null) {
+                var domain = domainService.getDomainForArea(userAreaId);
+                return service.findAllByDomain(domain.areasIdInDomain(), tipo);
             }
         }
         if (dominio != null) {
             var domain = domainService.getDomainForDiretoria(dominio);
-            return service.findAllByDomain(domain.diretoriasInDomain(), tipo);
+            return service.findAllByDomain(domain.areasIdInDomain(), tipo);
         }
-        return service.findAll(diretoria, tipo);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
+            return service.findAllByDomain(domain.areasIdInDomain(), tipo);
+        }
+        return service.findAll(null, tipo);
     }
 
     // GET /api/competencias-gestor/meu
@@ -205,6 +209,15 @@ public class CompetenciasGestorController {
     @GetMapping("/unidade/{unidadeId:\\d+}")
     public List<Map<String, Object>> competenciasUnidade(@PathVariable long unidadeId) {
         return service.findCompetenciasByUnidade(unidadeId);
+    }
+
+    // GET /api/competencias-gestor/unidades-com-matriz?tipo=gestor
+    // Ids das unidades que já têm a Matriz de Competências (do tipo) validada — usado para
+    // filtrar o seletor de unidade da avaliação (só faz sentido avaliar onde há referencial).
+    @GetMapping("/unidades-com-matriz")
+    public List<Integer> unidadesComMatriz(
+            @RequestParam(value = "tipo", required = false, defaultValue = "gestor") String tipo) {
+        return service.unidadesComMatrizValidada(tipo);
     }
 
     // GET /api/competencias-gestor/unidade-gestor/:unidadeId
@@ -473,9 +486,9 @@ public class CompetenciasGestorController {
     // Helpers
     // ============================================================
 
-    private String lookupUserDiretoria(long userId) {
-        var rows = jdbc.queryForList("SELECT diretoria FROM users WHERE id = ?", userId);
-        return rows.isEmpty() ? null : (String) rows.get(0).get("diretoria");
+    private Long lookupUserAreaId(long userId) {
+        var rows = jdbc.queryForList("SELECT cadastros_areas_id FROM users WHERE id = ?", userId);
+        return rows.isEmpty() ? null : (Long) rows.get(0).get("cadastros_areas_id");
     }
 
     private String lookupUserEmail(long userId) {

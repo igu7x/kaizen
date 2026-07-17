@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.jus.tjgo.kaizen.dto.PermissaoAcaoListDto;
 import br.jus.tjgo.kaizen.dto.CreatePermissaoAcaoReq;
 import br.jus.tjgo.kaizen.dto.TagAcaoDto;
+import br.jus.tjgo.kaizen.exception.ApiException;
 
 import java.util.List;
 
@@ -32,11 +33,11 @@ public class PermissoesAcoesService {
         String sql = """
                 SELECT 1 
                 FROM permissoes_acoes pm
-                INNER JOIN cadastros_pessoas cp ON cp.user_id = :user_id
+                INNER JOIN users u ON u.id = :user_id
                 WHERE pm.tag_acoes_id = :tag_definida_na_acao
-                  AND pm.area_id = cp.area_id
-                  AND (pm.unidade_id = cp.unidade_id OR pm.unidade_id IS NULL)
-                  AND (pm.user_id = cp.user_id OR pm.user_id IS NULL)
+                  AND pm.area_id = u.cadastros_areas_id
+                  AND (pm.unidade_id = u.cadastros_unidades_id OR pm.unidade_id IS NULL)
+                  AND (pm.user_id = u.id OR pm.user_id IS NULL)
                 LIMIT 1;
                 """;
 
@@ -63,10 +64,10 @@ public class PermissoesAcoesService {
         String sql = """
                 SELECT DISTINCT pm.tag_acoes_id 
                 FROM permissoes_acoes pm
-                INNER JOIN cadastros_pessoas cp ON cp.user_id = :user_id
-                WHERE pm.area_id = cp.area_id
-                  AND (pm.unidade_id = cp.unidade_id OR pm.unidade_id IS NULL)
-                  AND (pm.user_id = cp.user_id OR pm.user_id IS NULL);
+                INNER JOIN users u ON u.id = :user_id
+                WHERE pm.area_id = u.cadastros_areas_id
+                  AND (pm.unidade_id = u.cadastros_unidades_id OR pm.unidade_id IS NULL)
+                  AND (pm.user_id = u.id OR pm.user_id IS NULL);
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -134,5 +135,23 @@ public class PermissoesAcoesService {
     public void removerPermissao(Long id) {
         String sql = "DELETE FROM permissoes_acoes WHERE id = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+    }
+
+    @Transactional
+    public void atualizarTag(String id, String name) {
+        String checkSql = "SELECT count(1) FROM tags_acoes WHERE lower(name) = lower(:name) AND id != :id";
+        MapSqlParameterSource checkParams = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("name", name);
+        Integer count = jdbcTemplate.queryForObject(checkSql, checkParams, Integer.class);
+        if (count != null && count > 0) {
+            throw new ApiException(400, "Já existe uma ação cadastrada com este nome.");
+        }
+
+        String sql = "UPDATE tags_acoes SET name = :name WHERE id = :id";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("name", name);
+        jdbcTemplate.update(sql, params);
     }
 }

@@ -66,9 +66,9 @@ public class AmbientesService {
         List<String> abas = jdbc.queryForList("SELECT DISTINCT aba_codigo FROM permissoes_diretoria", String.class);
         for (String aba : abas) {
             jdbc.update(
-                    "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria) " +
-                            "VALUES (?, ?, TRUE, FALSE) ON CONFLICT (diretoria, aba_codigo) DO NOTHING",
-                    siglaRaiz, aba);
+                    "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria, cadastros_areas_id) " +
+                            "VALUES (?, ?, TRUE, FALSE, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)) ON CONFLICT (diretoria, aba_codigo) DO NOTHING",
+                    siglaRaiz, aba, siglaRaiz);
         }
 
         jdbc.update("UPDATE users SET dominio = ? WHERE diretoria = ?", codigo, siglaRaiz);

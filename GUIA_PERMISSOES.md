@@ -8,11 +8,13 @@ Não polua a aplicação com tags desnecessárias. Utilize a ferramenta certa pa
 
 ## 1. As 4 Camadas de Permissão no Kaizen
 
-### A. Permissões Gerais (Filtro de Conteúdo Visível)
+### A. Permissões Gerais (Filtro de Conteúdo Visível e Multi-Tenancy)
 As Permissões Gerais definem "o que" o usuário consegue enxergar dentro do sistema. 
-- **Objetivo:** Filtragem de escopo de dados (ex: um usuário da Área X só vê processos e documentos gerados pela sua Área X). 
-- **Como funciona:** O usuário recebe acessos a áreas e unidades através da tabela `cadastros_pessoas`. Essa camada não bloqueia telas inteiras, mas sim as *listagens de dados* que vêm do banco.
-- **Quando usar:** Quando você precisar isolar o conteúdo de uma Unidade/Área para que membros de outras áreas não vejam, implementando os filtros (`WHERE area_id = ...`) nas consultas SQL do backend.
+- **Objetivo:** Filtragem de escopo de dados (ex: um usuário da Área X só vê processos e documentos gerados pela sua Área X) e Isolamento de Domínios (Multi-Tenant).
+- **Como funciona:** O usuário recebe acessos a áreas e unidades através do seu próprio registro na tabela `users` (colunas `cadastros_areas_id` e `cadastros_unidades_id`). A partir do seu `cadastros_areas_id`, o sistema descobre a qual **Domínio** (ex: SGJT, CGJ) a área pertence. 
+  - Se a área for definida como `is_domain_root` = true (Raiz do Domínio), o usuário consegue visualizar os dados de **todas as áreas** pertencentes ao mesmo domínio.
+  - Se `is_domain_root` = false, o usuário visualiza apenas os dados restritos ao seu `cadastros_areas_id` (ou `cadastros_unidades_id`).
+- **Quando usar:** Quando você precisar isolar o conteúdo de uma Unidade/Área/Domínio para que membros de outros locais não vejam, implementando os filtros (`WHERE cadastros_areas_id = ?` ou filtrando pelo `dominio`) nas consultas SQL do backend. A plataforma adota rigorosamente essa hierarquia em IDs numéricos (em oposição ao antigo uso de texto livre).
 
 ### B. Perfis (Roles)
 Perfis (Roles) são os níveis hierárquicos de acesso base estruturais dos usuários.

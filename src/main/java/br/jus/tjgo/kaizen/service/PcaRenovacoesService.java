@@ -1,6 +1,7 @@
 package br.jus.tjgo.kaizen.service;
 
 import br.jus.tjgo.kaizen.exception.ApiException;
+import br.jus.tjgo.kaizen.utils.SqlValue;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -83,7 +84,8 @@ public class PcaRenovacoesService {
                         "valor_anual, data_estimada_contratacao, status, created_by) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 itemPca, data.get("area_demandante"), data.get("gestor_demandante"), data.get("contratada"),
-                data.get("objeto"), data.get("valor_anual"), data.get("data_estimada_contratacao"),
+                data.get("objeto"), SqlValue.numeroOuNull(data.get("valor_anual")),
+                data.get("data_estimada_contratacao"),
                 orDefault((String) data.get("status"), "Não Iniciada"), userId);
         long renovacaoId = ((Number) created.get("id")).longValue();
 
@@ -116,7 +118,10 @@ public class PcaRenovacoesService {
                 "valor_anual", "data_estimada_contratacao", "status")) {
             if (data.containsKey(key)) {
                 updates.add(key + " = ?");
-                values.add(data.get(key));
+                // valor_anual é numeric; o front devolve como String (ver SqlValue).
+                values.add("valor_anual".equals(key)
+                        ? SqlValue.numeroOuNull(data.get(key))
+                        : data.get(key));
             }
         }
         updates.add("updated_by = ?");

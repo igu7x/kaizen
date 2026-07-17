@@ -34,7 +34,7 @@ public class PlanosProgramasService {
     // INSTRUMENTOS DE PLANEJAMENTO
     // ============================================================
 
-    public List<Map<String, Object>> getAllInstrumentos(String diretoria) {
+    public List<Map<String, Object>> getAllInstrumentos(Long cadastrosAreasId) {
         var checkColumns = jdbc.queryForList(
                 "SELECT column_name FROM information_schema.columns " +
                         "WHERE table_name = 'cadastros_instrumentos_planejamento' " +
@@ -42,35 +42,28 @@ public class PlanosProgramasService {
         boolean hasOrdenacao = checkColumns.size() == 2;
 
         StringBuilder sql = new StringBuilder(
-                "SELECT * FROM vw_cadastros_instrumentos_completo WHERE ativo = true");
+                "SELECT v.* FROM vw_cadastros_instrumentos_completo v " +
+                "LEFT JOIN cadastros_areas ca ON ca.sigla = v.diretoria " +
+                "WHERE v.ativo = true");
         List<Object> params = new ArrayList<>();
 
-        if (diretoria != null) {
-            var domain = domainService.getDomainForDiretoria(diretoria);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
             if (domain.isDomainRoot()) {
-                List<Integer> areaIds = jdbc.queryForList(
-                        "SELECT id FROM cadastros_areas WHERE sigla = ANY(?::text[]) AND ativo IS NOT FALSE",
-                        Integer.class, textArray(domain.diretoriasInDomain()));
-                params.add(textArray(domain.diretoriasInDomain()));
-                params.add(intArray(areaIds.isEmpty() ? List.of(0) : areaIds));
-                sql.append(" AND (diretoria = ANY(?::text[]) OR areas_vinculadas_ids && ?::int[])");
+                List<Long> areaIds = domain.areasIdInDomain();
+                params.add(intArray(areaIds.isEmpty() ? List.of(0L) : areaIds));
+                params.add(intArray(areaIds.isEmpty() ? List.of(0L) : areaIds));
+                sql.append(" AND (ca.id = ANY(?::int[]) OR v.areas_vinculadas_ids && ?::int[])");
             } else {
-                List<Integer> areaRows = jdbc.queryForList(
-                        "SELECT id FROM cadastros_areas WHERE sigla = ? AND ativo = TRUE", Integer.class, diretoria);
-                if (!areaRows.isEmpty()) {
-                    params.add(diretoria);
-                    params.add(areaRows.get(0));
-                    sql.append(" AND (diretoria = ? OR ? = ANY(COALESCE(areas_vinculadas_ids, '{}')))");
-                } else {
-                    params.add(diretoria);
-                    sql.append(" AND diretoria = ?");
-                }
+                params.add(cadastrosAreasId);
+                params.add(cadastrosAreasId);
+                sql.append(" AND (ca.id = ? OR ? = ANY(COALESCE(v.areas_vinculadas_ids, '{}')))");
             }
         }
 
         sql.append(hasOrdenacao
-                ? " ORDER BY COALESCE(ordem_linha, 0), COALESCE(ordem_posicao, 0), nome"
-                : " ORDER BY nome");
+                ? " ORDER BY COALESCE(v.ordem_linha, 0), COALESCE(v.ordem_posicao, 0), v.nome"
+                : " ORDER BY v.nome");
 
         var rows = jdbc.queryForList(sql.toString(), params.toArray());
         for (Map<String, Object> row : rows) {
@@ -229,31 +222,22 @@ public class PlanosProgramasService {
         jdbc.update("UPDATE cadastros_instrumentos_planejamento SET ativo = FALSE WHERE id = ?", id);
     }
 
-    public List<Map<String, Object>> getInstrumentosParaAncoragem(String diretoria) {
+    public List<Map<String, Object>> getInstrumentosParaAncoragem(Long cadastrosAreasId) {
         StringBuilder sql = new StringBuilder(
-                "SELECT id, nome, tipo FROM cadastros_instrumentos_planejamento WHERE ativo = TRUE");
+                "SELECT p.id, p.nome, p.tipo FROM cadastros_instrumentos_planejamento p WHERE p.ativo = TRUE");
         List<Object> params = new ArrayList<>();
 
-        if (diretoria != null) {
-            var domain = domainService.getDomainForDiretoria(diretoria);
+        if (cadastrosAreasId != null) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
             if (domain.isDomainRoot()) {
-                List<Integer> areaIds = jdbc.queryForList(
-                        "SELECT id FROM cadastros_areas WHERE sigla = ANY(?::text[]) AND ativo IS NOT FALSE",
-                        Integer.class, textArray(domain.diretoriasInDomain()));
-                params.add(textArray(domain.diretoriasInDomain()));
-                params.add(intArray(areaIds.isEmpty() ? List.of(0) : areaIds));
-                sql.append(" AND (diretoria = ANY(?::text[]) OR areas_vinculadas_ids && ?::int[])");
+                List<Long> areaIds = domain.areasIdInDomain();
+                params.add(intArray(areaIds.isEmpty() ? List.of(0L) : areaIds));
+                params.add(intArray(areaIds.isEmpty() ? List.of(0L) : areaIds));
+                sql.append(" AND (p.cadastros_areas_id = ANY(?::int[]) OR p.areas_vinculadas_ids && ?::int[])");
             } else {
-                List<Integer> areaRows = jdbc.queryForList(
-                        "SELECT id FROM cadastros_areas WHERE sigla = ? AND ativo = TRUE", Integer.class, diretoria);
-                if (!areaRows.isEmpty()) {
-                    params.add(diretoria);
-                    params.add(areaRows.get(0));
-                    sql.append(" AND (diretoria = ? OR ? = ANY(COALESCE(areas_vinculadas_ids, '{}')))");
-                } else {
-                    params.add(diretoria);
-                    sql.append(" AND diretoria = ?");
-                }
+                params.add(cadastrosAreasId);
+                params.add(cadastrosAreasId);
+                sql.append(" AND (p.cadastros_areas_id = ? OR ? = ANY(COALESCE(p.areas_vinculadas_ids, '{}')))");
             }
         }
 

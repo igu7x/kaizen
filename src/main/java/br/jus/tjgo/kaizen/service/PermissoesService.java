@@ -51,7 +51,7 @@ public class PermissoesService {
                             "COALESCE(pd.pode_acessar, false) as pode_acessar, " +
                             "COALESCE(pd.apenas_propria_diretoria, true) as apenas_propria_diretoria " +
                             "FROM " + abasTable() + " a LEFT JOIN permissoes_diretoria pd ON pd.aba_codigo = a.codigo " +
-                            "AND pd.diretoria = (SELECT diretoria FROM users WHERE id = ?) " +
+                            "AND pd.cadastros_areas_id = (SELECT cadastros_areas_id FROM users WHERE id = ?) " +
                             "WHERE a.ativo = TRUE ORDER BY a.ordem",
                     usuarioId);
         }
@@ -66,7 +66,7 @@ public class PermissoesService {
                     "SELECT COALESCE(pd.pode_acessar, false) as pode_acessar, " +
                             "COALESCE(pd.apenas_propria_diretoria, true) as apenas_propria_diretoria, " +
                             "u.diretoria as diretoria_usuario FROM users u " +
-                            "LEFT JOIN permissoes_diretoria pd ON pd.diretoria = u.diretoria AND pd.aba_codigo = ? " +
+                            "LEFT JOIN permissoes_diretoria pd ON pd.cadastros_areas_id = u.cadastros_areas_id AND pd.aba_codigo = ? " +
                             "WHERE u.id = ?",
                     abaCodigo, usuarioId);
         }
@@ -83,7 +83,7 @@ public class PermissoesService {
     public List<Map<String, Object>> getPermissoesDiretoria(String diretoria) {
         return jdbc.queryForList(
                 "SELECT pd.diretoria, pd.aba_codigo, pd.pode_acessar, pd.apenas_propria_diretoria " +
-                        "FROM permissoes_diretoria pd WHERE pd.diretoria = ? " +
+                        "FROM permissoes_diretoria pd WHERE pd.cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1) " +
                         "ORDER BY (SELECT ordem FROM " + abasTable() + " WHERE codigo = pd.aba_codigo)",
                 diretoria);
     }
@@ -95,7 +95,7 @@ public class PermissoesService {
         List<Map<String, Object>> rows;
         try {
             if (dominio != null) {
-                rows = jdbc.queryForList(base + " AND pd.diretoria IN (SELECT sigla FROM cadastros_areas " +
+                rows = jdbc.queryForList(base + " AND pd.cadastros_areas_id IN (SELECT id FROM cadastros_areas " +
                         "WHERE dominio = ? AND COALESCE(ativo, TRUE) = TRUE) ORDER BY pd.diretoria, pa.ordem", dominio);
             } else {
                 rows = jdbc.queryForList(base + " ORDER BY pd.diretoria, pa.ordem");
@@ -164,11 +164,11 @@ public class PermissoesService {
             throw naoPodeAlterarRaiz();
         }
         return jdbc.queryForMap(
-                "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria, updated_at) " +
-                        "VALUES (?, ?, ?, ?, NOW()) ON CONFLICT (diretoria, aba_codigo) " +
+                "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria, updated_at, cadastros_areas_id) " +
+                        "VALUES (?, ?, ?, ?, NOW(), (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)) ON CONFLICT (diretoria, aba_codigo) " +
                         "DO UPDATE SET pode_acessar = EXCLUDED.pode_acessar, " +
                         "apenas_propria_diretoria = EXCLUDED.apenas_propria_diretoria, updated_at = NOW() RETURNING *",
-                diretoria, abaCodigo, podeAcessar, apenasPropriaDiretoria);
+                diretoria, abaCodigo, podeAcessar, apenasPropriaDiretoria, diretoria);
     }
 
     public List<Map<String, Object>> atualizarPermissoesDiretoria(String diretoria,
@@ -204,9 +204,9 @@ public class PermissoesService {
                     resultados.add(updated.get(0));
                 } else {
                     resultados.add(jdbc.queryForMap(
-                            "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria) " +
-                                    "VALUES (?, ?, ?, ?) RETURNING *",
-                            diretoria, aba, pode, apenas));
+                            "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria, cadastros_areas_id) " +
+                                    "VALUES (?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)) RETURNING *",
+                            diretoria, aba, pode, apenas, diretoria));
                 }
             } catch (Exception ignored) {
                 // continua com as outras
@@ -228,6 +228,10 @@ public class PermissoesService {
             mod("comites", "Comitês", "Gestão de comitês e reuniões"),
             mod("pessoas_painel", "Painel", "Pessoas > Painel de colaboradores"),
             mod("pessoas_competencias", "Gestão por Competências", "Pessoas > Gestão por Competências"),
+            mod("pessoas_pac_ti", "PAC — Tecnologia da Informação",
+                    "Pessoas > Plano Anual de Capacitação > Tecnologia da Informação"),
+            mod("pessoas_pac_apoio", "PAC — Apoio Judiciário",
+                    "Pessoas > Plano Anual de Capacitação > Apoio Judiciário"),
             mod("cadastros_projetos", "Projetos", "Cadastros > Gestão de projetos"),
             mod("cadastros_planos", "Planos/Programas", "Cadastros > Planos e programas"),
             mod("cadastros_areas", "Áreas", "Cadastros > Gestão de áreas"),
@@ -269,9 +273,9 @@ public class PermissoesService {
                 for (Map<String, Object> area : allAreas) {
                     boolean isRoot = Boolean.TRUE.equals(area.get("is_domain_root"));
                     jdbc.update(
-                            "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria) " +
-                                    "VALUES (?, ?, ?, ?) ON CONFLICT (diretoria, aba_codigo) DO NOTHING",
-                            area.get("sigla"), codigo, isRoot, !isRoot);
+                            "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria, cadastros_areas_id) " +
+                                    "VALUES (?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)) ON CONFLICT (diretoria, aba_codigo) DO NOTHING",
+                            area.get("sigla"), codigo, isRoot, !isRoot, area.get("sigla"));
                 }
                 adicionados.add(inserted.get(0));
             }

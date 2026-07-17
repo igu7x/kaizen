@@ -26,29 +26,29 @@ public class AvaliacaoGestorService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
 
-    public List<Map<String, Object>> findAllByDomain(List<String> diretorias, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE AND f.diretoria = ANY(?::text[])");
+    public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
+        String where = "f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])";
         List<Object> params = new ArrayList<>();
-        params.add(textArray(diretorias));
+        params.add(bigintArray(areasIds));
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     public List<Map<String, Object>> findAll(String diretoria, String tipoInventario) {
-        StringBuilder where = new StringBuilder("f.is_deleted = FALSE");
+        String where = "f.is_deleted = FALSE";
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             params.add(diretoria);
-            where.append(" AND f.diretoria = ?");
+            where += " AND f.cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)";
         }
         if (tipoInventario != null) {
             params.add(tipoInventario);
-            where.append(" AND COALESCE(f.tipo_inventario, 'equipe') = ?");
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
-        return jdbc.queryForList(listSql(where.toString()), params.toArray());
+        return jdbc.queryForList(listSql(where), params.toArray());
     }
 
     private static String listSql(String whereClauses) {
@@ -90,13 +90,27 @@ public class AvaliacaoGestorService {
     }
 
     public Map<String, Object> findByPessoaAndUnidade(long pessoaId, long unidadeId) {
-        List<Map<String, Object>> formRows = jdbc.queryForList(
+        return montarComRespostas(jdbc.queryForList(
                 "SELECT f.*, cu.nome as unidade_nome " +
                         "FROM avaliacao_gestor_formularios f " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
                         "WHERE f.pessoa_id = ? AND f.unidade_id = ? AND f.is_deleted = FALSE " +
                         "ORDER BY f.created_at DESC LIMIT 1",
-                pessoaId, unidadeId);
+                pessoaId, unidadeId));
+    }
+
+    /** Detecção da avaliação existente pela chave estável da pessoa (gestor sem autoavaliação). */
+    public Map<String, Object> findByPessoaUserIdAndUnidade(long pessoaUserId, long unidadeId) {
+        return montarComRespostas(jdbc.queryForList(
+                "SELECT f.*, cu.nome as unidade_nome " +
+                        "FROM avaliacao_gestor_formularios f " +
+                        "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "WHERE f.pessoa_user_id = ? AND f.unidade_id = ? AND f.is_deleted = FALSE " +
+                        "ORDER BY f.created_at DESC LIMIT 1",
+                pessoaUserId, unidadeId));
+    }
+
+    private Map<String, Object> montarComRespostas(List<Map<String, Object>> formRows) {
         if (formRows.isEmpty()) {
             return null;
         }
@@ -108,19 +122,83 @@ public class AvaliacaoGestorService {
         return out;
     }
 
+    /**
+     * Gestor da unidade (cadastros_unidades.responsavel_user_id) como avaliável — mesmo sem
+     * autoavaliação. Se ele já se autoavaliou nessa unidade/tipo, devolve o autoavaliacao_id
+     * para o front reusar o item já listado. Retorna null quando a unidade não tem responsável.
+     */
+    public Map<String, Object> gestorDaUnidade(long unidadeId, String tipoInventario) {
+        List<Map<String, Object>> uRows = jdbc.queryForList(
+                "SELECT responsavel_user_id, responsavel, cargo_responsavel " +
+                        "FROM cadastros_unidades WHERE id = ? LIMIT 1",
+                unidadeId);
+        if (uRows.isEmpty() || uRows.get(0).get("responsavel_user_id") == null) {
+            return null;
+        }
+        Map<String, Object> u = uRows.get(0);
+        long gestorUserId = ((Number) u.get("responsavel_user_id")).longValue();
+
+        List<Map<String, Object>> auto = jdbc.queryForList(
+                "SELECT id, email_institucional FROM autoavaliacao_formularios " +
+                        "WHERE user_id = ? AND unidade_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                        "  AND is_deleted = FALSE ORDER BY created_at DESC LIMIT 1",
+                gestorUserId, unidadeId, tipoInventario);
+
+        List<Map<String, Object>> userRows = jdbc.queryForList(
+                "SELECT name, email FROM users WHERE id = ? LIMIT 1", gestorUserId);
+        String nomeUser = userRows.isEmpty() ? null : str(userRows.get(0).get("name"));
+        String emailUser = userRows.isEmpty() ? null : str(userRows.get(0).get("email"));
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("pessoa_user_id", gestorUserId);
+        out.put("nome", u.get("responsavel") != null ? str(u.get("responsavel")) : nomeUser);
+        out.put("cargo", u.get("cargo_responsavel"));
+        out.put("autoavaliacao_id", auto.isEmpty() ? null : ((Number) auto.get(0).get("id")).longValue());
+        out.put("email", auto.isEmpty() ? emailUser : str(auto.get(0).get("email_institucional")));
+        return out;
+    }
+
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipoInv = data.get("tipo_inventario") != null ? str(data.get("tipo_inventario")) : "equipe";
         Long pessoaId = asLong(data.get("pessoa_id"));
+        // Chave estável da pessoa avaliada (o gestor da unidade). Permite avaliar antes da
+        // autoavaliação existir — ver migration 178 e o backfill em AutoavaliacaoService.
+        Long pessoaUserId = asLong(data.get("pessoa_user_id"));
         Long unidadeId = asLong(data.get("unidade_id"));
 
-        List<Map<String, Object>> existing = jdbc.queryForList(
-                "SELECT id FROM avaliacao_gestor_formularios " +
-                        "WHERE pessoa_id = ? AND unidade_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
-                        "  AND is_deleted = FALSE " +
-                        "  AND (validado_em IS NULL OR status = 'atualizacao_requisitada') " +
-                        "ORDER BY id DESC LIMIT 1",
-                pessoaId, unidadeId, tipoInv);
+        // Se avaliaram por pessoa_user_id (sem autoavaliação) mas já EXISTE uma autoavaliação da
+        // pessoa nessa unidade/tipo, linka o pessoa_id agora — assim a integração já casa.
+        if (pessoaId == null && pessoaUserId != null && unidadeId != null) {
+            List<Map<String, Object>> auto = jdbc.queryForList(
+                    "SELECT id FROM autoavaliacao_formularios " +
+                            "WHERE user_id = ? AND unidade_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                            "  AND is_deleted = FALSE ORDER BY created_at DESC LIMIT 1",
+                    pessoaUserId, unidadeId, tipoInv);
+            if (!auto.isEmpty()) {
+                pessoaId = ((Number) auto.get(0).get("id")).longValue();
+            }
+        }
+
+        // Dedup: por pessoa_id quando há autoavaliação vinculada; senão, pela chave estável
+        // (pessoa_user_id). Evita duplicar a avaliação do mesmo gestor na mesma unidade.
+        List<Map<String, Object>> existing = pessoaId != null
+                ? jdbc.queryForList(
+                        "SELECT id FROM avaliacao_gestor_formularios " +
+                                "WHERE pessoa_id = ? AND unidade_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                                "  AND is_deleted = FALSE " +
+                                "  AND (validado_em IS NULL OR status = 'atualizacao_requisitada') " +
+                                "ORDER BY id DESC LIMIT 1",
+                        pessoaId, unidadeId, tipoInv)
+                : pessoaUserId != null
+                        ? jdbc.queryForList(
+                                "SELECT id FROM avaliacao_gestor_formularios " +
+                                        "WHERE pessoa_user_id = ? AND unidade_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                                        "  AND is_deleted = FALSE " +
+                                        "  AND (validado_em IS NULL OR status = 'atualizacao_requisitada') " +
+                                        "ORDER BY id DESC LIMIT 1",
+                                pessoaUserId, unidadeId, tipoInv)
+                        : new ArrayList<>();
 
         int tecnicasVersao = 1;
         if (unidadeId != null) {
@@ -152,24 +230,26 @@ public class AvaliacaoGestorService {
             formularioId = ((Number) existing.get(0).get("id")).longValue();
             jdbc.update(
                     "UPDATE avaliacao_gestor_formularios SET " +
+                            "  pessoa_id = COALESCE(?, pessoa_id), pessoa_user_id = COALESCE(?, pessoa_user_id), " +
                             "  pessoa_nome = ?, pessoa_cargo = ?, pessoa_email = ?, " +
-                            "  avaliador_user_id = ?, avaliador_nome = ?, diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  avaliador_user_id = ?, avaliador_nome = ?, cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', tecnicas_versao = ?, competencias_versao = ?, " +
                             "  validado_em = NULL, validado_por_id = NULL, validado_por_nome = NULL, " +
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
+                    pessoaId, pessoaUserId,
                     str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, formularioId);
             jdbc.update("DELETE FROM avaliacao_gestor_respostas WHERE formulario_id = ?", formularioId);
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_gestor_formularios " +
-                            "  (pessoa_id, pessoa_nome, pessoa_cargo, pessoa_email, avaliador_user_id, avaliador_nome, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
+                            "  (pessoa_id, pessoa_user_id, pessoa_nome, pessoa_cargo, pessoa_email, avaliador_user_id, avaliador_nome, cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
                             "RETURNING id",
-                    pessoaId, str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    pessoaId, pessoaUserId, str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
+                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
@@ -330,6 +410,12 @@ public class AvaliacaoGestorService {
     }
 
     private static String textArray(List<String> values) {
+        if (values == null || values.isEmpty()) return "{}";
         return "{" + String.join(",", values) + "}";
+    }
+
+    private static String bigintArray(List<Long> values) {
+        if (values == null || values.isEmpty()) return "{}";
+        return "{" + values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}";
     }
 }

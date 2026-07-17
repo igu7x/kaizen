@@ -45,11 +45,11 @@ public class CompetenciasGestorService {
     private final ObjectMapper objectMapper;
     private final CompetenciasTecnicasAdminService tecnicasAdminService;
 
-    public List<Map<String, Object>> findAllByDomain(List<String> diretorias, String tipo) {
+    public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipo) {
         StringBuilder sql = new StringBuilder(listSelect())
-                .append(" WHERE f.is_deleted = FALSE AND f.diretoria = ANY(?::text[])");
+                .append(" WHERE f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])");
         List<Object> params = new ArrayList<>();
-        params.add(textArray(diretorias));
+        params.add(bigintArray(areasIds));
         if (tipo != null) {
             params.add(tipo);
             sql.append(" AND f.tipo = ?");
@@ -63,7 +63,7 @@ public class CompetenciasGestorService {
         List<Object> params = new ArrayList<>();
         if (diretoria != null) {
             params.add(diretoria);
-            sql.append(" AND f.diretoria = ?");
+            sql.append(" AND f.cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)");
         }
         if (tipo != null) {
             params.add(tipo);
@@ -139,17 +139,38 @@ public class CompetenciasGestorService {
         return out;
     }
 
+    /**
+     * A diretoria do formulário é a MACROÁREA da unidade selecionada (cadastros_unidades.area_id →
+     * cadastros_areas.sigla), NÃO a diretoria de quem preenche/edita. Sem isso, um editor de outra
+     * diretoria (ex.: validador final da SGJT editando um form da DPE) sobrescrevia a diretoria com
+     * a dele. Cai no valor enviado pelo cliente apenas se a unidade não resolver a macroárea.
+     */
+    private String diretoriaDaUnidade(Long unidadeId, Object fallback) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT a.sigla FROM cadastros_unidades u " +
+                            "JOIN cadastros_areas a ON a.id = u.area_id " +
+                            "WHERE u.id = ? LIMIT 1",
+                    unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("sigla") != null) {
+                return str(rows.get(0).get("sigla"));
+            }
+        }
+        return fallback != null ? str(fallback) : null;
+    }
+
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipo = data.get("tipo") != null ? str(data.get("tipo")) : "equipe";
         Long unidadeId = asLong(data.get("unidade_id"));
+        String diretoria = diretoriaDaUnidade(unidadeId, data.get("diretoria"));
 
         Map<String, Object> formulario = jdbc.queryForMap(
                 "INSERT INTO competencias_gestor_formularios " +
                         "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, diretoria, unidade_id, qtd_colaboradores, tipo, status, created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?) RETURNING *",
                 userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId,
+                str(data.get("email_institucional")), diretoria, unidadeId,
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, tipo, userId, userId);
         long formularioId = ((Number) formulario.get("id")).longValue();
 
@@ -261,6 +282,9 @@ public class CompetenciasGestorService {
             // paridade com o try/catch silencioso do Node
         }
 
+        // Diretoria = macroárea da unidade (não a do editor). Ver diretoriaDaUnidade.
+        Long updUnidadeId = asLong(data.get("unidade_id"));
+        String updDiretoria = diretoriaDaUnidade(updUnidadeId, data.get("diretoria"));
         jdbc.update(
                 "UPDATE competencias_gestor_formularios SET " +
                         "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
@@ -268,7 +292,7 @@ public class CompetenciasGestorService {
                         "  updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE",
                 str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), str(data.get("diretoria")), asLong(data.get("unidade_id")),
+                str(data.get("email_institucional")), updDiretoria, updUnidadeId,
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, userId, id);
 
         if (autoValidateAutor) {
@@ -376,6 +400,20 @@ public class CompetenciasGestorService {
                 unidadeId);
     }
 
+    /**
+     * Ids das unidades com a Matriz de Competências (do tipo) validada até a camada final.
+     * Retorna Integer (a coluna unidade_id é int4) para o JSON sair como número — o front
+     * cruza esses ids com os de /unidades-lideranca, que também vêm como número. Long seria
+     * serializado como string pelo JacksonConfig e quebraria a interseção por tipo.
+     */
+    public List<Integer> unidadesComMatrizValidada(String tipo) {
+        return jdbc.queryForList(
+                "SELECT DISTINCT unidade_id FROM competencias_gestor_formularios " +
+                        "WHERE tipo = ? AND is_deleted = FALSE AND validado_final_em IS NOT NULL " +
+                        "  AND unidade_id IS NOT NULL",
+                Integer.class, tipo);
+    }
+
     public List<Map<String, Object>> findCompetenciasGestorByUnidade(long unidadeId) {
         return jdbc.queryForList(
                 "SELECT cgi.id, cgi.nome, cgi.descricao, cgi.peso, cgi.aplicabilidade, cgi.quantidade_pessoas, " +
@@ -471,9 +509,9 @@ public class CompetenciasGestorService {
             return jdbc.queryForList(
                     "SELECT DISTINCT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
                             "FROM cadastros_unidades cu " +
-                            "LEFT JOIN cadastros_pessoas cp ON cp.unidade_id = cu.id AND cp.user_id = ? AND COALESCE(cp.ativo, TRUE) = TRUE " +
+                            "LEFT JOIN users u ON u.cadastros_unidades_id = cu.id AND u.id = ? AND u.is_deleted = FALSE " +
                             "WHERE (cu.ativo IS NOT FALSE) " +
-                            "  AND (cp.id IS NOT NULL OR cu.responsavel_user_id = ?) " +
+                            "  AND (u.id IS NOT NULL OR cu.responsavel_user_id = ?) " +
                             "  AND EXISTS ( " +
                             "    SELECT 1 FROM competencias_gestor_formularios cgf " +
                             "    WHERE cgf.unidade_id = cu.id AND cgf.is_deleted = FALSE " +
@@ -484,9 +522,9 @@ public class CompetenciasGestorService {
             return jdbc.queryForList(
                     "SELECT DISTINCT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
                             "FROM cadastros_unidades cu " +
-                            "JOIN cadastros_pessoas cp ON cp.unidade_id = cu.id " +
-                            "WHERE cp.user_id = ? " +
-                            "  AND COALESCE(cp.ativo, TRUE) = TRUE " +
+                            "JOIN users u ON u.cadastros_unidades_id = cu.id " +
+                            "WHERE u.id = ? " +
+                            "  AND u.is_deleted = FALSE " +
                             "  AND (cu.ativo IS NOT FALSE) " +
                             "  AND EXISTS ( " +
                             "    SELECT 1 FROM competencias_gestor_formularios cgf " +
@@ -926,6 +964,12 @@ public class CompetenciasGestorService {
     }
 
     private static String textArray(List<String> values) {
+        if (values == null || values.isEmpty()) return "{}";
         return "{" + String.join(",", values) + "}";
+    }
+
+    private static String bigintArray(List<Long> values) {
+        if (values == null || values.isEmpty()) return "{}";
+        return "{" + values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}";
     }
 }

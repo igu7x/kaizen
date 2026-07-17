@@ -17,7 +17,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DomainService {
 
-    public record DomainInfo(String dominio, boolean isDomainRoot, List<String> diretoriasInDomain) {
+    public record DomainInfo(String dominio, boolean isDomainRoot, List<String> diretoriasInDomain, List<Long> areasIdInDomain) {
     }
 
     private static final long CACHE_TTL_MS = 5 * 60 * 1000L;
@@ -25,10 +25,12 @@ public class DomainService {
     private final JdbcTemplate jdbc;
 
     private volatile Map<String, DomainInfo> cacheData;
+    private volatile Map<Long, DomainInfo> cacheDataById;
     private volatile long cacheTimestamp;
 
     public void invalidateCache() {
         cacheData = null;
+        cacheDataById = null;
     }
 
     private boolean hasDominioColumn() {
@@ -47,9 +49,13 @@ public class DomainService {
                 "SELECT sigla FROM cadastros_areas WHERE COALESCE(ativo, TRUE) = TRUE AND sigla IS NOT NULL",
                 String.class
         );
+        List<Long> allIds = jdbc.queryForList(
+                "SELECT id FROM cadastros_areas WHERE COALESCE(ativo, TRUE) = TRUE AND sigla IS NOT NULL",
+                Long.class
+        );
         Map<String, DomainInfo> infoMap = new HashMap<>();
         for (String sigla : allSiglas) {
-            infoMap.put(sigla, new DomainInfo("SGJT", false, allSiglas));
+            infoMap.put(sigla, new DomainInfo("SGJT", false, allSiglas, allIds));
         }
         return infoMap;
     }
@@ -62,47 +68,76 @@ public class DomainService {
 
         if (!hasDominioColumn()) {
             cacheData = buildLegacyCache();
+            
+            // Build cacheById for legacy
+            cacheDataById = new HashMap<>();
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT id, sigla FROM cadastros_areas WHERE COALESCE(ativo, TRUE) = TRUE AND sigla IS NOT NULL");
+            for (Map<String, Object> r : rows) {
+                Long id = ((Number) r.get("id")).longValue();
+                String sigla = (String) r.get("sigla");
+                cacheDataById.put(id, cacheData.get(sigla));
+            }
             cacheTimestamp = now;
             return cacheData;
         }
 
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT sigla, dominio, is_domain_root FROM cadastros_areas " +
+                "SELECT id, sigla, dominio, is_domain_root FROM cadastros_areas " +
                         "WHERE COALESCE(ativo, TRUE) = TRUE AND sigla IS NOT NULL"
         );
 
         Map<String, List<String>> domainMap = new HashMap<>();
+        Map<String, List<Long>> domainIdMap = new HashMap<>();
         Map<String, Boolean> rootFlags = new HashMap<>();
         Map<String, String> diretoriaDominio = new HashMap<>();
 
         for (Map<String, Object> row : rows) {
             String sigla = (String) row.get("sigla");
+            Long id = ((Number) row.get("id")).longValue();
             String dominio = row.get("dominio") != null ? (String) row.get("dominio") : "SGJT";
             boolean isRoot = Boolean.TRUE.equals(row.get("is_domain_root"));
 
             diretoriaDominio.put(sigla, dominio);
             rootFlags.put(sigla, isRoot);
             domainMap.computeIfAbsent(dominio, k -> new ArrayList<>()).add(sigla);
+            domainIdMap.computeIfAbsent(dominio, k -> new ArrayList<>()).add(id);
         }
 
         Map<String, DomainInfo> infoMap = new HashMap<>();
-        for (Map.Entry<String, String> e : diretoriaDominio.entrySet()) {
-            String sigla = e.getKey();
-            String dominio = e.getValue();
-            infoMap.put(sigla, new DomainInfo(
+        Map<Long, DomainInfo> infoMapById = new HashMap<>();
+        
+        for (Map<String, Object> row : rows) {
+            String sigla = (String) row.get("sigla");
+            Long id = ((Number) row.get("id")).longValue();
+            String dominio = diretoriaDominio.get(sigla);
+            DomainInfo info = new DomainInfo(
                     dominio,
                     rootFlags.getOrDefault(sigla, false),
-                    domainMap.getOrDefault(dominio, new ArrayList<>())
-            ));
+                    domainMap.getOrDefault(dominio, new ArrayList<>()),
+                    domainIdMap.getOrDefault(dominio, new ArrayList<>())
+            );
+            infoMap.put(sigla, info);
+            infoMapById.put(id, info);
         }
 
         if (infoMap.isEmpty()) {
             cacheData = buildLegacyCache();
+            // Build cacheById for legacy fallback
+            cacheDataById = new HashMap<>();
+            List<Map<String, Object>> legacyRows = jdbc.queryForList(
+                    "SELECT id, sigla FROM cadastros_areas WHERE COALESCE(ativo, TRUE) = TRUE AND sigla IS NOT NULL");
+            for (Map<String, Object> r : legacyRows) {
+                Long id = ((Number) r.get("id")).longValue();
+                String sigla = (String) r.get("sigla");
+                cacheDataById.put(id, cacheData.get(sigla));
+            }
             cacheTimestamp = now;
             return cacheData;
         }
 
         cacheData = infoMap;
+        cacheDataById = infoMapById;
         cacheTimestamp = now;
         return infoMap;
     }
@@ -116,7 +151,23 @@ public class DomainService {
         }
         DomainInfo sgjtInfo = map.get("SGJT");
         List<String> diretorias = sgjtInfo != null ? sgjtInfo.diretoriasInDomain() : List.of(diretoria);
-        return new DomainInfo("SGJT", false, diretorias);
+        List<Long> areasIds = sgjtInfo != null ? sgjtInfo.areasIdInDomain() : new ArrayList<>();
+        return new DomainInfo("SGJT", false, diretorias, areasIds);
+    }
+    
+    public DomainInfo getDomainForArea(Long areaId) {
+        loadCache(); // ensure cache is loaded
+        if (cacheDataById != null) {
+            DomainInfo info = cacheDataById.get(areaId);
+            if (info != null) {
+                return info;
+            }
+        }
+        // Fallback
+        DomainInfo sgjtInfo = cacheData.get("SGJT");
+        List<String> diretorias = sgjtInfo != null ? sgjtInfo.diretoriasInDomain() : new ArrayList<>();
+        List<Long> areasIds = sgjtInfo != null ? sgjtInfo.areasIdInDomain() : List.of(areaId);
+        return new DomainInfo("SGJT", false, diretorias, areasIds);
     }
 
     public boolean isValidDiretoria(String sigla) {

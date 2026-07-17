@@ -103,15 +103,17 @@ public class AreasService {
         domainService.invalidateCache();
 
         Object sigla = area.get("sigla");
-        if (sigla != null) {
+        Object areaId = area.get("id");
+        if (sigla != null && areaId != null) {
             try {
+                boolean isRoot = "SGJT".equals(sigla);
                 List<String> abas = jdbc.queryForList(
                         "SELECT DISTINCT aba_codigo FROM permissoes_diretoria", String.class);
                 for (String aba : abas) {
                     jdbc.update(
-                            "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria) " +
-                                    "VALUES (?, ?, FALSE, TRUE) ON CONFLICT (diretoria, aba_codigo) DO NOTHING",
-                            sigla, aba);
+                            "INSERT INTO permissoes_diretoria (diretoria, aba_codigo, pode_acessar, apenas_propria_diretoria, cadastros_areas_id) " +
+                                    "VALUES (?, ?, ?, ?, ?) ON CONFLICT (diretoria, aba_codigo) DO NOTHING",
+                            sigla, aba, isRoot, !isRoot, areaId);
                 }
             } catch (Exception e) {
                 log.warn("[Areas] Erro ao criar permissões padrão: {}", e.getMessage());
