@@ -159,6 +159,50 @@ function HubSubSection({
   );
 }
 
+// Paleta dos cards. Azul é o padrão; as demais cores ficam só nos 3 cards do
+// Inventário de Competências do Gestor.
+const CARD_CORES = {
+  blue: "bg-blue-100 text-blue-600",
+  teal: "bg-teal-100 text-teal-600",
+  amber: "bg-amber-100 text-amber-600",
+  violet: "bg-violet-100 text-violet-600",
+} as const;
+
+/** Card padronizado do hub: mesmo layout, tamanho, espaçamento e fontes em todos. */
+function HubCard({
+  icon,
+  cor = "blue",
+  title,
+  description,
+  onClick,
+}: {
+  icon: ReactNode;
+  cor?: keyof typeof CARD_CORES;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-full w-full text-left rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group flex items-start gap-4"
+    >
+      <div
+        className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${CARD_CORES[cor]}`}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
+          {title}
+        </h3>
+        <p className="text-sm text-gray-500 mt-1 leading-snug">{description}</p>
+      </div>
+    </button>
+  );
+}
+
 type View =
   | "inventario"
   | "referencial_home"
@@ -1291,130 +1335,43 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Matriz de Competências (sub-página) ─────────────────
+  // ── Matriz de Competências (cards padronizados, azul; clique vai para a tabela de Respostas) ──
   const matrizCards = (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Matriz de Competências da Equipe */}
-          <Card
-            className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-            onClick={() => setCurrentView("equipe")}
-          >
-            <CardContent className="p-6 space-y-3">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-                  <Users className="h-6 w-6 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                    Matriz de Competências da Equipe
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    Mapeamento de competências dos colaboradores
-                  </p>
-                </div>
-              </div>
-              {(isAdminOrManager || isSGJT) && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentView("equipe_respostas");
-                  }}
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-16 border border-transparent hover:border-blue-200"
-                >
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </button>
-              )}
-            </CardContent>
-          </Card>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+      <HubCard
+        icon={<Users className="h-6 w-6" />}
+        title="Competências da Equipe"
+        description="Mapeamento de competências dos colaboradores"
+        onClick={() => setCurrentView("equipe_respostas")}
+      />
 
-          {/* Matriz de Competências do Gestor — gestor/sub-diretor da macroárea, SGJT ou avaliador da liderança podem preencher */}
-          {(isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("gestor")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                    <UserCog className="h-6 w-6 text-violet-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                      Matriz de Competências do Gestor
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Mapeamento de competências dos gestores
-                    </p>
-                  </div>
-                </div>
-                {(isAdminOrManager || isSGJT) && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentView("gestor_respostas");
-                    }}
-                    className="flex items-center gap-2 text-sm text-violet-600 hover:text-violet-800 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-all ml-16 border border-transparent hover:border-violet-200"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </button>
-                )}
-              </CardContent>
-            </Card>
-          )}
+      {(isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) && (
+        <HubCard
+          icon={<UserCog className="h-6 w-6" />}
+          title="Competências do Gestor"
+          description="Mapeamento de competências dos gestores"
+          onClick={() => setCurrentView("gestor_respostas")}
+        />
+      )}
 
-          {/* Gerenciar Competências Técnicas (versionamento/edição) — só superadmin, com referenciais preenchidos */}
-          {isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-orange-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("competencias_tecnicas_admin")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                    <Wrench className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-orange-600 transition-colors">
-                      Gerenciar Competências Técnicas
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Editar competências técnicas das suas unidades
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+      {(isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) && (
+        <HubCard
+          icon={<BookOpen className="h-6 w-6" />}
+          title="Competências Padrão"
+          description="Catálogo de competências padrão"
+          onClick={() => setCurrentView("competencias_padrao_view")}
+        />
+      )}
 
-          {/* Visualizar Competências Padrão — disponível para gestores e diretores. Read-only.
-              Diretor/subdiretor da macroárea pode alternar entre padrão da equipe (comportamentais)
-              e padrão do gestor (comportamentais + estratégicas + gerenciais). */}
-          {(isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("competencias_padrao_view")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                      Visualizar Competências Padrão
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {ehGestorOuSubdiretorMacro
-                        ? "Catálogo dos formulários de equipe e gestor"
-                        : "Catálogo do formulário da equipe"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+      {/* Gerenciar Competências Técnicas — só superadmin, com referenciais preenchidos */}
+      {isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
+        <HubCard
+          icon={<Wrench className="h-6 w-6" />}
+          title="Gerenciar Competências Técnicas"
+          description="Editar competências técnicas das suas unidades"
+          onClick={() => setCurrentView("competencias_tecnicas_admin")}
+        />
+      )}
     </div>
   );
 
@@ -2181,8 +2138,8 @@ export function GestaoCompetencias() {
         <HubSection
           open={openSections.has("inventario")}
           onToggle={() => toggleSection("inventario")}
-          icon={<ClipboardCheck className="h-6 w-6 text-teal-600" />}
-          iconBg="bg-teal-100"
+          icon={<ClipboardCheck className="h-6 w-6 text-blue-600" />}
+          iconBg="bg-blue-100"
           title="Inventário de Competências"
           description="Autoavaliação, avaliação do gestor e integrada"
         >
@@ -2191,8 +2148,8 @@ export function GestaoCompetencias() {
               <HubSubSection
                 open={openSections.has("inv_equipe")}
                 onToggle={() => toggleSection("inv_equipe")}
-                icon={<Users className="h-5 w-5 text-teal-600" />}
-                iconBg="bg-teal-100"
+                icon={<Users className="h-5 w-5 text-blue-600" />}
+                iconBg="bg-blue-100"
                 title="Inventário de Competências da Equipe"
                 description="Competências técnicas e comportamentais"
               >
@@ -2203,8 +2160,8 @@ export function GestaoCompetencias() {
               <HubSubSection
                 open={openSections.has("inv_gestor")}
                 onToggle={() => toggleSection("inv_gestor")}
-                icon={<UserCog className="h-5 w-5 text-violet-600" />}
-                iconBg="bg-violet-100"
+                icon={<UserCog className="h-5 w-5 text-blue-600" />}
+                iconBg="bg-blue-100"
                 title="Inventário de Competências do Gestor"
                 description="Técnicas, comportamentais, estratégicas e gerenciais"
               >
