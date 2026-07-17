@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,10 @@ import {
   ListChecks,
   ClipboardList,
   ChevronRight,
+  ChevronDown,
+  Download,
+  Paperclip,
+  Info,
   Search,
   Briefcase,
   History,
@@ -39,6 +43,7 @@ import {
   normalizeResponsavel,
   isComplianceOfficerEmail,
   proximaRevisao,
+  TIPO_DOCUMENTO_BADGE,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import {
@@ -51,6 +56,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
+import { PopsCriadosTable } from "@/components/processos/PopsCriadosTable";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
 import { areasApi, Area, Unidade } from "@/services/areasApi";
 import { toast } from "sonner";
@@ -958,7 +964,7 @@ export default function EscritorioProcessos() {
     artefatoTipo === "IT"
       ? "Instruções de Trabalho"
       : artefatoTipo === "POP"
-        ? "POPs"
+        ? "POPs Anexados em Processos"
         : artefatoTipo === "MPS"
           ? "MPS"
           : "Processos";
@@ -1002,6 +1008,10 @@ export default function EscritorioProcessos() {
 
   // Chave da linha cujo download está em andamento (spinner no botão).
   const [baixandoDocKey, setBaixandoDocKey] = useState<string | null>(null);
+  // Linha (processo vigente) expandida na tabela — mostra descrição + documentos.
+  const [linhaExpandida, setLinhaExpandida] = useState<number | null>(null);
+  // Processo cujo "Baixar todos" está em andamento.
+  const [baixandoTodosId, setBaixandoTodosId] = useState<number | null>(null);
 
   // Baixa o documento de uma linha da tabela de artefatos. Como a listagem vem
   // sem o conteúdo (`data` é removido no payload enxuto), busca o processo completo
@@ -1039,6 +1049,37 @@ export default function EscritorioProcessos() {
       toast.error("Não foi possível baixar o documento.");
     } finally {
       setBaixandoDocKey(null);
+    }
+  };
+
+  // Baixa TODOS os documentos anexados de um processo. Faz um getById (a listagem não
+  // traz os bytes) e dispara o download de cada documento com conteúdo.
+  const baixarTodosDocumentos = async (p: ProcessoNegocio) => {
+    setBaixandoTodosId(p.id);
+    try {
+      const full = await processosNegocioApi.getById(p.id);
+      const docs = (full.documentos_anexados || []).filter((d) => d.data);
+      if (docs.length === 0) {
+        toast.error("Nenhum documento disponível para download.");
+        return;
+      }
+      for (const doc of docs) {
+        const blob = await (await fetch(doc.data)).blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = doc.nome || `documento-${doc.tipo}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+        // Pequeno intervalo para o navegador não bloquear downloads múltiplos.
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    } catch {
+      toast.error("Não foi possível baixar os documentos.");
+    } finally {
+      setBaixandoTodosId(null);
     }
   };
 
@@ -1609,18 +1650,19 @@ export default function EscritorioProcessos() {
                       const areaLabel = p.diretoria || "—";
                       const k1 = isK1(p);
                       const docPri = temDocumentoPrimario(p);
+                      const docs = p.documentos_anexados || [];
+                      const expandido =
+                        aba === "vigentes" && linhaExpandida === p.id;
                       return (
+                        <Fragment key={p.id}>
                         <tr
-                          key={p.id}
-                          onClick={
+                          onClick={() =>
                             aba === "vigentes"
-                              ? undefined
-                              : () => handleAbrirDetalhe(p)
+                              ? setLinhaExpandida(expandido ? null : p.id)
+                              : handleAbrirDetalhe(p)
                           }
-                          className={`transition-colors ${
-                            aba === "vigentes"
-                              ? ""
-                              : "hover:bg-blue-50/50 cursor-pointer"
+                          className={`transition-colors cursor-pointer ${
+                            expandido ? "bg-slate-50" : "hover:bg-blue-50/50"
                           }`}
                         >
                           <td className="relative p-0">
@@ -1674,11 +1716,135 @@ export default function EscritorioProcessos() {
                             {nextRev ? formatDateShort(nextRev) : "—"}
                           </td>
                           <td className="px-2 py-3 text-slate-400">
-                            {aba !== "vigentes" && (
+                            {aba === "vigentes" ? (
+                              <ChevronDown
+                                className={`h-4 w-4 transition-transform ${expandido ? "rotate-180" : ""}`}
+                              />
+                            ) : (
                               <ChevronRight className="h-4 w-4" />
                             )}
                           </td>
                         </tr>
+                        {expandido && (
+                          <tr className="bg-slate-50/60">
+                            <td colSpan={9} className="px-6 py-5">
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                {/* Descrição do Processo */}
+                                <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                  <div className="flex items-center gap-2 mb-3 text-slate-700">
+                                    <Info className="h-4 w-4" />
+                                    <span className="text-sm font-semibold">
+                                      Descrição do Processo
+                                    </span>
+                                  </div>
+                                  {p.descricao?.trim() ? (
+                                    <p className="text-sm text-slate-700 whitespace-pre-line [overflow-wrap:anywhere] text-justify">
+                                      {p.descricao}
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-slate-400">
+                                      Sem descrição cadastrada.
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Documentos Anexados */}
+                                <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                  <div className="flex items-center justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-2 text-slate-700 min-w-0">
+                                      <Paperclip className="h-4 w-4 flex-shrink-0" />
+                                      <span className="text-sm font-semibold truncate">
+                                        Documentos Anexados ao Processo
+                                      </span>
+                                    </div>
+                                    {docs.length > 0 && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          baixarTodosDocumentos(p);
+                                        }}
+                                        disabled={baixandoTodosId === p.id}
+                                        className="h-8 flex-shrink-0"
+                                      >
+                                        {baixandoTodosId === p.id ? (
+                                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                        ) : (
+                                          <Download className="h-3.5 w-3.5 mr-1" />
+                                        )}
+                                        Baixar todos
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {docs.length === 0 ? (
+                                    <p className="text-sm text-slate-400">
+                                      Nenhum documento anexado.
+                                    </p>
+                                  ) : (
+                                    <ul className="space-y-2">
+                                      {docs.map((doc, idx) => {
+                                        const rowKey = `${p.id}-${idx}`;
+                                        const baixando =
+                                          baixandoDocKey === rowKey;
+                                        const badgeLabel =
+                                          doc.tipo === "PRI"
+                                            ? "Doc. Primário"
+                                            : doc.tipo === "FLUXOGRAMA"
+                                              ? "Fluxograma"
+                                              : doc.tipo === "AUX"
+                                                ? "Aux"
+                                                : doc.tipo;
+                                        return (
+                                          <li
+                                            key={rowKey}
+                                            className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2"
+                                          >
+                                            <span
+                                              className={`inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border flex-shrink-0 ${TIPO_DOCUMENTO_BADGE[doc.tipo] || "bg-slate-100 text-slate-600 border-slate-200"}`}
+                                            >
+                                              {badgeLabel}
+                                            </span>
+                                            <span
+                                              className="flex-1 min-w-0 truncate text-sm text-slate-700"
+                                              title={
+                                                doc.nome_exibicao || doc.nome
+                                              }
+                                            >
+                                              {doc.nome_exibicao ||
+                                                doc.nome ||
+                                                "—"}
+                                            </span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                baixarDocumentoArtefato(
+                                                  rowKey,
+                                                  p.id,
+                                                  doc,
+                                                );
+                                              }}
+                                              disabled={baixando}
+                                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex-shrink-0"
+                                              title="Baixar documento"
+                                            >
+                                              {baixando ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <Download className="h-4 w-4" />
+                                              )}
+                                            </button>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>
@@ -1694,6 +1860,13 @@ export default function EscritorioProcessos() {
             </>
           )}
         </div>
+
+        {/* Segunda tabela: POPs criados dentro do Kaizen (só no filtro POP) */}
+        {filtroArtefato === "pop" && (
+          <div className="mt-6">
+            <PopsCriadosTable areaPadrao={user?.diretoria || undefined} />
+          </div>
+        )}
       </div>
 
       {/* Diálogos */}

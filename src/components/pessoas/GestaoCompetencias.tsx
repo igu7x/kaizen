@@ -14,6 +14,8 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronRight,
+  Plus,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi } from "@/services/areasApi";
@@ -48,7 +50,6 @@ import { AvaliacaoIntegradaResumo } from "./AvaliacaoIntegradaResumo";
 import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
-import { CompetenciasPadraoView } from "./CompetenciasPadraoView";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
 import { Settings, Wrench } from "lucide-react";
 
@@ -156,6 +157,50 @@ function HubSubSection({
         <div className="p-4 pt-0">{children}</div>
       </Collapsible>
     </div>
+  );
+}
+
+// Paleta dos cards. Azul é o padrão; as demais cores ficam só nos 3 cards do
+// Inventário de Competências do Gestor.
+const CARD_CORES = {
+  blue: "bg-blue-100 text-blue-600",
+  teal: "bg-teal-100 text-teal-600",
+  amber: "bg-amber-100 text-amber-600",
+  violet: "bg-violet-100 text-violet-600",
+} as const;
+
+/** Card padronizado do hub: mesmo layout, tamanho, espaçamento e fontes em todos. */
+function HubCard({
+  icon,
+  cor = "blue",
+  title,
+  description,
+  onClick,
+}: {
+  icon: ReactNode;
+  cor?: keyof typeof CARD_CORES;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-full w-full text-left rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group flex items-start gap-4"
+    >
+      <div
+        className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${CARD_CORES[cor]}`}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
+          {title}
+        </h3>
+        <p className="text-sm text-gray-500 mt-1 leading-snug">{description}</p>
+      </div>
+    </button>
   );
 }
 
@@ -541,7 +586,7 @@ export function GestaoCompetencias() {
   if (currentView === "equipe_respostas") {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -551,8 +596,23 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Matriz de Competências da Equipe
+            Matriz de Competências da Equipe
           </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentView("equipe")}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+            </Button>
+            <Button
+              onClick={() => setCurrentView("equipe")}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+            </Button>
+          </div>
         </div>
         <CompetenciasGestorRespostas
           tipo="equipe"
@@ -673,7 +733,7 @@ export function GestaoCompetencias() {
   if (currentView === "gestor_respostas") {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -683,8 +743,23 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Matriz de Competências do Gestor
+            Matriz de Competências do Gestor
           </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentView("gestor")}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+            </Button>
+            <Button
+              onClick={() => setCurrentView("gestor")}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+            </Button>
+          </div>
         </div>
         <CompetenciasGestorRespostas
           tipo="gestor"
@@ -1291,138 +1366,52 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Matriz de Competências (sub-página) ─────────────────
+  // ── Matriz de Competências (cards padronizados, azul; clique vai para a tabela de Respostas) ──
   const matrizCards = (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Matriz de Competências da Equipe */}
-          <Card
-            className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-            onClick={() => setCurrentView("equipe")}
-          >
-            <CardContent className="p-6 space-y-3">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-                  <Users className="h-6 w-6 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                    Matriz de Competências da Equipe
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    Mapeamento de competências dos colaboradores
-                  </p>
-                </div>
-              </div>
-              {(isAdminOrManager || isSGJT) && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentView("equipe_respostas");
-                  }}
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-16 border border-transparent hover:border-blue-200"
-                >
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </button>
-              )}
-            </CardContent>
-          </Card>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+      <HubCard
+        icon={<Users className="h-6 w-6" />}
+        title="Competências da Equipe"
+        description="Mapeamento de competências dos colaboradores"
+        onClick={() => setCurrentView("equipe_respostas")}
+      />
 
-          {/* Matriz de Competências do Gestor — gestor/sub-diretor da macroárea, SGJT ou avaliador da liderança podem preencher */}
-          {(isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("gestor")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                    <UserCog className="h-6 w-6 text-violet-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                      Matriz de Competências do Gestor
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Mapeamento de competências dos gestores
-                    </p>
-                  </div>
-                </div>
-                {(isAdminOrManager || isSGJT) && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentView("gestor_respostas");
-                    }}
-                    className="flex items-center gap-2 text-sm text-violet-600 hover:text-violet-800 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-all ml-16 border border-transparent hover:border-violet-200"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </button>
-                )}
-              </CardContent>
-            </Card>
-          )}
+      {(isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) && (
+        <HubCard
+          icon={<UserCog className="h-6 w-6" />}
+          title="Competências do Gestor"
+          description="Mapeamento de competências dos gestores"
+          onClick={() => setCurrentView("gestor_respostas")}
+        />
+      )}
 
-          {/* Gerenciar Competências Técnicas (versionamento/edição) — só superadmin, com referenciais preenchidos */}
-          {isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-orange-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("competencias_tecnicas_admin")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                    <Wrench className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-orange-600 transition-colors">
-                      Gerenciar Competências Técnicas
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Editar competências técnicas das suas unidades
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+      {(isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) && (
+        <HubCard
+          icon={<BookOpen className="h-6 w-6" />}
+          title="Competências Padrão"
+          description="Catálogo de competências padrão"
+          onClick={() => setCurrentView("competencias_padrao_view")}
+        />
+      )}
 
-          {/* Visualizar Competências Padrão — disponível para gestores e diretores. Read-only.
-              Diretor/subdiretor da macroárea pode alternar entre padrão da equipe (comportamentais)
-              e padrão do gestor (comportamentais + estratégicas + gerenciais). */}
-          {(isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("competencias_padrao_view")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">
-                      Visualizar Competências Padrão
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {ehGestorOuSubdiretorMacro
-                        ? "Catálogo dos formulários de equipe e gestor"
-                        : "Catálogo do formulário da equipe"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+      {/* Gerenciar Competências Técnicas — só superadmin, com referenciais preenchidos */}
+      {isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
+        <HubCard
+          icon={<Wrench className="h-6 w-6" />}
+          title="Gerenciar Competências Técnicas"
+          description="Editar competências técnicas das suas unidades"
+          onClick={() => setCurrentView("competencias_tecnicas_admin")}
+        />
+      )}
     </div>
   );
 
   // ── Visualizar Competências Padrão (read-only) ─────────────────
   if (currentView === "competencias_padrao_view") {
+    // Tela unificada: todos visualizam + Gerar PDF; superadmin também edita/publica.
     return (
-      <CompetenciasPadraoView
-        podeAlternarTipo={ehGestorOuSubdiretorMacro}
+      <CompetenciasPadraoAdmin
+        isSuperadmin={isSGJT}
         onVoltar={() => setCurrentView("referencial_home")}
       />
     );
@@ -1437,16 +1426,16 @@ export function GestaoCompetencias() {
             !isGestorDeUnidade &&
             !isAvaliadorLideranca && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("autoavaliacao")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                      <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Autoavaliação do Colaborador
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1460,16 +1449,16 @@ export function GestaoCompetencias() {
             )}
           {isSGJTAdmin && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("autoavaliacao_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                    <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <ClipboardCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Autoavaliação do Colaborador
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1478,7 +1467,7 @@ export function GestaoCompetencias() {
                     </p>
                   </div>
                 </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
                 </span>
@@ -1560,16 +1549,16 @@ export function GestaoCompetencias() {
           {/* Avaliação do Gestor — só aparece quando há autoavaliações validadas ou já preenchidas */}
           {isGestorDeUnidade && temAvgestorEquipe && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("avgestor")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1583,7 +1572,7 @@ export function GestaoCompetencias() {
                     e.stopPropagation();
                     setCurrentView("avgestor_respostas");
                   }}
-                  className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
                 >
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
@@ -1593,16 +1582,16 @@ export function GestaoCompetencias() {
           )}
           {isSGJTAdmin && !isGestorDeUnidade && temAvgestorEquipe && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("avgestor_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1624,16 +1613,16 @@ export function GestaoCompetencias() {
             temElegiveisEquipe &&
             !temNovosElegiveisEquipe && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("integrada_respostas")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <Scale className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1641,7 +1630,7 @@ export function GestaoCompetencias() {
                       </p>
                     </div>
                   </div>
-                  <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                  <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                     <Eye className="h-4 w-4" />
                     Visualizar respostas
                   </span>
@@ -1654,16 +1643,16 @@ export function GestaoCompetencias() {
             temElegiveisEquipe &&
             temNovosElegiveisEquipe && (
               <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
                 onClick={() => setCurrentView("integrada")}
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <Scale className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1676,7 +1665,7 @@ export function GestaoCompetencias() {
                       e.stopPropagation();
                       setCurrentView("integrada_respostas");
                     }}
-                    className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
                   >
                     <Eye className="h-4 w-4" />
                     Visualizar respostas
@@ -1686,16 +1675,16 @@ export function GestaoCompetencias() {
             )}
           {isSGJTAdmin && !isGestorDeUnidade && (
             <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
+              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => setCurrentView("integrada_respostas")}
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                    <Scale className="h-5 w-5 text-violet-600" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <Scale className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
                       Avaliação Integrada
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1703,7 +1692,7 @@ export function GestaoCompetencias() {
                     </p>
                   </div>
                 </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
+                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
                   <Eye className="h-4 w-4" />
                   Visualizar respostas
                 </span>
@@ -1729,7 +1718,7 @@ export function GestaoCompetencias() {
                       <ClipboardCheck className="h-5 w-5 text-teal-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Autoavaliação do Gestor
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1751,7 +1740,7 @@ export function GestaoCompetencias() {
                     <ClipboardCheck className="h-5 w-5 text-teal-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Autoavaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1852,7 +1841,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1885,7 +1874,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1918,7 +1907,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1956,7 +1945,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1989,7 +1978,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2028,7 +2017,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2067,7 +2056,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2085,25 +2074,13 @@ export function GestaoCompetencias() {
     </div>
   );
 
-  // ── Competências Padrão (admin) ─────────────────────
+  // ── Competências Padrão (tela unificada) ─────────────────────
   if (currentView === "competencias_padrao_admin") {
     return (
-      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario")}
-            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Editar Competências Padrão
-          </h2>
-        </div>
-        <CompetenciasPadraoAdmin />
-      </div>
+      <CompetenciasPadraoAdmin
+        isSuperadmin={isSGJT}
+        onVoltar={() => setCurrentView("inventario")}
+      />
     );
   }
 
@@ -2181,8 +2158,8 @@ export function GestaoCompetencias() {
         <HubSection
           open={openSections.has("inventario")}
           onToggle={() => toggleSection("inventario")}
-          icon={<ClipboardCheck className="h-6 w-6 text-teal-600" />}
-          iconBg="bg-teal-100"
+          icon={<ClipboardCheck className="h-6 w-6 text-blue-600" />}
+          iconBg="bg-blue-100"
           title="Inventário de Competências"
           description="Autoavaliação, avaliação do gestor e integrada"
         >
@@ -2191,8 +2168,8 @@ export function GestaoCompetencias() {
               <HubSubSection
                 open={openSections.has("inv_equipe")}
                 onToggle={() => toggleSection("inv_equipe")}
-                icon={<Users className="h-5 w-5 text-teal-600" />}
-                iconBg="bg-teal-100"
+                icon={<Users className="h-5 w-5 text-blue-600" />}
+                iconBg="bg-blue-100"
                 title="Inventário de Competências da Equipe"
                 description="Competências técnicas e comportamentais"
               >
@@ -2203,8 +2180,8 @@ export function GestaoCompetencias() {
               <HubSubSection
                 open={openSections.has("inv_gestor")}
                 onToggle={() => toggleSection("inv_gestor")}
-                icon={<UserCog className="h-5 w-5 text-violet-600" />}
-                iconBg="bg-violet-100"
+                icon={<UserCog className="h-5 w-5 text-blue-600" />}
+                iconBg="bg-blue-100"
                 title="Inventário de Competências do Gestor"
                 description="Técnicas, comportamentais, estratégicas e gerenciais"
               >
@@ -2218,28 +2195,6 @@ export function GestaoCompetencias() {
             )}
           </div>
         </HubSection>
-
-        {/* Editar Competências Padrão — superadmin + dev/staging only */}
-        {isSGJT && isCompetenciasPadraoEnabled() && (
-          <button
-            type="button"
-            onClick={() => setCurrentView("competencias_padrao_admin")}
-            className="w-full rounded-2xl border border-gray-200 bg-white shadow-sm hover:border-purple-300 hover:shadow-md transition-all flex items-center gap-4 p-5 text-left group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-              <Settings className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 text-lg group-hover:text-purple-600 transition-colors">
-                Editar Competências Padrão
-              </h3>
-              <p className="text-sm text-gray-500">
-                Gerenciar competências comportamentais, estratégicas e gerenciais
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
-          </button>
-        )}
       </div>
     </div>
   );

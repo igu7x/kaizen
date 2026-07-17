@@ -3,15 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
+  ArrowLeft,
   Loader2,
   Plus,
   Pencil,
@@ -20,14 +14,14 @@ import {
   Send,
   AlertTriangle,
   History,
-  ChevronDown,
-  ChevronUp,
+  FileDown,
 } from "lucide-react";
 import {
   competenciasPadraoApi,
   CompetenciaPadrao,
   VersaoSnapshot,
 } from "@/services/competenciasPadraoApi";
+import { generateCompetenciasPadraoPDF } from "@/utils/generateCompetenciasPadraoPDF";
 
 const TIPO_LABELS: Record<string, string> = {
   comportamental: "Comportamentais",
@@ -54,7 +48,20 @@ interface EditingState {
   descricao: string;
 }
 
-export function CompetenciasPadraoAdmin() {
+interface CompetenciasPadraoAdminProps {
+  /** Superadmin: pode adicionar/editar/excluir, ver histórico e publicar. Demais: só visualizam + PDF. */
+  isSuperadmin?: boolean;
+  onVoltar?: () => void;
+}
+
+/**
+ * Tela unificada de Competências Padrão. Todos visualizam e geram PDF; superadmin também
+ * adiciona/edita/exclui, vê o histórico e publica alterações.
+ */
+export function CompetenciasPadraoAdmin({
+  isSuperadmin = false,
+  onVoltar,
+}: CompetenciasPadraoAdminProps) {
   const [competencias, setCompetencias] = useState<CompetenciaPadrao[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPending, setHasPending] = useState(false);
@@ -65,16 +72,31 @@ export function CompetenciasPadraoAdmin() {
   const [versoes, setVersoes] = useState<VersaoSnapshot[]>([]);
   const [loadingVersoes, setLoadingVersoes] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("comportamental");
+  const [versaoAtual, setVersaoAtual] = useState<number | null>(null);
 
   const loadData = async () => {
     try {
-      const [all, pending] = await Promise.all([
-        competenciasPadraoApi.getAllAdmin(),
-        competenciasPadraoApi.hasPendingChanges(),
-      ]);
-      setCompetencias(all);
-      setHasPending(pending.hasPendingChanges);
-    } catch (err: any) {
+      if (isSuperadmin) {
+        const [all, pending] = await Promise.all([
+          competenciasPadraoApi.getAllAdmin(),
+          competenciasPadraoApi.hasPendingChanges(),
+        ]);
+        setCompetencias(all);
+        setHasPending(pending.hasPendingChanges);
+      } else {
+        // Visualização: catálogo publicado (agrupado) achatado no mesmo formato.
+        const grouped = await competenciasPadraoApi.getAll();
+        const flat: CompetenciaPadrao[] = [];
+        (["comportamental", "estrategica", "gerencial"] as const).forEach(
+          (tipo) => {
+            (grouped[tipo] || []).forEach((c, idx) => {
+              flat.push({ ...c, tipo, ativo: true, ordem: idx });
+            });
+          },
+        );
+        setCompetencias(flat);
+      }
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoading(false);
@@ -83,7 +105,14 @@ export function CompetenciasPadraoAdmin() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    competenciasPadraoApi
+      .getVersaoAtual()
+      .then((v) => setVersaoAtual(v.versao))
+      .catch(() => {
+        /* opcional — usado no rodapé do PDF */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperadmin]);
 
   const filtered = competencias.filter((c) => c.tipo === activeTab);
   const ativas = filtered.filter((c) => c.ativo);
@@ -110,7 +139,7 @@ export function CompetenciasPadraoAdmin() {
       }
       setEditing(null);
       await loadData();
-    } catch (err: any) {
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setSaving(false);
@@ -120,9 +149,8 @@ export function CompetenciasPadraoAdmin() {
   const handleDelete = async (id: number) => {
     try {
       await competenciasPadraoApi.remove(id);
-
       await loadData();
-    } catch (err: any) {
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
@@ -130,9 +158,8 @@ export function CompetenciasPadraoAdmin() {
   const handleReactivate = async (id: number) => {
     try {
       await competenciasPadraoApi.reactivate(id);
-
       await loadData();
-    } catch (err: any) {
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
   };
@@ -144,9 +171,10 @@ export function CompetenciasPadraoAdmin() {
       if (result.tiposAfetados.length === 0) {
         toast.info("Nenhuma mudança detectada para publicar.");
       } else {
+        toast.success("Alterações publicadas com sucesso.");
       }
       await loadData();
-    } catch (err: any) {
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setPublishing(false);
@@ -163,11 +191,25 @@ export function CompetenciasPadraoAdmin() {
       const v = await competenciasPadraoApi.getVersoes();
       setVersoes(v);
       setShowHistory(true);
-    } catch (err: any) {
+    } catch {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     } finally {
       setLoadingVersoes(false);
     }
+  };
+
+  const handleGerarPdf = () => {
+    const porTipo = (tipo: string) =>
+      competencias
+        .filter((c) => c.tipo === tipo && c.ativo)
+        .sort((a, b) => a.ordem - b.ordem);
+    generateCompetenciasPadraoPDF({
+      tipoFormulario: "gestor",
+      comportamentais: porTipo("comportamental"),
+      estrategicas: porTipo("estrategica"),
+      gerenciais: porTipo("gerencial"),
+      versaoAtual,
+    });
   };
 
   if (loading) {
@@ -179,54 +221,79 @@ export function CompetenciasPadraoAdmin() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header com ações */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm text-gray-500">
-            Gerencie as competências padrão (comportamentais, estratégicas,
-            gerenciais). Alterações só afetam formulários após a publicação.
-          </p>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          {onVoltar && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onVoltar}
+              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
+            </Button>
+          )}
+          <h2 className="text-2xl font-bold text-gray-900">
+            Competências Padrão
+          </h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
-            variant="outline"
-            size="sm"
-            onClick={loadHistory}
-            disabled={loadingVersoes}
+            onClick={handleGerarPdf}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {loadingVersoes ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-            ) : (
-              <History className="h-4 w-4 mr-1" />
-            )}
-            Histórico
+            <FileDown className="h-4 w-4 mr-2" /> Gerar PDF
           </Button>
-          <Button
-            onClick={handlePublish}
-            disabled={publishing || !hasPending}
-            className={
-              hasPending
-                ? "bg-amber-600 hover:bg-amber-700 text-white"
-                : "bg-gray-300 text-gray-500"
-            }
-            size="sm"
-          >
-            {publishing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-1" /> Publicando...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4 mr-1" /> Publicar Alterações
-              </>
-            )}
-          </Button>
+          {isSuperadmin && (
+            <>
+              <Button
+                variant="outline"
+                onClick={loadHistory}
+                disabled={loadingVersoes}
+              >
+                {loadingVersoes ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <History className="h-4 w-4 mr-1" />
+                )}
+                Histórico
+              </Button>
+              <Button
+                onClick={handlePublish}
+                disabled={publishing || !hasPending}
+                className={
+                  hasPending
+                    ? "bg-amber-600 hover:bg-amber-700 text-white"
+                    : "bg-gray-300 text-gray-500"
+                }
+              >
+                {publishing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />{" "}
+                    Publicando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-1" /> Publicar Alterações
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Banner de mudanças pendentes */}
-      {hasPending && (
+      {!isSuperadmin && (
+        <p className="text-sm text-gray-600 max-w-3xl">
+          Catálogo das competências padrão que compõem o formulário do
+          referencial. Esta visualização é somente leitura.
+        </p>
+      )}
+
+      {/* Banner de mudanças pendentes (superadmin) */}
+      {isSuperadmin && hasPending && (
         <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
           <div>
@@ -243,8 +310,8 @@ export function CompetenciasPadraoAdmin() {
         </div>
       )}
 
-      {/* Histórico de versões */}
-      {showHistory && (
+      {/* Histórico de versões (superadmin) */}
+      {isSuperadmin && showHistory && (
         <Card className="border border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Histórico de Versões</CardTitle>
@@ -257,7 +324,6 @@ export function CompetenciasPadraoAdmin() {
             ) : (
               <div className="space-y-3">
                 {(() => {
-                  // Agrupar por versão
                   const grouped = new Map<number, VersaoSnapshot[]>();
                   versoes.forEach((v) => {
                     if (!grouped.has(v.versao)) grouped.set(v.versao, []);
@@ -364,7 +430,7 @@ export function CompetenciasPadraoAdmin() {
               className={`border ${TIPO_COLORS[comp.tipo]} shadow-sm`}
             >
               <CardContent className="p-4">
-                {editing?.id === comp.id ? (
+                {isSuperadmin && editing?.id === comp.id ? (
                   <div className="space-y-3">
                     <div>
                       <Label>Nome</Label>
@@ -418,30 +484,32 @@ export function CompetenciasPadraoAdmin() {
                         {comp.descricao}
                       </p>
                     </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setEditing({
-                            id: comp.id,
-                            tipo: comp.tipo,
-                            nome: comp.nome,
-                            descricao: comp.descricao,
-                          })
-                        }
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500 hover:text-red-700"
-                        onClick={() => handleDelete(comp.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {isSuperadmin && (
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setEditing({
+                              id: comp.id,
+                              tipo: comp.tipo,
+                              nome: comp.nome,
+                              descricao: comp.descricao,
+                            })
+                          }
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleDelete(comp.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -449,65 +517,66 @@ export function CompetenciasPadraoAdmin() {
           ))}
       </div>
 
-      {/* Botão adicionar */}
-      {editing?.id === null && editing.tipo === activeTab ? (
-        <Card className="border border-dashed border-gray-300">
-          <CardContent className="p-4 space-y-3">
-            <div>
-              <Label>Nome</Label>
-              <input
-                className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1 text-sm"
-                value={editing.nome}
-                onChange={(e) =>
-                  setEditing({ ...editing, nome: e.target.value })
-                }
-                placeholder="Nome da competência"
-              />
-            </div>
-            <div>
-              <Label>Descrição</Label>
-              <Textarea
-                className="mt-1"
-                rows={3}
-                value={editing.descricao}
-                onChange={(e) =>
-                  setEditing({ ...editing, descricao: e.target.value })
-                }
-                placeholder="Descreva a competência"
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditing(null)}
-              >
-                Cancelar
-              </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                ) : null}
-                Criar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Button
-          variant="outline"
-          className="w-full border-dashed"
-          onClick={() =>
-            setEditing({ id: null, tipo: activeTab, nome: "", descricao: "" })
-          }
-        >
-          <Plus className="h-4 w-4 mr-2" /> Adicionar Competência{" "}
-          {TIPO_LABELS[activeTab]?.slice(0, -1) || ""}
-        </Button>
-      )}
+      {/* Adicionar (superadmin) */}
+      {isSuperadmin &&
+        (editing?.id === null && editing.tipo === activeTab ? (
+          <Card className="border border-dashed border-gray-300">
+            <CardContent className="p-4 space-y-3">
+              <div>
+                <Label>Nome</Label>
+                <input
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1 text-sm"
+                  value={editing.nome}
+                  onChange={(e) =>
+                    setEditing({ ...editing, nome: e.target.value })
+                  }
+                  placeholder="Nome da competência"
+                />
+              </div>
+              <div>
+                <Label>Descrição</Label>
+                <Textarea
+                  className="mt-1"
+                  rows={3}
+                  value={editing.descricao}
+                  onChange={(e) =>
+                    setEditing({ ...editing, descricao: e.target.value })
+                  }
+                  placeholder="Descreva a competência"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : null}
+                  Criar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Button
+            variant="outline"
+            className="w-full border-dashed"
+            onClick={() =>
+              setEditing({ id: null, tipo: activeTab, nome: "", descricao: "" })
+            }
+          >
+            <Plus className="h-4 w-4 mr-2" /> Adicionar competência{" "}
+            {TIPO_LABELS[activeTab]?.slice(0, -1) || ""}
+          </Button>
+        ))}
 
-      {/* Competências inativas */}
-      {inativas.length > 0 && (
+      {/* Competências inativas (superadmin) */}
+      {isSuperadmin && inativas.length > 0 && (
         <div className="mt-6">
           <p className="text-sm text-gray-500 mb-2">
             Competências desativadas ({inativas.length})
