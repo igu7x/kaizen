@@ -1435,7 +1435,7 @@ export function GestaoCompetencias() {
                       <ClipboardCheck className="h-5 w-5 text-teal-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Autoavaliação do Colaborador
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1458,7 +1458,7 @@ export function GestaoCompetencias() {
                     <ClipboardCheck className="h-5 w-5 text-teal-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Autoavaliação do Colaborador
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1558,7 +1558,7 @@ export function GestaoCompetencias() {
                     <UserCheck className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1591,7 +1591,7 @@ export function GestaoCompetencias() {
                     <UserCheck className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1622,7 +1622,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1652,7 +1652,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1684,7 +1684,7 @@ export function GestaoCompetencias() {
                     <Scale className="h-5 w-5 text-violet-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação Integrada
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1718,7 +1718,7 @@ export function GestaoCompetencias() {
                       <ClipboardCheck className="h-5 w-5 text-teal-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Autoavaliação do Gestor
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1740,7 +1740,7 @@ export function GestaoCompetencias() {
                     <ClipboardCheck className="h-5 w-5 text-teal-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Autoavaliação do Gestor
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1841,7 +1841,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1874,7 +1874,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1907,7 +1907,7 @@ export function GestaoCompetencias() {
                     <ShieldAlert className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                       Avaliação da Liderança
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
@@ -1945,7 +1945,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -1978,7 +1978,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2017,7 +2017,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
@@ -2056,7 +2056,7 @@ export function GestaoCompetencias() {
                       <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">
+                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
                         Avaliação Integrada
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
