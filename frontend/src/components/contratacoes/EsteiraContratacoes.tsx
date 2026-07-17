@@ -150,7 +150,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
 
   // Estados principais
   const [items, setItems] = useState<PcaItem[]>([]);
@@ -224,10 +224,10 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       .then(setDiretoriasList)
       .catch(() => { });
     pessoasApi
-      .getAll(selectedDirectorate || undefined)
+      .getAll(selectedAreaId || undefined)
       .then(setPessoasList)
       .catch(() => { });
-  }, [anoSelecionado, selectedDirectorate, selectedVersion]);
+  }, [anoSelecionado, selectedAreaId, selectedVersion]);
 
   // Carregar unidades dependendo da diretoria selecionada no formulário
   useEffect(() => {
@@ -246,12 +246,12 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       setLoading(true);
 
       let diretoriaId: number | undefined = undefined;
-      if (selectedDirectorate) {
+      if (selectedAreaId) {
         try {
           const allAreas = await areasApi.getAll();
           setAreasList(allAreas);
           const matchedArea = allAreas.find(
-            (a) => a.sigla === selectedDirectorate || a.nome === selectedDirectorate
+            (a) => a.sigla === selectedAreaId || a.nome === selectedAreaId
           );
           if (matchedArea) {
             diretoriaId = matchedArea.id;
@@ -262,8 +262,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       }
 
       const [itemsData, statsData, filtersData, versionsData] = await Promise.all([
-        pcaApi.getPcaItems(anoSelecionado, selectedDirectorate || undefined, selectedVersion),
-        pcaApi.getPcaStats(anoSelecionado, selectedDirectorate || undefined, selectedVersion),
+        pcaApi.getPcaItems(anoSelecionado, selectedAreaId || undefined, selectedVersion),
+        pcaApi.getPcaStats(anoSelecionado, selectedAreaId || undefined, selectedVersion),
         pcaApi.getPcaFilters(),
         pcaApi.getPcaVersions(anoSelecionado)
       ]);

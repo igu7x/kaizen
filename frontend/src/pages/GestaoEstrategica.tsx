@@ -10,7 +10,7 @@ import { useEstrategiaModelo } from "@/contexts/EstrategiaModeloContext";
 
 export default function GestaoEstrategica() {
   const location = useLocation();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const { modelo } = useEstrategiaModelo();
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -61,7 +61,7 @@ export default function GestaoEstrategica() {
       return <MonitoramentoOKRs key={location.key} />;
     }
     if (location.pathname === "/gestao-estrategica/execucao") {
-      return <EscritorioProjetos key={selectedDirectorate} />;
+      return <EscritorioProjetos key={selectedAreaId} />;
     }
     if (location.pathname === "/gestao-estrategica/sprint") {
       return <SprintAtualNovo />;

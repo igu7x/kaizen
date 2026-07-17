@@ -85,10 +85,10 @@ const statusProjetoColors: Record<string, string> = {
 
 export default function PlanosProgramas() {
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const { toast } = useToast();
   // Sempre enviar a diretoria — o backend filtra por domínio (multi-tenant)
-  const dirFiltro = selectedDirectorate || undefined;
+  const dirFiltro = selectedAreaId || undefined;
 
   // Estados principais
   const [instrumentos, setInstrumentos] = useState<InstrumentoPlanejamento[]>(
@@ -151,7 +151,7 @@ export default function PlanosProgramas() {
     } finally {
       setLoading(false);
     }
-  }, [toast, selectedDirectorate]);
+  }, [toast, selectedAreaId]);
 
   const loadProjetos = useCallback(async () => {
     try {
@@ -160,7 +160,7 @@ export default function PlanosProgramas() {
     } catch (error) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   const loadAreas = useCallback(async () => {
     try {
@@ -170,7 +170,7 @@ export default function PlanosProgramas() {
     } catch (error) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
     }
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   const loadInstrumentoCompleto = useCallback(
     async (id: number) => {
@@ -223,7 +223,7 @@ export default function PlanosProgramas() {
       versao: "v1.0",
       historico_alteracoes: "",
       observacoes_gerais: "",
-      diretoria: selectedDirectorate,
+      cadastrosAreasId: selectedAreaId,
       projetos_ids: [],
       areas_vinculadas_ids: [],
     });

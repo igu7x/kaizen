@@ -21,7 +21,7 @@ import { useDirectorate } from "@/contexts/DirectorateContext";
 
 export function AdminFormsView() {
   const navigate = useNavigate();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const [forms, setForms] = useState<Form[]>([]);
   const [filteredForms, setFilteredForms] = useState<Form[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,34 +29,38 @@ export function AdminFormsView() {
   const [areas, setAreas] = useState<Area[]>([]);
 
   useEffect(() => {
-    loadForms();
-    loadAreas();
-  }, [selectedDirectorate]);
+    loadData();
+  }, [selectedAreaId]);
+
+  const loadData = async () => {
+    try {
+      const data = await areasApi.getAll();
+      setAreas(data);
+      await loadForms(data);
+    } catch (error) {
+      /* erro tratado */
+    }
+  };
 
   useEffect(() => {
     filterForms();
   }, [forms, searchQuery]);
 
-  const loadAreas = async () => {
-    try {
-      const data = await areasApi.getAll();
-      setAreas(data);
-    } catch (error) {
-      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
-    }
-  };
+
 
   const getAreaLabel = (code: string) => {
     const area = areas.find((a) => a.sigla === code || a.nome === code);
     return area ? area.sigla || area.nome : code;
   };
 
-  const loadForms = async () => {
+  const loadForms = async (loadedAreas: Area[] = areas) => {
     try {
       setLoading(true);
+      const area = loadedAreas.find((a) => a.sigla === selectedAreaId || a.nome === selectedAreaId);
+      const areaId = area?.id;
 
       // ADMIN vê todos os formulários da diretoria (filtrado por diretoria do criador)
-      const data = await formApi.getForms(selectedDirectorate, {
+      const data = await formApi.getForms(areaId, {
         isAdmin: true,
       });
 
@@ -277,17 +281,20 @@ export function AdminFormsView() {
                   <span className="text-xs text-gray-500 font-medium">
                     Visível para:
                   </span>
-                  {form.allowedDirectorates?.includes("ALL") ||
-                  !form.allowedDirectorates ? (
+                  {form.allowedAreasIds?.includes("ALL") ||
+                  !form.allowedAreasIds ? (
                     <Badge className="bg-purple-500 hover:bg-purple-600 text-white border-0 text-xs">
                       Todas as diretorias
                     </Badge>
                   ) : (
-                    form.allowedDirectorates.map((dir) => (
-                      <Badge key={dir} variant="outline" className="text-xs">
-                        {getAreaLabel(dir)}
-                      </Badge>
-                    ))
+                    form.allowedAreasIds.map((dirId) => {
+                      const area = areas.find((a) => a.id === dirId);
+                      return (
+                        <Badge key={dirId} variant="outline" className="text-xs">
+                          {area ? (area.sigla || area.nome) : dirId}
+                        </Badge>
+                      );
+                    })
                   )}
                 </div>
               </CardHeader>

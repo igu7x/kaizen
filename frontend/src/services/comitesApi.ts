@@ -32,7 +32,7 @@ const getUserHeaders = (): Record<string, string> => {
     return {
       "x-user-id": String(user.id || "1"),
       "x-user-role": user.role || "VIEWER",
-      "x-user-diretoria": user.diretoria || "",
+      "x-user-diretoria": user.areaSigla || (user as any).diretoria || "",
     };
   } catch {
     return {};

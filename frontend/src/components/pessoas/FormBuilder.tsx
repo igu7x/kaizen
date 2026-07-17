@@ -19,16 +19,14 @@ export function FormBuilder() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
 
   const [form, setForm] = useState<Form | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [sections, setSections] = useState<FormSection[]>([]);
   const [fields, setFields] = useState<FormField[]>([]);
-  const [allowedDirectorates, setAllowedDirectorates] = useState<
-    (Directorate | "ALL")[]
-  >(["ALL"]);
+  const [allowedAreasIds, setAllowedAreasIds] = useState<(number | "ALL")[]>(["ALL"]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -55,7 +53,7 @@ export function FormBuilder() {
         setDescription(data.description || "");
         setSections(data.sections || []);
         setFields(data.fields || []);
-        setAllowedDirectorates(data.allowedDirectorates || ["ALL"]);
+        setAllowedAreasIds((data.allowedAreasIds || data.allowedDirectorates || ["ALL"]) as (number | "ALL")[]);
       }
     } catch (error) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
@@ -71,7 +69,7 @@ export function FormBuilder() {
     }
 
     // Validar diretorias (apenas para ADMIN)
-    if (user?.role === "ADMIN" && allowedDirectorates.length === 0) {
+    if (user?.role === "ADMIN" && allowedAreasIds.length === 0) {
       toast.warning(
         'Por favor, selecione pelo menos uma diretoria ou "Todas as diretorias"',
       );
@@ -102,6 +100,8 @@ export function FormBuilder() {
       setSaving(true);
 
       let formId = id;
+      const areaObj = areas.find((a) => a.sigla === selectedAreaId || a.nome === selectedAreaId);
+      const cadastrosAreasId = areaObj?.id;
 
       if (!formId) {
         // Criar novo formulário
@@ -110,9 +110,8 @@ export function FormBuilder() {
           description: description.trim(),
           status: publish ? "PUBLISHED" : "DRAFT",
           createdBy: user?.id || "",
-          directorate: selectedDirectorate,
-          allowedDirectorates:
-            user?.role === "ADMIN" ? allowedDirectorates : ["ALL"],
+          cadastrosAreasId: cadastrosAreasId,
+          allowedAreasIds: user?.role === "ADMIN" ? allowedAreasIds : ["ALL"],
         });
         formId = newForm.id;
       } else {
@@ -121,10 +120,7 @@ export function FormBuilder() {
           title: title.trim(),
           description: description.trim(),
           status: publish ? "PUBLISHED" : form?.status,
-          allowedDirectorates:
-            user?.role === "ADMIN"
-              ? allowedDirectorates
-              : form?.allowedDirectorates,
+          allowedAreasIds: user?.role === "ADMIN" ? allowedAreasIds : form?.allowedAreasIds,
         });
       }
 
@@ -295,12 +291,12 @@ export function FormBuilder() {
                   <label className="flex items-center space-x-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
                     <input
                       type="checkbox"
-                      checked={allowedDirectorates.includes("ALL")}
+                      checked={allowedAreasIds.includes("ALL")}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setAllowedDirectorates(["ALL"]);
+                          setAllowedAreasIds(["ALL"]);
                         } else {
-                          setAllowedDirectorates([]);
+                          setAllowedAreasIds([]);
                         }
                       }}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -311,7 +307,6 @@ export function FormBuilder() {
                   {/* Diretorias específicas */}
                   <div className="pl-6 space-y-2 border-l-2 border-gray-200">
                     {areas.map((area) => {
-                      const sigla = area.sigla || area.nome;
                       return (
                         <label
                           key={area.id}
@@ -320,23 +315,19 @@ export function FormBuilder() {
                           <input
                             type="checkbox"
                             checked={
-                              allowedDirectorates.includes(sigla) &&
-                              !allowedDirectorates.includes("ALL")
+                              allowedAreasIds.includes(area.id) &&
+                              !allowedAreasIds.includes("ALL")
                             }
-                            disabled={allowedDirectorates.includes("ALL")}
+                            disabled={allowedAreasIds.includes("ALL")}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setAllowedDirectorates([
-                                  ...allowedDirectorates.filter(
-                                    (d) => d !== "ALL",
-                                  ),
-                                  sigla,
+                                setAllowedAreasIds([
+                                  ...allowedAreasIds.filter((d) => d !== "ALL"),
+                                  area.id,
                                 ]);
                               } else {
-                                setAllowedDirectorates(
-                                  allowedDirectorates.filter(
-                                    (d) => d !== sigla,
-                                  ),
+                                setAllowedAreasIds(
+                                  allowedAreasIds.filter((d) => d !== area.id),
                                 );
                               }
                             }}
@@ -344,12 +335,10 @@ export function FormBuilder() {
                           />
                           <span
                             className={
-                              allowedDirectorates.includes("ALL")
-                                ? "text-gray-400"
-                                : ""
+                              allowedAreasIds.includes("ALL") ? "text-gray-400" : ""
                             }
                           >
-                            {sigla}
+                            {area.sigla || area.nome}
                           </span>
                         </label>
                       );
@@ -357,7 +346,7 @@ export function FormBuilder() {
                   </div>
                 </div>
 
-                {allowedDirectorates.length === 0 && (
+                {allowedAreasIds.length === 0 && (
                   <p className="text-sm text-red-600 mt-2">
                     ⚠ Selecione pelo menos uma opção
                   </p>

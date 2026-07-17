@@ -14,12 +14,12 @@ import {
 
 export function VisaoGeral() {
   const { objectives, keyResults, initiatives } = useGestao();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
 
   // Filtrar por diretoria e ordenar (KRs Transversais por último)
   const filteredObjectives = useMemo(() => {
     return objectives
-      .filter((obj) => obj.directorate === selectedDirectorate)
+      .filter((obj) => Number(obj.cadastrosAreasId) === selectedAreaId)
       .sort((a, b) => {
         const aIsTransversal =
           a.code.toLowerCase().includes("transversa") ||
@@ -33,17 +33,17 @@ export function VisaoGeral() {
 
         return a.code.localeCompare(b.code);
       });
-  }, [objectives, selectedDirectorate]);
+  }, [objectives, selectedAreaId]);
 
   const filteredKeyResults = useMemo(() => {
-    return keyResults.filter((kr) => kr.directorate === selectedDirectorate);
-  }, [keyResults, selectedDirectorate]);
+    return keyResults.filter((kr) => Number(kr.cadastrosAreasId) === selectedAreaId);
+  }, [keyResults, selectedAreaId]);
 
   const filteredInitiatives = useMemo(() => {
     return initiatives.filter(
-      (init) => init.directorate === selectedDirectorate,
+      (init) => Number(init.cadastrosAreasId) === selectedAreaId,
     );
-  }, [initiatives, selectedDirectorate]);
+  }, [initiatives, selectedAreaId]);
 
   const stats = useMemo(() => {
     const total = filteredKeyResults.length;

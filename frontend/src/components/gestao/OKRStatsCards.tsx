@@ -6,11 +6,11 @@ import { Target, CheckCircle2, Clock, Play } from "lucide-react";
 
 export function OKRStatsCards() {
   const { keyResults } = useGestao();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
 
   const stats = useMemo(() => {
     const filteredKRs = keyResults.filter(
-      (kr) => kr.directorate === selectedDirectorate,
+      (kr) => Number(kr.cadastrosAreasId) === selectedAreaId,
     );
     const total = filteredKRs.length;
     const concluido = filteredKRs.filter(
@@ -24,7 +24,7 @@ export function OKRStatsCards() {
     ).length;
 
     return { total, concluido, emAndamento, aIniciar };
-  }, [keyResults, selectedDirectorate]);
+  }, [keyResults, selectedAreaId]);
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 xl:gap-3 2xl:gap-4 w-full h-full">

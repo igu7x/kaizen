@@ -212,12 +212,12 @@ function ehProjetoPtd(nome: string | null | undefined): boolean {
 
 export function EscritorioProjetos() {
   const { user } = useAuth();
-  const { selectedDirectorate, setSelectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea, setSelectedDirectorate } = useDirectorate();
   const { toast } = useToast();
   const location = useLocation();
   const currentUserId = user?.id ? parseInt(String(user.id)) : undefined;
   // Sempre enviar a diretoria — o backend filtra por domínio (multi-tenant)
-  const dirFiltro = selectedDirectorate || undefined;
+  const dirFiltro = selectedAreaId || undefined;
 
   // TAP Dialog
   const [tapDialogOpen, setTapDialogOpen] = useState(false);
@@ -688,7 +688,7 @@ export function EscritorioProjetos() {
 
       // Carregar usuários da Administração separadamente para não bloquear a página se falhar
       try {
-        const usersData = await getUsers(selectedDirectorate || undefined);
+        const usersData = await getUsers(selectedArea?.dominio || undefined);
         // Filtrar apenas usuários ativos
         setUsuarios(usersData.filter((u) => u.status === "ACTIVE"));
       } catch (usersError) {
@@ -709,7 +709,7 @@ export function EscritorioProjetos() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDirectorate, toast]);
+  }, [selectedAreaId, toast]);
 
   const carregarProjetosDoPlano = useCallback(
     async (planoId: number) => {
@@ -802,14 +802,14 @@ export function EscritorioProjetos() {
     const carregarAreas = async () => {
       try {
         const areasData =
-          await cadastrosProjetosApi.getAreas(selectedDirectorate);
+          await cadastrosProjetosApi.getAreas(selectedAreaId);
         setAreas(areasData);
       } catch (error) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
       }
     };
     carregarAreas();
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   // Resetar visualização quando clicar no menu "Escritório de Projetos" (mesmo já estando na página)
   useEffect(() => {
@@ -1286,7 +1286,7 @@ export function EscritorioProjetos() {
     try {
       await gestaoEstrategicaApi.createPlano({
         nome: novoPlanoNome.trim(),
-        diretoria: selectedDirectorate,
+        cadastrosAreasId: selectedAreaId,
       });
 
       setNovoPlanoNome("");
@@ -6307,7 +6307,7 @@ export function EscritorioProjetos() {
             setProjetoEditDialogTapMode(!podeEditarEntregas && podeEditarTap);
           }}
           projetoId={projetoDetalhes.id}
-          diretoria={selectedDirectorate || projetoDetalhes.diretoria}
+          diretoria={selectedAreaId || projetoDetalhes.diretoria}
           onSaved={async (projetoSalvo) => {
             try {
               const updated = await cadastrosProjetosApi.getProjetoById(

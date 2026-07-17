@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDirectorate } from "@/contexts/DirectorateContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Directorate } from "@/types";
 import { areasApi, Area } from "@/services/areasApi";
 import { isDomainRoot, isSuperAdmin } from "@/utils/domain";
 import {
@@ -14,8 +13,7 @@ import {
 import { Building2, Loader2 } from "lucide-react";
 
 export function DirectorateSelector() {
-  const { selectedDirectorate, setSelectedDirectorate, devEnvironment } =
-    useDirectorate();
+  const { selectedAreaId, setSelectedAreaId, devEnvironment } = useDirectorate();
   const { user } = useAuth();
   const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,22 +31,32 @@ export function DirectorateSelector() {
           setAreas(data);
         } else {
           const data = await areasApi.getAll();
-          setAreas(data);
+          
+          if (superAdmin) {
+            setAreas(data);
+          } else {
+            // Filtrar apenas áreas do mesmo domínio (is_domain_root = true da árvore do usuário)
+            // Para simplificar, backend já filtra ou aqui usamos domainApi se houver
+            // Neste app, o backend pode retornar tudo, então filtramos no frontend pelo domínio do user
+            const userAreaId = user?.cadastrosAreasId;
+            const userArea = data.find(a => a.id === userAreaId);
+            if (userArea) {
+              setAreas(data.filter(a => a.dominio === userArea.dominio));
+            } else {
+              setAreas(data);
+            }
+          }
         }
-      } catch (err) {
-        /* erro já tratado pelo apiClient ou ignorado intencionalmente */
+      } catch (error) {
+        console.error("Erro ao carregar áreas:", error);
       } finally {
         setLoading(false);
       }
     };
     loadAreas();
-  }, [superAdmin, devEnvironment]);
+  }, [superAdmin, devEnvironment, user]);
 
-  // Pegar diretoria do usuário de múltiplas fontes possíveis
-  // diretoria_visibilidade sobrescreve para fins de visibilidade
-  const userDiretoria = ((user as any)?.diretoria_visibilidade ||
-    (user as any)?.diretoria ||
-    (user as any)?.directorate_code) as Directorate | undefined;
+  const userAreaId = user?.cadastrosAreasId;
 
   // Domain root (SGJT, CGJ) pode ver o seletor de diretoria
   // Em dev mode, sempre mostra o seletor
@@ -56,10 +64,10 @@ export function DirectorateSelector() {
 
   // Forçar seleção da própria diretoria se não for domain root
   useEffect(() => {
-    if (!isRoot && userDiretoria && selectedDirectorate !== userDiretoria) {
-      setSelectedDirectorate(userDiretoria);
+    if (!isRoot && userAreaId && selectedAreaId !== userAreaId) {
+      setSelectedAreaId(userAreaId);
     }
-  }, [isRoot, userDiretoria, selectedDirectorate, setSelectedDirectorate]);
+  }, [isRoot, userAreaId, selectedAreaId, setSelectedAreaId]);
 
   // Apenas domain root vê o seletor
   if (!isRoot) {
@@ -87,19 +95,19 @@ export function DirectorateSelector() {
         </div>
       ) : (
         <Select
-          value={selectedDirectorate}
+          value={selectedAreaId ? String(selectedAreaId) : undefined}
           onValueChange={(value) =>
-            setSelectedDirectorate(value as Directorate)
+            setSelectedAreaId(Number(value))
           }
         >
           <SelectTrigger className="h-8 text-xs bg-white border border-gray-300 text-gray-700 w-[140px]">
-            <SelectValue />
+            <SelectValue placeholder="Selecione..." />
           </SelectTrigger>
           <SelectContent>
             {domainAreas.map((area) => {
               const sigla = getSigla(area);
               return (
-                <SelectItem key={area.id} value={sigla}>
+                <SelectItem key={area.id} value={String(area.id)}>
                   {sigla}
                 </SelectItem>
               );

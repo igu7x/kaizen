@@ -233,10 +233,10 @@ export default function Cadastros() {
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { selectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea } = useDirectorate();
   const currentUserId = user?.id ? parseInt(String(user.id)) : undefined;
   // Sempre enviar a diretoria — o backend filtra por domínio (multi-tenant)
-  const dirFiltro = selectedDirectorate || undefined;
+  const dirFiltro = selectedAreaId || undefined;
 
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -392,7 +392,7 @@ export default function Cadastros() {
   useEffect(() => {
     loadProjetos();
     loadAuxiliares();
-  }, [selectedDirectorate]);
+  }, [selectedAreaId]);
 
   // Carrega permissão TAP do usuário logado (uma vez)
   useEffect(() => {
@@ -438,7 +438,7 @@ export default function Cadastros() {
 
   const loadAuxiliares = async () => {
     // Backend lida com filtragem de domínio automaticamente
-    const dirParam = selectedDirectorate;
+    const dirParam = selectedAreaId;
 
     // Carregar cada recurso independentemente para não falhar tudo se um falhar
     try {
@@ -483,7 +483,7 @@ export default function Cadastros() {
     }
 
     try {
-      const usersData = await getUsers(selectedDirectorate || undefined);
+      const usersData = await getUsers(selectedArea?.dominio || undefined);
       setUsuariosDisponiveis(usersData.filter((u) => u.status === "ACTIVE"));
     } catch (error) {
       console.warn("Erro ao carregar usuários:", error);
@@ -894,7 +894,7 @@ export default function Cadastros() {
     if (modalMode === "edit") {
       const camposFaltando: string[] = [];
       if (!formData.nome?.trim()) camposFaltando.push("Nome do Projeto");
-      if (!selectedDirectorate) camposFaltando.push("Diretoria");
+      if (!selectedAreaId) camposFaltando.push("Diretoria");
       if (!formData.areas_execucao || formData.areas_execucao.length === 0)
         camposFaltando.push("Área Responsável");
 
@@ -960,7 +960,7 @@ export default function Cadastros() {
 
       let dataToSend: any = {
         ...formData,
-        diretoria: selectedDirectorate,
+        cadastrosAreasId: selectedAreaId,
         entregas: entregasParaSalvar,
         riscos: riscosParaSalvar,
         entraves: entravesParaSalvar,

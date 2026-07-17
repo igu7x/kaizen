@@ -15,15 +15,15 @@ import { apiClient, ApiError } from "./apiClient";
 // ============================================================
 
 export const getForms = async (
-  directorate?: Directorate,
+  cadastrosAreasId?: number,
   options?: { isAdmin?: boolean; filterByVisibility?: boolean },
 ): Promise<Form[]> => {
   const params = new URLSearchParams();
 
   if (options?.isAdmin) {
     params.set("isAdmin", "true");
-  } else if (directorate) {
-    params.set("directorate", directorate);
+  } else if (cadastrosAreasId) {
+    params.set("cadastrosAreasId", String(cadastrosAreasId));
   }
 
   const queryString = params.toString();

@@ -117,7 +117,7 @@ export default function OkrsMetas() {
     description: "",
     status: "NAO_INICIADO" as OKRStatus,
     deadline: "",
-    directorate: "",
+    cadastrosAreasId: "",
   });
 
   const [confirmDeleteObj, setConfirmDeleteObj] = useState<Objective | null>(
@@ -139,7 +139,7 @@ export default function OkrsMetas() {
   const [metaForm, setMetaForm] = useState({
     titulo: "",
     descricao: "",
-    areaId: "",
+    cadastrosAreasId: "",
     status: "NAO_INICIADO",
     situacao: "NO_PRAZO",
     prazo: "",
@@ -165,7 +165,7 @@ export default function OkrsMetas() {
     setLoading(true);
     try {
       const [objs, krs] = await Promise.all([
-        api.getObjectives(devEnvironment || undefined),
+        api.getObjectives(),
         api.getKeyResults(),
       ]);
       setObjectives(objs);
@@ -214,7 +214,7 @@ export default function OkrsMetas() {
       code: obj.code,
       title: obj.title,
       description: obj.description || "",
-      directorate: obj.directorate,
+      directorate: String(obj.cadastrosAreasId || ""),
     });
     setObjEditMode(true);
     setEditingObj(obj);
@@ -230,19 +230,20 @@ export default function OkrsMetas() {
       return;
     }
     try {
+      const cadastrosAreasId = Number(objForm.directorate) || 0;
       if (objEditMode && editingObj) {
         await api.updateObjective(editingObj.id, {
           code: objForm.code,
           title: objForm.title,
           description: objForm.description,
-          directorate: objForm.directorate,
+          cadastrosAreasId,
         });
       } else {
         await api.createObjective({
           code: objForm.code,
           title: objForm.title,
           description: objForm.description,
-          directorate: objForm.directorate,
+          cadastrosAreasId,
         });
       }
       setObjDialogOpen(false);
@@ -273,7 +274,7 @@ export default function OkrsMetas() {
       description: "",
       status: "NAO_INICIADO",
       deadline: "",
-      directorate: "",
+      cadastrosAreasId: "",
     });
     setKrEditMode(false);
     setEditingKr(null);
@@ -282,12 +283,12 @@ export default function OkrsMetas() {
 
   const openEditKr = (kr: KeyResult) => {
     setKrForm({
-      objectiveId: kr.objectiveId,
+      objectiveId: String(kr.objectiveId),
       code: kr.code,
       description: kr.description,
       status: kr.status,
       deadline: kr.deadline || "",
-      directorate: kr.directorate,
+      cadastrosAreasId: String(kr.cadastrosAreasId || ""),
     });
     setKrEditMode(true);
     setEditingKr(kr);
@@ -299,7 +300,7 @@ export default function OkrsMetas() {
       !krForm.objectiveId ||
       !krForm.code ||
       !krForm.description ||
-      !krForm.directorate
+      !krForm.cadastrosAreasId
     ) {
       toast({
         title: "Preencha todos os campos obrigatórios",
@@ -319,6 +320,7 @@ export default function OkrsMetas() {
       return;
     }
     try {
+      const cadastrosAreasId = Number(krForm.cadastrosAreasId) || 0;
       if (krEditMode && editingKr) {
         await api.updateKeyResult(editingKr.id, {
           objectiveId: krForm.objectiveId,
@@ -326,7 +328,7 @@ export default function OkrsMetas() {
           description: krForm.description,
           status: krForm.status,
           deadline: krForm.deadline,
-          directorate: krForm.directorate,
+          cadastrosAreasId,
         });
       } else {
         await api.createKeyResult({
@@ -335,7 +337,7 @@ export default function OkrsMetas() {
           description: krForm.description,
           status: krForm.status,
           deadline: krForm.deadline,
-          directorate: krForm.directorate,
+          cadastrosAreasId,
         });
       }
       setKrDialogOpen(false);
@@ -367,7 +369,7 @@ export default function OkrsMetas() {
     setMetaForm({
       titulo: "",
       descricao: "",
-      areaId: "",
+      cadastrosAreasId: "",
       status: "NAO_INICIADO",
       situacao: "NO_PRAZO",
       prazo: "",
@@ -381,7 +383,7 @@ export default function OkrsMetas() {
     setMetaForm({
       titulo: meta.titulo,
       descricao: meta.descricao || "",
-      areaId: String(meta.areaId),
+      cadastrosAreasId: String(meta.cadastrosAreasId || ""),
       status: meta.status || "NAO_INICIADO",
       situacao: meta.situacao || "NO_PRAZO",
       prazo: meta.prazo || "",
@@ -392,7 +394,7 @@ export default function OkrsMetas() {
   };
 
   const handleSaveMeta = async () => {
-    if (!metaForm.titulo || !metaForm.areaId) {
+    if (!metaForm.titulo || !metaForm.cadastrosAreasId) {
       toast({
         title: "Preencha título e área responsável",
         variant: "destructive",
@@ -414,7 +416,7 @@ export default function OkrsMetas() {
       const dto: CreateMetaDto = {
         titulo: metaForm.titulo,
         descricao: metaForm.descricao || undefined,
-        areaId: parseInt(metaForm.areaId),
+        cadastrosAreasId: parseInt(metaForm.cadastrosAreasId),
         status: metaForm.status,
         situacao: metaForm.situacao,
         prazo: metaForm.prazo || undefined,
@@ -450,29 +452,26 @@ export default function OkrsMetas() {
   const getKrsForObjective = (objId: string) =>
     keyResults.filter((kr) => String(kr.objectiveId) === String(objId));
 
-  // Siglas das áreas do domínio do usuário (areasApi.getAll já filtra por domínio)
-  const domainSiglas = new Set(areas.map((a) => a.sigla).filter(Boolean));
+  // IDs das áreas do domínio do usuário
+  const domainAreaIds = new Set(areas.map((a) => String(a.id)));
 
   // Filtrar objetivos pelo domínio do usuário e depois pelo filtro de diretoria
   const domainObjectives = objectives.filter((obj) =>
-    domainSiglas.has(obj.directorate),
+    domainAreaIds.has(String(obj.cadastrosAreasId)),
   );
   const filteredObjectives =
     okrFilterDir === "all"
       ? domainObjectives
-      : domainObjectives.filter((obj) => obj.directorate === okrFilterDir);
+      : domainObjectives.filter((obj) => String(obj.cadastrosAreasId) === okrFilterDir);
 
   // Filtrar metas pelo domínio do usuário e depois pelo filtro de diretoria
-  const domainMetas = metas.filter(
-    (m) =>
-      domainSiglas.has(m.areaSigla || "") || domainSiglas.has(m.areaNome || ""),
+  const domainMetas = metas.filter((m) =>
+    domainAreaIds.has(String(m.cadastrosAreasId)),
   );
   const filteredMetas =
     metaFilterDir === "all"
       ? domainMetas
-      : domainMetas.filter(
-          (m) => m.areaSigla === metaFilterDir || m.areaNome === metaFilterDir,
-        );
+      : domainMetas.filter((m) => String(m.cadastrosAreasId) === metaFilterDir);
 
   // ============================================================
   // MODEL SELECTOR
@@ -530,7 +529,7 @@ export default function OkrsMetas() {
             <SelectContent>
               <SelectItem value="all">Todas as Diretorias</SelectItem>
               {areas.map((a) => (
-                <SelectItem key={a.id} value={a.sigla || a.nome}>
+                <SelectItem key={a.id} value={String(a.id)}>
                   {a.sigla || a.nome}
                 </SelectItem>
               ))}
@@ -582,7 +581,7 @@ export default function OkrsMetas() {
                     {obj.title}
                   </span>
                   <Badge variant="secondary" className="text-xs">
-                    {obj.directorate}
+                    {obj.area?.sigla || obj.area?.nome || "-"}
                   </Badge>
                   <span className="text-xs text-gray-500">
                     {krs.length} KR(s)
@@ -717,7 +716,7 @@ export default function OkrsMetas() {
             <SelectContent>
               <SelectItem value="all">Todas as Diretorias</SelectItem>
               {areas.map((a) => (
-                <SelectItem key={a.id} value={a.sigla || a.nome}>
+                <SelectItem key={a.id} value={String(a.id)}>
                   {a.sigla || a.nome}
                 </SelectItem>
               ))}
@@ -865,7 +864,7 @@ export default function OkrsMetas() {
                 </SelectTrigger>
                 <SelectContent>
                   {areas.map((a) => (
-                    <SelectItem key={a.id} value={a.sigla || a.nome}>
+                    <SelectItem key={a.id} value={String(a.id)}>
                       {a.sigla || a.nome}
                     </SelectItem>
                   ))}
@@ -978,7 +977,7 @@ export default function OkrsMetas() {
                 </SelectTrigger>
                 <SelectContent>
                   {areas.map((a) => (
-                    <SelectItem key={a.id} value={a.sigla || a.nome}>
+                    <SelectItem key={a.id} value={String(a.id)}>
                       {a.sigla || a.nome}
                     </SelectItem>
                   ))}
@@ -1029,8 +1028,8 @@ export default function OkrsMetas() {
             <div>
               <Label>Área Responsável *</Label>
               <Select
-                value={metaForm.areaId}
-                onValueChange={(v) => setMetaForm((f) => ({ ...f, areaId: v }))}
+                value={metaForm.cadastrosAreasId}
+                onValueChange={(v) => setMetaForm((f) => ({ ...f, cadastrosAreasId: v }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a área" />

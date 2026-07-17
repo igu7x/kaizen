@@ -19,8 +19,8 @@ const BASE_URL = "/api/gestao-estrategica";
 // PLANOS/PROGRAMAS
 // ============================================================
 
-export async function getPlanos(diretoria?: string): Promise<PlanoPrograma[]> {
-  const params = diretoria ? `?diretoria=${diretoria}` : "";
+export async function getPlanos(cadastrosAreasId?: number): Promise<PlanoPrograma[]> {
+  const params = cadastrosAreasId ? `?cadastrosAreasId=${cadastrosAreasId}` : "";
   return apiClient.request<PlanoPrograma[]>(`${BASE_URL}/planos${params}`);
 }
 
@@ -146,10 +146,10 @@ export async function updateOrdenacaoTarefas(
 // ============================================================
 
 export async function getEstatisticas(
-  diretoria: string,
+  cadastrosAreasId: number,
 ): Promise<EstatisticasDiretoria> {
   return apiClient.request<EstatisticasDiretoria>(
-    `${BASE_URL}/estatisticas?diretoria=${diretoria}`,
+    `${BASE_URL}/estatisticas?cadastrosAreasId=${cadastrosAreasId}`,
   );
 }
 
