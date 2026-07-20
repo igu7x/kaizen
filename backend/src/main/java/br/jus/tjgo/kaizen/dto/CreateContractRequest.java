@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
+import java.math.BigDecimal;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CreateContractRequest(
@@ -10,11 +11,13 @@ public record CreateContractRequest(
         String supplier,
         String contractModel,
         String process,
+        String expenseNature,
         String startDate,
         String endDate,
         String effectiveDate,
         String limitDate,
         br.jus.tjgo.kaizen.domain.Contract.ContractTypeEnum contractType,
+        String situation,
         Integer additiveTermType,
         String objectName,
         String description,
@@ -25,5 +28,6 @@ public record CreateContractRequest(
         Long cadastroUnidadeId,
         Long totalValueCents,
         Long monthlyValueCents,
-        List<Long> pcaIds
+        List<Long> pcaIds,
+        BigDecimal yearDurationStandard
 ) {}

@@ -101,10 +101,10 @@ public class AvaliacaoIntegradaController {
         return ResponseEntity.ok(dados);
     }
 
-    // GET /api/avaliacao-integrada/by-pessoa/:pessoaId
-    @GetMapping("/by-pessoa/{pessoaId:\\d+}")
-    public ResponseEntity<?> byPessoa(@PathVariable long pessoaId) {
-        Map<String, Object> meta = service.findLatestByPessoaId(pessoaId);
+    // GET /api/avaliacao-integrada/meta/user/:userId
+    @GetMapping("/meta/user/{userId:\\d+}")
+    public ResponseEntity<?> getMetaAvaliacao(@PathVariable long userId) {
+        Map<String, Object> meta = service.findLatestByUserId(userId);
         if (meta == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Avaliação integrada não encontrada"));
         }

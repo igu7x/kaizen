@@ -509,9 +509,9 @@ public class CompetenciasGestorService {
             return jdbc.queryForList(
                     "SELECT DISTINCT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
                             "FROM cadastros_unidades cu " +
-                            "LEFT JOIN cadastros_pessoas cp ON cp.unidade_id = cu.id AND cp.user_id = ? AND COALESCE(cp.ativo, TRUE) = TRUE " +
+                            "LEFT JOIN users u ON u.cadastros_unidades_id = cu.id AND u.id = ? AND u.is_deleted = FALSE " +
                             "WHERE (cu.ativo IS NOT FALSE) " +
-                            "  AND (cp.id IS NOT NULL OR cu.responsavel_user_id = ?) " +
+                            "  AND (u.id IS NOT NULL OR cu.responsavel_user_id = ?) " +
                             "  AND EXISTS ( " +
                             "    SELECT 1 FROM competencias_gestor_formularios cgf " +
                             "    WHERE cgf.unidade_id = cu.id AND cgf.is_deleted = FALSE " +
@@ -522,9 +522,9 @@ public class CompetenciasGestorService {
             return jdbc.queryForList(
                     "SELECT DISTINCT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
                             "FROM cadastros_unidades cu " +
-                            "JOIN cadastros_pessoas cp ON cp.unidade_id = cu.id " +
-                            "WHERE cp.user_id = ? " +
-                            "  AND COALESCE(cp.ativo, TRUE) = TRUE " +
+                            "JOIN users u ON u.cadastros_unidades_id = cu.id " +
+                            "WHERE u.id = ? " +
+                            "  AND u.is_deleted = FALSE " +
                             "  AND (cu.ativo IS NOT FALSE) " +
                             "  AND EXISTS ( " +
                             "    SELECT 1 FROM competencias_gestor_formularios cgf " +

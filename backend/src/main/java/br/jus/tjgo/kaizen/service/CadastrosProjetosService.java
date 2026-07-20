@@ -155,8 +155,7 @@ public class CadastrosProjetosService {
     public boolean isGestorDoProjeto(long projetoId, long userId) {
         return !jdbc.queryForList(
                 "SELECT 1 FROM cadastros_projetos p " +
-                        "JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
-                        "WHERE p.id = ? AND ges.user_id = ? AND p.ativo = TRUE LIMIT 1",
+                        "WHERE p.id = ? AND p.gestor_id = ? AND p.ativo = TRUE LIMIT 1",
                 projetoId, userId).isEmpty();
     }
 
@@ -1088,15 +1087,15 @@ public class CadastrosProjetosService {
         // Camada 2 = diretor da diretoria indicada na Governança do projeto (1ª de
         // areas_vinculadas_ids). Fallback para p.diretoria quando não há diretoria vinculada.
         var rows = jdbc.queryForList(
-                "SELECT p.*, ges.user_id AS gestor_user_id, pat.user_id AS patrocinador_user_id, " +
+                "SELECT p.*, ges.id AS gestor_user_id, pat.id AS patrocinador_user_id, " +
                         "area.gestor_user_id AS diretor_user_id, area.sigla AS diretor_diretoria_sigla " +
                         "FROM cadastros_projetos p " +
-                        "LEFT JOIN cadastros_pessoas ges ON ges.id = p.gestor_id " +
-                        "LEFT JOIN cadastros_pessoas pat ON pat.id = p.patrocinador_id " +
+                        "LEFT JOIN users ges ON ges.id = p.gestor_id " +
+                        "LEFT JOIN users pat ON pat.id = p.patrocinador_id " +
                         "LEFT JOIN cadastros_areas area ON area.ativo = TRUE AND (" +
                         "  (array_length(p.areas_vinculadas_ids, 1) >= 1 AND area.id = p.areas_vinculadas_ids[1]) " +
                         "  OR ((p.areas_vinculadas_ids IS NULL OR array_length(p.areas_vinculadas_ids, 1) IS NULL) " +
-                        "      AND area.sigla = p.diretoria)" +
+                        "      AND area.id = p.cadastros_areas_id)" +
                         ") " +
                         "WHERE p.id = ? AND p.ativo = TRUE", projetoId);
         return rows.isEmpty() ? null : rows.get(0);
@@ -1113,8 +1112,8 @@ public class CadastrosProjetosService {
             return true;
         }
         var rows = jdbc.queryForList(
-                "SELECT ges.user_id AS gestor_user_id FROM cadastros_projetos p " +
-                        "LEFT JOIN cadastros_pessoas ges ON ges.id = p.gestor_id WHERE p.id = ?", projetoId);
+                "SELECT p.gestor_id AS gestor_user_id FROM cadastros_projetos p " +
+                        "WHERE p.id = ?", projetoId);
         if (rows.isEmpty()) {
             return false;
         }

@@ -56,7 +56,8 @@ public class PcaService {
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
-            "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_unidades_diretoria.nome as diretoria_nome, " +
             "cadastro_unidades_area.nome as area_demandante_nome, ";
 
@@ -67,7 +68,8 @@ public class PcaService {
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
-            "(SELECT string_agg(CAST(c.id AS TEXT), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
+            "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_unidades_diretoria.nome as diretoria_nome, " +
             "cadastro_unidades_area.nome as area_demandante_nome, ";
 
@@ -125,6 +127,84 @@ public class PcaService {
                 "CAST(p.year AS INTEGER) as ano, p.is_deleted, p.created_at, p.updated_at " +
                 FROM_JOINS + "WHERE p.id = ? AND p.is_deleted = FALSE", id);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /**
+     * RF-54 — comparação entre duas versões do PCA-TIC de um mesmo ano. Cada versão pode ser um
+     * snapshot imutável (número da versão) ou a versão viva/atual (null). Casa os itens pelo código
+     * (item_pca) e classifica em incluídos (só na nova), excluídos (só na antiga) e alterados
+     * (presentes em ambas, com mudança em campo relevante — com "de"/"para" por campo).
+     */
+    public Map<String, Object> compareVersions(Integer ano, Integer versaoNova, Integer versaoAntiga) {
+        Map<String, Map<String, Object>> nova = indexarPorItemPca(findAll(ano, null, versaoNova));
+        Map<String, Map<String, Object>> antiga = indexarPorItemPca(findAll(ano, null, versaoAntiga));
+
+        List<Map<String, Object>> incluidos = new java.util.ArrayList<>();
+        List<Map<String, Object>> alterados = new java.util.ArrayList<>();
+        List<Map<String, Object>> excluidos = new java.util.ArrayList<>();
+
+        for (var e : nova.entrySet()) {
+            Map<String, Object> antigoItem = antiga.get(e.getKey());
+            if (antigoItem == null) {
+                incluidos.add(e.getValue());
+            } else {
+                List<Map<String, Object>> mudancas = diffCampos(antigoItem, e.getValue());
+                if (!mudancas.isEmpty()) {
+                    Map<String, Object> alt = new java.util.LinkedHashMap<>();
+                    alt.put("item_pca", e.getKey());
+                    alt.put("objeto", e.getValue().get("objeto"));
+                    alt.put("area_demandante", e.getValue().get("area_demandante"));
+                    alt.put("mudancas", mudancas);
+                    alterados.add(alt);
+                }
+            }
+        }
+        for (var e : antiga.entrySet()) {
+            if (!nova.containsKey(e.getKey())) {
+                excluidos.add(e.getValue());
+            }
+        }
+
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("ano", ano);
+        out.put("versaoNova", versaoNova);
+        out.put("versaoAntiga", versaoAntiga);
+        out.put("incluidos", incluidos);
+        out.put("alterados", alterados);
+        out.put("excluidos", excluidos);
+        out.put("totalNova", nova.size());
+        out.put("totalAntiga", antiga.size());
+        return out;
+    }
+
+    private static final String[] CAMPOS_COMPARAVEIS =
+            {"objeto", "valor_estimado", "status", "area_demandante", "tipo", "data_estimada_contratacao"};
+
+    private static List<Map<String, Object>> diffCampos(Map<String, Object> antigo, Map<String, Object> novo) {
+        List<Map<String, Object>> mudancas = new java.util.ArrayList<>();
+        for (String campo : CAMPOS_COMPARAVEIS) {
+            Object de = antigo.get(campo);
+            Object para = novo.get(campo);
+            if (!java.util.Objects.equals(String.valueOf(de), String.valueOf(para))) {
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("campo", campo);
+                m.put("de", de);
+                m.put("para", para);
+                mudancas.add(m);
+            }
+        }
+        return mudancas;
+    }
+
+    private static Map<String, Map<String, Object>> indexarPorItemPca(List<Map<String, Object>> itens) {
+        Map<String, Map<String, Object>> idx = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> it : itens) {
+            Object code = it.get("item_pca");
+            if (code != null) {
+                idx.put(String.valueOf(code), it);
+            }
+        }
+        return idx;
     }
 
     public Map<String, Object> findByItemPca(String itemPca) {
@@ -368,23 +448,68 @@ public class PcaService {
         return jdbc.queryForList("SELECT DISTINCT snapshot_version FROM pcas_snapshots WHERE year = ? ORDER BY snapshot_version DESC", Integer.class, String.valueOf(ano));
     }
 
-    public void createSnapshot(Integer ano, Long userId) {
+    /** Snapshot manual (fallback de superadmin) — registra proveniência como 'manual'. */
+    public int createSnapshot(Integer ano, Long userId) {
+        return createSnapshot(ano, userId, null, "manual");
+    }
+
+    /** Finalidades válidas de uma versão do PCA-TIC (validação de domínio — antes era CHECK no banco). */
+    private static final java.util.Set<String> FINALIDADES_VERSAO =
+            java.util.Set.of("formacao", "revisao", "manual");
+
+    /**
+     * RF-45/46 — grava a próxima versão imutável do PCA-TIC registrando a proveniência
+     * (ciclo de origem + finalidade + quem/quando publicou) nas PRÓPRIAS linhas de `pcas_snapshots`
+     * (a fonte de verdade das versões). A numeração só avança aqui, na publicação.
+     * Retorna o número da versão gerada.
+     */
+    public int createSnapshot(Integer ano, Long userId, Long cicloId, String finalidade) {
+        String fin = (finalidade == null || finalidade.isBlank()) ? "manual" : finalidade.trim();
+        if (!FINALIDADES_VERSAO.contains(fin)) {
+            throw new ApiException(400, "Finalidade inválida: " + finalidade);
+        }
         Integer maxVersion = jdbc.queryForObject("SELECT MAX(snapshot_version) FROM pcas_snapshots WHERE year = ?", Integer.class, String.valueOf(ano));
         int nextVersion = maxVersion == null ? 1 : maxVersion + 1;
-        
+
         String insertSql = "INSERT INTO pcas_snapshots (original_pca_id, snapshot_version, snapshot_created_by, " +
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
                 "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
                 "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
-                "created_by, updated_by, deleted_at, deleted_by) " +
+                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade, " +
+                "ciclo_id, finalidade, publicado_por, publicado_em) " +
                 "SELECT id, ?, ?, " +
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
                 "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
                 "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
-                "created_by, updated_by, deleted_at, deleted_by " +
+                "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade, " +
+                "?, ?, ?, NOW() " +
                 "FROM pcas WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)";
-                
-        jdbc.update(insertSql, nextVersion, userId, String.valueOf(ano));
+
+        jdbc.update(insertSql, nextVersion, userId, cicloId, fin, userId, String.valueOf(ano));
+        return nextVersion;
+    }
+
+    /** RF-46/57 — proveniência das versões publicadas de um ano (versão → finalidade/ciclo/data). */
+    public List<Map<String, Object>> getVersoesInfo(Integer ano) {
+        return jdbc.queryForList(
+                "SELECT snapshot_version AS versao, MAX(finalidade) AS finalidade, MAX(ciclo_id) AS ciclo_id, " +
+                        "MAX(publicado_em) AS publicado_em, MAX(publicado_por) AS publicado_por " +
+                        "FROM pcas_snapshots WHERE year = ? " +
+                        "GROUP BY snapshot_version ORDER BY snapshot_version DESC",
+                String.valueOf(ano));
+    }
+
+    /**
+     * RF-55 — carimba a origem (ciclo, PROAD, finalidade) nos itens vivos do ano. Chamado na
+     * publicação, ANTES do snapshot, para que a versão imutável já preserve a rastreabilidade.
+     */
+    public void stampOrigem(Integer ano, Long cicloId, String proad, String finalidade, Long userId) {
+        if (ano == null) return;
+        jdbc.update(
+                "UPDATE pcas SET origem_ciclo_id = ?, origem_proad = ?, origem_finalidade = ?, " +
+                        "updated_by = COALESCE(?, updated_by) " +
+                        "WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)",
+                cicloId, proad, finalidade, userId, String.valueOf(ano));
     }
 
     public List<String> getAreasDemandantes() {

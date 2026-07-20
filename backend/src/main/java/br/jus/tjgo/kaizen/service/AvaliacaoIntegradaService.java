@@ -224,16 +224,16 @@ public class AvaliacaoIntegradaService {
         return out;
     }
 
-    /** Metadados mínimos da última avaliação integrada por cadastros_pessoas.id (ou null). */
-    public Map<String, Object> findLatestByPessoaId(long cadastrosPessoasId) {
+    /** Metadados mínimos da última avaliação integrada por user_id (ou null). */
+    public Map<String, Object> findLatestByUserId(long userId) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT f.id, COALESCE(f.tipo_inventario, 'equipe') AS tipo_inventario, f.status " +
                         "FROM avaliacao_integrada_formularios f " +
                         "INNER JOIN autoavaliacao_formularios af ON af.id = f.autoavaliacao_id " +
-                        "INNER JOIN cadastros_pessoas cp ON cp.user_id = af.user_id " +
-                        "WHERE cp.id = ? AND f.is_deleted = FALSE " +
+                        "INNER JOIN users u ON u.id = af.user_id " +
+                        "WHERE af.user_id = ? AND f.is_deleted = FALSE " +
                         "ORDER BY f.created_at DESC LIMIT 1",
-                cadastrosPessoasId);
+                userId);
         if (rows.isEmpty()) {
             return null;
         }

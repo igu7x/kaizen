@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +38,9 @@ public class Contract {
     @Column(name = "process", length = 255)
     private String process;
 
+    @Column(name = "expense_nature", length = 255)
+    private String expenseNature;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
@@ -48,6 +52,9 @@ public class Contract {
 
     @Column(name = "limit_date")
     private LocalDate limitDate;
+
+    @Column(name = "year_duration_standard")
+    private BigDecimal yearDurationStandard;
 
     @Column(name = "contract_type", length = 50)
     private ContractTypeEnum contractType;
@@ -90,6 +97,14 @@ public class Contract {
             return value;
         }
     }
+
+    /**
+     * Natureza do contrato para o Orçamento de TIC (DFD-Consulta): "continuada" | "pontual".
+     * Contratos de natureza continuada são pré-carregados nos blocos 1–3 do DFD; pontuais não
+     * (RF-01/02/04/17 da Especificação de Requisitos do Orçamento). Nulo = não classificado.
+     */
+    @Column(name = "situation", length = 20)
+    private String situation;
 
     @Column(name = "additive_term_type")
     private Integer additiveTermType;
