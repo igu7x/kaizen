@@ -5,6 +5,10 @@ import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
 // ============================================================
 // Gerador de PDF do POP (Procedimento Operacional Padrão) — layout institucional SGQ,
 // o mais fiel possível ao modelo do TJGO.
+//
+// O conteúdo FLUI entre páginas: uma seção só é empurrada para a página seguinte se não
+// couber o cabeçalho da seção + ao menos duas linhas de texto. Caso contrário ela começa
+// na página atual e continua na próxima, sem deixar espaços vazios.
 // ============================================================
 
 const PAGE_W = 210;
@@ -12,11 +16,16 @@ const PAGE_H = 297;
 const MARGIN = 15;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 const FOOTER_Y = PAGE_H - 22;
+/** Limite inferior do conteúdo (acima do rodapé). */
+const LIMITE_Y = FOOTER_Y - 4;
 
 const SECTION_BLUE: [number, number, number] = [68, 114, 196]; // #4472C4
 const TEXT_DARK: [number, number, number] = [33, 37, 41];
 const BORDER: [number, number, number] = [140, 150, 165];
 const WHITE: [number, number, number] = [255, 255, 255];
+
+const BAR_H = 6.5;
+const FONT_SIZE = 9;
 
 function formatData(v: string | null | undefined): string {
   if (!v) return "—";
@@ -37,15 +46,40 @@ function lineHeight(fontSize: number): number {
   return fontSize * 0.3528 * 1.35 + 0.3;
 }
 
+/** Carrega a logo do SGQ (public/) como data URL para embutir no PDF. */
+async function carregarLogoSgq(): Promise<string | null> {
+  try {
+    const res = await fetch("/logoSGQsemfundo.png");
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Uma linha já quebrada, pronta para desenhar. */
+interface LinhaPdf {
+  texto: string;
+  /** true = primeira linha de um item de lista (desenha o "•"). */
+  bullet?: boolean;
+  /** true = linha de continuação de um item de lista (indentada). */
+  indent?: boolean;
+}
+
 // ── Cabeçalho institucional (repetido em cada página) ─────────────────
-function drawHeader(doc: jsPDF, pop: PopCriado): number {
+function drawHeader(doc: jsPDF, pop: PopCriado, logoSgq: string | null): number {
   const y = MARGIN;
   const leftW = 40;
   const rightW = 26;
   const centerW = CONTENT_W - leftW - rightW;
   const h = 26;
 
-  // Molduras
   doc.setDrawColor(...BORDER);
   doc.setLineWidth(0.3);
   doc.rect(MARGIN, y, leftW, h, "S");
@@ -126,22 +160,40 @@ function drawHeader(doc: jsPDF, pop: PopCriado): number {
     { align: "center", baseline: "middle" },
   );
 
-  // ── Direita: selo SGQ (desenhado, sem asset) ──
+  // ── Direita: logo do SGQ (imagem real; fallback desenhado se não carregar) ──
   const sx = MARGIN + leftW + centerW;
-  doc.setFillColor(...SECTION_BLUE);
-  doc.roundedRect(sx + 4, y + 5, rightW - 8, 10, 1.5, 1.5, "F");
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...WHITE);
-  doc.text("SGQ", sx + rightW / 2, y + 11, {
-    align: "center",
-    baseline: "middle",
-  });
-  doc.setFontSize(4);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...TEXT_DARK);
-  doc.text("SISTEMA DE GESTÃO", sx + rightW / 2, y + 18, { align: "center" });
-  doc.text("DA QUALIDADE", sx + rightW / 2, y + 20.5, { align: "center" });
+  if (logoSgq) {
+    try {
+      const props = doc.getImageProperties(logoSgq);
+      const maxW = rightW - 5;
+      const maxH = h - 5;
+      const escala = Math.min(maxW / props.width, maxH / props.height);
+      const w = props.width * escala;
+      const hh = props.height * escala;
+      doc.addImage(
+        logoSgq,
+        "PNG",
+        sx + (rightW - w) / 2,
+        y + (h - hh) / 2,
+        w,
+        hh,
+        undefined,
+        "FAST",
+      );
+    } catch {
+      /* se a imagem falhar, segue sem a logo */
+    }
+  } else {
+    doc.setFillColor(...SECTION_BLUE);
+    doc.roundedRect(sx + 4, y + 5, rightW - 8, 10, 1.5, 1.5, "F");
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...WHITE);
+    doc.text("SGQ", sx + rightW / 2, y + 11, {
+      align: "center",
+      baseline: "middle",
+    });
+  }
 
   return y + h + 5;
 }
@@ -153,73 +205,102 @@ function drawSectionBar(
   title: string,
   y: number,
 ): number {
-  const h = 6.5;
   doc.setFillColor(...SECTION_BLUE);
-  doc.rect(MARGIN, y, CONTENT_W, h, "F");
+  doc.rect(MARGIN, y, CONTENT_W, BAR_H, "F");
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...WHITE);
-  doc.text(`${num}. ${title}`, MARGIN + 2.5, y + h / 2, { baseline: "middle" });
-  return y + h;
-}
-
-// ── Caixa de conteúdo (texto livre) ─────────────────
-function drawTextBox(
-  doc: jsPDF,
-  texto: string,
-  y: number,
-  minH = 9,
-  italic = false,
-): number {
-  const fs = 9;
-  doc.setFontSize(fs);
-  doc.setFont("helvetica", italic ? "italic" : "normal");
-  const inner = CONTENT_W - 6;
-  const wrapped = doc.splitTextToSize(texto || "—", inner) as string[];
-  const lh = lineHeight(fs);
-  const h = Math.max(minH, wrapped.length * lh + 4);
-  doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.3);
-  doc.rect(MARGIN, y, CONTENT_W, h, "S");
-  doc.setTextColor(...TEXT_DARK);
-  wrapped.forEach((line, i) => {
-    doc.text(line, MARGIN + 3, y + 3.5 + i * lh);
+  doc.text(`${num}. ${title}`, MARGIN + 2.5, y + BAR_H / 2, {
+    baseline: "middle",
   });
-  return y + h;
+  return y + BAR_H;
 }
 
-// ── Caixa com lista de bullets ─────────────────
-function drawBulletBox(
+/**
+ * Desenha as linhas em caixas, quebrando de página quando necessário: preenche a página
+ * atual até o limite e continua na próxima, em vez de empurrar o bloco inteiro.
+ */
+function drawLinhasComQuebra(
   doc: jsPDF,
-  itens: string[],
+  pop: PopCriado,
+  logoSgq: string | null,
+  itens: LinhaPdf[],
   y: number,
-  minH = 9,
+  minH: number,
 ): number {
-  const fs = 9;
-  const lh = lineHeight(fs);
-  const inner = CONTENT_W - 10;
-  doc.setFontSize(fs);
+  const lh = lineHeight(FONT_SIZE);
+  doc.setFontSize(FONT_SIZE);
   doc.setFont("helvetica", "normal");
-  const blocos = itens.map((it) => doc.splitTextToSize(it, inner) as string[]);
-  const totalLines = blocos.reduce((a, b) => a + b.length, 0) || 1;
-  const h = Math.max(minH, totalLines * lh + 4);
-  doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.3);
-  doc.rect(MARGIN, y, CONTENT_W, h, "S");
-  doc.setTextColor(...TEXT_DARK);
-  let cy = y + 3.5;
-  if (itens.length === 0) {
-    doc.text("—", MARGIN + 3, cy);
-  } else {
-    blocos.forEach((linhasItem) => {
-      doc.text("•", MARGIN + 4, cy);
-      linhasItem.forEach((line, i) => {
-        doc.text(line, MARGIN + 8, cy + i * lh);
-      });
-      cy += linhasItem.length * lh;
-    });
+
+  if (itens.length === 0) itens = [{ texto: "—" }];
+
+  let idx = 0;
+  let primeiroBloco = true;
+  while (idx < itens.length) {
+    let cabem = Math.floor((LIMITE_Y - y - 4) / lh);
+    if (cabem < 1) {
+      doc.addPage();
+      y = drawHeader(doc, pop, logoSgq);
+      cabem = Math.floor((LIMITE_Y - y - 4) / lh);
+    }
+    const qtd = Math.min(cabem, itens.length - idx);
+    const alturaTexto = qtd * lh + 4;
+    const h = primeiroBloco ? Math.max(minH, alturaTexto) : alturaTexto;
+
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.3);
+    doc.rect(MARGIN, y, CONTENT_W, h, "S");
+    doc.setTextColor(...TEXT_DARK);
+    doc.setFontSize(FONT_SIZE);
+    doc.setFont("helvetica", "normal");
+
+    for (let i = 0; i < qtd; i++) {
+      const item = itens[idx + i];
+      const baseline = y + 3.5 + i * lh;
+      if (item.bullet) doc.text("•", MARGIN + 4, baseline);
+      doc.text(item.texto, MARGIN + (item.bullet || item.indent ? 8 : 3), baseline);
+    }
+
+    idx += qtd;
+    y += h;
+    primeiroBloco = false;
+
+    if (idx < itens.length) {
+      doc.addPage();
+      y = drawHeader(doc, pop, logoSgq);
+    }
   }
-  return y + h;
+  return y;
+}
+
+/** Quebra texto livre (respeitando \n) em linhas prontas. */
+function linhasDeTexto(doc: jsPDF, texto: string): LinhaPdf[] {
+  doc.setFontSize(FONT_SIZE);
+  doc.setFont("helvetica", "normal");
+  const out: LinhaPdf[] = [];
+  for (const paragrafo of (texto || "—").split("\n")) {
+    if (!paragrafo.trim()) {
+      out.push({ texto: "" });
+      continue;
+    }
+    const wrapped = doc.splitTextToSize(paragrafo, CONTENT_W - 6) as string[];
+    wrapped.forEach((l) => out.push({ texto: l }));
+  }
+  return out;
+}
+
+/** Quebra uma lista em linhas prontas (marcador na primeira linha de cada item). */
+function linhasDeLista(doc: jsPDF, itens: string[]): LinhaPdf[] {
+  doc.setFontSize(FONT_SIZE);
+  doc.setFont("helvetica", "normal");
+  const out: LinhaPdf[] = [];
+  for (const item of itens) {
+    const wrapped = doc.splitTextToSize(item, CONTENT_W - 12) as string[];
+    wrapped.forEach((l, i) =>
+      out.push(i === 0 ? { texto: l, bullet: true } : { texto: l, indent: true }),
+    );
+  }
+  return out;
 }
 
 // ── Seção 10: Validação (3 colunas) ─────────────────
@@ -238,10 +319,7 @@ function drawValidacao(doc: jsPDF, pop: PopCriado, y: number): number {
     doc.setTextColor(...TEXT_DARK);
     doc.text(labels[i], x + 3, y + 5);
     doc.setFont("helvetica", "normal");
-    const wrapped = doc.splitTextToSize(
-      valores[i] || "",
-      colW - 6,
-    ) as string[];
+    const wrapped = doc.splitTextToSize(valores[i] || "", colW - 6) as string[];
     wrapped.forEach((line, j) => doc.text(line, x + 3, y + 11 + j * 4));
   }
   return y + h;
@@ -287,11 +365,11 @@ interface Secao {
   tipo: "texto" | "lista" | "validacao";
   valor?: string | null;
   minH?: number;
-  italic?: boolean;
 }
 
-export function generatePopPDF(pop: PopCriado): void {
+export async function generatePopPDF(pop: PopCriado): Promise<void> {
   const doc = new jsPDF("p", "mm", "a4");
+  const logoSgq = await carregarLogoSgq();
 
   const secoes: Secao[] = [
     { num: 1, titulo: "Serviço", tipo: "texto", valor: pop.servico },
@@ -328,39 +406,68 @@ export function generatePopPDF(pop: PopCriado): void {
     { num: 10, titulo: "Validação", tipo: "validacao" },
   ];
 
-  let y = drawHeader(doc, pop);
+  let y = drawHeader(doc, pop, logoSgq);
+  const lh = lineHeight(FONT_SIZE);
+  // Só empurra a seção para a próxima página se não couber a barra + 2 linhas.
+  const minimoSecao = BAR_H + 2 * lh + 4;
 
   for (const sec of secoes) {
-    // Estimativa da altura da seção (barra + conteúdo) p/ evitar título órfão.
-    const fs = 9;
-    const lh = lineHeight(fs);
-    let estH = 6.5 + (sec.minH || 9);
-    if (sec.tipo === "validacao") estH = 6.5 + 20;
-    else if (sec.tipo === "lista") {
-      const its = linhas(sec.valor);
-      estH = 6.5 + Math.max(sec.minH || 9, (its.length || 1) * lh + 4);
-    } else {
-      doc.setFontSize(fs);
-      doc.setFont("helvetica", "normal");
-      const wrapped = doc.splitTextToSize(
-        sec.valor || "—",
-        CONTENT_W - 6,
-      ) as string[];
-      estH = 6.5 + Math.max(sec.minH || 9, wrapped.length * lh + 4);
-    }
-
-    if (y + estH > FOOTER_Y - 4) {
+    const necessario = sec.tipo === "validacao" ? BAR_H + 20 : minimoSecao;
+    if (y + necessario > LIMITE_Y) {
       doc.addPage();
-      y = drawHeader(doc, pop);
+      y = drawHeader(doc, pop, logoSgq);
     }
 
     y = drawSectionBar(doc, sec.num, sec.titulo, y);
+
     if (sec.tipo === "validacao") {
       y = drawValidacao(doc, pop, y);
     } else if (sec.tipo === "lista") {
-      y = drawBulletBox(doc, linhas(sec.valor), y, sec.minH);
+      y = drawLinhasComQuebra(
+        doc,
+        pop,
+        logoSgq,
+        linhasDeLista(doc, linhas(sec.valor)),
+        y,
+        sec.minH || 9,
+      );
     } else {
-      y = drawTextBox(doc, sec.valor || "—", y, sec.minH, sec.italic);
+      y = drawLinhasComQuebra(
+        doc,
+        pop,
+        logoSgq,
+        linhasDeTexto(doc, sec.valor || "—"),
+        y,
+        sec.minH || 9,
+      );
+    }
+    y += 1.5;
+  }
+
+  // Anexo: imagem do fluxograma, em página própria, escalada para caber sem distorcer.
+  if (pop.fluxograma_data) {
+    try {
+      const props = doc.getImageProperties(pop.fluxograma_data);
+      doc.addPage();
+      let ay = drawHeader(doc, pop, logoSgq);
+      ay = drawSectionBar(doc, 11, "Anexo — Fluxograma", ay) + 3;
+      const maxW = CONTENT_W;
+      const maxH = LIMITE_Y - ay;
+      const escala = Math.min(maxW / props.width, maxH / props.height);
+      const w = props.width * escala;
+      const h = props.height * escala;
+      doc.addImage(
+        pop.fluxograma_data,
+        /^data:image\/jpe?g/i.test(pop.fluxograma_data) ? "JPEG" : "PNG",
+        MARGIN + (CONTENT_W - w) / 2,
+        ay,
+        w,
+        h,
+        undefined,
+        "FAST",
+      );
+    } catch {
+      /* imagem inválida: o PDF sai sem o anexo */
     }
   }
 

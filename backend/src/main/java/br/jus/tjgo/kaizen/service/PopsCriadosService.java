@@ -23,11 +23,21 @@ public class PopsCriadosService {
             "codigo", "nome_processo", "macroprocesso", "diretoria_orgao", "unidade_orgao",
             "area", "data_versao", "revisao", "servico", "objetivo", "unidade_responsavel",
             "siglas", "normativa", "descricao_procedimento", "gestor_processo",
-            "sistemas_utilizados", "anexos", "proposto_por", "analisado_por", "aprovado_por");
+            "sistemas_utilizados", "anexos", "fluxograma_nome", "fluxograma_data",
+            "proposto_por", "analisado_por", "aprovado_por");
 
+    private static final List<String> CAMPOS_LISTA = CAMPOS.stream()
+            .filter(c -> !c.equals("fluxograma_data"))
+            .toList();
+
+    /**
+     * A listagem omite fluxograma_data (imagem em base64, potencialmente grande): a tabela só
+     * precisa saber se há anexo, pelo nome. O conteúdo vem no getById, usado para gerar o PDF.
+     */
     public List<Map<String, Object>> list() {
         return jdbc.queryForList(
-                "SELECT * FROM pops_criados WHERE is_deleted = FALSE ORDER BY created_at DESC, id DESC");
+                "SELECT id, " + String.join(", ", CAMPOS_LISTA) + ", created_at, updated_at " +
+                        "FROM pops_criados WHERE is_deleted = FALSE ORDER BY created_at DESC, id DESC");
     }
 
     public Map<String, Object> getById(long id) {

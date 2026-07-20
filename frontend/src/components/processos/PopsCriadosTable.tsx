@@ -64,7 +64,7 @@ export function PopsCriadosTable({ areaPadrao }: { areaPadrao?: string }) {
     try {
       // Garante os dados completos (a listagem já traz tudo, mas mantém robusto).
       const full = await popsCriadosApi.getById(p.id);
-      generatePopPDF(full);
+      await generatePopPDF(full);
     } catch {
       toast.error("Não foi possível gerar o PDF do POP.");
     }

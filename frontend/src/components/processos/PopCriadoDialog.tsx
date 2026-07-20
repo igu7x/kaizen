@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, FileText, ListChecks } from "lucide-react";
+import { Loader2, FileText, ListChecks, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   popsCriadosApi,
@@ -46,6 +46,8 @@ const VAZIO: PopCriadoInput = {
   gestor_processo: "",
   sistemas_utilizados: "",
   anexos: "",
+  fluxograma_nome: "",
+  fluxograma_data: "",
   proposto_por: "",
   analisado_por: "",
   aprovado_por: "",
@@ -105,6 +107,28 @@ export function PopCriadoDialog({
 
   const set = (campo: keyof PopCriadoInput, valor: string) =>
     setForm((f) => ({ ...f, [campo]: valor }));
+
+  /** Lê a imagem do fluxograma como data URL para embutir no PDF (mesma convenção do PAC). */
+  const anexarFluxograma = (file?: File) => {
+    if (!file) return;
+    if (!/^image\/(png|jpeg)$/.test(file.type)) {
+      toast.error("Envie uma imagem PNG ou JPG.");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error("A imagem do fluxograma deve ter até 4 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      setForm((f) => ({
+        ...f,
+        fluxograma_nome: file.name,
+        fluxograma_data: String(reader.result),
+      }));
+    reader.onerror = () => toast.error("Não foi possível ler a imagem.");
+    reader.readAsDataURL(file);
+  };
 
   const salvar = async () => {
     if (!form.nome_processo?.trim()) {
@@ -295,6 +319,52 @@ export function PopCriadoDialog({
                   placeholder={'Fluxo "Gerenciamento de Informação Documentada – SGQ"'}
                 />
               </Campo>
+              <div className="md:col-span-2">
+                <Campo
+                  label="Fluxograma (imagem)"
+                  hint="PNG ou JPG, até 4 MB — sai em uma página de anexo no PDF"
+                >
+                  {form.fluxograma_data ? (
+                    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 min-w-0">
+                      <img
+                        src={form.fluxograma_data}
+                        alt="Prévia do fluxograma"
+                        className="h-14 w-20 rounded border border-slate-200 bg-white object-contain"
+                      />
+                      <span className="flex-1 min-w-0 truncate text-sm text-slate-700">
+                        {form.fluxograma_nome || "fluxograma"}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            fluxograma_nome: "",
+                            fluxograma_data: "",
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Remover
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-600 transition-colors hover:border-blue-400 hover:bg-blue-50/50">
+                      <ImagePlus className="h-4 w-4 text-slate-400" />
+                      Selecionar imagem do fluxograma
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        className="hidden"
+                        onChange={(e) => anexarFluxograma(e.target.files?.[0])}
+                      />
+                    </label>
+                  )}
+                </Campo>
+              </div>
             </div>
           </Secao>
 
