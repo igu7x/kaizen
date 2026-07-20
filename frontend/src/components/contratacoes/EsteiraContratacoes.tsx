@@ -12,6 +12,7 @@ import {
   MESES_ORDENADOS,
 } from "@/types";
 import { pcaApi, formatCurrency, getStatusBadgeClass } from "@/services/pcaApi";
+import { ComparacaoVersoesDialog } from "@/components/contratacoes/ComparacaoVersoesDialog";
 import { areasApi } from "@/services/areasApi";
 import { pessoasApi, type Pessoa } from "@/services/pessoasApi";
 import type { Area, Unidade } from "@/services/areasApi";
@@ -61,6 +62,7 @@ import {
   ChevronRight,
   FolderKanban,
   RefreshCw,
+  GitCompare,
 } from "lucide-react";
 import {
   BarChart,
@@ -175,6 +177,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCreateVersionDialogOpen, setIsCreateVersionDialogOpen] = useState(false);
+  const [isCompareDialogOpen, setIsCompareDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PcaItem | null>(null);
 
   // Estados do formulário
@@ -224,7 +227,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       .then(setDiretoriasList)
       .catch(() => { });
     pessoasApi
-      .getAll(selectedAreaId || undefined)
+      .getAll(selectedArea?.sigla || undefined)
       .then(setPessoasList)
       .catch(() => { });
   }, [anoSelecionado, selectedAreaId, selectedVersion]);
@@ -251,7 +254,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
           const allAreas = await areasApi.getAll();
           setAreasList(allAreas);
           const matchedArea = allAreas.find(
-            (a) => a.sigla === selectedAreaId || a.nome === selectedAreaId
+            (a) => a.id === selectedAreaId
           );
           if (matchedArea) {
             diretoriaId = matchedArea.id;
@@ -262,8 +265,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       }
 
       const [itemsData, statsData, filtersData, versionsData] = await Promise.all([
-        pcaApi.getPcaItems(anoSelecionado, selectedAreaId || undefined, selectedVersion),
-        pcaApi.getPcaStats(anoSelecionado, selectedAreaId || undefined, selectedVersion),
+        pcaApi.getPcaItems(anoSelecionado, selectedArea?.sigla || undefined, selectedVersion),
+        pcaApi.getPcaStats(anoSelecionado, selectedArea?.sigla || undefined, selectedVersion),
         pcaApi.getPcaFilters(),
         pcaApi.getPcaVersions(anoSelecionado)
       ]);
@@ -381,7 +384,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   const chartDataFaseAtual = useMemo(() => {
     const faseCounts: Record<string, number> = {};
     filteredItems.forEach(item => {
-      let rawFase = item.step || item.status || "Não Iniciada";
+      let rawFase = String(item.step || item.status || "Não Iniciada");
       if (item.status === "Concluída") rawFase = "Concluído";
 
       const fase = normalizeStep(rawFase) || rawFase;
@@ -731,7 +734,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   }
 
   // Renderizar status badge
-  function renderStatusBadge(status: PcaStatus) {
+  function renderStatusBadge(status: PcaStatus | string | number) {
     if (status === "Concluída") return null;
     const label = status === "Em andamento" ? "Demanda em Andamento" : status;
     return (
@@ -799,6 +802,18 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             >
               <Plus className="h-4 w-4 mr-2" />
               Gerar Nova Versão
+            </Button>
+          )}
+
+          {versionsList.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCompareDialogOpen(true)}
+              className="text-gray-600 h-9"
+            >
+              <GitCompare className="h-4 w-4 mr-2" />
+              Comparar versões
             </Button>
           )}
         </div>
@@ -1123,7 +1138,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </SelectContent>
               </Select>
               <span className="w-32 text-center">Valor Global</span>
-              <span className="w-32 text-center">Valor Ano Ref.</span>
+              <span className="w-32 text-center">Valor {anoSelecionado}</span>
               <Select value={filterMes} onValueChange={setFilterMes}>
                 <SelectTrigger className="w-32 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Prazo</span>
@@ -1137,19 +1152,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterFase} onValueChange={setFilterFase}>
-                <SelectTrigger className="w-40 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                  <span>Fase Atual</span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                  <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
-                  <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
-                  <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
-                  <SelectItem value="Concluído">Concluído</SelectItem>
-                </SelectContent>
-              </Select>
+
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-28 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                   <span>Situação</span>
@@ -1265,28 +1268,15 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     </span>
                   </div>
 
-                  {/* Fase Atual */}
-                  <div className="w-40 flex items-center justify-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: STEP_COLORS[normalizeStep(item.step) || "Não Iniciada"] || "#9CA3AF" }}
-                    />
-                    <span className="text-[11px] text-gray-700 font-medium whitespace-pre-line leading-tight max-w-[120px]" title={normalizeStep(item.step) || "Não Iniciada"}>
-                      {normalizeStep(item.step) === "Planejamento da Contratação"
-                        ? "Planejamento\nda Contratação"
-                        : normalizeStep(item.step) === "Seleção de Fornecedor"
-                          ? "Seleção de\nFornecedor"
-                          : normalizeStep(item.step) === "Gestão do Contrato"
-                            ? "Gestão\ndo Contrato"
-                            : (normalizeStep(item.step) || "Não Iniciada")}
-                    </span>
-                  </div>
+
 
                   {/* Status */}
                   <div className="w-28 flex flex-col justify-center items-center gap-1">
                     {renderStatusBadge(item.status)}
                     {item.contract_ids && item.contract_ids.split(',').map(idStr => {
-                      const id = idStr.trim();
+                      const parts = idStr.split(':');
+                      const id = parts.shift()?.trim();
+                      const noticeNumber = parts.join(':').trim();
                       if (!id) return null;
                       return (
                         <Badge
@@ -1298,7 +1288,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                           }}
                           className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
                         >
-                          CT: {id}
+                          CT: {noticeNumber || id}
                         </Badge>
                       );
                     })}
@@ -1342,7 +1332,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     {item.contract_ids && (
                       <div className="flex gap-1">
                         {item.contract_ids.split(',').map(idStr => {
-                          const id = idStr.trim();
+                          const parts = idStr.split(':');
+                          const id = parts.shift()?.trim();
+                          const noticeNumber = parts.join(':').trim();
                           if (!id) return null;
                           return (
                             <Badge
@@ -1354,7 +1346,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                               }}
                               className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
                             >
-                              CT: {id}
+                              CT: {noticeNumber || id}
                             </Badge>
                           );
                         })}
@@ -1632,7 +1624,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="valor_formalizado">Valor Ano Referência (R$)</Label>
+                <Label htmlFor="valor_formalizado">Valor {anoSelecionado} (R$)</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
                   <Input
@@ -1646,8 +1638,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </div>
             </div>
 
-            {/* Linha 9 - 2 colunas */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Linha 9 - 1 coluna */}
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="process">PROAD</Label>
                 <Input
@@ -1658,23 +1650,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     setFormData({ ...formData, process: e.target.value })
                   }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={String(formData.status)}
-                  onValueChange={(value: PcaStatus) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                    <SelectItem value="Em andamento">Demanda em Andamento</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>
@@ -1957,7 +1932,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_valor_formalizado">Valor Ano Referência (R$)</Label>
+                <Label htmlFor="edit_valor_formalizado">Valor {anoSelecionado} (R$)</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
                   <Input
@@ -1971,8 +1946,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
               </div>
             </div>
 
-            {/* Linha 9 - 2 colunas */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Linha 9 - 1 coluna */}
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_process">PROAD</Label>
                 <Input
@@ -1983,23 +1958,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     setFormData({ ...formData, process: e.target.value })
                   }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_status">Status</Label>
-                <Select
-                  value={String(formData.status)}
-                  onValueChange={(value: PcaStatus) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
-                    <SelectItem value="Em andamento">Demanda em Andamento</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>
@@ -2054,6 +2012,13 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       </AlertDialog>
 
       {/* Dialog de Confirmação de Nova Versão */}
+      <ComparacaoVersoesDialog
+        open={isCompareDialogOpen}
+        onOpenChange={setIsCompareDialogOpen}
+        ano={anoSelecionado}
+        versionsList={versionsList}
+      />
+
       <AlertDialog
         open={isCreateVersionDialogOpen}
         onOpenChange={setIsCreateVersionDialogOpen}

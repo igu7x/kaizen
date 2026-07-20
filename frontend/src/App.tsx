@@ -34,10 +34,12 @@ import CadastroHub from "./pages/CadastroHub";
 import PermissoesTap from "./pages/PermissoesTap";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
-import Dfd from "./pages/Dfd";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
 import PacCapacitacao from "./pages/PacCapacitacao";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
+import CicloOrcamentario from "./pages/CicloOrcamentario";
+import FormacaoPca from "./pages/FormacaoPca";
+import RevisaoPca from "./pages/RevisaoPca";
 import PermissoesAcoes from "./pages/PermissoesAcoes";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
 import { FormFiller } from "./components/pessoas/FormFiller";
@@ -119,12 +121,12 @@ function App() {
                     path="/contratacoes-ti"
                     element={
                       <ProtectedRoute>
-                        <Navigate to="/contratacoes-ti/novas" replace />
+                        <Navigate to="/pca" replace />
                       </ProtectedRoute>
                     }
                   />
                   <Route
-                    path="/contratacoes-ti/novas"
+                    path="/pca"
                     element={
                       <ProtectedRoute>
                         <Contratacoes />
@@ -155,19 +157,36 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route
-                    path="/dfd"
-                    element={
-                      <ProtectedRoute>
-                        <Dfd />
-                      </ProtectedRoute>
-                    }
-                  />
+
                   <Route
                     path="/planejamento-contratacao"
                     element={
                       <ProtectedRoute>
                         <PlanejamentoContratacao />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ciclo-orcamentario"
+                    element={
+                      <ProtectedRoute>
+                        <CicloOrcamentario />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ciclo-orcamentario/formacao"
+                    element={
+                      <ProtectedRoute>
+                        <FormacaoPca />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ciclo-orcamentario/revisao"
+                    element={
+                      <ProtectedRoute>
+                        <RevisaoPca />
                       </ProtectedRoute>
                     }
                   />

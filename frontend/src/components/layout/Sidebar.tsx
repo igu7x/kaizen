@@ -120,14 +120,15 @@ const menuItemsCompleto: MenuItem[] = [
         children: [
           {
             title: "PCA",
-            path: "/contratacoes-ti/novas",
+            path: "/pca",
             permissaoCodigo: "contratacoes_novas",
           },
           {
-            title: "DFD",
-            path: "/dfd",
+            title: "Ciclo Orçamentário",
+            path: "/ciclo-orcamentario",
             permissaoCodigo: "contratacoes_novas",
-          }
+          },
+
         ]
       },
       {

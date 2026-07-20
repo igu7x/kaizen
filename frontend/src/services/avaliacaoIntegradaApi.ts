@@ -140,7 +140,7 @@ export const avaliacaoIntegradaApi = {
         id: number;
         tipo_inventario: "equipe" | "gestor";
         status: string;
-      }>(`${BASE_URL}/by-pessoa/${pessoaId}`);
+      }>(`${BASE_URL}/meta/user/${pessoaId}`);
     } catch (err: any) {
       if (err?.status === 404 || /404/.test(String(err?.message))) return null;
       throw err;

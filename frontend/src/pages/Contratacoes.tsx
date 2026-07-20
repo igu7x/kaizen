@@ -35,7 +35,7 @@ export default function Contratacoes() {
       <div className="space-y-6">
         <Breadcrumbs
           items={[
-            { label: "Contratações de TIC", to: "/contratacoes-ti/novas" },
+            { label: "Contratações de TIC", to: "/pca" },
             { label: "Orçamento" },
             { label: isRenovacoes ? "Renovações" : "PCA" },
           ]}

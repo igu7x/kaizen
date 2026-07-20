@@ -84,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               cargo_efetivo: fresh.cargo_efetivo ?? null,
               cc_fc_classe: fresh.cc_fc_classe ?? null,
               codigo: fresh.codigo ?? null,
+              tags_acesso: fresh.tags_acesso ?? prev?.tags_acesso ?? [],
               cadastrosUnidadesId: fresh.cadastrosUnidadesId ?? prev?.cadastrosUnidadesId ?? savedUser?.cadastrosUnidadesId,
               areaSigla: fresh.areaSigla ?? prev?.areaSigla ?? savedUser?.areaSigla,
               unidadeSigla: fresh.unidadeSigla ?? prev?.unidadeSigla ?? savedUser?.unidadeSigla,

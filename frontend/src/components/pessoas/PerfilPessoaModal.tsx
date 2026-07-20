@@ -101,28 +101,14 @@ export default function PerfilPessoaModal({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setIntegradaMeta(null);
 
-    // Em paralelo: perfil + checagem de existência da avaliação integrada.
-    Promise.allSettled([
-      pessoasApi.getPerfilCompleto(pessoaId),
-      avaliacaoIntegradaApi.getByPessoaMeta(pessoaId),
-    ])
-      .then(([perfilRes, integradaRes]) => {
-        if (cancelled) return;
-        if (perfilRes.status === "fulfilled") {
-          setPerfil(perfilRes.value);
-        } else {
-          setError(
-            (perfilRes.reason as any)?.message || "Erro ao carregar perfil",
-          );
-        }
-        if (integradaRes.status === "fulfilled" && integradaRes.value) {
-          setIntegradaMeta({
-            id: integradaRes.value.id,
-            tipo_inventario: integradaRes.value.tipo_inventario,
-          });
-        }
+    pessoasApi
+      .getPerfilCompleto(pessoaId)
+      .then((data) => {
+        if (!cancelled) setPerfil(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message || "Erro ao carregar perfil");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -132,6 +118,27 @@ export default function PerfilPessoaModal({
       cancelled = true;
     };
   }, [open, pessoaId]);
+
+  useEffect(() => {
+    if (!perfil?.user_id) {
+      setIntegradaMeta(null);
+      return;
+    }
+
+    let cancelled = false;
+    avaliacaoIntegradaApi.getByPessoaMeta(perfil.user_id).then((res) => {
+      if (!cancelled && res) {
+        setIntegradaMeta({
+          id: res.id,
+          tipo_inventario: res.tipo_inventario,
+        });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [perfil?.user_id]);
 
   const handleAbrirAvaliacao = () => {
     if (!integradaMeta) return;

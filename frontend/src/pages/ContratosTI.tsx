@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Contract } from '@/types';
 import { contractsApi, ContractFilters as ApiContractFilters } from '@/services/contractsApi';
 import { areasApi } from '@/services/areasApi';
-import type { Area } from '@/services/areasApi';
+import type { Area, Unidade } from '@/services/areasApi';
 import { ContractList } from '@/components/contratacoes/ContractList';
 import { ContractFilters } from '@/components/contratacoes/ContractFilters';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,8 +35,7 @@ export function ContratosTI() {
 
   // Áreas/Unidades State
   const [areasList, setAreasList] = useState<Area[]>([]);
-  const [areaSearch, setAreaSearch] = useState("");
-  const [areaDropdownOpen, setAreaDropdownOpen] = useState(false);
+  const [unidadesList, setUnidadesList] = useState<Unidade[]>([]);
 
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -60,10 +59,24 @@ export function ContratosTI() {
     effectiveDate: '',
     directory: '',
     unidade: '',
+    cadastroAreaId: undefined as number | undefined,
+    cadastroUnidadeId: undefined as number | undefined,
     monthlyValueCents: 0,
     totalValueCents: 0,
-    yearValue: 0
+    yearValue: 0,
+    yearDurationStandard: undefined as number | undefined
   });
+
+  useEffect(() => {
+    if (formData.cadastroAreaId) {
+      areasApi
+        .getUnidades(formData.cadastroAreaId)
+        .then(setUnidadesList)
+        .catch(() => setUnidadesList([]));
+    } else {
+      setUnidadesList([]);
+    }
+  }, [formData.cadastroAreaId]);
 
   const formatCurrencyInput = (value: number | undefined | null) => {
     if (value === undefined || value === null) return '';
@@ -90,6 +103,8 @@ export function ContratosTI() {
       effectiveDate: '',
       directory: '',
       unidade: '',
+      cadastroAreaId: undefined,
+      cadastroUnidadeId: undefined,
       monthlyValueCents: 0,
       totalValueCents: 0,
       yearValue: 0
@@ -157,8 +172,8 @@ export function ContratosTI() {
       setModalLoading(true);
       setModalError(null);
 
-      if (!formData.supplier || !formData.objectName || !formData.startDate || !formData.endDate) {
-        throw new Error('Preencha os campos obrigatórios: Fornecedor, Objeto, Data Início e Data Término.');
+      if (!formData.supplier || !formData.objectName || !formData.startDate || !formData.endDate || !formData.cadastroAreaId || !formData.cadastroUnidadeId) {
+        throw new Error('Preencha os campos obrigatórios: Fornecedor, Objeto, Data Início, Data Término, Diretoria e Área Demandante.');
       }
 
       const dateFields = [formData.startDate, formData.endDate, formData.effectiveDate];
@@ -324,73 +339,80 @@ export function ContratosTI() {
             </div>
 
             <div className="space-y-2">
-              <Label>Diretoria / Unidade</Label>
-              <div className="relative">
-                <Input
-                  placeholder="Digite para buscar..."
-                  value={
-                    areaDropdownOpen ? areaSearch : formData.directory || ""
-                  }
-                  onChange={(e) => {
-                    setAreaSearch(e.target.value);
-                    setAreaDropdownOpen(true);
-                  }}
-                  onFocus={() => {
-                    setAreaSearch(formData.directory || "");
-                    setAreaDropdownOpen(true);
-                  }}
-                  onBlur={() =>
-                    setTimeout(() => setAreaDropdownOpen(false), 150)
-                  }
-                  autoComplete="off"
-                />
-                {areaDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {areasList.filter(
-                      (a) =>
-                        a.nome
-                          .toLowerCase()
-                          .includes(areaSearch.toLowerCase()) ||
-                        (a.sigla || "")
-                          .toLowerCase()
-                          .includes(areaSearch.toLowerCase()),
-                    ).length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">
-                        Nenhuma área encontrada
-                      </div>
-                    ) : (
-                      areasList
-                        .filter(
-                          (a) =>
-                            a.nome
-                              .toLowerCase()
-                              .includes(areaSearch.toLowerCase()) ||
-                            (a.sigla || "")
-                              .toLowerCase()
-                              .includes(areaSearch.toLowerCase()),
-                        )
-                        .map((a) => (
-                          <div
-                            key={a.id}
-                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
-                            onMouseDown={() => {
-                              handleInputChange('directory', a.sigla || a.nome);
-                              setAreaDropdownOpen(false);
-                              setAreaSearch(a.sigla || a.nome);
-                            }}
-                          >
-                            <span>{a.nome}</span>
-                            {a.sigla && (
-                              <span className="text-gray-400 ml-1">
-                                ({a.sigla})
-                              </span>
-                            )}
-                          </div>
-                        ))
-                    )}
-                  </div>
-                )}
-              </div>
+              <Label>Natureza (Orçamento de TIC)</Label>
+              <Select
+                value={formData.situation || ""}
+                onValueChange={(v) => handleInputChange("situation", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a natureza..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="continuada">Continuada</SelectItem>
+                  <SelectItem value="pontual">Pontual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Diretoria <span className="text-red-500">*</span></Label>
+              <Select
+                value={formData.cadastroAreaId ? String(formData.cadastroAreaId) : undefined}
+                onValueChange={(v) => {
+                  const dirId = parseInt(v, 10);
+                  const dir = areasList.find((d) => d.id === dirId);
+                  setFormData(prev => ({
+                    ...prev,
+                    cadastroAreaId: dirId,
+                    directory: dir?.sigla || dir?.nome || "",
+                    cadastroUnidadeId: undefined,
+                    unidade: ""
+                  }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a diretoria..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {areasList.map((dir) => (
+                    <SelectItem key={dir.id} value={String(dir.id)}>
+                      {dir.sigla ? `${dir.sigla} - ${dir.nome}` : dir.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Área Demandante <span className="text-red-500">*</span></Label>
+              <Select
+                value={formData.cadastroUnidadeId ? String(formData.cadastroUnidadeId) : undefined}
+                onValueChange={(v) => {
+                  const unidId = parseInt(v, 10);
+                  setFormData(prev => ({
+                    ...prev,
+                    cadastroUnidadeId: unidId
+                  }));
+                }}
+                disabled={!formData.cadastroAreaId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a área demandante..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesList.map((u) => {
+                    const dir = areasList.find(
+                      (d) => d.id === formData.cadastroAreaId
+                    );
+                    const sigla = dir?.sigla || dir?.nome;
+                    return (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.nome} {sigla ? `(${sigla})` : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -439,6 +461,21 @@ export function ContratosTI() {
                 max="9999-12-31"
                 value={formData.effectiveDate || ''}
                 onChange={(e) => handleInputChange('effectiveDate', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Duração Máxima (Anos)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.yearDurationStandard !== undefined ? formData.yearDurationStandard : ''}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  handleInputChange('yearDurationStandard', isNaN(val) ? undefined : val);
+                }}
+                placeholder="Ex: 5"
               />
             </div>
 
