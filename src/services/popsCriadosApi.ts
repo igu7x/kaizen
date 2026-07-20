@@ -20,6 +20,9 @@ export interface PopCriado {
   gestor_processo: string | null;
   sistemas_utilizados: string | null; // um item por linha
   anexos: string | null; // um item por linha
+  fluxograma_nome: string | null;
+  /** Imagem do fluxograma como data URL base64. Só vem no getById (omitida na listagem). */
+  fluxograma_data?: string | null;
   proposto_por: string | null;
   analisado_por: string | null;
   aprovado_por: string | null;

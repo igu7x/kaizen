@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
-import { PopsCriadosTable } from "@/components/processos/PopsCriadosTable";
+import { PopsTable } from "@/components/processos/PopsTable";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
 import { areasApi, Area, Unidade } from "@/services/areasApi";
 import { toast } from "sonner";
@@ -964,7 +964,7 @@ export default function EscritorioProcessos() {
     artefatoTipo === "IT"
       ? "Instruções de Trabalho"
       : artefatoTipo === "POP"
-        ? "POPs Anexados em Processos"
+        ? "POPs"
         : artefatoTipo === "MPS"
           ? "MPS"
           : "Processos";
@@ -1012,6 +1012,8 @@ export default function EscritorioProcessos() {
   const [linhaExpandida, setLinhaExpandida] = useState<number | null>(null);
   // Processo cujo "Baixar todos" está em andamento.
   const [baixandoTodosId, setBaixandoTodosId] = useState<number | null>(null);
+  // Dialog de criação de POP (o botão fica no cabeçalho do card da tabela).
+  const [criarPopOpen, setCriarPopOpen] = useState(false);
 
   // Baixa o documento de uma linha da tabela de artefatos. Como a listagem vem
   // sem o conteúdo (`data` é removido no payload enxuto), busca o processo completo
@@ -1492,6 +1494,15 @@ export default function EscritorioProcessos() {
                 className="h-9 pl-9 bg-white"
               />
             </div>
+            {filtroArtefato === "pop" && (
+              <Button
+                onClick={() => setCriarPopOpen(true)}
+                size="sm"
+                className="ml-auto bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-1.5" /> Criar POP
+              </Button>
+            )}
           </div>
 
           {loading ? (
@@ -1499,6 +1510,19 @@ export default function EscritorioProcessos() {
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               Carregando processos…
             </div>
+          ) : filtroArtefato === "pop" ? (
+            /* POPs vivem em uma tabela só: os anexados a processos e os criados no Kaizen. */
+            <PopsTable
+              linhasAnexadas={tabelaDocumentos}
+              busca={buscaProcesso}
+              areaPadrao={user?.diretoria || undefined}
+              baixandoDocKey={baixandoDocKey}
+              onBaixarAnexado={(row) =>
+                baixarDocumentoArtefato(row.key, row.processoId, row.doc)
+              }
+              criarOpen={criarPopOpen}
+              onCriarOpenChange={setCriarPopOpen}
+            />
           ) : artefatoTipo ? (
             tabelaDocumentos.length === 0 ? (
               <div className="py-16 text-center">
@@ -1861,12 +1885,6 @@ export default function EscritorioProcessos() {
           )}
         </div>
 
-        {/* Segunda tabela: POPs criados dentro do Kaizen (só no filtro POP) */}
-        {filtroArtefato === "pop" && (
-          <div className="mt-6">
-            <PopsCriadosTable areaPadrao={user?.diretoria || undefined} />
-          </div>
-        )}
       </div>
 
       {/* Diálogos */}
