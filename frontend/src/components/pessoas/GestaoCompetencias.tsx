@@ -73,7 +73,6 @@ function HubSection({
   icon,
   iconBg,
   title,
-  description,
   children,
 }: {
   open: boolean;
@@ -81,7 +80,6 @@ function HubSection({
   icon: ReactNode;
   iconBg: string;
   title: string;
-  description: string;
   children: ReactNode;
 }) {
   return (
@@ -98,7 +96,6 @@ function HubSection({
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-gray-900 text-lg">{title}</h3>
-          <p className="text-sm text-gray-500">{description}</p>
         </div>
         <ChevronDown
           className={`h-5 w-5 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
@@ -120,7 +117,6 @@ function HubSubSection({
   icon,
   iconBg,
   title,
-  description,
   children,
 }: {
   open: boolean;
@@ -128,7 +124,6 @@ function HubSubSection({
   icon: ReactNode;
   iconBg: string;
   title: string;
-  description: string;
   children: ReactNode;
 }) {
   return (
@@ -145,7 +140,6 @@ function HubSubSection({
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-gray-800">{title}</h4>
-          <p className="text-xs text-gray-500">{description}</p>
         </div>
         <ChevronDown
           className={`h-4 w-4 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
@@ -1431,8 +1425,8 @@ export function GestaoCompetencias() {
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                    <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
+                      <ClipboardCheck className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
@@ -1454,8 +1448,8 @@ export function GestaoCompetencias() {
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                    <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
+                    <ClipboardCheck className="h-5 w-5 text-emerald-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
@@ -1554,8 +1548,8 @@ export function GestaoCompetencias() {
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
@@ -1587,8 +1581,8 @@ export function GestaoCompetencias() {
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
+                    <UserCheck className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
@@ -1618,8 +1612,8 @@ export function GestaoCompetencias() {
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                      <Scale className="h-5 w-5 text-blue-600" />
+                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
+                      <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
@@ -1648,8 +1642,8 @@ export function GestaoCompetencias() {
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                      <Scale className="h-5 w-5 text-blue-600" />
+                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
+                      <Scale className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
@@ -1680,8 +1674,8 @@ export function GestaoCompetencias() {
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                    <Scale className="h-5 w-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
+                    <Scale className="h-5 w-5 text-violet-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
@@ -1714,8 +1708,8 @@ export function GestaoCompetencias() {
               >
                 <CardContent className="p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                      <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                    <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
+                      <ClipboardCheck className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
@@ -1736,8 +1730,8 @@ export function GestaoCompetencias() {
             >
               <CardContent className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-teal-100 transition-colors">
-                    <ClipboardCheck className="h-5 w-5 text-teal-600" />
+                  <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
+                    <ClipboardCheck className="h-5 w-5 text-emerald-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
@@ -2128,7 +2122,7 @@ export function GestaoCompetencias() {
     temIntegradaGestorPendente;
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl">
+    <div className="p-6 space-y-6 max-w-7xl">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
           Gestão por Competências
@@ -2148,7 +2142,6 @@ export function GestaoCompetencias() {
             icon={<BookOpen className="h-6 w-6 text-blue-600" />}
             iconBg="bg-blue-100"
             title="Matriz de Competências"
-            description="Competências da equipe e do gestor"
           >
             {matrizCards}
           </HubSection>
@@ -2161,7 +2154,6 @@ export function GestaoCompetencias() {
           icon={<ClipboardCheck className="h-6 w-6 text-blue-600" />}
           iconBg="bg-blue-100"
           title="Inventário de Competências"
-          description="Autoavaliação, avaliação do gestor e integrada"
         >
           <div className="space-y-4">
             {showInvEquipe && (
@@ -2171,7 +2163,6 @@ export function GestaoCompetencias() {
                 icon={<Users className="h-5 w-5 text-blue-600" />}
                 iconBg="bg-blue-100"
                 title="Inventário de Competências da Equipe"
-                description="Competências técnicas e comportamentais"
               >
                 {invEquipeCards}
               </HubSubSection>
@@ -2183,7 +2174,6 @@ export function GestaoCompetencias() {
                 icon={<UserCog className="h-5 w-5 text-blue-600" />}
                 iconBg="bg-blue-100"
                 title="Inventário de Competências do Gestor"
-                description="Técnicas, comportamentais, estratégicas e gerenciais"
               >
                 {invGestorCards}
               </HubSubSection>
