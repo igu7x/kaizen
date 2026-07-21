@@ -532,16 +532,6 @@ export default function FormacaoPca() {
                         <p className="text-sm text-slate-600 max-w-md">
                           O Documento de Formalização da Demanda foi concluído e o PCA-TIC foi publicado. A versão está congelada.
                         </p>
-                        {(user as any)?.is_superadmin && (
-                          <Button
-                            variant="outline"
-                            className="mt-6 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            onClick={() => setIsReiniciarOpen(true)}
-                          >
-                            <AlertTriangle className="h-4 w-4 mr-2" />
-                            Reiniciar Formação
-                          </Button>
-                        )}
                       </div>
                     )}
 
@@ -883,6 +873,18 @@ export default function FormacaoPca() {
           </div>
         )}
 
+        {(user as any)?.is_superadmin && (
+          <div className="mt-12 pt-6 border-t border-slate-200 flex justify-end">
+            <Button
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setIsReiniciarOpen(true)}
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Reiniciar Formação
+            </Button>
+          </div>
+        )}
       </div>
 
       <DialogNovoIfo
