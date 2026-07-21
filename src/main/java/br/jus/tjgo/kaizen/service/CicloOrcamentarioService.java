@@ -221,6 +221,7 @@ public class CicloOrcamentarioService {
                     userId, id);
             
             ifoService.gerarIfosRenovacao(id, dto.ano(), userId);
+            ifoService.gerarIfosNovaContratacao(id, dto.ano(), userId);
             
             return toDto(rows.get(0));
         }

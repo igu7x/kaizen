@@ -40,6 +40,8 @@ public record IfoDto(
         Long idCadastrosAreas,
         String priority,
         LocalDate estimatedDate,
+        /** ID do PCA de origem, quando o IFO foi gerado a partir de um PCA existente (bloco nova_contratacao). */
+        Long pcaOrigemId,
         
         List<Long> contratos,
         List<IfoContratoDto> ifoContratosDetalhes
