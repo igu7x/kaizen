@@ -650,15 +650,29 @@ public class IfoService {
                 int startYear = sqlStartDate.toLocalDate().getYear();
                 int limitYear = sqlLimitDate.toLocalDate().getYear();
                 int duration = ((Number) c.get("year_duration_standard")).intValue();
-                
-                if (limitYear >= anoFormacao + 2) {
+            /**  
+                if (limitYear > anoFormacao + 2) {
                     bloco = "plurianual";
-                } else if (startYear <= (anoFormacao + 1) - duration) {
+                }
+                else if (limitYear <= anoFormacao+1) {
                     bloco = "encerramento";
-                } else if (startYear + duration > anoFormacao + 1) {
+                }
+                else if (startYear + duration >= anoFormacao + 1) {
                     bloco = "renovacao";
                 }
             }
+             */
+                if (limitYear >= anoFormacao + 1) {
+                    bloco = "plurianual";
+                } 
+                else if (startYear + duration <= anoFormacao) {
+                    bloco = "encerramento";
+                } 
+                else {
+                    bloco = "renovacao";
+                }
+            }
+            
             c.put("bloco_calculado", bloco);
 
             Long pcaId = asLong(c.get("pca_id"));
