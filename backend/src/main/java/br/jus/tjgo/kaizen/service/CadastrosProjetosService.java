@@ -199,7 +199,15 @@ public class CadastrosProjetosService {
         return projeto;
     }
 
-    public List<Map<String, Object>> getProjetosByInstrumentoId(long instrumentoId, String diretoria) {
+    /**
+     * Projetos vinculados a um instrumento de planejamento (plano/programa).
+     *
+     * O recorte por área usa {@code cadastros_areas_id}, o mesmo contrato de
+     * {@link #getAllProjetos(Long)}: as duas telas do Escritório de Projetos enviam o mesmo
+     * identificador de área. Este endpoint recebia a SIGLA da diretoria, sobra do modelo
+     * antigo — como o front passa o id, o filtro comparava id com sigla e zerava o resultado.
+     */
+    public List<Map<String, Object>> getProjetosByInstrumentoId(long instrumentoId, Long cadastrosAreasId) {
         boolean hasAreasVinculadas = hasColumn("cadastros_projetos", "areas_vinculadas_ids");
         boolean hasSigla = hasColumn("cadastros_areas", "sigla");
         String colunaExpressao = hasSigla
@@ -208,17 +216,17 @@ public class CadastrosProjetosService {
 
         List<Object> params = new ArrayList<>();
         params.add(instrumentoId);
-        String diretoriaFilter = "";
-        if (diretoria != null) {
-            var domain = domainService.getDomainForDiretoria(diretoria);
+        String areaFilter = "";
+        if (cadastrosAreasId != null && hasAreasVinculadas) {
+            var domain = domainService.getDomainForArea(cadastrosAreasId);
             if (domain.isDomainRoot()) {
-                params.add(textArray(domain.diretoriasInDomain()));
-                diretoriaFilter = " AND EXISTS (SELECT 1 FROM cadastros_areas caf WHERE caf.id = ANY(cp.areas_vinculadas_ids) " +
-                        "AND caf.sigla = ANY(?::text[]))";
+                params.add(domain.dominio());
+                areaFilter = " AND (cp.areas_vinculadas_ids IS NULL OR array_length(cp.areas_vinculadas_ids, 1) IS NULL " +
+                        "OR EXISTS (SELECT 1 FROM cadastros_areas caf WHERE caf.id = ANY(cp.areas_vinculadas_ids) " +
+                        "AND (caf.dominio = ? OR caf.dominio IS NULL)))";
             } else {
-                params.add(diretoria);
-                diretoriaFilter = " AND EXISTS (SELECT 1 FROM cadastros_areas caf WHERE caf.id = ANY(cp.areas_vinculadas_ids) " +
-                        "AND caf.sigla = ?)";
+                params.add(cadastrosAreasId);
+                areaFilter = " AND ? = ANY(cp.areas_vinculadas_ids)";
             }
         }
 
@@ -229,12 +237,11 @@ public class CadastrosProjetosService {
                     "FROM vw_cadastros_projetos_completo p " +
                     "INNER JOIN cadastros_instrumentos_projetos ip ON ip.projeto_id = p.id " +
                     "JOIN cadastros_projetos cp ON cp.id = p.id " +
-                    "WHERE ip.instrumento_id = ?" + diretoriaFilter + " ORDER BY p.codigo DESC";
+                    "WHERE ip.instrumento_id = ?" + areaFilter + " ORDER BY p.codigo DESC";
         } else {
             sql = "SELECT p.*, p.diretoria AS diretorias_nomes FROM vw_cadastros_projetos_completo p " +
                     "INNER JOIN cadastros_instrumentos_projetos ip ON ip.projeto_id = p.id " +
-                    (diretoria != null ? "JOIN cadastros_projetos cp ON cp.id = p.id " : "") +
-                    "WHERE ip.instrumento_id = ?" + diretoriaFilter + " ORDER BY p.codigo DESC";
+                    "WHERE ip.instrumento_id = ? ORDER BY p.codigo DESC";
         }
 
         var projetos = jdbc.queryForList(sql, params.toArray());
@@ -1219,10 +1226,6 @@ public class CadastrosProjetosService {
             return out;
         }
         return new ArrayList<>();
-    }
-
-    private static String textArray(List<String> dirs) {
-        return "{" + String.join(",", dirs) + "}";
     }
 
     private static String intArray(List<?> ids) {
