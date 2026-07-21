@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -146,9 +145,9 @@ public class CadastrosController {
 
     @GetMapping("/projetos/instrumento/{instrumentoId:\\d+}")
     public ResponseEntity<?> projetosByInstrumento(@PathVariable long instrumentoId,
-                                                   @RequestParam(value = "diretoria", required = false) String diretoria) {
+                                                   @RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId) {
         try {
-            return ResponseEntity.ok(service.getProjetosByInstrumentoId(instrumentoId, diretoria));
+            return ResponseEntity.ok(service.getProjetosByInstrumentoId(instrumentoId, cadastrosAreasId));
         } catch (Exception e) {
             return fail("Erro ao buscar projetos por instrumento", e);
         }
