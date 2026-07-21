@@ -43,7 +43,8 @@ import {
 } from "@/components/ui/accordion";
 import { permissoesAcoesApi, PermissaoAcaoList, TagAcao, CreatePermissaoAcaoReq } from "@/services/permissoesAcoesApi";
 import { areasApi, Area, Unidade } from "@/services/areasApi";
-import { pessoasApi, Pessoa } from "@/services/pessoasApi";
+import { api } from "@/services/api";
+import { User } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/layout/Layout";
 
@@ -51,7 +52,7 @@ export default function PermissoesAcoes() {
   const [permissoes, setPermissoes] = useState<PermissaoAcaoList[]>([]);
   const [tags, setTags] = useState<TagAcao[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
-  const [pessoas, setPessoas] = useState<Pessoa[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
 
   const [initialLoad, setInitialLoad] = useState(true);
@@ -99,17 +100,17 @@ export default function PermissoesAcoes() {
     if (isInitial) setInitialLoad(true);
     setLoading(true);
     try {
-      const [permList, tagsList, areasList, pessoasList] = await Promise.all([
+      const [permList, tagsList, areasList, usersList] = await Promise.all([
         permissoesAcoesApi.listarTodas(),
         permissoesAcoesApi.listarTags(),
         areasApi.getAll(),
-        pessoasApi.getAll(),
+        api.getUsers(),
       ]);
 
       setPermissoes(permList);
       setTags(tagsList);
       setAreas(areasList);
-      setPessoas(pessoasList);
+      setUsers(usersList);
     } catch (error) {
       console.error(error);
     } finally {
@@ -210,22 +211,25 @@ export default function PermissoesAcoes() {
   }, [permissoes, tags]);
 
   const usuariosOpcoes = useMemo(() => {
-    let filtradas = pessoas;
-    if (unidadeId && unidadeId !== "none") {
-      filtradas = pessoas.filter(p => p.unidade_id === Number(unidadeId));
-    } else if (areaId && areaId !== "none") {
-      filtradas = pessoas.filter(p => p.area_id === Number(areaId));
+    let filtradas = users;
+    
+    if (areaId && areaId !== "none") {
+      filtradas = filtradas.filter(u => Number(u.cadastrosAreasId) === Number(areaId));
     }
     
-    // Garantir unicidade pelo user_id para o dropdown
-    const mapa = new Map<number, Pessoa>();
-    filtradas.forEach(p => {
-      if (p.user_id != null && !mapa.has(p.user_id)) {
-        mapa.set(p.user_id, p);
+    if (unidadeId && unidadeId !== "none") {
+      filtradas = filtradas.filter(u => Number(u.cadastrosUnidadesId) === Number(unidadeId));
+    }
+    
+    // Garantir unicidade pelo id para o dropdown
+    const mapa = new Map<number, User>();
+    filtradas.forEach(u => {
+      if (u.id != null && !mapa.has(Number(u.id))) {
+        mapa.set(Number(u.id), u);
       }
     });
     return Array.from(mapa.values());
-  }, [pessoas, areaId, unidadeId]);
+  }, [users, areaId, unidadeId]);
 
   const tagSelecionadaNome = tags.find(t => t.id === tagId)?.name || "";
 
@@ -513,7 +517,7 @@ export default function PermissoesAcoes() {
                     )}
                   >
                     {userId && userId !== "none"
-                      ? usuariosOpcoes.find((p) => p.user_id!.toString() === userId)?.nome
+                      ? usuariosOpcoes.find((u) => u.id.toString() === userId)?.name
                       : "Todos os Usuários do Escopo"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -534,22 +538,22 @@ export default function PermissoesAcoes() {
                           <Check className={cn("mr-2 h-4 w-4", userId === "none" ? "opacity-100" : "opacity-0")} />
                           Todos os Usuários do Escopo
                         </CommandItem>
-                        {usuariosOpcoes.map((p) => (
+                        {usuariosOpcoes.map((u) => (
                           <CommandItem
-                            key={p.user_id!}
-                            value={p.nome}
+                            key={u.id}
+                            value={u.name}
                             onSelect={() => {
-                              setUserId(p.user_id!.toString());
+                              setUserId(u.id.toString());
                               setOpenUser(false);
                             }}
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                userId === p.user_id!.toString() ? "opacity-100" : "opacity-0"
+                                userId === u.id.toString() ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {p.nome}
+                            {u.name}
                           </CommandItem>
                         ))}
                       </CommandGroup>
