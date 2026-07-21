@@ -125,8 +125,8 @@ export default function PacCapacitacao({
   const [expandido, setExpandido] = useState<number | null>(null);
 
   const [busca, setBusca] = useState("");
-  const [filtroPrioridade, setFiltroPrioridade] = useState("todas");
-  const [filtroModalidade, setFiltroModalidade] = useState("todas");
+  const [filtroArea, setFiltroArea] = useState("todas");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
 
   const [dialogAberto, setDialogAberto] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -192,13 +192,27 @@ export default function PacCapacitacao({
     if (abrindo && certsPorItem[it.id] === undefined) carregarCerts(it.id);
   };
 
+  /** Áreas demandantes efetivamente cadastradas nos itens da matriz. */
+  const areasDemandantes = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          itens.map((it) => (it.area_demandante || "").trim()).filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [itens],
+  );
+
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return itens.filter((it) => {
-      if (filtroPrioridade !== "todas" && it.prioridade !== filtroPrioridade)
+      if (filtroArea !== "todas" && (it.area_demandante || "") !== filtroArea)
         return false;
-      if (filtroModalidade !== "todas" && it.modalidade !== filtroModalidade)
-        return false;
+      // Status deriva do progresso: 100% dos certificados = concluído; abaixo disso, pendente.
+      if (filtroStatus !== "todos") {
+        const concluido = progressoCapacitacao(it) >= 100;
+        if (concluido !== (filtroStatus === "concluido")) return false;
+      }
       if (!q) return true;
       return [
         it.codigo,
@@ -212,7 +226,7 @@ export default function PacCapacitacao({
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [itens, busca, filtroPrioridade, filtroModalidade]);
+  }, [itens, busca, filtroArea, filtroStatus]);
 
   const abrirNovo = () => {
     setEditId(null);
@@ -403,30 +417,27 @@ export default function PacCapacitacao({
               className="pl-9"
             />
           </div>
-          <Select value={filtroPrioridade} onValueChange={setFiltroPrioridade}>
-            <SelectTrigger className="w-full sm:w-44">
-              <SelectValue placeholder="Prioridade" />
+          <Select value={filtroArea} onValueChange={setFiltroArea}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue placeholder="Área Demandante" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todas">Todas as prioridades</SelectItem>
-              {PRIORIDADES.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
+              <SelectItem value="todas">Área Demandante</SelectItem>
+              {areasDemandantes.map((a) => (
+                <SelectItem key={a} value={a}>
+                  {a}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={filtroModalidade} onValueChange={setFiltroModalidade}>
+          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
             <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Modalidade" />
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todas">Todas modalidades</SelectItem>
-              {MODALIDADES.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
+              <SelectItem value="todos">Status</SelectItem>
+              <SelectItem value="concluido">Concluído</SelectItem>
+              <SelectItem value="pendente">Pendente</SelectItem>
             </SelectContent>
           </Select>
         </div>

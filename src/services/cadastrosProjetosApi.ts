@@ -401,11 +401,11 @@ export const cadastrosProjetosApi = {
 
   async getProjetosByInstrumentoId(
     instrumentoId: number,
-    diretoria?: string,
+    cadastrosAreasId?: number,
   ): Promise<Projeto[]> {
     const response = await authFetch(
       `/api/cadastros/projetos/instrumento/${instrumentoId}`,
-      { diretoria },
+      { cadastrosAreasId },
     );
     if (!response.ok) throw new Error("Erro ao buscar projetos do instrumento");
     return response.json();

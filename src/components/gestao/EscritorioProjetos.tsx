@@ -999,7 +999,7 @@ export function EscritorioProjetos() {
         : todosProjetos
   ).filter((p) => !ehProjetoPtd(p.nome));
 
-  // O backend já filtra por diretoria em ambos os endpoints (getProjetos e getProjetosByInstrumentoId).
+  // O backend já filtra por área em ambos os endpoints (getProjetos e getProjetosByInstrumentoId).
   // Filtro adicional de diretoria (só superadmin) — recorta o portfólio pela diretoria do projeto.
   const projetosDaDiretoria =
     filtroDiretoria !== "todos"
