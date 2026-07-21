@@ -273,6 +273,8 @@ public class IfoService {
      */
     @Transactional
     public IfoDto definirInteresseRenovacao(long id, boolean interesse, String motivo, Long userId) {
+        verificarPermissaoEdicao(id, "MODIFICAR_IFO", userId);
+        
         IfoDto ifo = get(id);
         if (!"rascunho".equals(ifo.estado())) {
             throw new ApiException(400, "IFO já enviado à CCA não pode ser reclassificado");
@@ -299,6 +301,8 @@ public class IfoService {
 
     @Transactional
     public IfoDto definirInteresseRenovacaoContrato(long ifoId, long contractId, boolean interesse, String motivo, Long userId) {
+        verificarPermissaoEdicao(ifoId, "MODIFICAR_IFO", userId);
+        
         IfoDto ifo = get(ifoId);
         if (!"rascunho".equals(ifo.estado())) {
             throw new ApiException(400, "IFO já enviado à CCA não pode ser reclassificado");
