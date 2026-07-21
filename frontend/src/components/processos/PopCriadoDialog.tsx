@@ -322,7 +322,7 @@ export function PopCriadoDialog({
               <div className="md:col-span-2">
                 <Campo
                   label="Fluxograma (imagem)"
-                  hint="PNG ou JPG, até 4 MB — sai em uma página de anexo no PDF"
+                  hint="PNG ou JPG, até 4 MB — sai dentro do item 9 do PDF"
                 >
                   {form.fluxograma_data ? (
                     <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 min-w-0">

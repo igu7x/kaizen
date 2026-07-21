@@ -19,7 +19,7 @@ const FOOTER_Y = PAGE_H - 22;
 /** Limite inferior do conteúdo (acima do rodapé). */
 const LIMITE_Y = FOOTER_Y - 4;
 
-const SECTION_BLUE: [number, number, number] = [68, 114, 196]; // #4472C4
+const SECTION_BLUE: [number, number, number] = [47, 79, 127]; // #2F4F7F
 const TEXT_DARK: [number, number, number] = [33, 37, 41];
 const BORDER: [number, number, number] = [140, 150, 165];
 const WHITE: [number, number, number] = [255, 255, 255];
@@ -152,7 +152,7 @@ function drawHeader(doc: jsPDF, pop: PopCriado, logoSgq: string | null): number 
   );
 
   doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.text(
     `Macroprocesso: ${pop.macroprocesso || "—"}`,
     cx + centerW / 2,
@@ -303,6 +303,49 @@ function linhasDeLista(doc: jsPDF, itens: string[]): LinhaPdf[] {
   return out;
 }
 
+/**
+ * Desenha a imagem do fluxograma dentro do item 9 (Anexos), em uma caixa própria logo abaixo
+ * da lista de anexos. Se não couber uma altura mínima legível no restante da página, quebra
+ * antes — a imagem nunca é partida entre duas páginas.
+ */
+function drawFluxograma(
+  doc: jsPDF,
+  pop: PopCriado,
+  logoSgq: string | null,
+  dataUrl: string,
+  y: number,
+): number {
+  const props = doc.getImageProperties(dataUrl);
+  const padding = 3;
+  const maxW = CONTENT_W - padding * 2;
+  const alturaMinima = 45;
+
+  if (y + alturaMinima > LIMITE_Y) {
+    doc.addPage();
+    y = drawHeader(doc, pop, logoSgq);
+  }
+
+  const maxH = LIMITE_Y - y - padding * 2;
+  const escala = Math.min(maxW / props.width, maxH / props.height);
+  const w = props.width * escala;
+  const h = props.height * escala;
+
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.3);
+  doc.rect(MARGIN, y, CONTENT_W, h + padding * 2, "S");
+  doc.addImage(
+    dataUrl,
+    /^data:image\/jpe?g/i.test(dataUrl) ? "JPEG" : "PNG",
+    MARGIN + (CONTENT_W - w) / 2,
+    y + padding,
+    w,
+    h,
+    undefined,
+    "FAST",
+  );
+  return y + h + padding * 2;
+}
+
 // ── Seção 10: Validação (3 colunas) ─────────────────
 function drawValidacao(doc: jsPDF, pop: PopCriado, y: number): number {
   const colW = CONTENT_W / 3;
@@ -441,34 +484,16 @@ export async function generatePopPDF(pop: PopCriado): Promise<void> {
         sec.minH || 9,
       );
     }
-    y += 1.5;
-  }
 
-  // Anexo: imagem do fluxograma, em página própria, escalada para caber sem distorcer.
-  if (pop.fluxograma_data) {
-    try {
-      const props = doc.getImageProperties(pop.fluxograma_data);
-      doc.addPage();
-      let ay = drawHeader(doc, pop, logoSgq);
-      ay = drawSectionBar(doc, 11, "Anexo — Fluxograma", ay) + 3;
-      const maxW = CONTENT_W;
-      const maxH = LIMITE_Y - ay;
-      const escala = Math.min(maxW / props.width, maxH / props.height);
-      const w = props.width * escala;
-      const h = props.height * escala;
-      doc.addImage(
-        pop.fluxograma_data,
-        /^data:image\/jpe?g/i.test(pop.fluxograma_data) ? "JPEG" : "PNG",
-        MARGIN + (CONTENT_W - w) / 2,
-        ay,
-        w,
-        h,
-        undefined,
-        "FAST",
-      );
-    } catch {
-      /* imagem inválida: o PDF sai sem o anexo */
+    // O fluxograma é parte do item 9 (Anexos), logo abaixo da lista.
+    if (sec.num === 9 && pop.fluxograma_data) {
+      try {
+        y = drawFluxograma(doc, pop, logoSgq, pop.fluxograma_data, y);
+      } catch {
+        /* imagem inválida: o PDF sai sem o fluxograma */
+      }
     }
+    y += 1.5;
   }
 
   const totalPages = doc.getNumberOfPages();
