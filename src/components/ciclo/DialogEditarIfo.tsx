@@ -60,7 +60,7 @@ export function DialogEditarIfo({
         valorEstimado: ifo.valorEstimado,
         areaDemandante: ifo.areaDemandante,
         unidadeId: ifo.unidadeId,
-        areaId: ifo.idCadastrosAreas || null, // Assuming areaId is related to idCadastrosAreas
+        areaId: ifo.areaId || ifo.idCadastrosAreas || null,
         interesseRenovacao: ifo.interesseRenovacao,
         description: ifo.description,
         justification: ifo.justification,
