@@ -729,7 +729,7 @@ export default function FormacaoPca() {
                             <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
                               <div className="flex flex-col">
                                 <span className="font-mono text-sm font-semibold text-slate-700">{ifo.codigo}</span>
-                                <span className="text-sm text-slate-900 font-medium">{ifo.objeto || "-"}</span>
+                                <span className="text-sm text-slate-900 font-medium">{ifo.description || ifo.objeto || "-"}</span>
                               </div>
                               <div className="flex items-center gap-4 text-sm text-slate-600">
                                 <span><b className="text-slate-800">{ifo.areaDemandante || "-"}</b></span>

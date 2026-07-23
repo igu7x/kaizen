@@ -132,6 +132,7 @@ export function RevisaoItens({
       list = list.filter(
         (i) =>
           i.item_pca?.toLowerCase().includes(term) ||
+          i.description?.toLowerCase().includes(term) ||
           i.objeto?.toLowerCase().includes(term) ||
           i.area_demandante?.toLowerCase().includes(term)
       );
@@ -329,7 +330,7 @@ export function RevisaoItens({
                   {/* Right Column: Object and Status */}
                   <div className="flex-1 min-w-0 flex flex-col gap-1">
                     <span className="text-sm font-semibold text-gray-900 truncate pt-0.5">
-                      {item.objeto || "Sem objeto"}
+                      {item.description || item.objeto || "Sem objeto"}
                     </span>
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span>Status: {typeof item.status === "string" ? item.status : "Não Iniciada"}</span>
