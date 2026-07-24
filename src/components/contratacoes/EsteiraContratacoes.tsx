@@ -739,7 +739,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     const label = status === "Em andamento" ? "Demanda em Andamento" : status;
     return (
       <Badge 
-        className={`${getStatusBadgeClass(status)} text-center text-[10px] leading-tight px-1 py-0.5 whitespace-normal break-words max-w-full`}
+        className={`${getStatusBadgeClass(status as PcaStatus)} text-center text-[10px] leading-tight px-1 py-0.5 whitespace-normal break-words max-w-full`}
       >
         {label}
       </Badge>

@@ -967,3 +967,46 @@ export interface EstatisticasDiretoria {
     concluido: number;
   };
 }
+
+// ============================================================
+// Tipos para Contratos
+// ============================================================
+
+export interface Contract {
+  id: number;
+  contractPlanId?: number;
+  baseContractId?: number;
+  supplier?: string;
+  contractModel?: string;
+  process?: string;
+  expenseNature?: string;
+  startDate: string;
+  endDate: string;
+  effectiveDate?: string;
+  limitDate?: string;
+  yearDurationStandard?: number;
+  contractType?: string;
+  situation?: string;
+  additiveTermType?: number;
+  objectName?: string;
+  description?: string;
+  noticeNumber?: string;
+  effectiveAdditiveTerm?: number;
+  totalValueCents?: number;
+  totalValueCurrency?: string;
+  monthlyValueCents?: number;
+  monthlyValueCurrency?: string;
+  yearValue?: number;
+  directory?: string;
+  cadastroAreaId?: number;
+  cadastroUnidadeId?: number;
+  unidade?: string;
+  contractMembersId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: number;
+  updatedBy?: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: number;
+}

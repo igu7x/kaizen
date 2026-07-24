@@ -20,6 +20,7 @@ import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContra
 import { DialogImportarPca } from "@/components/ciclo/DialogImportarPca";
 import { FaseBanner } from "@/components/ciclo/FaseBanner";
 import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
+import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -506,13 +507,7 @@ export default function FormacaoPca() {
                                   onSaved={(c) => setCiclo(c)}
                                 />
 
-                                <div>
-                                  <span className="text-xs font-medium text-slate-500 mb-1 block">Upload de Arquivo (Em breve)</span>
-                                  <Button disabled variant="outline" className="w-full sm:w-auto text-slate-400">
-                                    <FileText className="h-4 w-4 mr-2" />
-                                    Selecionar PDF da Ata
-                                  </Button>
-                                </div>
+                                <AtasComitesPanel cicloId={ciclo.id} />
                               </div>
                             </div>
                           )}

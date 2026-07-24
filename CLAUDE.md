@@ -12,6 +12,7 @@
 - **Formulários & Validação:** **React Hook Form** integrado com **Zod** para validação de esquemas em tempo de execução e tipagem estática inferida.
 - **Testes:** **Vitest** para testes de unidade/integração de funções puras e hooks, e **React Testing Library (RTL)** para comportamento de componentes. Mocks de API interceptados estritamente via **MSW (Mock Service Worker)**.
 - **Arquitetura de Pastas:** Estrutura modular baseada em *Features* ou domínios (ex: `src/features/auth`, `src/features/dashboard`). Componentes comuns e globais ficam em `src/components/ui`.
+- **Armazenamento de Arquivos (Binários):** Arquivos físicos, anexos e quaisquer dados binários NUNCA devem ser persistidos no banco de dados relacional ou no file system local da aplicação. Utilize estritamente o serviço de Object Storage remoto (S3-compatible / ECS). O banco de dados (PostgreSQL) deve armazenar apenas os metadados do arquivo (como ID de referência, nome original, content type e tamanho) para garantir uma arquitetura *stateless* e escalável.
 
 ## 2. Chain of Thought Workflow
 

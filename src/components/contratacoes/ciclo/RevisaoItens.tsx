@@ -192,7 +192,7 @@ export function RevisaoItens({
       valor_estimado: item.estimated_value_cents ? item.estimated_value_cents / 100 : item.valor_estimado,
       valor_formalizado: item.valor_formalizado || 0,
       data_estimada_contratacao: item.estimated_date || item.data_estimada_contratacao,
-      status: item.status || "Não Iniciada",
+      status: item.status?.toString() || "Não Iniciada",
       process: item.process || "",
       description: item.description || "",
       justification: item.justification || "",
@@ -225,7 +225,7 @@ export function RevisaoItens({
     if (!validateForm(false)) return;
     setSalvando(true);
     try {
-      const created = await cicloOrcamentarioApi.adicionarItemRevisao(formData);
+      const created = await cicloOrcamentarioApi.adicionarItemRevisao(formData as Partial<PcaItem>);
       setItens((prev) => [...prev, created]);
       toast.success("Novo item PCA adicionado.");
       setIsAddModalOpen(false);
