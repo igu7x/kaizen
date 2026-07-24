@@ -12,6 +12,7 @@
 - **Segurança & CORS:** Spring Security configurado de forma explícita e stateless via JWT ou Cookies Seguros (HttpOnly, SameSite). **Configuração de CORS rigorosa** e explícita por ambiente. Validação de input obrigatória com Jakarta Bean Validation (`@Valid`, `@NotNull`, `@Size`, etc.).
 - **Testes:** JUnit 5, AssertJ, Mockito e **Testcontainers** (para testes de integração reais com PostgreSQL). Abordagem de testes piramidal: testes de unidade para regras de negócio (Services) e testes de integração de API utilizando `@WebMvcTest` ou `MockMvc`.
 - **Arquitetura:** Camadas estritas: Controller -> Service -> Repository. Para lógicas de domínio complexas, use Service Objects focados em uma única responsabilidade. Retornos de operações de negócio devem usar tipos encapsulados de resultado (ex: um record `Result<T>` ou uso de `sealed interfaces` para representar Success/Failure), evitando lançar exceções para fluxo de controle comum.
+- **Armazenamento de Arquivos (Binários):** Arquivos físicos, anexos e quaisquer dados binários NUNCA devem ser persistidos no banco de dados relacional ou no file system local da aplicação. Utilize estritamente o serviço de Object Storage remoto (S3-compatible / ECS). O banco de dados (PostgreSQL) deve armazenar apenas os metadados do arquivo (como ID de referência, nome original, content type e tamanho) para garantir uma arquitetura *stateless* e escalável.
 
 ## 2. Chain of Thought Workflow
 

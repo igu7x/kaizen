@@ -33,6 +33,27 @@ no frontend. Node continua em `:8080`; este backend roda em `:8081`.
    ```
    `users.id = 1` está `is_deleted = TRUE` no dev DB — use outro id (Bug #8 em `docs/JAVA_BUGS_TO_AVOID.md`).
 
+### Storage S3 (desenvolvimento local)
+
+O upload de ATAs utiliza storage compatível com S3. Para desenvolvimento local, use [MinIO](https://min.io):
+
+```bash
+docker run -d --name minio \
+  -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin \
+  -e MINIO_ROOT_PASSWORD=minioadmin \
+  minio/minio server /data --console-address ":9001"
+```
+
+Após iniciar, crie o bucket `kaizen-dev` via console (`http://localhost:9001`) ou via `mc`:
+
+```bash
+mc alias set local http://localhost:9000 minioadmin minioadmin
+mc mb local/kaizen-dev
+```
+
+As credenciais default do `application.yml` já apontam para este MinIO local.
+
 ## Variáveis de ambiente
 
 | Var | Default | Descrição |

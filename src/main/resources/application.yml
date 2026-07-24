@@ -74,6 +74,12 @@ kaizen:
     url: ${OPENSHIFT_FRONTEND_URL:${FRONTEND_URL:http://localhost:5173}}
   node-env: ${OPENSHIFT_NODE_ENV:${NODE_ENV:development}}
   jwt-secret: ${JWT_SECRET:}
+  ecs:
+    host: ${OPENSHIFT_ECS_HOST:http://localhost:9000}
+    bucket: ${OPENSHIFT_ECS_BUCKET:kaizen-dev}
+    access-key: ${OPENSHIFT_ECS_ACCESS_KEY:minioadmin}
+    secret-key: ${OPENSHIFT_ECS_SECRET_KEY:minioadmin}
+    ambiente: ${OPENSHIFT_ECS_AMBIENTE:local}
   cors:
     extra-origins: ${CORS_ORIGINS:}
 
