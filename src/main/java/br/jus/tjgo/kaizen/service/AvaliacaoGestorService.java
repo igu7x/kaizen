@@ -53,12 +53,14 @@ public class AvaliacaoGestorService {
 
     private static String listSql(String whereClauses) {
         return "SELECT f.*, " +
+                "       COALESCE(a.sigla, f.diretoria) as diretoria, " +
                 "       u.name as avaliador_user_name, " +
                 "       cu.nome as unidade_nome, " +
                 "       (SELECT COUNT(*) FROM avaliacao_gestor_respostas r WHERE r.formulario_id = f.id) as total_respostas " +
                 "FROM avaliacao_gestor_formularios f " +
                 "LEFT JOIN users u ON u.id = f.avaliador_user_id " +
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                 "WHERE " + whereClauses + " " +
                 "  AND f.id = ( " +
                 "    SELECT f2.id FROM avaliacao_gestor_formularios f2 " +
@@ -73,10 +75,11 @@ public class AvaliacaoGestorService {
 
     public Map<String, Object> findById(long id) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT f.*, u.name as avaliador_user_name, cu.nome as unidade_nome " +
+                "SELECT f.*, COALESCE(a.sigla, f.diretoria) as diretoria, u.name as avaliador_user_name, cu.nome as unidade_nome " +
                         "FROM avaliacao_gestor_formularios f " +
                         "LEFT JOIN users u ON u.id = f.avaliador_user_id " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                         "WHERE f.id = ? AND f.is_deleted = FALSE",
                 id);
         if (formRows.isEmpty()) {
@@ -91,9 +94,10 @@ public class AvaliacaoGestorService {
 
     public Map<String, Object> findByPessoaAndUnidade(long pessoaId, long unidadeId) {
         return montarComRespostas(jdbc.queryForList(
-                "SELECT f.*, cu.nome as unidade_nome " +
+                "SELECT f.*, COALESCE(a.sigla, f.diretoria) as diretoria, cu.nome as unidade_nome " +
                         "FROM avaliacao_gestor_formularios f " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                         "WHERE f.pessoa_id = ? AND f.unidade_id = ? AND f.is_deleted = FALSE " +
                         "ORDER BY f.created_at DESC LIMIT 1",
                 pessoaId, unidadeId));
@@ -102,9 +106,10 @@ public class AvaliacaoGestorService {
     /** Detecção da avaliação existente pela chave estável da pessoa (gestor sem autoavaliação). */
     public Map<String, Object> findByPessoaUserIdAndUnidade(long pessoaUserId, long unidadeId) {
         return montarComRespostas(jdbc.queryForList(
-                "SELECT f.*, cu.nome as unidade_nome " +
+                "SELECT f.*, COALESCE(a.sigla, f.diretoria) as diretoria, cu.nome as unidade_nome " +
                         "FROM avaliacao_gestor_formularios f " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                         "WHERE f.pessoa_user_id = ? AND f.unidade_id = ? AND f.is_deleted = FALSE " +
                         "ORDER BY f.created_at DESC LIMIT 1",
                 pessoaUserId, unidadeId));
@@ -232,24 +237,24 @@ public class AvaliacaoGestorService {
                     "UPDATE avaliacao_gestor_formularios SET " +
                             "  pessoa_id = COALESCE(?, pessoa_id), pessoa_user_id = COALESCE(?, pessoa_user_id), " +
                             "  pessoa_nome = ?, pessoa_cargo = ?, pessoa_email = ?, " +
-                            "  avaliador_user_id = ?, avaliador_nome = ?, cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  avaliador_user_id = ?, avaliador_nome = ?, cadastros_areas_id = COALESCE(?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', tecnicas_versao = ?, competencias_versao = ?, " +
                             "  validado_em = NULL, validado_por_id = NULL, validado_por_nome = NULL, " +
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     pessoaId, pessoaUserId,
                     str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    userId, str(data.get("avaliador_nome")), asLong(data.get("cadastros_areas_id")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, formularioId);
             jdbc.update("DELETE FROM avaliacao_gestor_respostas WHERE formulario_id = ?", formularioId);
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_gestor_formularios " +
                             "  (pessoa_id, pessoa_user_id, pessoa_nome, pessoa_cargo, pessoa_email, avaliador_user_id, avaliador_nome, cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
                             "RETURNING id",
                     pessoaId, pessoaUserId, str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    userId, str(data.get("avaliador_nome")), asLong(data.get("cadastros_areas_id")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
