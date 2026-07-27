@@ -109,7 +109,7 @@ export default function CicloOrcamentario() {
   };
 
   const formacaoEstado = ciclo?.finalidade === "formacao" ? ciclo.estado : null;
-  const aguardandoProad = formacaoEstado === "aberto_aguardando_proad";
+  const aguardandoProad = formacaoEstado === "aguardando_proad";
 
   return (
     <Layout>

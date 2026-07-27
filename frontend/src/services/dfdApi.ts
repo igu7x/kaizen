@@ -77,6 +77,7 @@ export interface Ifo {
   objeto: string | null;
   areaDemandante: string | null;
   unidadeId: number | null;
+  areaId?: number | null;
   estado: EstadoIfo;
   valorEstimado: number | null;
   interesseRenovacao: boolean | null;
@@ -96,6 +97,8 @@ export interface Ifo {
   idCadastrosAreas?: number | null;
   priority?: string | null;
   estimatedDate?: string | null;
+  /** ID do PCA de origem, quando o IFO foi gerado a partir de um PCA existente (bloco nova_contratacao). */
+  pcaOrigemId?: number | null;
   contratos: number[];
   ifoContratosDetalhes?: IfoContratoDetalhe[];
 }

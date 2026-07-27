@@ -355,6 +355,8 @@ export default function RevisaoPca() {
                             </div>
                           </div>
 
+                          {/* Atas dos Comitês */}
+                          <AtasComitesPanel cicloId={ciclo.id} />
                           {validacaoComites && (
                             <div className="flex items-center gap-4 py-2 border-t mt-4">
                               <span className="text-sm font-medium text-slate-700">

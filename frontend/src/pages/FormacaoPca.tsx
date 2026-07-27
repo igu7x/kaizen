@@ -20,6 +20,7 @@ import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContra
 import { DialogImportarPca } from "@/components/ciclo/DialogImportarPca";
 import { FaseBanner } from "@/components/ciclo/FaseBanner";
 import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
+import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -506,13 +507,7 @@ export default function FormacaoPca() {
                                   onSaved={(c) => setCiclo(c)}
                                 />
 
-                                <div>
-                                  <span className="text-xs font-medium text-slate-500 mb-1 block">Upload de Arquivo (Em breve)</span>
-                                  <Button disabled variant="outline" className="w-full sm:w-auto text-slate-400">
-                                    <FileText className="h-4 w-4 mr-2" />
-                                    Selecionar PDF da Ata
-                                  </Button>
-                                </div>
+                                <AtasComitesPanel cicloId={ciclo.id} />
                               </div>
                             </div>
                           )}
@@ -532,16 +527,6 @@ export default function FormacaoPca() {
                         <p className="text-sm text-slate-600 max-w-md">
                           O Documento de Formalização da Demanda foi concluído e o PCA-TIC foi publicado. A versão está congelada.
                         </p>
-                        {(user as any)?.is_superadmin && (
-                          <Button
-                            variant="outline"
-                            className="mt-6 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            onClick={() => setIsReiniciarOpen(true)}
-                          >
-                            <AlertTriangle className="h-4 w-4 mr-2" />
-                            Reiniciar Formação
-                          </Button>
-                        )}
                       </div>
                     )}
 
@@ -708,7 +693,8 @@ export default function FormacaoPca() {
                 numeroBloco: number,
                 ifosList: Ifo[],
                 corTexto: string,
-                corBg: string
+                corBg: string,
+                isNovaContratacao?: boolean
               ) => (
                 <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
                   <div className="flex items-center justify-between border-b bg-slate-50 px-5 py-3">
@@ -738,11 +724,11 @@ export default function FormacaoPca() {
                             <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
                               <div className="flex flex-col">
                                 <span className="font-mono text-sm font-semibold text-slate-700">{ifo.codigo}</span>
-                                <span className="text-sm text-slate-900 font-medium">{ifo.objeto || "-"}</span>
+                                <span className="text-sm text-slate-900 font-medium">{ifo.description || ifo.objeto || "-"}</span>
                               </div>
                               <div className="flex items-center gap-4 text-sm text-slate-600">
                                 <span><b className="text-slate-800">{ifo.areaDemandante || "-"}</b></span>
-                                <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado ? ifo.valorEstimado * 100 : 0)}</span>
+                                <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado || 0)}</span>
                                 <div className="flex items-center gap-1">
 
                                   {podeVincularContratos && (
@@ -763,93 +749,107 @@ export default function FormacaoPca() {
                                 </div>
                               </div>
                             </div>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm text-left">
-                                <thead className="bg-white border-b text-slate-500">
-                                  <tr>
-                                    <th className="px-4 py-2 font-medium">Contrato</th>
-                                    <th className="px-4 py-2 font-medium">Natureza</th>
-                                    <th className="px-4 py-2 font-medium">Nat. despesa</th>
-                                    <th className="px-4 py-2 font-medium text-right">Valor anual</th>
-                                    <th className="px-4 py-2 font-medium">Vigência</th>
-                                    {ifo.bloco === "renovacao" && (formacaoEstado === "em_consulta_1" || formacaoEstado === "em_consulta_2") && (
-                                      <th className="px-4 py-2 font-medium text-center">Pretende renovar?</th>
-                                    )}
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {ifo.contratos && ifo.contratos.map((contractId) => {
-                                    const c = allContracts.find(ac => String(ac.id) === String(contractId));
-                                    if (!c) return null;
+                            {ifo.contratos && ifo.contratos.length > 0 && (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                  <thead className="bg-white border-b text-slate-500">
+                                    <tr>
+                                      <th className="px-4 py-2 font-medium">Contrato</th>
+                                      <th className="px-4 py-2 font-medium">Natureza</th>
+                                      <th className="px-4 py-2 font-medium">Nat. despesa</th>
+                                      <th className="px-4 py-2 font-medium text-right">Valor anual</th>
+                                      <th className="px-4 py-2 font-medium">Vigência</th>
+                                      {ifo.bloco === "renovacao" && (formacaoEstado === "em_consulta_1" || formacaoEstado === "em_consulta_2") && (
+                                        <th className="px-4 py-2 font-medium text-center">Pretende renovar?</th>
+                                      )}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {ifo.contratos.map((contractId) => {
+                                      const c = allContracts.find(ac => String(ac.id) === String(contractId));
+                                      if (!c) return null;
 
-                                    const detalhe = ifo.ifoContratosDetalhes?.find(d => String(d.contractId) === String(contractId));
-                                    const interesseRenovacao = detalhe?.interesseRenovacao ?? true;
+                                      const detalhe = ifo.ifoContratosDetalhes?.find(d => String(d.contractId) === String(contractId));
+                                      const interesseRenovacao = detalhe?.interesseRenovacao ?? true;
 
-                                    return (
-                                      <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono">
-                                          <div className="flex items-center gap-1.5">
-                                            {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
-                                            {ifo.bloco === "encerramento" && formacaoEstado === "consolidacao_cca" && (
-                                              <TooltipProvider delayDuration={200}>
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <div className="flex items-center">
-                                                      <Info className="h-4 w-4 text-blue-500 cursor-help" />
-                                                    </div>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent side="top" className="max-w-[250px] text-xs text-center">
-                                                    A equipe {ifo.areaDemandante || "da área"} decidiu não renovar o contrato {c.noticeNumber ? c.noticeNumber : c.id}.
-                                                  </TooltipContent>
-                                                </Tooltip>
-                                              </TooltipProvider>
-                                            )}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-2 text-slate-600">continuada</td>
-                                        <td className="px-4 py-2 text-slate-600">{(c as any).expenseNature || "-"}</td>
-                                        <td className="px-4 py-2 text-right text-slate-700 font-medium">
-                                          {formatCurrency(c.totalValueCents || 0)}
-                                        </td>
-                                        <td className="px-4 py-2 text-slate-600">
-                                          {c.endDate ? `até ${new Date(c.endDate).toLocaleDateString('pt-BR')}` : "-"}
-                                        </td>
-                                        {ifo.bloco === "renovacao" && (formacaoEstado === "em_consulta_1" || formacaoEstado === "em_consulta_2") && (
-                                          <td className="px-4 py-2 text-center">
-                                            {podeEditarIfo ? (
-                                              <div className="flex items-center justify-center gap-1">
-                                                <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className={`h-6 w-6 rounded-full ${interesseRenovacao ? 'bg-green-100 text-green-700' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`}
-                                                  onClick={() => handleDefinirInteresseContrato(ifo.id, contractId, true)}
-                                                  title="Renovar"
-                                                >
-                                                  <Check className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className={`h-6 w-6 rounded-full ${!interesseRenovacao ? 'bg-red-100 text-red-700' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
-                                                  onClick={() => handleDefinirInteresseContrato(ifo.id, contractId, false)}
-                                                  title="Não Renovar"
-                                                >
-                                                  <X className="h-4 w-4" />
-                                                </Button>
-                                              </div>
-                                            ) : (
-                                              <span className="text-xs text-slate-500">{interesseRenovacao ? "Sim" : "Não"}</span>
-                                            )}
+                                      return (
+                                        <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                          <td className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono">
+                                            <div className="flex items-center gap-1.5">
+                                              {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
+                                              {ifo.bloco === "encerramento" && formacaoEstado === "consolidacao_cca" && (
+                                                <TooltipProvider delayDuration={200}>
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <div className="flex items-center">
+                                                        <Info className="h-4 w-4 text-blue-500 cursor-help" />
+                                                      </div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" className="max-w-[250px] text-xs text-center">
+                                                      A equipe {ifo.areaDemandante || "da área"} decidiu não renovar o contrato {c.noticeNumber ? c.noticeNumber : c.id}.
+                                                    </TooltipContent>
+                                                  </Tooltip>
+                                                </TooltipProvider>
+                                              )}
+                                            </div>
                                           </td>
-                                        )}
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
+                                          <td className="px-4 py-2 text-slate-600">{ifo.bloco === "nova_contratacao" ? (ifo.natureza || "pontual") : "continuada"}</td>
+                                          <td className="px-4 py-2 text-slate-600">{(c as any).expenseNature || "-"}</td>
+                                          <td className="px-4 py-2 text-right text-slate-700 font-medium">
+                                            {formatCurrency((c.totalValueCents || 0) / 100)}
+                                          </td>
+                                          <td className="px-4 py-2 text-slate-600">
+                                            {c.endDate ? `até ${new Date(c.endDate).toLocaleDateString('pt-BR')}` : "-"}
+                                          </td>
+                                          {ifo.bloco === "renovacao" && (formacaoEstado === "em_consulta_1" || formacaoEstado === "em_consulta_2") && (
+                                            <td className="px-4 py-2 text-center">
+                                              {podeEditarIfo ? (
+                                                <div className="flex items-center justify-center gap-1">
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={`h-6 w-6 rounded-full ${interesseRenovacao ? 'bg-green-100 text-green-700' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`}
+                                                    onClick={() => handleDefinirInteresseContrato(ifo.id, contractId, true)}
+                                                    title="Renovar"
+                                                  >
+                                                    <Check className="h-4 w-4" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={`h-6 w-6 rounded-full ${!interesseRenovacao ? 'bg-red-100 text-red-700' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
+                                                    onClick={() => handleDefinirInteresseContrato(ifo.id, contractId, false)}
+                                                    title="Não Renovar"
+                                                  >
+                                                    <X className="h-4 w-4" />
+                                                  </Button>
+                                                </div>
+                                              ) : (
+                                                <span className="text-xs text-slate-500">{interesseRenovacao ? "Sim" : "Não"}</span>
+                                              )}
+                                            </td>
+                                          )}
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </div>
                         ))}
+                      </div>
+                    )}
+                    {isNovaContratacao && podeEditarIfo && (
+                      <div className="p-4 bg-slate-50/50 border-t border-slate-200">
+                        <Button
+                          variant="outline"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                          onClick={() => setIsNovoIfoOpen(true)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Novo IFO
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -861,100 +861,25 @@ export default function FormacaoPca() {
                   {renderBlocoContinuado("Encerramento", 1, ifosEncerramento, "text-red-700", "bg-red-100")}
                   {renderBlocoContinuado("Renovação", 2, ifosRenovacao, "text-blue-700", "bg-blue-100")}
                   {renderBlocoContinuado("Plurianual", 3, ifosPlurianual, "text-purple-700", "bg-purple-100")}
+                  {renderBlocoContinuado("Nova Contratação", 4, ifos, "text-emerald-700", "bg-emerald-100", true)}
                 </>
               );
             })()}
-            {/* Bloco 4: Nova Contratação */}
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between border-b bg-slate-50 px-5 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                    Bloco 4
-                  </span>
-                  <h2 className="text-base font-semibold text-slate-800">Nova Contratação</h2>
-                </div>
-                <span className="text-sm text-slate-500 font-medium">
-                  {ifos.length} IFOs do PCA {anoFormacao}
-                </span>
-              </div>
-              <div className="p-0">
-                {loadingBlocos ? (
-                  <div className="p-8 flex justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left border-b">
-                      <thead className="bg-slate-50 border-b text-slate-500">
-                        <tr>
-                          <th className="px-5 py-3 font-medium">IFO</th>
-                          <th className="px-5 py-3 font-medium">Objeto</th>
-                          <th className="px-5 py-3 font-medium text-right">Valor estimado</th>
-                          <th className="px-5 py-3 font-medium">Área demandante</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {ifos.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                              Nenhum IFO cadastrado. Clique no botão abaixo para adicionar.
-                            </td>
-                          </tr>
-                        ) : (
-                          ifos.map((ifo) => (
-                            <tr key={ifo.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-5 py-3 font-medium text-slate-900 font-mono text-xs">
-                                {ifo.codigo}
-                              </td>
-                              <td className="px-5 py-3 text-slate-700">
-                                {ifo.objeto}
-                              </td>
-                              <td className="px-5 py-3 text-right text-slate-700 font-medium">
-                                {formatCurrency(ifo.valorEstimado || 0)}
-                              </td>
-                              <td className="px-5 py-3 text-slate-600 flex items-center justify-between">
-                                <span>{ifo.areaDemandante || "-"}</span>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {podeVincularContratos && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-blue-600" onClick={() => setIfoLinking(ifo)}>
-                                      <LinkIcon className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
-                                  {podeEditarIfo && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-blue-600" onClick={() => setIfoEditing(ifo)}>
-                                      <Pencil className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
-                                  {podeDeletarIfo && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-red-600" onClick={() => setIfoDeleting(ifo)}>
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                <div className="p-4 bg-slate-50/50">
-                  <Button
-                    variant="outline"
-                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                    onClick={() => setIsNovoIfoOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo IFO
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
+        {(user as any)?.is_superadmin && (
+          <div className="mt-12 pt-6 border-t border-slate-200 flex justify-end">
+            <Button
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setIsReiniciarOpen(true)}
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Reiniciar Formação
+            </Button>
+          </div>
+        )}
       </div>
 
       <DialogNovoIfo
