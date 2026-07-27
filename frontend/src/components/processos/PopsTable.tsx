@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,10 @@ export interface LinhaPopAnexado {
 
 interface Props {
   linhasAnexadas: LinhaPopAnexado[];
+  /** POPs criados no Kaizen (carregados na página, para o card contar mesmo com a aba fechada). */
+  criados: PopCriado[];
+  loading: boolean;
+  onReload: () => void;
   /** Mesmo termo da busca do card, aplicado também aos POPs criados. */
   busca: string;
   areaPadrao?: string;
@@ -57,6 +61,9 @@ function formatData(v: string | null | undefined): string {
  */
 export function PopsTable({
   linhasAnexadas,
+  criados,
+  loading,
+  onReload,
   busca,
   areaPadrao,
   baixandoDocKey,
@@ -64,25 +71,8 @@ export function PopsTable({
   criarOpen,
   onCriarOpenChange,
 }: Props) {
-  const [criados, setCriados] = useState<PopCriado[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<PopCriado | null>(null);
   const [excluir, setExcluir] = useState<PopCriado | null>(null);
-
-  const carregar = async () => {
-    setLoading(true);
-    try {
-      setCriados(await popsCriadosApi.list());
-    } catch {
-      /* erro tratado no apiClient */
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    carregar();
-  }, []);
 
   const linhas = useMemo<LinhaPop[]>(() => {
     const q = busca.trim().toLowerCase();
@@ -133,7 +123,7 @@ export function PopsTable({
       await popsCriadosApi.remove(excluir.id);
       toast.success("POP excluído.");
       setExcluir(null);
-      await carregar();
+      onReload();
     } catch {
       /* erro tratado no apiClient */
     }
@@ -149,7 +139,7 @@ export function PopsTable({
           onCriarOpenChange(false);
         }}
         pop={editing}
-        onSaved={carregar}
+        onSaved={onReload}
         areaPadrao={areaPadrao}
       />
 
@@ -214,8 +204,7 @@ export function PopsTable({
           <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
             <tr>
               <th className={`text-left ${th}`}>Documento</th>
-              <th className={`text-center ${th}`}>Origem</th>
-              <th className={`text-left ${th}`}>Processo / Serviço</th>
+              <th className={`text-left ${th}`}>Processo</th>
               <th className={`text-center ${th}`}>Área</th>
               <th className={`text-center ${th}`}>Data da Versão</th>
               <th className={`text-center ${th}`}>Ações</th>
@@ -225,25 +214,25 @@ export function PopsTable({
             {linhas.map((l) => (
               <tr key={l.key} className="transition-colors hover:bg-slate-50/60">
                 <td className="px-5 py-3 text-left">
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-start gap-2 min-w-0">
                     <FileText
-                      className={`h-4 w-4 flex-shrink-0 ${l.tipo === "criado" ? "text-blue-500" : "text-slate-400"}`}
+                      className={`h-4 w-4 mt-0.5 flex-shrink-0 ${l.tipo === "criado" ? "text-blue-500" : "text-slate-400"}`}
                     />
-                    <span className="text-slate-900 font-medium truncate">
-                      {l.nome}
-                    </span>
+                    <div className="min-w-0">
+                      <span className="block text-slate-900 font-medium truncate">
+                        {l.nome}
+                      </span>
+                      <span
+                        className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${
+                          l.tipo === "criado"
+                            ? "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200"
+                            : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200"
+                        }`}
+                      >
+                        {l.tipo === "criado" ? "Criado no Kaizen" : "Anexado"}
+                      </span>
+                    </div>
                   </div>
-                </td>
-                <td className="px-5 py-3 text-center">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${
-                      l.tipo === "criado"
-                        ? "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200"
-                        : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200"
-                    }`}
-                  >
-                    {l.tipo === "criado" ? "Criado no Kaizen" : "Anexado"}
-                  </span>
                 </td>
                 <td className="px-5 py-3 text-left text-slate-700">
                   <span className="line-clamp-1">{l.contexto}</span>

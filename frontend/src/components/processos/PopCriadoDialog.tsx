@@ -18,7 +18,10 @@ import {
   PopCriadoInput,
 } from "@/services/popsCriadosApi";
 import { areasApi, Area } from "@/services/areasApi";
-import { processosNegocioApi } from "@/services/processosNegocioApi";
+import {
+  processosNegocioApi,
+  ProcessoNegocio,
+} from "@/services/processosNegocioApi";
 
 interface Props {
   open: boolean;
@@ -68,6 +71,7 @@ export function PopCriadoDialog({
   const [areas, setAreas] = useState<Area[]>([]);
   const [unidades, setUnidades] = useState<string[]>([]);
   const [macroprocessos, setMacroprocessos] = useState<string[]>([]);
+  const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,8 +89,14 @@ export function PopCriadoDialog({
       .catch(() => setUnidades([]));
     processosNegocioApi
       .getAll()
-      .then((ps) => setMacroprocessos(uniq(ps.map((p) => p.macroprocesso))))
-      .catch(() => setMacroprocessos([]));
+      .then((ps) => {
+        setProcessos(ps);
+        setMacroprocessos(uniq(ps.map((p) => p.macroprocesso)));
+      })
+      .catch(() => {
+        setProcessos([]);
+        setMacroprocessos([]);
+      });
   }, [open]);
 
   const siglasAreas = areas.map((a) => a.sigla).filter(Boolean) as string[];
@@ -107,6 +117,23 @@ export function PopCriadoDialog({
 
   const set = (campo: keyof PopCriadoInput, valor: string) =>
     setForm((f) => ({ ...f, [campo]: valor }));
+
+  /**
+   * Seleção do processo cadastrado: preenche automaticamente macroprocesso, área e diretoria
+   * a partir do cadastro do processo. Os campos seguem editáveis — o usuário pode ajustar.
+   */
+  const selecionarProcesso = (p: ProcessoNegocio) => {
+    const areaCad = areas.find((a) => a.sigla === p.diretoria);
+    const unidade = p.proprietarios?.find((r) => r.area?.trim())?.area || "";
+    setForm((f) => ({
+      ...f,
+      nome_processo: p.nome_processo,
+      macroprocesso: p.macroprocesso || f.macroprocesso,
+      area: p.diretoria || f.area,
+      diretoria_orgao: areaCad?.nome || p.diretoria || f.diretoria_orgao,
+      unidade_orgao: unidade || f.unidade_orgao,
+    }));
+  };
 
   /** Lê a imagem do fluxograma como data URL para embutir no PDF (mesma convenção do PAC). */
   const anexarFluxograma = (file?: File) => {
@@ -174,14 +201,16 @@ export function PopCriadoDialog({
                   placeholder="SGQ-003"
                 />
               </Campo>
-              <Campo label="Nome do Processo" required>
-                <Input
+              <Campo label="Nome do Processo" required hint="processo cadastrado">
+                <ProcessoPicker
                   value={form.nome_processo ?? ""}
-                  onChange={(e) => set("nome_processo", e.target.value)}
-                  placeholder="Ex.: Elaboração do Termo de Referência (TR)"
+                  onType={(v) => set("nome_processo", v)}
+                  onSelect={selecionarProcesso}
+                  processos={processos}
+                  placeholder="Pesquise o processo cadastrado…"
                 />
               </Campo>
-              <Campo label="Macroprocesso" hint="digite ou selecione">
+              <Campo label="Macroprocesso" hint="preenchido pelo processo">
                 <ComboboxLivre
                   value={form.macroprocesso ?? ""}
                   onChange={(v) => set("macroprocesso", v)}
@@ -189,7 +218,7 @@ export function PopCriadoDialog({
                   placeholder="Ex.: Governança"
                 />
               </Campo>
-              <Campo label="Área (sigla)" hint="das áreas cadastradas">
+              <Campo label="Área (sigla)" hint="preenchida pelo processo">
                 <ComboboxLivre
                   value={form.area ?? ""}
                   onChange={(v) => {
@@ -208,7 +237,7 @@ export function PopCriadoDialog({
                   placeholder="Ex.: DIJUD"
                 />
               </Campo>
-              <Campo label="Diretoria (cabeçalho)" hint="das áreas cadastradas">
+              <Campo label="Diretoria (cabeçalho)" hint="preenchida pelo processo">
                 <ComboboxLivre
                   value={form.diretoria_orgao ?? ""}
                   onChange={(v) => set("diretoria_orgao", v)}
@@ -438,6 +467,80 @@ function ComboboxLivre({
               {o}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Busca de processo cadastrado. Diferente do ComboboxLivre, cada opção é um processo inteiro:
+ * ao selecionar, o formulário auto-preenche macroprocesso/área/diretoria a partir do cadastro.
+ * Digitar apenas filtra a lista (a regra do POP exige processo previamente cadastrado).
+ */
+function ProcessoPicker({
+  value,
+  onType,
+  onSelect,
+  processos,
+  placeholder,
+}: {
+  value: string;
+  onType: (v: string) => void;
+  onSelect: (p: ProcessoNegocio) => void;
+  processos: ProcessoNegocio[];
+  placeholder?: string;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const q = value.trim().toLowerCase();
+  const filtrados = processos
+    .filter((p) => {
+      if (!q) return true;
+      return [p.nome_processo, p.macroprocesso, p.diretoria].some((c) =>
+        (c || "").toLowerCase().includes(q),
+      );
+    })
+    .slice(0, 60);
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        onChange={(e) => {
+          onType(e.target.value);
+          setAberto(true);
+        }}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setTimeout(() => setAberto(false), 150)}
+        placeholder={placeholder}
+      />
+      {aberto && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+          {filtrados.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-500">
+              Nenhum processo cadastrado encontrado.
+            </div>
+          ) : (
+            filtrados.map((p) => (
+              <div
+                key={p.id}
+                className="px-3 py-2 cursor-pointer hover:bg-gray-100"
+                title={p.nome_processo}
+                onMouseDown={() => {
+                  onSelect(p);
+                  setAberto(false);
+                }}
+              >
+                <div className="text-sm text-gray-900 font-medium truncate">
+                  {p.nome_processo}
+                </div>
+                <div className="text-xs text-gray-500 truncate">
+                  {[p.macroprocesso, p.diretoria].filter(Boolean).join(" · ") ||
+                    "—"}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
