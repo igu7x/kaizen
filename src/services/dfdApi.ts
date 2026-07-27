@@ -99,6 +99,10 @@ export interface Ifo {
   estimatedDate?: string | null;
   /** ID do PCA de origem, quando o IFO foi gerado a partir de um PCA existente (bloco nova_contratacao). */
   pcaOrigemId?: number | null;
+  areaSigla?: string | null;
+  areaNome?: string | null;
+  unidadeSigla?: string | null;
+  unidadeNome?: string | null;
   contratos: number[];
   ifoContratosDetalhes?: IfoContratoDetalhe[];
 }

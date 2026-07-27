@@ -135,6 +135,16 @@ function EsteiraControls({
   );
 }
 
+const getAreaLabel = (ifo: Ifo) => {
+  let label = ifo.areaDemandante || "-";
+  if (ifo.unidadeId) {
+    label = ifo.unidadeSigla || ifo.areaNome || label;
+  } else if (ifo.areaId) {
+    label = ifo.areaSigla || label;
+  }
+  return label;
+};
+
 export default function FormacaoPca() {
   const hoje = useMemo(() => new Date(), []);
   const anoVigente = hoje.getFullYear();
@@ -780,7 +790,7 @@ export default function FormacaoPca() {
                                 <span className="text-sm text-slate-900 font-medium">{ifo.description || ifo.objeto || "-"}</span>
                               </div>
                               <div className="flex items-center gap-4 text-sm text-slate-600">
-                                <span><b className="text-slate-800">{ifo.areaDemandante || "-"}</b></span>
+                                <span><b className="text-slate-800">{getAreaLabel(ifo)}</b></span>
                                 <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado || 0)}</span>
                                 <div className="flex items-center gap-1">
 
