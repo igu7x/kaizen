@@ -14,7 +14,7 @@ public final class Validadores {
     }
 
     public static final List<String> FINAIS = List.of(
-            "gmpdmaciel@tjgo.jus.br", "dcamaral@tjgo.jus.br", "ifccupertino@tjgo.jus.br", "jdnascimento@tjgo.jus.br", "acandrade@tjgo.jus.br");
+            "gmpdmaciel@tjgo.jus.br", "dcamaral@tjgo.jus.br", "ifccupertino@tjgo.jus.br", "jdnascimento@tjgo.jus.br");
 
     public static boolean isFinal(String email) {
         if (email == null) {

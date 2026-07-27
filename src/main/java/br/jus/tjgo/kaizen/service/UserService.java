@@ -2,7 +2,6 @@ package br.jus.tjgo.kaizen.service;
 
 import br.jus.tjgo.kaizen.exception.ApiException;
 import br.jus.tjgo.kaizen.util.PasswordHasher;
-import br.jus.tjgo.kaizen.util.Validadores;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -60,7 +59,6 @@ public class UserService {
         dto.put("classe_efetivo", u.get("classe_efetivo"));
         dto.put("foto_perfil", u.get("foto_perfil"));
         dto.put("is_developer", Boolean.TRUE.equals(u.get("is_developer")));
-        dto.put("is_validador_final", Validadores.isFinal((String) u.get("email")));
         dto.put("created_at", u.get("created_at"));
         dto.put("updated_at", u.get("updated_at"));
         return dto;

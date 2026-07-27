@@ -51,7 +51,7 @@ public class AvaliacaoIntegradaService {
     }
 
     private static String listSql(String whereClauses) {
-        return "SELECT f.*, COALESCE(a.sigla, f.diretoria) AS diretoria, " +
+        return "SELECT f.*, " +
                 "       u.name as avaliador_user_name, " +
                 "       cu.nome as unidade_nome, " +
                 "       af.user_id as colaborador_user_id, " +
@@ -60,7 +60,6 @@ public class AvaliacaoIntegradaService {
                 "LEFT JOIN users u ON u.id = f.avaliador_user_id " +
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
                 "LEFT JOIN autoavaliacao_formularios af ON af.id = f.autoavaliacao_id " +
-                "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                 "WHERE " + whereClauses + " " +
                 "  AND f.id = ( " +
                 "    SELECT f2.id FROM avaliacao_integrada_formularios f2 " +
@@ -316,23 +315,23 @@ public class AvaliacaoIntegradaService {
             jdbc.update(
                     "UPDATE avaliacao_integrada_formularios SET " +
                             "  pessoa_nome = ?, avaliador_user_id = ?, avaliador_nome = ?, " +
-                            "  cadastros_areas_id = COALESCE(?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', tecnicas_versao = ?, competencias_versao = ?, " +
                             "  validado_gestor_id = NULL, validado_gestor_nome = NULL, validado_gestor_em = NULL, " +
                             "  validado_colaborador_id = NULL, validado_colaborador_nome = NULL, validado_colaborador_em = NULL, " +
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     str(data.get("pessoa_nome")), userId, str(data.get("avaliador_nome")),
-                    asLong(data.get("cadastros_areas_id")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv, tecnicasVersao, competenciasVersao, userId, formularioId);
+                    str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv, tecnicasVersao, competenciasVersao, userId, formularioId);
             jdbc.update("DELETE FROM avaliacao_integrada_respostas WHERE formulario_id = ?", formularioId);
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_integrada_formularios " +
                             "  (autoavaliacao_id, avaliacao_gestor_id, pessoa_id, pessoa_nome, avaliador_user_id, avaliador_nome, cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
                             "RETURNING id",
                     autoavaliacaoId, avaliacaoGestorId, pessoaId, str(data.get("pessoa_nome")), userId,
-                    str(data.get("avaliador_nome")), asLong(data.get("cadastros_areas_id")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }

@@ -74,7 +74,7 @@ public class CompetenciasGestorService {
     }
 
     private static String listSelect() {
-        return "SELECT f.*, COALESCE(a.sigla, f.diretoria) AS diretoria, " +
+        return "SELECT f.*, " +
                 "       u.name as user_name, " +
                 "       cu.nome as unidade_nome, " +
                 "       (SELECT COUNT(*) FROM competencias_gestor_itens i WHERE i.formulario_id = f.id) as total_competencias, " +
@@ -86,13 +86,12 @@ public class CompetenciasGestorService {
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
                 "LEFT JOIN users va ON va.id = f.validado_por_autor_id " +
                 "LEFT JOIN users vd ON vd.id = f.validado_por_diretoria_id " +
-                "LEFT JOIN users vf ON vf.id = f.validado_final_id " +
-                "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id";
+                "LEFT JOIN users vf ON vf.id = f.validado_final_id";
     }
 
     public Map<String, Object> findById(long id) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT f.*, COALESCE(a.sigla, f.diretoria) AS diretoria, u.name as user_name, cu.nome as unidade_nome, " +
+                "SELECT f.*, u.name as user_name, cu.nome as unidade_nome, " +
                         "       va.name as validado_por_autor_nome, " +
                         "       vd.name as validado_por_diretoria_nome, " +
                         "       vf.name as validado_final_nome " +
@@ -102,7 +101,6 @@ public class CompetenciasGestorService {
                         "LEFT JOIN users va ON va.id = f.validado_por_autor_id " +
                         "LEFT JOIN users vd ON vd.id = f.validado_por_diretoria_id " +
                         "LEFT JOIN users vf ON vf.id = f.validado_final_id " +
-                        "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                         "WHERE f.id = ? AND f.is_deleted = FALSE",
                 id);
         if (formRows.isEmpty()) {
@@ -117,10 +115,9 @@ public class CompetenciasGestorService {
 
     public Map<String, Object> findByUserId(long userId, String tipo) {
         StringBuilder sql = new StringBuilder(
-                "SELECT f.*, COALESCE(a.sigla, f.diretoria) AS diretoria, cu.nome as unidade_nome " +
+                "SELECT f.*, cu.nome as unidade_nome " +
                         "FROM competencias_gestor_formularios f " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
-                        "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                         "WHERE f.user_id = ? AND f.is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
         params.add(userId);
@@ -162,32 +159,18 @@ public class CompetenciasGestorService {
         return fallback != null ? str(fallback) : null;
     }
 
-    private Long areaIdDaUnidade(Long unidadeId, Object fallback) {
-        if (unidadeId != null) {
-            List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT u.area_id FROM cadastros_unidades u " +
-                            "WHERE u.id = ? LIMIT 1",
-                    unidadeId);
-            if (!rows.isEmpty() && rows.get(0).get("area_id") != null) {
-                return asLong(rows.get(0).get("area_id"));
-            }
-        }
-        return asLong(fallback);
-    }
-
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipo = data.get("tipo") != null ? str(data.get("tipo")) : "equipe";
         Long unidadeId = asLong(data.get("unidade_id"));
         String diretoria = diretoriaDaUnidade(unidadeId, data.get("diretoria"));
-        Long cadastrosAreasId = areaIdDaUnidade(unidadeId, data.get("cadastros_areas_id"));
 
         Map<String, Object> formulario = jdbc.queryForMap(
                 "INSERT INTO competencias_gestor_formularios " +
-                        "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, diretoria, cadastros_areas_id, unidade_id, qtd_colaboradores, tipo, status, created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)), ?, ?, ?, 'enviado', ?, ?) RETURNING *",
+                        "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, diretoria, unidade_id, qtd_colaboradores, tipo, status, created_by, updated_by) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?) RETURNING *",
                 userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), diretoria, cadastrosAreasId, diretoria, unidadeId,
+                str(data.get("email_institucional")), diretoria, unidadeId,
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, tipo, userId, userId);
         long formularioId = ((Number) formulario.get("id")).longValue();
 
@@ -302,15 +285,14 @@ public class CompetenciasGestorService {
         // Diretoria = macroárea da unidade (não a do editor). Ver diretoriaDaUnidade.
         Long updUnidadeId = asLong(data.get("unidade_id"));
         String updDiretoria = diretoriaDaUnidade(updUnidadeId, data.get("diretoria"));
-        Long updAreaId = areaIdDaUnidade(updUnidadeId, data.get("cadastros_areas_id"));
         jdbc.update(
                 "UPDATE competencias_gestor_formularios SET " +
                         "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
-                        "  diretoria = ?, cadastros_areas_id = COALESCE(?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1)), unidade_id = ?, qtd_colaboradores = ?, " +
+                        "  diretoria = ?, unidade_id = ?, qtd_colaboradores = ?, " +
                         "  updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE",
                 str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), updDiretoria, updAreaId, updDiretoria, updUnidadeId,
+                str(data.get("email_institucional")), updDiretoria, updUnidadeId,
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, userId, id);
 
         if (autoValidateAutor) {

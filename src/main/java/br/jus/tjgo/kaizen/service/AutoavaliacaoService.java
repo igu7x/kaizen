@@ -72,14 +72,12 @@ public class AutoavaliacaoService {
 
     private static String listSql(String whereClauses) {
         return "SELECT f.*, " +
-                "       COALESCE(a.sigla, f.diretoria) as diretoria, " +
                 "       u.name as user_name, " +
                 "       cu.nome as unidade_nome, " +
                 "       (SELECT COUNT(*) FROM autoavaliacao_respostas r WHERE r.formulario_id = f.id) as total_respostas " +
                 "FROM autoavaliacao_formularios f " +
                 "LEFT JOIN users u ON u.id = f.user_id " +
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
-                "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                 "WHERE " + whereClauses + " " +
                 "  AND f.id = ( " +
                 "    SELECT f2.id FROM autoavaliacao_formularios f2 " +
@@ -94,11 +92,10 @@ public class AutoavaliacaoService {
 
     public Map<String, Object> findById(long id) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT f.*, COALESCE(a.sigla, f.diretoria) as diretoria, u.name as user_name, cu.nome as unidade_nome " +
+                "SELECT f.*, u.name as user_name, cu.nome as unidade_nome " +
                         "FROM autoavaliacao_formularios f " +
                         "LEFT JOIN users u ON u.id = f.user_id " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
-                        "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                         "WHERE f.id = ? AND f.is_deleted = FALSE",
                 id);
         if (formRows.isEmpty()) {
@@ -113,10 +110,9 @@ public class AutoavaliacaoService {
 
     public Map<String, Object> findByUserId(long userId, String tipoInventario) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT f.*, COALESCE(a.sigla, f.diretoria) as diretoria, cu.nome as unidade_nome " +
+                "SELECT f.*, cu.nome as unidade_nome " +
                         "FROM autoavaliacao_formularios f " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
-                        "LEFT JOIN cadastros_areas a ON a.id = f.cadastros_areas_id " +
                         "WHERE f.user_id = ? AND f.is_deleted = FALSE " +
                         "  AND COALESCE(f.tipo_inventario, 'equipe') = ? " +
                         "ORDER BY f.created_at DESC LIMIT 1",
@@ -172,7 +168,7 @@ public class AutoavaliacaoService {
             jdbc.update(
                     "UPDATE autoavaliacao_formularios SET " +
                             "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
-                            "  cadastros_areas_id = ?, unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
+                            "  cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', " +
                             "  competencias_versao = ?, versao_anterior = ?, update_keys = ?::jsonb, " +
                             "  tecnicas_versao = ?, " +
@@ -180,17 +176,17 @@ public class AutoavaliacaoService {
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                    str(data.get("email_institucional")), asLong(data.get("cadastros_areas_id")), unidadeId, pessoaId, tipoInv,
+                    str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
                     competenciasVersao, versaoAnterior, updateKeysJson, tecnicasVersao, userId, formularioId);
             jdbc.update("DELETE FROM autoavaliacao_respostas WHERE formulario_id = ?", formularioId);
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO autoavaliacao_formularios " +
                             "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, cadastros_areas_id, unidade_id, pessoa_id, tipo_inventario, status, competencias_versao, versao_anterior, update_keys, tecnicas_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
+                            "VALUES (?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
                             "RETURNING id",
                     userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                    str(data.get("email_institucional")), asLong(data.get("cadastros_areas_id")), unidadeId, pessoaId, tipoInv,
+                    str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
                     competenciasVersao, versaoAnterior, updateKeysJson, tecnicasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
