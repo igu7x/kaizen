@@ -99,7 +99,6 @@ export interface CreateAvaliacaoIntegradaDto {
   pessoa_id: number;
   pessoa_nome: string;
   avaliador_nome: string;
-  cadastros_areas_id?: number;
   diretoria: string;
   unidade_id?: number;
   tipo_inventario?: "equipe" | "gestor";

@@ -65,7 +65,6 @@ export interface CreateFormularioDto {
   matricula: string;
   cargo_funcao: string;
   email_institucional: string;
-  cadastros_areas_id?: number;
   diretoria: string;
   unidade_id?: number;
   qtd_colaboradores?: number;

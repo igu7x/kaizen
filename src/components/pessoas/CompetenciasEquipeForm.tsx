@@ -90,7 +90,6 @@ export function CompetenciasEquipeForm({
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [diretoriaUsuario, setDiretoriaUsuario] = useState<string>("");
-  const [areaUsuarioId, setAreaUsuarioId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingUnidadeNome, setEditingUnidadeNome] = useState<string>("");
 
@@ -147,7 +146,6 @@ export function CompetenciasEquipeForm({
             allAreas[0];
           const diretoria = userArea?.sigla || userArea?.nome || "";
           setDiretoriaUsuario(diretoria);
-          setAreaUsuarioId(userArea?.id || null);
         }
 
         // Carregar unidades autorizadas (já filtra as já preenchidas) + formulários preenchidos
@@ -310,7 +308,6 @@ export function CompetenciasEquipeForm({
         matricula: form.matricula.trim(),
         cargo_funcao: form.cargo_funcao.trim(),
         email_institucional: form.email_institucional.trim(),
-        cadastros_areas_id: areaUsuarioId || undefined,
         diretoria: diretoriaUsuario,
         unidade_id: form.unidade_id ? Number(form.unidade_id) : undefined,
         qtd_colaboradores: Number(form.qtd_colaboradores),

@@ -56,7 +56,17 @@ import {
 import { areasApi, Area } from "@/services/areasApi";
 import { generateCompetenciasPDF } from "@/utils/generateCompetenciasPDF";
 
-// Removido VALIDADORES_FINAIS do frontend (agora vem do backend no user.is_validador_final)
+// Validadores finais (Camada 3) — apenas estes 2 são finais
+const VALIDADORES_FINAIS = [
+  "gmpdmaciel@tjgo.jus.br",
+  "dcamaral@tjgo.jus.br",
+  "ifccupertino@tjgo.jus.br",
+  "jdnascimento@tjgo.jus.br",
+];
+const isValidadorFinal = (email: string) =>
+  VALIDADORES_FINAIS.some(
+    (v) => v.toLowerCase() === email.toLowerCase().trim(),
+  );
 
 // Verifica se o usuário é gestor da diretoria do formulário (via cadastros_areas.gestor_user_id)
 function isGestorDaDiretoria(
@@ -73,39 +83,37 @@ function isGestorDaDiretoria(
 
 function canUserEdit(
   f: FormularioCompetencias,
-  user: any,
+  userEmail: string,
+  userId: number | undefined,
   areas: Area[],
 ): boolean {
-  if (!user) return false;
+  const email = userEmail.toLowerCase().trim();
   const isGestor = f.tipo === "gestor";
-  const isDiretor = isGestorDaDiretoria(f, user.id ? Number(user.id) : undefined, areas);
-  const isFinal = !!user.is_validador_final;
-
+  const isDiretor = isGestorDaDiretoria(f, userId, areas);
   if (f.status === "validado_final") return false;
   if (f.status === "validado_diretoria") {
-    return isFinal;
+    return isValidadorFinal(email);
   }
   if (isGestor) {
     // Gestor: 2 camadas — status 'enviado': diretor + validador final
     if (isDiretor) return true;
-    if (isFinal) return true;
-  } else {
-    // Equipe: 3 camadas — status 'validado_autor': diretor + validador final
-    if (f.status === "validado_autor") {
-      if (isDiretor) return true;
-      if (isFinal) return true;
-    }
+    if (isValidadorFinal(email)) return true;
+    return false;
   }
-
+  // Equipe: 3 camadas
+  if (f.status === "validado_autor") {
+    if (isDiretor) return true;
+    if (isValidadorFinal(email)) return true;
+    return false;
+  }
   // status 'enviado': o autor pode editar + diretor + validador final
   if (
     f.email_institucional &&
-    user.email &&
-    user.email.toLowerCase().trim() === f.email_institucional.toLowerCase().trim()
+    email === f.email_institucional.toLowerCase().trim()
   )
     return true;
   if (isDiretor) return true;
-  if (isFinal) return true;
+  if (isValidadorFinal(email)) return true;
   return false;
 }
 

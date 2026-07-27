@@ -26,7 +26,7 @@ import {
   VersaoHistorico,
   isResponsavel,
   isEditor,
-  isComplianceOfficer,
+  isComplianceOfficerEmail,
   camposObrigatoriosFaltantes,
   validarComiteParaEnvio,
   temEditores,
@@ -323,19 +323,19 @@ export function ProcessoAcoesFooter({
   };
 
   // Lógica de quais botões mostrar baseado no status atual — VERBATIM do ProcessoDetalhe.
-  const isComplianceOfficerUser = isComplianceOfficer(user);
+  const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
   const isEditorAtribuido = isEditor(processo, user?.id);
   const statusEmPreenchimento =
     processo.status === "em_elaboracao" || processo.status === "recusado";
   const ehResponsavel = isResponsavel(processo, user?.id);
   const podePapelEditor =
-    isSuperadmin || isDiretorDaArea || ehResponsavel || isComplianceOfficerUser;
+    isSuperadmin || isDiretorDaArea || ehResponsavel || isComplianceOfficer;
   const podeEditar =
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
     (isEditorAtribuido && statusEmPreenchimento) ||
     (isDiretorDaArea && processo.status === "validado_autor") ||
-    (isComplianceOfficerUser && processo.status === "validado_diretoria");
+    (isComplianceOfficer && processo.status === "validado_diretoria");
   // Edição concluída (sinal do Editor atribuído). Enquanto houver editor e ele não concluir,
   // o Responsável fica bloqueado de validar a camada 1.
   const temEditoresAtribuidos = temEditores(processo);
@@ -355,12 +355,12 @@ export function ProcessoAcoesFooter({
   const podeValidarDiretoria =
     isDiretorDaArea && processo.status === "validado_autor";
   const podeValidarFinal =
-    isComplianceOfficerUser && processo.status === "validado_diretoria";
+    isComplianceOfficer && processo.status === "validado_diretoria";
 
   const podeRecusar =
     (processo.status === "enviado" && ehResponsavel) ||
     (processo.status === "validado_autor" && isDiretorDaArea) ||
-    (processo.status === "validado_diretoria" && isComplianceOfficerUser);
+    (processo.status === "validado_diretoria" && isComplianceOfficer);
 
   const podeExcluir = user?.role === "ADMIN";
 

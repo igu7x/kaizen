@@ -286,12 +286,18 @@ export function isResponsavel(
   return responsaveisUserIds(p).includes(uid);
 }
 
-import { User } from "@/types";
+/** E-mails autorizados à validação final (camada 3 / Compliance Officer). */
+export const COMPLIANCE_OFFICER_EMAILS = [
+  "gmpdmaciel@tjgo.jus.br",
+  "dcamaral@tjgo.jus.br",
+  "ifccupertino@tjgo.jus.br",
+  "jdnascimento@tjgo.jus.br",
+];
 
 /** True quando o e-mail é de um Compliance Officer (validador final / camada 3). */
-export function isComplianceOfficer(user?: User | null): boolean {
-  if (!user) return false;
-  return !!user.is_validador_final;
+export function isComplianceOfficerEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return COMPLIANCE_OFFICER_EMAILS.includes(email.trim().toLowerCase());
 }
 
 /** Editor atribuído ao processo: usuário com permissão de editar/salvar o conteúdo. */

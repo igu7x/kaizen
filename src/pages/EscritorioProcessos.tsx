@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, Fragment } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Fragment,
+} from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +48,7 @@ import {
   isRevisaoOuNovo,
   revisaoVencida,
   normalizeResponsavel,
-  isComplianceOfficer,
+  isComplianceOfficerEmail,
   proximaRevisao,
   TIPO_DOCUMENTO_BADGE,
 } from "@/services/processosNegocioApi";
@@ -57,6 +64,7 @@ import {
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
 import { PopsTable } from "@/components/processos/PopsTable";
+import { popsCriadosApi, PopCriado } from "@/services/popsCriadosApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
 import { areasApi, Area, Unidade } from "@/services/areasApi";
 import { toast } from "sonner";
@@ -643,7 +651,7 @@ export default function EscritorioProcessos() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
 
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
-  const isComplianceOfficerUser = isComplianceOfficer(user);
+  const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
   // Regra (jul/2026): todos os usuários enxergam todos os processos (de todas as diretorias),
   // então o filtro por diretoria fica habilitado para todos. O Visualizador (VIEWER) segue
   // restrito aos vigentes (aba única) via `soVisualizador`.
@@ -651,7 +659,7 @@ export default function EscritorioProcessos() {
   // Visualizador (perfil VIEWER): só enxerga "Processos Vigentes", independente da diretoria.
   // Superadmin (Gestor do Escritório) e Compliance Officer não são restritos.
   const soVisualizador =
-    user?.role === "VIEWER" && !isSuperadmin && !isComplianceOfficerUser;
+    user?.role === "VIEWER" && !isSuperadmin && !isComplianceOfficer;
 
   const carregar = async () => {
     setLoading(true);
@@ -830,11 +838,11 @@ export default function EscritorioProcessos() {
     if (st === "validado_autor" && ehRevisor) {
       return { exec: (id: number) => processosNegocioApi.validarDiretoria(id) };
     }
-    if (st === "validado_diretoria" && isComplianceOfficerUser) {
+    if (st === "validado_diretoria" && isComplianceOfficer) {
       return { exec: (id: number) => processosNegocioApi.validarFinal(id) };
     }
     return null;
-  }, [editing, user?.id, areas, ehResponsavelDoProcesso, isComplianceOfficerUser]);
+  }, [editing, user?.id, areas, ehResponsavelDoProcesso, isComplianceOfficer]);
 
   // ============================================================
   // ESTATÍSTICAS / DADOS DOS GRÁFICOS
@@ -1014,6 +1022,23 @@ export default function EscritorioProcessos() {
   const [baixandoTodosId, setBaixandoTodosId] = useState<number | null>(null);
   // Dialog de criação de POP (o botão fica no cabeçalho do card da tabela).
   const [criarPopOpen, setCriarPopOpen] = useState(false);
+  // POPs criados no Kaizen — carregados aqui (não só na tabela) para o card "POPs"
+  // contabilizá-los mesmo quando o filtro POP não está ativo.
+  const [popsCriados, setPopsCriados] = useState<PopCriado[]>([]);
+  const [loadingPopsCriados, setLoadingPopsCriados] = useState(true);
+  const carregarPopsCriados = useCallback(async () => {
+    setLoadingPopsCriados(true);
+    try {
+      setPopsCriados(await popsCriadosApi.list());
+    } catch {
+      /* erro tratado no apiClient */
+    } finally {
+      setLoadingPopsCriados(false);
+    }
+  }, []);
+  useEffect(() => {
+    carregarPopsCriados();
+  }, [carregarPopsCriados]);
 
   // Baixa o documento de uma linha da tabela de artefatos. Como a listagem vem
   // sem o conteúdo (`data` é removido no payload enxuto), busca o processo completo
@@ -1427,8 +1452,8 @@ export default function EscritorioProcessos() {
           <StatCard
             title="POPs"
             subtitle="(Procedimento Operacional Padrão)"
-            value={stats.pop}
-            hint={`${stats.total > 0 ? Math.round((stats.pop / stats.total) * 100) : 0}% dos processos`}
+            value={stats.pop + popsCriados.length}
+            hint={`${stats.pop} anexado${stats.pop === 1 ? "" : "s"} · ${popsCriados.length} criado${popsCriados.length === 1 ? "" : "s"}`}
             icon={<ListChecks className="h-6 w-6" />}
             iconBg="bg-amber-100"
             iconColor="text-amber-600"
@@ -1514,6 +1539,9 @@ export default function EscritorioProcessos() {
             /* POPs vivem em uma tabela só: os anexados a processos e os criados no Kaizen. */
             <PopsTable
               linhasAnexadas={tabelaDocumentos}
+              criados={popsCriados}
+              loading={loadingPopsCriados}
+              onReload={carregarPopsCriados}
               busca={buscaProcesso}
               areaPadrao={user?.diretoria || undefined}
               baixandoDocKey={baixandoDocKey}
@@ -1543,10 +1571,7 @@ export default function EscritorioProcessos() {
                     <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                       <tr>
                         <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                          Nome de Exibição
-                        </th>
-                        <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                          Data da Versão
+                          Documento
                         </th>
                         <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
                           Processo
@@ -1555,7 +1580,10 @@ export default function EscritorioProcessos() {
                           Área
                         </th>
                         <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                          Download
+                          Data da Versão
+                        </th>
+                        <th className="text-center px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Ações
                         </th>
                       </tr>
                     </thead>
@@ -1573,6 +1601,12 @@ export default function EscritorioProcessos() {
                               </span>
                             </div>
                           </td>
+                          <td className="px-5 py-3 text-left text-slate-700">
+                            {row.processoNome}
+                          </td>
+                          <td className="px-5 py-3 text-center text-slate-700">
+                            {row.area}
+                          </td>
                           <td className="px-5 py-3 text-center text-slate-700 tabular-nums whitespace-nowrap">
                             {row.doc.data_documento
                               ? row.doc.data_documento
@@ -1580,12 +1614,6 @@ export default function EscritorioProcessos() {
                                   .reverse()
                                   .join("/")
                               : "—"}
-                          </td>
-                          <td className="px-5 py-3 text-left text-slate-700">
-                            {row.processoNome}
-                          </td>
-                          <td className="px-5 py-3 text-center text-slate-700">
-                            {row.area}
                           </td>
                           <td className="px-5 py-3 text-center">
                             <button

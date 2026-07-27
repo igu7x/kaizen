@@ -88,7 +88,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               cadastrosUnidadesId: fresh.cadastrosUnidadesId ?? prev?.cadastrosUnidadesId ?? savedUser?.cadastrosUnidadesId,
               areaSigla: fresh.areaSigla ?? prev?.areaSigla ?? savedUser?.areaSigla,
               unidadeSigla: fresh.unidadeSigla ?? prev?.unidadeSigla ?? savedUser?.unidadeSigla,
-              is_validador_final: fresh.is_validador_final ?? prev?.is_validador_final ?? savedUser?.is_validador_final,
             };
             Storage.save("user", merged);
             return merged;

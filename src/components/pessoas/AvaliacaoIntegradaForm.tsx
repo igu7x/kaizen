@@ -84,7 +84,6 @@ export function AvaliacaoIntegradaForm({
   const [loadingUnidades, setLoadingUnidades] = useState(true);
   const [saving, setSaving] = useState(false);
   const [diretoriaUsuario, setDiretoriaUsuario] = useState<string>("");
-  const [areaUsuarioId, setAreaUsuarioId] = useState<number | null>(null);
 
   const [elegiveis, setElegiveis] = useState<PessoaElegivel[]>([]);
   const [loadingElegiveis, setLoadingElegiveis] = useState(false);
@@ -397,7 +396,6 @@ export function AvaliacaoIntegradaForm({
             allAreas.find((a) => a.is_domain_root === true) ||
             allAreas[0];
           setDiretoriaUsuario(userArea?.sigla || userArea?.nome || "");
-          setAreaUsuarioId(userArea?.id || null);
         }
 
         setUnidadesAutorizadas(autorizadas);
@@ -720,9 +718,8 @@ export function AvaliacaoIntegradaForm({
         autoavaliacao_id: form.autoavaliacao_id!,
         avaliacao_gestor_id: form.avaliacao_gestor_id!,
         pessoa_id: Number(form.pessoa_id),
-        pessoa_nome: form.pessoa_nome.trim(),
+        pessoa_nome: form.pessoa_nome,
         avaliador_nome: user?.name || "",
-        cadastros_areas_id: areaUsuarioId || undefined,
         diretoria: diretoriaUsuario,
         unidade_id: form.unidade_id ? Number(form.unidade_id) : undefined,
         tipo_inventario: tipoInventario || "equipe",
