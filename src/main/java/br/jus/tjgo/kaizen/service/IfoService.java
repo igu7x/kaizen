@@ -506,7 +506,12 @@ public class IfoService {
     }
 
     public IfoDto get(long id) {
-        var rows = jdbc.queryForList("SELECT * FROM ifo WHERE id = ?", id);
+        var rows = jdbc.queryForList(
+                "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome " +
+                "FROM ifo i " +
+                "LEFT JOIN cadastros_areas ca ON i.area_id = ca.id " +
+                "LEFT JOIN cadastros_unidades cu ON i.unidade_id = cu.id " +
+                "WHERE i.id = ?", id);
         if (rows.isEmpty()) {
             throw new ApiException(404, "IFO não encontrado");
         }
@@ -548,14 +553,19 @@ public class IfoService {
             }
         }
 
-        StringBuilder sql = new StringBuilder("SELECT * FROM ifo WHERE is_deleted = FALSE");
+        StringBuilder sql = new StringBuilder(
+                "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome " +
+                "FROM ifo i " +
+                "LEFT JOIN cadastros_areas ca ON i.area_id = ca.id " +
+                "LEFT JOIN cadastros_unidades cu ON i.unidade_id = cu.id " +
+                "WHERE i.is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
-            sql.append(" AND ano = ?");
+            sql.append(" AND i.ano = ?");
             params.add(ano);
         }
         if (cicloId != null) {
-            sql.append(" AND ciclo_id = ?");
+            sql.append(" AND i.ciclo_id = ?");
             params.add(cicloId);
         }
         if (Boolean.TRUE.equals(minhasDemandas) && userId != null) {
@@ -587,20 +597,20 @@ public class IfoService {
             } else {
                 sql.append(" AND (");
                 if (!userAreaIds.isEmpty()) {
-                    sql.append("area_id IN (").append(userAreaIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
+                    sql.append("i.area_id IN (").append(userAreaIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
                 } else {
                     sql.append("1 = 0");
                 }
                 sql.append(" OR ");
                 if (!userUnidadeIds.isEmpty()) {
-                    sql.append("unidade_id IN (").append(userUnidadeIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
+                    sql.append("i.unidade_id IN (").append(userUnidadeIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
                 } else {
                     sql.append("1 = 0");
                 }
                 sql.append(")");
             }
         }
-        sql.append(" ORDER BY codigo");
+        sql.append(" ORDER BY i.codigo");
         return jdbc.queryForList(sql.toString(), params.toArray()).stream().map(this::toDto).toList();
     }
 
@@ -661,6 +671,10 @@ public class IfoService {
                 str(r.get("priority")),
                 r.get("estimated_date") != null ? ((java.sql.Date) r.get("estimated_date")).toLocalDate() : null,
                 asLong(r.get("pca_origem_id")),
+                str(r.get("area_sigla")),
+                str(r.get("area_nome")),
+                str(r.get("unidade_sigla")),
+                str(r.get("unidade_nome")),
                 contratosDoIfo(id),
                 detalhesContratosDoIfo(id));
     }
