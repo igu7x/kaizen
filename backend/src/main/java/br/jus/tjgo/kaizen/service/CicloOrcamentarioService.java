@@ -221,6 +221,7 @@ public class CicloOrcamentarioService {
                     userId, id);
             
             ifoService.gerarIfosRenovacao(id, dto.ano(), userId);
+            ifoService.gerarIfosNovaContratacao(id, dto.ano(), userId);
             
             return toDto(rows.get(0));
         }
@@ -667,9 +668,6 @@ public class CicloOrcamentarioService {
             throw new ApiException(404, "Ciclo de formação não encontrado para o ano " + anoFormacao);
         }
 
-        if (!"publicado".equals(ciclo.estado())) {
-            throw new ApiException(400, "O ciclo de formação precisa estar concluído (publicado) para ser reiniciado.");
-        }
 
         jdbc.update("DELETE FROM ifo WHERE ciclo_id = ?", ciclo.id());
         jdbc.update("DELETE FROM pcas_snapshots WHERE year = ?", String.valueOf(anoFormacao));

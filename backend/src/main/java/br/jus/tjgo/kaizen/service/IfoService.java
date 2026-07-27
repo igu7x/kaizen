@@ -618,8 +618,88 @@ public class IfoService {
                 asLong(r.get("id_cadastros_areas")),
                 str(r.get("priority")),
                 r.get("estimated_date") != null ? ((java.sql.Date) r.get("estimated_date")).toLocalDate() : null,
+                asLong(r.get("pca_origem_id")),
                 contratosDoIfo(id),
                 detalhesContratosDoIfo(id));
+    }
+
+    /**
+     * Carrega os PCAs do ano atual (anoFormacao - 1) com contract_type = 'NOVA_CONTRATACAO'
+     * e os transforma em IFOs do bloco nova_contratacao. Idempotente: não duplica se já existem
+     * IFOs nova_contratacao para o ciclo.
+     */
+    @Transactional
+    public void gerarIfosNovaContratacao(long cicloId, int anoFormacao, Long userId) {
+        var check = jdbc.queryForList(
+                "SELECT id FROM ifo WHERE ciclo_id = ? AND bloco = 'nova_contratacao' LIMIT 1", cicloId);
+        if (!check.isEmpty()) return;
+
+        int anoAtual = anoFormacao - 1;
+        String queryPcas = "SELECT id, code, year, description, justification, process, " +
+                "financial_resource_type, contract_type, object_name, directory_acronym, " +
+                "estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
+                "id_cadastros_areas, priority, estimated_date " +
+                "FROM pcas " +
+                "WHERE year = ? AND contract_type = 'NOVA_CONTRATACAO' " +
+                "AND (is_deleted = FALSE OR is_deleted IS NULL) " +
+                "ORDER BY code";
+
+        List<Map<String, Object>> pcas = jdbc.queryForList(queryPcas, String.valueOf(anoAtual));
+
+        for (Map<String, Object> pca : pcas) {
+            String codigo = gerarCodigo(anoFormacao);
+            Long areaId = asLong(pca.get("id_cadastros_areas"));
+            Long unidadeId = asLong(pca.get("id_area_demandante"));
+            String areaDemandanteText = str(pca.get("directory_acronym"));
+
+            // Fallback: resolver area_demandante pela tabela cadastros_areas
+            if (areaId != null) {
+                var resArea = jdbc.queryForList("SELECT sigla FROM cadastros_areas WHERE id = ?", areaId);
+                if (!resArea.isEmpty() && resArea.get(0).get("sigla") != null) {
+                    areaDemandanteText = str(resArea.get(0).get("sigla"));
+                }
+            }
+
+            // Fallback para unidade_id via cadastros_unidades
+            if (unidadeId == null && areaDemandanteText != null) {
+                var res = jdbc.queryForList(
+                        "SELECT id FROM cadastros_unidades WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) " +
+                        "OR LOWER(TRIM(nome)) = LOWER(TRIM(?)) LIMIT 1",
+                        areaDemandanteText, areaDemandanteText);
+                if (!res.isEmpty()) unidadeId = asLong(res.get(0).get("id"));
+            }
+
+            var inserted = jdbc.queryForList(
+                    "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, " +
+                    "objeto, area_demandante, unidade_id, area_id, valor_estimado_cents, " +
+                    "description, justification, process, financial_resource_type, contract_type, " +
+                    "formalized_value_cents, id_cadastros_areas, priority, estimated_date, " +
+                    "pca_origem_id, created_by, updated_by) " +
+                    "VALUES (?, ?, ?, 'nova_contratacao', 'pontual', 'rascunho', " +
+                    "?, ?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                    codigo, anoFormacao, cicloId,
+                    str(pca.get("object_name")), areaDemandanteText,
+                    unidadeId, areaId, asLong(pca.get("estimated_value_cents")),
+                    str(pca.get("description")), str(pca.get("justification")),
+                    str(pca.get("process")), str(pca.get("financial_resource_type")),
+                    str(pca.get("contract_type")), asLong(pca.get("formalized_value_cents")),
+                    asLong(pca.get("id_cadastros_areas")), str(pca.get("priority")),
+                    pca.get("estimated_date"),
+                    asLong(pca.get("id")),
+                    userId, userId);
+
+            Long ifoId = asLong(inserted.get(0).get("id"));
+
+            // Copiar contratos vinculados ao PCA para ifo_contratos
+            List<Map<String, Object>> contratos = jdbc.queryForList(
+                    "SELECT contract_id FROM contracts_pcas WHERE pca_id = ?",
+                    asLong(pca.get("id")));
+            for (Map<String, Object> c : contratos) {
+                jdbc.update(
+                        "INSERT INTO ifo_contratos (ifo_id, contract_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                        ifoId, asLong(c.get("contract_id")));
+            }
+        }
     }
 
     @Transactional
@@ -650,15 +730,29 @@ public class IfoService {
                 int startYear = sqlStartDate.toLocalDate().getYear();
                 int limitYear = sqlLimitDate.toLocalDate().getYear();
                 int duration = ((Number) c.get("year_duration_standard")).intValue();
-                
-                if (limitYear >= anoFormacao + 2) {
+            /**  
+                if (limitYear > anoFormacao + 2) {
                     bloco = "plurianual";
-                } else if (startYear <= (anoFormacao + 1) - duration) {
+                }
+                else if (limitYear <= anoFormacao+1) {
                     bloco = "encerramento";
-                } else if (startYear + duration > anoFormacao + 1) {
+                }
+                else if (startYear + duration >= anoFormacao + 1) {
                     bloco = "renovacao";
                 }
             }
+             */
+                if (limitYear >= anoFormacao + 1) {
+                    bloco = "plurianual";
+                } 
+                else if (startYear + duration <= anoFormacao) {
+                    bloco = "encerramento";
+                } 
+                else {
+                    bloco = "renovacao";
+                }
+            }
+            
             c.put("bloco_calculado", bloco);
 
             Long pcaId = asLong(c.get("pca_id"));
