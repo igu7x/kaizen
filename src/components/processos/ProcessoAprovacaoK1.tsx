@@ -15,7 +15,7 @@ import {
   ProcessoNegocio,
   isK1,
   isResponsavel,
-  isComplianceOfficerEmail,
+  isComplianceOfficer,
   camposObrigatoriosFaltantes,
   aprovacaoDoComite,
   COMITES_APROVACAO,
@@ -73,7 +73,7 @@ export function ProcessoAprovacaoK1({
   // da área (camada 2 — gestor_user_id) ou Responsável do Processo (camada 1).
   const podeAnexarAprovacao = useMemo(() => {
     if (isSuperadmin) return true;
-    if (isComplianceOfficerEmail(user?.email)) return true;
+    if (isComplianceOfficer(user)) return true;
     if (isResponsavel(processo, user?.id)) return true;
     const area = areas.find(
       (a) =>

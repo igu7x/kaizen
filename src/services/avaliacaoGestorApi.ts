@@ -52,6 +52,7 @@ export interface CreateAvaliacaoGestorDto {
   pessoa_cargo?: string;
   pessoa_email?: string;
   avaliador_nome: string;
+  cadastros_areas_id?: number;
   diretoria: string;
   unidade_id?: number;
   tipo_inventario?: "equipe" | "gestor";

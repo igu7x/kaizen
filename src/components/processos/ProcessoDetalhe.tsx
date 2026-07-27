@@ -46,7 +46,7 @@ import {
   normalizeResponsavel,
   isResponsavel,
   isEditor,
-  isComplianceOfficerEmail,
+  isComplianceOfficer,
   REVISAO_POLITICA_TEXTO,
   getFluxograma,
   isK1,
@@ -722,7 +722,7 @@ export function ProcessoDetalhe({
   //   e salva, o backend reseta o status pra 'em_elaboracao' (homologação fica
   //   invalidada), e aí o "Enviar para Validação" passa a aparecer.
   // - 'em_elaboracao' / 'recusado': tanto "Editar" quanto "Enviar" aparecem.
-  const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
+  const isComplianceOfficerUser = isComplianceOfficer(user);
   const isEditorAtribuido = isEditor(processo, user?.id);
   // Status em que o conteúdo está "em preenchimento".
   const statusEmPreenchimento =
@@ -732,7 +732,7 @@ export function ProcessoDetalhe({
   // Compliance Officer. Editor atribuído é tratado à parte (não reabre vigente).
   const ehResponsavel = isResponsavel(processo, user?.id);
   const podePapelEditor =
-    isSuperadmin || isDiretorDaArea || ehResponsavel || isComplianceOfficer;
+    isSuperadmin || isDiretorDaArea || ehResponsavel || isComplianceOfficerUser;
   const podeEditar =
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
@@ -741,7 +741,7 @@ export function ProcessoDetalhe({
     // Revisor edita no aguardo da camada 2; Compliance no aguardo da camada 3 — para corrigir
     // e validar a própria camada sem devolver ao Responsável.
     (isDiretorDaArea && processo.status === "validado_autor") ||
-    (isComplianceOfficer && processo.status === "validado_diretoria");
+    (isComplianceOfficerUser && processo.status === "validado_diretoria");
   const podeEnviar =
     ehResponsavel &&
     (processo.status === "em_elaboracao" || processo.status === "recusado");
@@ -753,13 +753,13 @@ export function ProcessoDetalhe({
   const podeValidarDiretoria =
     isDiretorDaArea && processo.status === "validado_autor";
   const podeValidarFinal =
-    isComplianceOfficer && processo.status === "validado_diretoria";
+    isComplianceOfficerUser && processo.status === "validado_diretoria";
 
   // Recusar: quem pode validar a camada atual também pode recusar
   const podeRecusar =
     (processo.status === "enviado" && ehResponsavel) ||
     (processo.status === "validado_autor" && isDiretorDaArea) ||
-    (processo.status === "validado_diretoria" && isComplianceOfficer);
+    (processo.status === "validado_diretoria" && isComplianceOfficerUser);
 
   const podeExcluir = user?.role === "ADMIN";
 

@@ -87,6 +87,7 @@ export function AutoavaliacaoForm({
   const [loadingUnidades, setLoadingUnidades] = useState(true);
   const [saving, setSaving] = useState(false);
   const [diretoriaUsuario, setDiretoriaUsuario] = useState<string>("");
+  const [areaUsuarioId, setAreaUsuarioId] = useState<number | null>(null);
   const [jaPreenchido, setJaPreenchido] =
     useState<AutoavaliacaoFormulario | null>(null);
   const [forceEditMode, setForceEditMode] = useState(false);
@@ -393,6 +394,7 @@ export function AutoavaliacaoForm({
             allAreas.find((a) => a.is_domain_root === true) ||
             allAreas[0];
           setDiretoriaUsuario(userArea?.sigla || userArea?.nome || "");
+          setAreaUsuarioId(userArea?.id || null);
         }
 
         setUnidadesAutorizadas(autorizadas);
@@ -770,6 +772,7 @@ export function AutoavaliacaoForm({
         cargo_funcao: form.cargo_funcao.trim(),
         email_institucional: form.email_institucional.trim(),
         diretoria: diretoriaUsuario,
+        cadastros_areas_id: areaUsuarioId,
         unidade_id: form.unidade_id ? Number(form.unidade_id) : undefined,
         pessoa_id: form.pessoa_id ? Number(form.pessoa_id) : undefined,
         tipo_inventario: tipoInventario || "equipe",

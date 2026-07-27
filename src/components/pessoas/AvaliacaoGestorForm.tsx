@@ -87,6 +87,7 @@ export function AvaliacaoGestorForm({
   const [loadingUnidades, setLoadingUnidades] = useState(true);
   const [saving, setSaving] = useState(false);
   const [diretoriaUsuario, setDiretoriaUsuario] = useState<string>("");
+  const [areaUsuarioId, setAreaUsuarioId] = useState<number | null>(null);
 
   const [competenciasUnidade, setCompetenciasUnidade] = useState<
     CompetenciaPorUnidade[]
@@ -648,6 +649,7 @@ export function AvaliacaoGestorForm({
             allAreas.find((a) => a.is_domain_root === true) ||
             allAreas[0];
           setDiretoriaUsuario(userArea?.sigla || userArea?.nome || "");
+          setAreaUsuarioId(userArea?.id || null);
         }
 
         // Só unidades com a Matriz de Competências validada (há referencial para avaliar).
@@ -998,6 +1000,7 @@ export function AvaliacaoGestorForm({
         pessoa_cargo: form.pessoa_cargo.trim() || undefined,
         pessoa_email: form.pessoa_email.trim() || undefined,
         avaliador_nome: user?.name || "",
+        cadastros_areas_id: areaUsuarioId || undefined,
         diretoria: diretoriaUsuario,
         unidade_id: form.unidade_id ? Number(form.unidade_id) : undefined,
         tipo_inventario: tipoInventario || "equipe",

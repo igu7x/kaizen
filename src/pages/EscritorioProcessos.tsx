@@ -41,7 +41,7 @@ import {
   isRevisaoOuNovo,
   revisaoVencida,
   normalizeResponsavel,
-  isComplianceOfficerEmail,
+  isComplianceOfficer,
   proximaRevisao,
   TIPO_DOCUMENTO_BADGE,
 } from "@/services/processosNegocioApi";
@@ -643,7 +643,7 @@ export default function EscritorioProcessos() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
 
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
-  const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
+  const isComplianceOfficerUser = isComplianceOfficer(user);
   // Regra (jul/2026): todos os usuários enxergam todos os processos (de todas as diretorias),
   // então o filtro por diretoria fica habilitado para todos. O Visualizador (VIEWER) segue
   // restrito aos vigentes (aba única) via `soVisualizador`.
@@ -651,7 +651,7 @@ export default function EscritorioProcessos() {
   // Visualizador (perfil VIEWER): só enxerga "Processos Vigentes", independente da diretoria.
   // Superadmin (Gestor do Escritório) e Compliance Officer não são restritos.
   const soVisualizador =
-    user?.role === "VIEWER" && !isSuperadmin && !isComplianceOfficer;
+    user?.role === "VIEWER" && !isSuperadmin && !isComplianceOfficerUser;
 
   const carregar = async () => {
     setLoading(true);
@@ -830,11 +830,11 @@ export default function EscritorioProcessos() {
     if (st === "validado_autor" && ehRevisor) {
       return { exec: (id: number) => processosNegocioApi.validarDiretoria(id) };
     }
-    if (st === "validado_diretoria" && isComplianceOfficer) {
+    if (st === "validado_diretoria" && isComplianceOfficerUser) {
       return { exec: (id: number) => processosNegocioApi.validarFinal(id) };
     }
     return null;
-  }, [editing, user?.id, areas, ehResponsavelDoProcesso, isComplianceOfficer]);
+  }, [editing, user?.id, areas, ehResponsavelDoProcesso, isComplianceOfficerUser]);
 
   // ============================================================
   // ESTATÍSTICAS / DADOS DOS GRÁFICOS

@@ -30,16 +30,7 @@ import {
 import { competenciasPadraoApi } from "@/services/competenciasPadraoApi";
 import { areasApi, Area } from "@/services/areasApi";
 
-const VALIDADORES_FINAIS = [
-  "gmpdmaciel@tjgo.jus.br",
-  "dcamaral@tjgo.jus.br",
-  "ifccupertino@tjgo.jus.br",
-  "jdnascimento@tjgo.jus.br",
-];
-const isValidadorFinal = (email: string) =>
-  VALIDADORES_FINAIS.some(
-    (v) => v.toLowerCase() === email.toLowerCase().trim(),
-  );
+// Removido VALIDADORES_FINAIS do frontend (agora vem do backend no user.is_validador_final)
 
 interface CompetenciasGestorResumoProps {
   formulario: FormularioCompetencias;
@@ -194,7 +185,7 @@ export function CompetenciasGestorResumo({
 
   // Camada Final
   const canValidateFinal =
-    formulario.status === "validado_diretoria" && isValidadorFinal(userEmail);
+    formulario.status === "validado_diretoria" && !!user?.is_validador_final;
 
   // Camada Autor: apenas o autor pode validar quando status = 'enviado'
   // - Para tipo 'equipe': o autor (email_institucional) valida

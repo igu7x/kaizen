@@ -48,6 +48,7 @@ export interface CreateAutoavaliacaoDto {
   cargo_funcao: string;
   email_institucional: string;
   diretoria: string;
+  cadastros_areas_id?: number | null;
   unidade_id?: number;
   pessoa_id?: number;
   tipo_inventario?: "equipe" | "gestor";
