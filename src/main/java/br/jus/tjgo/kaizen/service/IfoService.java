@@ -27,6 +27,7 @@ public class IfoService {
     private final JdbcTemplate jdbc;
     private final OrcamentoPapelService papelService;
     private final PermissoesAcoesService permissoesAcoesService;
+    private final DelegacaoEdicaoService delegacaoEdicaoService;
 
     // Domínios validados aqui no backend — os CHECK foram removidos do banco (migration 172).
     private static final List<String> BLOCOS =
@@ -35,16 +36,26 @@ public class IfoService {
     private static final List<String> NATUREZAS = List.of("continuada", "pontual");
 
     private static final Map<String, List<String>> TAGS_ACESSO_POR_ESTADO = Map.ofEntries(
-        Map.entry("aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA")),
-        Map.entry("aberto_aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA")),
-        Map.entry("aberto", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA")),
-        Map.entry("em_consulta_1", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO")),
-        Map.entry("em_consulta_2", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO")),
-        Map.entry("consolidacao_cca", List.of("PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT")),
-        Map.entry("validacao_gejut", List.of("PCA_FOR_ENCAMINHAR_SGJT")),
-        Map.entry("apreciacao_sgjt", List.of("PCA_FOR_PAUTAR_COMITES")),
-        Map.entry("em_comites", List.of("PCA_FOR_AUTORIZAR_COMITES")),
-        Map.entry("remessa_dg", List.of("PCA_FOR_REMETER_DG")),
+        Map.entry("aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA", 
+            "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_DELETAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD")),
+        Map.entry("aberto_aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
+            "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_DELETAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD")),
+        Map.entry("aberto", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
+            "PCA_FOR_MODIFICAR_IFO_ABERTO", "PCA_FOR_DELETAR_IFO_ABERTO", "PCA_FOR_VINCULAR_CONTRATOS_ABERTO")),
+        Map.entry("em_consulta_1", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
+            "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_1", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_1", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_1")),
+        Map.entry("em_consulta_2", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
+            "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_2", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_2", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_2")),
+        Map.entry("consolidacao_cca", List.of("PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT",
+            "PCA_FOR_MODIFICAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_DELETAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_VINCULAR_CONTRATOS_CONSOLIDACAO_CCA")),
+        Map.entry("validacao_gejut", List.of("PCA_FOR_ENCAMINHAR_SGJT",
+            "PCA_FOR_MODIFICAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_DELETAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_VINCULAR_CONTRATOS_VALIDACAO_GEJUT")),
+        Map.entry("apreciacao_sgjt", List.of("PCA_FOR_PAUTAR_COMITES",
+            "PCA_FOR_MODIFICAR_IFO_APRECIACAO_SGJT", "PCA_FOR_DELETAR_IFO_APRECIACAO_SGJT", "PCA_FOR_VINCULAR_CONTRATOS_APRECIACAO_SGJT")),
+        Map.entry("em_comites", List.of("PCA_FOR_AUTORIZAR_COMITES",
+            "PCA_FOR_MODIFICAR_IFO_EM_COMITES", "PCA_FOR_DELETAR_IFO_EM_COMITES", "PCA_FOR_VINCULAR_CONTRATOS_EM_COMITES")),
+        Map.entry("remessa_dg", List.of("PCA_FOR_REMETER_DG",
+            "PCA_FOR_MODIFICAR_IFO_REMESSA_DG", "PCA_FOR_DELETAR_IFO_REMESSA_DG", "PCA_FOR_VINCULAR_CONTRATOS_REMESSA_DG")),
         Map.entry("publicado", List.of()) // sem restrição
     );
 
@@ -90,7 +101,7 @@ public class IfoService {
     private void verificarPermissaoEdicao(long ifoId, String prefixoAcao, Long userId) {
         if (userId == null) throw new ApiException(403, "Usuário não identificado");
         var info = jdbc.queryForList(
-            "SELECT i.estado as ifo_estado, c.estado as ciclo_estado, c.finalidade " +
+            "SELECT i.estado as ifo_estado, c.estado as ciclo_estado, c.finalidade, i.ciclo_id " +
             "FROM ifo i " +
             "JOIN ciclo_orcamentario c ON i.ciclo_id = c.id " +
             "WHERE i.id = ?", ifoId);
@@ -100,6 +111,8 @@ public class IfoService {
         String ifoEstado = (String) info.get(0).get("ifo_estado");
         String cicloEstado = (String) info.get(0).get("ciclo_estado");
         String finalidade = (String) info.get(0).get("finalidade");
+        Long cicloId = info.get(0).get("ciclo_id") != null
+                ? ((Number) info.get(0).get("ciclo_id")).longValue() : null;
         
         if (!"formacao".equals(finalidade)) {
             if (!"rascunho".equals(ifoEstado)) {
@@ -117,6 +130,7 @@ public class IfoService {
 
         List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
 
+        // Caminho 1: permissão de modificação especial (tag direta)
         boolean isEspecial = (userTags.contains("PCA_FOR_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_FOR_MODIFICACAO_CCA")) && 
             List.of("aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg").contains(cicloEstado);
         
@@ -124,6 +138,25 @@ public class IfoService {
             return;
         }
 
+        // Caminho 2: herança por tag de transição — quem pode transitar a etapa pode editar/excluir
+        if (cicloId != null && delegacaoEdicaoService.temTagTransicao(cicloEstado, userId)) {
+            return;
+        }
+
+        // Caminho 3: delegação ativa — quem recebeu delegação pode editar/excluir
+        if (cicloId != null) {
+            String tipoDelegacao = delegacaoEdicaoService.tipoDelegacao(cicloId, cicloEstado, userId);
+            if (tipoDelegacao != null) {
+                // Delegação 'especial' herda o bypass de campos restringidos
+                if ("especial".equals(tipoDelegacao) && ("MODIFICAR_IFO".equals(prefixoAcao) || "VINCULAR_CONTRATOS".equals(prefixoAcao))) {
+                    return;
+                }
+                // Delegação 'normal' permite edição e exclusão padrão
+                return;
+            }
+        }
+
+        // Caminho 4: tag granular por estado (comportamento original)
         String estadoMap = "aberto_aguardando_proad".equals(cicloEstado) ? "AGUARDANDO_PROAD" : cicloEstado.toUpperCase();
         String tagNecessaria = "PCA_FOR_" + prefixoAcao + "_" + estadoMap;
         
@@ -493,6 +526,15 @@ public class IfoService {
                             List<String> tagsPermitidas = TAGS_ACESSO_POR_ESTADO.getOrDefault(estado, List.of());
                             List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
                             boolean temAcesso = tagsPermitidas.stream().anyMatch(userTags::contains);
+                            
+                            // Verifica se há delegação (ou herança por transição)
+                            if (!temAcesso && cicloId != null) {
+                                if (delegacaoEdicaoService.temTagTransicao(estado, userId) || 
+                                    delegacaoEdicaoService.tipoDelegacao(cicloId, estado, userId) != null) {
+                                    temAcesso = true;
+                                }
+                            }
+                            
                             if (!temAcesso) {
                                 throw new ApiException(403, "Acesso restrito à fase atual do ciclo de formação.");
                             }

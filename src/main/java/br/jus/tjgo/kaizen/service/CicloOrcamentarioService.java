@@ -42,6 +42,7 @@ public class CicloOrcamentarioService {
     private final IfoService ifoService;
     private final OrcamentoPapelService papelService;
     private final PermissoesAcoesService permissoesAcoesService;
+    private final DelegacaoEdicaoService delegacaoEdicaoService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aguardando_proad";
     private static final String ESTADO_REVISAO_INICIAL = "em_consulta_1";
@@ -302,6 +303,9 @@ public class CicloOrcamentarioService {
 
         CicloDto atualizado = atualizarEstado(id, proximo, userId);
         
+        // Auto-revogar delegações da etapa anterior ao avançar
+        delegacaoEdicaoService.revogarPorEstado(id, ciclo.estado());
+        
         if ("consolidacao_cca".equals(proximo) && "formacao".equals(ciclo.finalidade())) {
             ifoService.processarNaoRenovacoes(id, userId);
         }
@@ -321,6 +325,8 @@ public class CicloOrcamentarioService {
         if (idx <= 0) {
             throw new ApiException(409, "Ciclo já está no estado inicial");
         }
+        // Auto-revogar delegações da etapa que está saindo ao retroceder
+        delegacaoEdicaoService.revogarPorEstado(id, ciclo.estado());
         return atualizarEstado(id, esteira.get(idx - 1), userId);
     }
 
