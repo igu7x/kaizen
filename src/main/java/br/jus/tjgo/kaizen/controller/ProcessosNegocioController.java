@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.ProcessosNegocioService;
+import br.jus.tjgo.kaizen.util.CodigoValidacao;
 import br.jus.tjgo.kaizen.util.Validadores;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -66,6 +67,28 @@ public class ProcessosNegocioController {
         if (processo == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
         }
+        processo.put("codigo_validacao", CodigoValidacao.fromId(id));
+        return ResponseEntity.ok(processo);
+    }
+
+    // GET /api/processos-negocio/validacao/:codigo — valida a autenticidade de um documento pelo
+    // código impresso no PDF. Exige usuário autenticado (login no Kaizen). Só retorna o processo se
+    // ele passou por todas as camadas de validação (mesma condição que faz o PDF exibir o código).
+    @GetMapping("/validacao/{codigo}")
+    public ResponseEntity<?> validacao(@PathVariable String codigo) {
+        if (AuthContext.getCurrentUser().isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Autenticação necessária"));
+        }
+        Long id = CodigoValidacao.toId(codigo);
+        if (id == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Código de validação inválido"));
+        }
+        Map<String, Object> processo = service.findByIdIfFinal(id);
+        if (processo == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "Nenhum documento validado encontrado para este código"));
+        }
+        processo.put("codigo_validacao", CodigoValidacao.fromId(id));
         return ResponseEntity.ok(processo);
     }
 
