@@ -119,7 +119,7 @@ const menuItemsCompleto: MenuItem[] = [
         icon: FilePlus,
         children: [
           {
-            title: "PCA",
+            title: "Plano de Contratações Anual",
             path: "/pca",
             permissaoCodigo: "contratacoes_novas",
           },
@@ -623,10 +623,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       // Para outras diretorias, buscar permissões da API (união de todos os domínios do usuário)
       try {
-        const dominios = (user as any).dominios && (user as any).dominios.length > 0 
-          ? (user as any).dominios 
+        const dominios = (user as any).dominios && (user as any).dominios.length > 0
+          ? (user as any).dominios
           : [getUserDominio(user, loadedAreas)];
-          
+
         const todosCodigos = new Set<string>();
         for (const dom of dominios) {
           const response = await getModulosPermitidosMenu(dom as Diretoria);
@@ -674,14 +674,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         }
 
         if (isSubChildActive) {
-          setExpandedMenus((prev) => 
+          setExpandedMenus((prev) =>
             prev.includes(child.title) ? prev : [...prev, child.title]
           );
         }
       });
 
       if (shouldExpandItem) {
-        setExpandedMenus((prev) => 
+        setExpandedMenus((prev) =>
           prev.includes(item.title) ? prev : [...prev, item.title]
         );
       }

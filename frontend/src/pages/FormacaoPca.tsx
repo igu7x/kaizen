@@ -23,6 +23,8 @@ import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
 import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { delegacaoApi, type MinhaDelegacaoResponse } from "@/services/delegacaoApi";
+import { PainelDelegacaoEdicao } from "@/components/ciclo/PainelDelegacaoEdicao";
 
 const IDX_FORMACAO: Record<string, number> = {
   aguardando_proad: 0,
@@ -60,15 +62,24 @@ const TAG_POR_ESTADO: Record<string, string> = {
 };
 
 const TAGS_ACESSO_POR_ESTADO: Record<string, string[]> = {
-  aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
-  aberto: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA"],
-  em_consulta_1: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO"],
-  em_consulta_2: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO"],
-  consolidacao_cca: ["PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT"],
-  validacao_gejut: ["PCA_FOR_ENCAMINHAR_SGJT"],
-  apreciacao_sgjt: ["PCA_FOR_PAUTAR_COMITES"],
-  em_comites: ["PCA_FOR_AUTORIZAR_COMITES"],
-  remessa_dg: ["PCA_FOR_REMETER_DG"],
+  aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
+    "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_DELETAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD"],
+  aberto: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
+    "PCA_FOR_MODIFICAR_IFO_ABERTO", "PCA_FOR_DELETAR_IFO_ABERTO", "PCA_FOR_VINCULAR_CONTRATOS_ABERTO"],
+  em_consulta_1: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
+    "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_1", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_1", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_1"],
+  em_consulta_2: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
+    "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_2", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_2", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_2"],
+  consolidacao_cca: ["PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT",
+    "PCA_FOR_MODIFICAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_DELETAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_VINCULAR_CONTRATOS_CONSOLIDACAO_CCA"],
+  validacao_gejut: ["PCA_FOR_ENCAMINHAR_SGJT",
+    "PCA_FOR_MODIFICAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_DELETAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_VINCULAR_CONTRATOS_VALIDACAO_GEJUT"],
+  apreciacao_sgjt: ["PCA_FOR_PAUTAR_COMITES",
+    "PCA_FOR_MODIFICAR_IFO_APRECIACAO_SGJT", "PCA_FOR_DELETAR_IFO_APRECIACAO_SGJT", "PCA_FOR_VINCULAR_CONTRATOS_APRECIACAO_SGJT"],
+  em_comites: ["PCA_FOR_AUTORIZAR_COMITES",
+    "PCA_FOR_MODIFICAR_IFO_EM_COMITES", "PCA_FOR_DELETAR_IFO_EM_COMITES", "PCA_FOR_VINCULAR_CONTRATOS_EM_COMITES"],
+  remessa_dg: ["PCA_FOR_REMETER_DG",
+    "PCA_FOR_MODIFICAR_IFO_REMESSA_DG", "PCA_FOR_DELETAR_IFO_REMESSA_DG", "PCA_FOR_VINCULAR_CONTRATOS_REMESSA_DG"],
   publicado: [], // Sem restrição
 };
 
@@ -124,6 +135,16 @@ function EsteiraControls({
   );
 }
 
+const getAreaLabel = (ifo: Ifo) => {
+  let label = ifo.areaDemandante || "-";
+  if (ifo.unidadeId) {
+    label = ifo.unidadeSigla || ifo.areaNome || label;
+  } else if (ifo.areaId) {
+    label = ifo.areaSigla || label;
+  }
+  return label;
+};
+
 export default function FormacaoPca() {
   const hoje = useMemo(() => new Date(), []);
   const anoVigente = hoje.getFullYear();
@@ -143,6 +164,7 @@ export default function FormacaoPca() {
   const [loadingBlocos, setLoadingBlocos] = useState(false);
   const [isNovoIfoOpen, setIsNovoIfoOpen] = useState(false);
   const [isImportarPcaOpen, setIsImportarPcaOpen] = useState(false);
+  const [minhaDelegacao, setMinhaDelegacao] = useState<MinhaDelegacaoResponse | null>(null);
 
   // Modals de edição
   const [ifoEditing, setIfoEditing] = useState<Ifo | null>(null);
@@ -232,6 +254,17 @@ export default function FormacaoPca() {
     }
   };
 
+  // Fetch independente de minhaDelegacao — roda assim que ciclo estiver disponível,
+  // ANTES de loadBlocos, para que temAcessoFaseAtual já tenha a informação correta.
+  useEffect(() => {
+    if (!ciclo) return;
+    let cancelled = false;
+    delegacaoApi.minhaDelegacao(ciclo.id, ciclo.estado)
+      .then((d) => { if (!cancelled) setMinhaDelegacao(d); })
+      .catch((err) => console.warn("Erro ao buscar delegações:", err));
+    return () => { cancelled = true; };
+  }, [ciclo]);
+
   useEffect(() => {
     if (ciclo && ciclo.proad) {
       loadBlocos();
@@ -299,20 +332,39 @@ export default function FormacaoPca() {
     if (formacaoEstado === "publicado") return true;
     if ((user as any)?.is_superadmin) return true;
 
+    // Delegação ou herança por tag de transição
+    if (minhaDelegacao?.tem_delegacao || minhaDelegacao?.tem_tag_transicao) return true;
+
+    // Tags de transição OU edição para o estado
     const tagsPermitidas = TAGS_ACESSO_POR_ESTADO[formacaoEstado] || [];
     return tagsPermitidas.some(tag => user?.tags_acesso?.includes(tag));
-  }, [formacaoEstado, user]);
+  }, [formacaoEstado, user, minhaDelegacao]);
 
   const hasEditTag = (prefix: string) => {
     if (!formacaoEstado) return false;
     if (formacaoEstado === "publicado") return false;
     if ((user as any)?.is_superadmin) return true;
+    
+    // Caminho 1: Herança por tag de transição
+    if (minhaDelegacao?.tem_tag_transicao) return true;
+    
+    // Caminho 2: Delegação ativa
+    if (minhaDelegacao?.tem_delegacao) {
+      if (minhaDelegacao.tipo === 'especial' && (prefix === 'MODIFICAR_IFO' || prefix === 'VINCULAR_CONTRATOS')) return true;
+      if (minhaDelegacao.tipo === 'normal') return true;
+    }
+
+    // Caminho 3: Tag granular explícita
     const estadoMap = formacaoEstado === "aguardando_proad" ? "AGUARDANDO_PROAD" : formacaoEstado.toUpperCase();
     const tagNecessaria = `PCA_FOR_${prefix}_${estadoMap}`;
     return user?.tags_acesso?.includes(tagNecessaria) ?? false;
   };
 
-  const temModificacaoEspecial = user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") || user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_CCA");
+  const temModificacaoEspecial = 
+    user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") || 
+    user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_CCA") ||
+    minhaDelegacao?.tipo === "especial";
+
   const podeEditarIfo = hasEditTag("MODIFICAR_IFO") || temModificacaoEspecial;
   const podeVincularContratos = hasEditTag("VINCULAR_CONTRATOS");
   const podeDeletarIfo = hasEditTag("DELETAR_IFO");
@@ -676,6 +728,17 @@ export default function FormacaoPca() {
                         hideRetornar={formacaoEstado === "aguardando_proad" || formacaoEstado === "aberto"}
                       />
                     )}
+                    
+                    {/* Painel de Delegação de Edição para quem pode transitar (ou superadmin) */}
+                    {(((user as any)?.is_superadmin) || minhaDelegacao?.tem_tag_transicao) && (
+                      <div className="mt-4 flex justify-end">
+                        <PainelDelegacaoEdicao
+                          cicloId={ciclo.id}
+                          estado={ciclo.estado}
+                          onDelegacaoChanged={loadBlocos}
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </>
@@ -727,7 +790,7 @@ export default function FormacaoPca() {
                                 <span className="text-sm text-slate-900 font-medium">{ifo.description || ifo.objeto || "-"}</span>
                               </div>
                               <div className="flex items-center gap-4 text-sm text-slate-600">
-                                <span><b className="text-slate-800">{ifo.areaDemandante || "-"}</b></span>
+                                <span><b className="text-slate-800">{getAreaLabel(ifo)}</b></span>
                                 <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado || 0)}</span>
                                 <div className="flex items-center gap-1">
 
