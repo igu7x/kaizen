@@ -163,6 +163,30 @@ public class ProcessosNegocioService {
     }
 
     /**
+     * Retorna o processo apenas se ele passou por TODAS as camadas de validação (Responsável +
+     * Revisor + Compliance Officer) e tem as atas de todos os comitês exigidos — a mesma condição
+     * que faz o PDF exibir o código de validação. Usado na validação de autenticidade por código.
+     * Retorna {@code null} se não existir ou não estiver plenamente validado.
+     */
+    public Map<String, Object> findByIdIfFinal(long id) {
+        Map<String, Object> proc = findById(id);
+        if (proc == null) {
+            return null;
+        }
+        boolean todasValidacoes = proc.get("validado_autor_em") != null
+                && proc.get("validado_diretoria_em") != null
+                && proc.get("validado_final_em") != null;
+        if (!todasValidacoes) {
+            return null;
+        }
+        List<String> apreciacao = parseStringList(proc.get("apreciacao"));
+        List<Map<String, Object>> aprovacoes = parseAprovacoes(proc.get("aprovacoes"));
+        boolean atasOk = apreciacao.stream().allMatch(comite -> aprovacoes.stream()
+                .anyMatch(a -> comite.equals(String.valueOf(a.get("comite")))));
+        return atasOk ? proc : null;
+    }
+
+    /**
      * Anexa/atualiza a aprovação de UM comitê (CGTIC/CGovTIC) na lista {@code aprovacoes}.
      * Cada comitê tem no máximo uma entrada (re-anexar substitui). Restrito a superadmin no controller.
      */

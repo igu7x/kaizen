@@ -1101,31 +1101,41 @@ export function generateProcessoNegocioPDF(
     !!processo.validado_diretoria_em &&
     !!processo.validado_final_em;
   const ehVersaoFinal = todasValidacoesOk && isK1(processo);
-  if (ehVersaoFinal) {
+  if (ehVersaoFinal && processo.codigo_validacao) {
     const origin =
       typeof window !== "undefined" && window.location
         ? window.location.origin
         : "";
-    const url = `${origin}/gestao-estrategica/processos/${processo.id}`;
-    const boxH = 16;
-    y = checkPageBreak(doc, y + 4, boxH + 4);
-    doc.setFillColor(243, 246, 250);
+    const url = `${origin}/validar-processo`;
+    const codigo = processo.codigo_validacao;
+
+    y = checkPageBreak(doc, y + 4, 12);
     doc.setDrawColor(...BORDER_GRAY);
     doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, boxH, 1.5, 1.5, "FD");
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...SUBTITLE);
-    doc.text(
-      "Consulte a versão digital deste processo no Kaizen",
-      MARGIN_LEFT + 4,
-      y + 6,
-    );
+    doc.line(MARGIN_LEFT, y, MARGIN_LEFT + CONTENT_WIDTH, y);
+    y += 4.5;
+
+    // Bloco de validação de autenticidade, no estilo institucional (PROAD).
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(37, 99, 235); // azul de link
-    doc.textWithLink(url, MARGIN_LEFT + 4, y + 11.5, { url });
-    y += boxH + 4;
+    doc.setTextColor(...TEXT_DARK);
+    doc.text("Tribunal de Justiça do Estado de Goiás", MARGIN_LEFT, y);
+    y += 4;
+
+    // Linha 2 em segmentos: código em negrito e endereço como link clicável.
+    let x = MARGIN_LEFT;
+    const seg = (t: string, opts?: { bold?: boolean; link?: string }) => {
+      doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
+      doc.setTextColor(...(opts?.link ? [37, 99, 235] : TEXT_DARK));
+      if (opts?.link) doc.textWithLink(t, x, y, { url: opts.link });
+      else doc.text(t, x, y);
+      x += doc.getTextWidth(t);
+    };
+    seg("Para validar este documento informe o código ");
+    seg(codigo, { bold: true });
+    seg(" no endereço ");
+    seg(url, { link: url });
+    y += 4;
   }
 
   // Rodapé em todas as páginas
