@@ -250,13 +250,13 @@ export function PopsTable({
                         type="button"
                         onClick={() => onBaixarAnexado(l.anexado)}
                         disabled={baixandoDocKey === l.anexado.key}
-                        title="Baixar documento"
+                        title="Abrir documento (PDF)"
                         className="inline-flex items-center justify-center h-9 w-9 rounded-lg text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {baixandoDocKey === l.anexado.key ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
-                          <FileDown className="h-5 w-5" />
+                          <FileText className="h-5 w-5" />
                         )}
                       </button>
                     ) : (

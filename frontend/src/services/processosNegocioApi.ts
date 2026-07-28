@@ -49,7 +49,7 @@ export interface VersaoHistorico {
 }
 
 export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoAnexado, string> = {
-  MPS: "MPS — Manual de Procedimentos Setoriais",
+  MPS: "MPS — Modelo Padrão de Serviço",
   POP: "POP — Procedimento Operacional Padrão",
   AUX: "Docs Auxiliares",
   PRI: "Documento Primário",

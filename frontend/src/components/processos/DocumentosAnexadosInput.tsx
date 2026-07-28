@@ -214,14 +214,13 @@ export function DocumentosAnexadosInput({
                   <SelectValue placeholder="(Escolher tipo)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MPS">{TIPO_DOCUMENTO_LABEL.MPS}</SelectItem>
-                  <SelectItem value="POP">{TIPO_DOCUMENTO_LABEL.POP}</SelectItem>
-                  <SelectItem value="PRI">{TIPO_DOCUMENTO_LABEL.PRI}</SelectItem>
-                  <SelectItem value="AUX">{TIPO_DOCUMENTO_LABEL.AUX}</SelectItem>
                   <SelectItem value="FLUXOGRAMA">
                     {TIPO_DOCUMENTO_LABEL.FLUXOGRAMA}
                   </SelectItem>
+                  <SelectItem value="POP">{TIPO_DOCUMENTO_LABEL.POP}</SelectItem>
+                  <SelectItem value="MPS">{TIPO_DOCUMENTO_LABEL.MPS}</SelectItem>
                   <SelectItem value="IT">{TIPO_DOCUMENTO_LABEL.IT}</SelectItem>
+                  <SelectItem value="PRI">{TIPO_DOCUMENTO_LABEL.PRI}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
