@@ -133,20 +133,32 @@ export default function ProcessoDetalhe() {
 
   const urlLimpa = `${window.location.origin}/gestao-estrategica/processos/${id}`;
 
-  // Quando aberto pelo link do PDF: tenta abrir esta página numa NOVA aba e devolve a aba
-  // atual ao PDF (o visualizador de PDF navega a própria aba ao clicar num link). Se o
-  // navegador bloquear a nova aba (popup), seguimos exibindo aqui mesmo.
-  useEffect(() => {
-    if (!bouncing) return;
+  // Devolve esta aba ao PDF (o visualizador navegou a própria aba ao clicar no link).
+  const voltarAoPdf = useCallback(() => {
+    if (window.history.length > 1) window.history.back();
+    else window.close();
+  }, []);
+
+  // Abre o Kaizen numa NOVA aba e devolve a aba atual ao PDF. Só funciona a partir de um
+  // clique do usuário — abrir aba sem gesto é bloqueado como popup pelo navegador.
+  const abrirEmNovaAba = useCallback(() => {
     const novaAba = window.open(urlLimpa, "_blank");
     if (novaAba) {
-      if (window.history.length > 1) window.history.back();
-      else window.close();
+      voltarAoPdf();
     } else {
+      // Popup bloqueado mesmo com clique: como último recurso, exibe aqui mesmo.
       window.history.replaceState(null, "", urlLimpa);
       setBouncing(false);
     }
-    // Só na montagem (chegada do PDF).
+  }, [urlLimpa, voltarAoPdf]);
+
+  // Chegada pelo link do PDF: tenta abrir em nova aba automaticamente (funciona se os popups
+  // estiverem liberados). Se bloqueado, o interstício abaixo oferece o botão (clique = gesto).
+  useEffect(() => {
+    if (!bouncing) return;
+    const novaAba = window.open(urlLimpa, "_blank");
+    if (novaAba) voltarAoPdf();
+    // Bloqueado: permanece no interstício aguardando o clique do usuário.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -245,21 +257,33 @@ export default function ProcessoDetalhe() {
   if (bouncing) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center py-32 text-center">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mb-3" />
-          <p className="text-slate-700 font-medium">
-            Abrindo os detalhes do processo em uma nova aba…
+        <div className="mx-auto max-w-md flex flex-col items-center justify-center py-28 text-center">
+          <div className="w-14 h-14 mb-4 rounded-2xl bg-blue-50 flex items-center justify-center">
+            <ArrowUpRight className="h-7 w-7 text-blue-600" />
+          </div>
+          <h1 className="text-lg font-bold text-slate-900">
+            Detalhes do processo no Kaizen
+          </h1>
+          <p className="text-slate-500 text-sm mt-1.5">
+            Para manter o PDF aberto, os detalhes abrem em uma nova aba. Clique
+            no botão abaixo para continuar.
           </p>
-          <p className="text-slate-500 text-sm mt-1">
-            Se nada acontecer, seu navegador pode ter bloqueado a nova aba.
-          </p>
-          <a
-            href={urlLimpa}
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          <Button
+            onClick={abrirEmNovaAba}
+            className="mt-5 bg-blue-600 hover:bg-blue-700 text-white"
           >
-            Abrir os detalhes do processo
-            <ArrowUpRight className="h-4 w-4" />
-          </a>
+            Abrir em nova aba
+            <ArrowUpRight className="h-4 w-4 ml-1.5" />
+          </Button>
+          <button
+            onClick={() => {
+              window.history.replaceState(null, "", urlLimpa);
+              setBouncing(false);
+            }}
+            className="mt-3 text-xs font-medium text-slate-400 hover:text-slate-600"
+          >
+            Ver nesta mesma aba
+          </button>
         </div>
       </Layout>
     );
