@@ -20,7 +20,6 @@ import {
   CalendarClock,
   ShieldCheck,
   AlertTriangle,
-  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -97,11 +96,6 @@ const STATUS_INFO: Record<
 export default function ProcessoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  // Chegada pelo link do PDF (ref=pdf): reabrimos o Kaizen numa nova aba e devolvemos esta
-  // aba ao PDF, para não trocar uma aba pela outra. Enquanto isso, mostramos um interstício.
-  const [bouncing, setBouncing] = useState(
-    () => new URLSearchParams(window.location.search).get("ref") === "pdf",
-  );
   const [processo, setProcesso] = useState<ProcessoNegocio | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(false);
@@ -131,41 +125,9 @@ export default function ProcessoDetalhe() {
     }
   }, [id]);
 
-  const urlLimpa = `${window.location.origin}/gestao-estrategica/processos/${id}`;
-
-  // Devolve esta aba ao PDF (o visualizador navegou a própria aba ao clicar no link).
-  const voltarAoPdf = useCallback(() => {
-    if (window.history.length > 1) window.history.back();
-    else window.close();
-  }, []);
-
-  // Abre o Kaizen numa NOVA aba e devolve a aba atual ao PDF. Só funciona a partir de um
-  // clique do usuário — abrir aba sem gesto é bloqueado como popup pelo navegador.
-  const abrirEmNovaAba = useCallback(() => {
-    const novaAba = window.open(urlLimpa, "_blank");
-    if (novaAba) {
-      voltarAoPdf();
-    } else {
-      // Popup bloqueado mesmo com clique: como último recurso, exibe aqui mesmo.
-      window.history.replaceState(null, "", urlLimpa);
-      setBouncing(false);
-    }
-  }, [urlLimpa, voltarAoPdf]);
-
-  // Chegada pelo link do PDF: tenta abrir em nova aba automaticamente (funciona se os popups
-  // estiverem liberados). Se bloqueado, o interstício abaixo oferece o botão (clique = gesto).
   useEffect(() => {
-    if (!bouncing) return;
-    const novaAba = window.open(urlLimpa, "_blank");
-    if (novaAba) voltarAoPdf();
-    // Bloqueado: permanece no interstício aguardando o clique do usuário.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (bouncing) return; // durante o bounce não vale a pena carregar os dados.
     carregar();
-  }, [carregar, bouncing]);
+  }, [carregar]);
 
   const baixarPdf = () => {
     if (!processo) return;
@@ -253,41 +215,6 @@ export default function ProcessoDetalhe() {
       }),
     ];
   }, [processo]);
-
-  if (bouncing) {
-    return (
-      <Layout>
-        <div className="mx-auto max-w-md flex flex-col items-center justify-center py-28 text-center">
-          <div className="w-14 h-14 mb-4 rounded-2xl bg-blue-50 flex items-center justify-center">
-            <ArrowUpRight className="h-7 w-7 text-blue-600" />
-          </div>
-          <h1 className="text-lg font-bold text-slate-900">
-            Detalhes do processo no Kaizen
-          </h1>
-          <p className="text-slate-500 text-sm mt-1.5">
-            Para manter o PDF aberto, os detalhes abrem em uma nova aba. Clique
-            no botão abaixo para continuar.
-          </p>
-          <Button
-            onClick={abrirEmNovaAba}
-            className="mt-5 bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Abrir em nova aba
-            <ArrowUpRight className="h-4 w-4 ml-1.5" />
-          </Button>
-          <button
-            onClick={() => {
-              window.history.replaceState(null, "", urlLimpa);
-              setBouncing(false);
-            }}
-            className="mt-3 text-xs font-medium text-slate-400 hover:text-slate-600"
-          >
-            Ver nesta mesma aba
-          </button>
-        </div>
-      </Layout>
-    );
-  }
 
   if (loading) {
     return (

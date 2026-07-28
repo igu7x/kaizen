@@ -1106,9 +1106,7 @@ export function generateProcessoNegocioPDF(
       typeof window !== "undefined" && window.location
         ? window.location.origin
         : "";
-    // ref=pdf sinaliza à página que a chegada veio do link do PDF: ela reabre o Kaizen em
-    // uma nova aba e devolve esta aba ao PDF (o visualizador de PDF navega a própria aba).
-    const url = `${origin}/gestao-estrategica/processos/${processo.id}?ref=pdf`;
+    const url = `${origin}/gestao-estrategica/processos/${processo.id}`;
     const boxH = 16;
     y = checkPageBreak(doc, y + 4, boxH + 4);
     doc.setFillColor(243, 246, 250);
