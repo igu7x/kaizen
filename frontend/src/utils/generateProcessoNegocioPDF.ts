@@ -6,6 +6,7 @@ import {
   getFluxograma,
   COMITES_APROVACAO,
   isK1,
+  isVigente,
   temDocumentoPrimario,
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
@@ -1089,6 +1090,38 @@ export function generateProcessoNegocioPDF(
       { fontSize: histFontSize },
     );
     y += histRowH;
+  }
+
+  // Consulta digital no Kaizen — SOMENTE na versão final (todas as validações OK e as atas
+  // de comitê anexadas, quando exigidas). Um processo em proposta/revisão não exibe o link,
+  // que apontaria para uma página ainda não publicada.
+  const ehVersaoFinal =
+    processo.status === "validado_final" && isVigente(processo);
+  if (ehVersaoFinal) {
+    const origin =
+      typeof window !== "undefined" && window.location
+        ? window.location.origin
+        : "";
+    const url = `${origin}/gestao-estrategica/processos/${processo.id}`;
+    const boxH = 16;
+    y = checkPageBreak(doc, y + 4, boxH + 4);
+    doc.setFillColor(243, 246, 250);
+    doc.setDrawColor(...BORDER_GRAY);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, boxH, 1.5, 1.5, "FD");
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...SUBTITLE);
+    doc.text(
+      "Consulte a versão digital deste processo no Kaizen",
+      MARGIN_LEFT + 4,
+      y + 6,
+    );
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(37, 99, 235); // azul de link
+    doc.textWithLink(url, MARGIN_LEFT + 4, y + 11.5, { url });
+    y += boxH + 4;
   }
 
   // Rodapé em todas as páginas
