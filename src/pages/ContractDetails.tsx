@@ -372,8 +372,12 @@ export function ContractDetails() {
                   <p className="font-medium">{formatDate(contract.endDate)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Data Efetiva</p>
+                  <p className="text-sm font-medium text-muted-foreground">Data de Início (Contrato Base)</p>
                   <p className="font-medium">{formatDate(contract.effectiveDate)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Fim da Vigência Global</p>
+                  <p className="font-medium">{formatDate(contract.limitDate)}</p>
                 </div>
               </div>
 
