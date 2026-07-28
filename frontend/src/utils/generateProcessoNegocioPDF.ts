@@ -6,7 +6,6 @@ import {
   getFluxograma,
   COMITES_APROVACAO,
   isK1,
-  isVigente,
   temDocumentoPrimario,
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
@@ -1092,11 +1091,16 @@ export function generateProcessoNegocioPDF(
     y += histRowH;
   }
 
-  // Consulta digital no Kaizen — SOMENTE na versão final (todas as validações OK e as atas
-  // de comitê anexadas, quando exigidas). Um processo em proposta/revisão não exibe o link,
-  // que apontaria para uma página ainda não publicada.
-  const ehVersaoFinal =
-    processo.status === "validado_final" && isVigente(processo);
+  // Consulta digital no Kaizen — SOMENTE na versão final: as três camadas de validação
+  // concluídas (Responsável + Revisor + Compliance Officer) e o Modelo K1 completo (campos
+  // obrigatórios preenchidos + atas dos comitês exigidos anexadas). Não depende do `status`,
+  // que é rebaixado para em_elaboracao quando uma nova revisão é iniciada, mesmo que a versão
+  // anterior já tenha passado por todas as validações.
+  const todasValidacoesOk =
+    !!processo.validado_autor_em &&
+    !!processo.validado_diretoria_em &&
+    !!processo.validado_final_em;
+  const ehVersaoFinal = todasValidacoesOk && isK1(processo);
   if (ehVersaoFinal) {
     const origin =
       typeof window !== "undefined" && window.location
