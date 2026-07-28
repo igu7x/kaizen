@@ -1109,33 +1109,55 @@ export function generateProcessoNegocioPDF(
     const url = `${origin}/validar-processo`;
     const codigo = processo.codigo_validacao;
 
-    y = checkPageBreak(doc, y + 4, 12);
-    doc.setDrawColor(...BORDER_GRAY);
-    doc.setLineWidth(0.3);
-    doc.line(MARGIN_LEFT, y, MARGIN_LEFT + CONTENT_WIDTH, y);
-    y += 4.5;
+    const boxH = 24;
+    const padX = 5;
+    y = checkPageBreak(doc, y + 5, boxH + 4);
 
-    // Bloco de validação de autenticidade, no estilo institucional (PROAD).
+    // Caixa de destaque com barra de acento à esquerda.
+    doc.setFillColor(244, 247, 251);
+    doc.setDrawColor(...SUBTITLE);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, boxH, 2, 2, "FD");
+    doc.setFillColor(...ACCENT);
+    doc.rect(MARGIN_LEFT, y + 1, 1.6, boxH - 2, "F");
+
+    // Chip do código, em evidência à direita.
+    const chipW = 55;
+    const chipH = 16;
+    const chipX = MARGIN_LEFT + CONTENT_WIDTH - chipW - padX;
+    const chipY = y + (boxH - chipH) / 2;
+    doc.setFillColor(...ACCENT);
+    doc.roundedRect(chipX, chipY, chipW, chipH, 1.5, 1.5, "F");
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("CÓDIGO DE VALIDAÇÃO", chipX + chipW / 2, chipY + 5, {
+      align: "center",
+    });
+    doc.setFontSize(13);
+    doc.text(codigo, chipX + chipW / 2, chipY + 12, { align: "center" });
+
+    // Coluna de texto à esquerda.
+    const tx = MARGIN_LEFT + padX;
+    let ty = y + 6;
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...SUBTITLE);
+    doc.text("VALIDAÇÃO DE AUTENTICIDADE", tx, ty);
+    ty += 5;
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...TEXT_DARK);
+    doc.text("Tribunal de Justiça do Estado de Goiás", tx, ty);
+    ty += 4.5;
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(...TEXT_DARK);
-    doc.text("Tribunal de Justiça do Estado de Goiás", MARGIN_LEFT, y);
-    y += 4;
+    doc.text("Para validar este documento, informe o código no endereço:", tx, ty);
+    ty += 4.5;
+    doc.setTextColor(37, 99, 235); // azul de link
+    doc.textWithLink(url, tx, ty, { url });
 
-    // Linha 2 em segmentos: código em negrito e endereço como link clicável.
-    let x = MARGIN_LEFT;
-    const seg = (t: string, opts?: { bold?: boolean; link?: string }) => {
-      doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
-      doc.setTextColor(...(opts?.link ? [37, 99, 235] : TEXT_DARK));
-      if (opts?.link) doc.textWithLink(t, x, y, { url: opts.link });
-      else doc.text(t, x, y);
-      x += doc.getTextWidth(t);
-    };
-    seg("Para validar este documento informe o código ");
-    seg(codigo, { bold: true });
-    seg(" no endereço ");
-    seg(url, { link: url });
-    y += 4;
+    y += boxH + 4;
   }
 
   // Rodapé em todas as páginas
