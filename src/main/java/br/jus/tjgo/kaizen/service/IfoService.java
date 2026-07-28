@@ -765,7 +765,7 @@ public class IfoService {
 
         String queryContratos = "SELECT c.id as contract_id, c.object_name, c.total_value_cents, c.directory, c.unidade, " +
                 "c.cadastro_unidade_id, c.cadastro_area_id, cp.pca_id, " +
-                "c.start_date, c.limit_date, COALESCE(c.year_duration_standard, 10) as year_duration_standard " +
+                "c.start_date, c.limit_date, c.end_date, COALESCE(c.year_duration_standard, 10) as year_duration_standard " +
                 "FROM contracts c " +
                 "LEFT JOIN contracts_pcas cp ON c.id = cp.contract_id " +
                 "WHERE EXTRACT(YEAR FROM c.limit_date) >= ? AND (c.is_deleted = FALSE OR c.is_deleted IS NULL) " +
@@ -781,10 +781,12 @@ public class IfoService {
             
             java.sql.Date sqlStartDate = (java.sql.Date) c.get("start_date");
             java.sql.Date sqlLimitDate = (java.sql.Date) c.get("limit_date");
+            java.sql.Date sqlEndDate = (java.sql.Date) c.get("end_date");
             
-            if (sqlStartDate != null && sqlLimitDate != null) {
+            if (sqlStartDate != null && sqlLimitDate != null && sqlEndDate != null) {
                 int startYear = sqlStartDate.toLocalDate().getYear();
                 int limitYear = sqlLimitDate.toLocalDate().getYear();
+                int endYear = sqlEndDate.toLocalDate().getYear();
                 int duration = ((Number) c.get("year_duration_standard")).intValue();
             /**  
                 if (limitYear > anoFormacao + 2) {
@@ -798,13 +800,13 @@ public class IfoService {
                 }
             }
              */
-                if (limitYear >= anoFormacao + 1) {
+                if (endYear >= anoFormacao + 1) {
                     bloco = "plurianual";
                 } 
-                else if (startYear + duration <= anoFormacao) {
+                else if (limitYear <= anoFormacao) {
                     bloco = "encerramento";
                 } 
-                else {
+                else if (endYear <= anoFormacao && limitYear > anoFormacao) {
                     bloco = "renovacao";
                 }
             }
