@@ -394,6 +394,7 @@ export function ProjetoFormDialog({
           if (projetoCompleto.entregas && projetoCompleto.entregas.length > 0) {
             setTempEntregas(
               projetoCompleto.entregas.map((e) => ({
+                id: e.id,
                 nome: e.nome,
                 descricao: e.descricao || undefined,
                 status: e.status,

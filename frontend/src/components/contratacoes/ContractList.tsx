@@ -91,10 +91,10 @@ export function ContractList({ contracts, onEdit, onDelete }: ContractListProps)
                 </div>
               </TableCell>
               <TableCell className="text-right text-sm font-medium">
-                {formatCurrency(contract.monthlyValueCents || 0)}
+                {formatCurrency((contract.monthlyValueCents || 0) / 100)}
               </TableCell>
               <TableCell className="text-right text-sm font-medium text-emerald-600">
-                {formatCurrency(contract.totalValueCents || 0)}
+                {formatCurrency((contract.totalValueCents || 0) / 100)}
               </TableCell>
               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-center gap-1">

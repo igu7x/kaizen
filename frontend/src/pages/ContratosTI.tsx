@@ -57,6 +57,7 @@ export function ContratosTI() {
     startDate: '',
     endDate: '',
     effectiveDate: '',
+    limitDate: '',
     directory: '',
     unidade: '',
     cadastroAreaId: undefined as number | undefined,
@@ -101,6 +102,7 @@ export function ContratosTI() {
       startDate: '',
       endDate: '',
       effectiveDate: '',
+      limitDate: '',
       directory: '',
       unidade: '',
       cadastroAreaId: undefined,
@@ -455,7 +457,7 @@ export function ContratosTI() {
             </div>
 
             <div className="space-y-2">
-              <Label>Data Efetiva</Label>
+              <Label>Data de Início (Contrato Base)</Label>
               <Input
                 type="date"
                 max="9999-12-31"
@@ -465,17 +467,12 @@ export function ContratosTI() {
             </div>
 
             <div className="space-y-2">
-              <Label>Duração Máxima (Anos)</Label>
+              <Label>Fim da Vigência Global</Label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.yearDurationStandard !== undefined ? formData.yearDurationStandard : ''}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  handleInputChange('yearDurationStandard', isNaN(val) ? undefined : val);
-                }}
-                placeholder="Ex: 5"
+                type="date"
+                max="9999-12-31"
+                value={formData.limitDate || ''}
+                onChange={(e) => handleInputChange('limitDate', e.target.value)}
               />
             </div>
 

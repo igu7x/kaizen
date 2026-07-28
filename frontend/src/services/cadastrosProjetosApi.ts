@@ -357,6 +357,7 @@ export interface CreateProjetoDto {
 }
 
 export interface CreateEntregaDto {
+  id?: number;
   nome: string;
   descricao?: string;
   status?: string;
