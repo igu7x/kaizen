@@ -19,7 +19,12 @@ export default function AuthCallback() {
         // Obter dados da URL
         const userParam = searchParams.get("user");
         const tokensParam = searchParams.get("tokens");
-        const returnUrl = searchParams.get("returnUrl") || "/";
+        // Só aceita caminho relativo interno (evita open-redirect via returnUrl externo).
+        const returnUrlRaw = searchParams.get("returnUrl") || "/";
+        const returnUrl =
+          returnUrlRaw.startsWith("/") && !returnUrlRaw.startsWith("//")
+            ? returnUrlRaw
+            : "/";
         const errorParam = searchParams.get("error");
 
         // Se houver erro, mostrar e redirecionar para login
