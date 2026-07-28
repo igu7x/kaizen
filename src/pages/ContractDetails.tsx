@@ -248,7 +248,7 @@ export function ContractDetails() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-emerald-800">Valor Total do Contrato</p>
                   <p className="text-3xl font-bold text-emerald-900">
-                    {formatCurrency(contract.totalValueCents || 0)}
+                    {formatCurrency((contract.totalValueCents || 0) / 100)}
                   </p>
                 </div>
                 <div className="p-3 bg-emerald-100 rounded-full">
@@ -264,7 +264,7 @@ export function ContractDetails() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-blue-800">Valor Mensal</p>
                   <p className="text-3xl font-bold text-blue-900">
-                    {formatCurrency(contract.monthlyValueCents || 0)}
+                    {formatCurrency((contract.monthlyValueCents || 0) / 100)}
                   </p>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-full">
@@ -280,7 +280,7 @@ export function ContractDetails() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Valor Anual do Contrato</p>
                   <p className="text-3xl font-bold">
-                    {formatCurrency(contract.yearValue || 0)}
+                    {formatCurrency((contract.yearValue || 0) / 100)}
                   </p>
                 </div>
                 <div className="p-3 bg-muted rounded-full">
