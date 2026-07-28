@@ -107,7 +107,7 @@ export default function ValidarProcesso() {
             id="codigo"
             value={codigo}
             onChange={(e) => setCodigo(e.target.value)}
-            placeholder="Ex.: 047157679344"
+            placeholder="Código de 12 dígitos impresso no PDF"
             inputMode="numeric"
             className="mt-1.5 tabular-nums tracking-wide"
             autoFocus
