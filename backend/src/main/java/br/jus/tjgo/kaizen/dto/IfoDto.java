@@ -43,6 +43,12 @@ public record IfoDto(
         /** ID do PCA de origem, quando o IFO foi gerado a partir de um PCA existente (bloco nova_contratacao). */
         Long pcaOrigemId,
         
+        // Mapeamento enriquecido das entidades vinculadas
+        String areaSigla,
+        String areaNome,
+        String unidadeSigla,
+        String unidadeNome,
+        
         List<Long> contratos,
         List<IfoContratoDto> ifoContratosDetalhes
 ) {}
