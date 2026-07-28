@@ -408,9 +408,23 @@ public class CadastrosProjetosService {
             }
         }
         if (data.containsKey("entregas")) {
-            jdbc.update("UPDATE cadastros_projetos_entregas SET ativo = FALSE WHERE projeto_id = ?", id);
-            for (Map<String, Object> entrega : asMapList(data.get("entregas"))) {
-                createEntrega(id, entrega, userId);
+            List<Map<String, Object>> inputEntregas = asMapList(data.get("entregas"));
+            List<Long> keepIds = new ArrayList<>();
+            for (Map<String, Object> entrega : inputEntregas) {
+                if (entrega.containsKey("id") && entrega.get("id") != null) {
+                    long entregaId = ((Number) entrega.get("id")).longValue();
+                    updateEntrega(entregaId, entrega, userId);
+                    keepIds.add(entregaId);
+                } else {
+                    Map<String, Object> newEntrega = createEntrega(id, entrega, userId);
+                    keepIds.add(((Number) newEntrega.get("id")).longValue());
+                }
+            }
+            if (keepIds.isEmpty()) {
+                jdbc.update("UPDATE cadastros_projetos_entregas SET ativo = FALSE WHERE projeto_id = ?", id);
+            } else {
+                String inClause = keepIds.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+                jdbc.update("UPDATE cadastros_projetos_entregas SET ativo = FALSE WHERE projeto_id = ? AND id NOT IN (" + inClause + ")", id);
             }
         }
         if (data.containsKey("riscos")) {
@@ -677,12 +691,12 @@ public class CadastrosProjetosService {
         return result.isEmpty() ? null : result.get(0);
     }
 
-    /** Persiste o PDF de evidência NO BANCO (bytea). filepath fica NULL (armazenamento legado em disco). */
-    public void updateEntregaEvidencia(long id, String filename, byte[] data, Long filesize) {
-        jdbc.update("UPDATE cadastros_projetos_entregas SET evidencia_filename = ?, evidencia_data = ?, " +
-                "evidencia_filepath = NULL, evidencia_filesize = ?, updated_at = NOW() " +
+    /** Grava o path da evidência no ECS (evidencia_filepath). O banco (evidencia_data) é limpo. */
+    public void updateEntregaEvidencia(long id, String filename, String fileKey, Long filesize) {
+        jdbc.update("UPDATE cadastros_projetos_entregas SET evidencia_filename = ?, evidencia_filepath = ?, " +
+                "evidencia_data = NULL, evidencia_filesize = ?, updated_at = NOW() " +
                 "WHERE id = ? AND ativo = TRUE",
-                filename, data, filesize, id);
+                filename, fileKey, filesize, id);
     }
 
     /** Define a Data de Conclusão informada manualmente (sobrepõe o CURRENT_DATE do updateEntregaStatus). */

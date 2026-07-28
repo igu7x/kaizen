@@ -4,6 +4,7 @@ import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.CadastrosProjetosService;
 import br.jus.tjgo.kaizen.service.PermissoesTapService;
+import br.jus.tjgo.kaizen.service.StorageService;
 import br.jus.tjgo.kaizen.service.TepService;
 import br.jus.tjgo.kaizen.util.Flash;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -52,6 +53,7 @@ public class CadastrosController {
     private final CadastrosProjetosService service;
     private final TepService tepService;
     private final PermissoesTapService permissoesTapService;
+    private final StorageService storageService;
     private final ObjectMapper objectMapper;
 
     // ---------- helpers de auth ----------
@@ -517,13 +519,19 @@ public class CadastrosController {
             // Remover arquivo legado em disco, se houver (registros antigos anteriores ao DB).
             Object oldPath = entrega.get("evidencia_filepath");
             if (oldPath != null) {
+                try {
+                    storageService.delete(oldPath.toString());
+                } catch (Exception e) {}
                 deleteFileQuiet(oldPath.toString());
             }
             String filename = file.getOriginalFilename();
             long filesize = file.getSize();
-            // Persiste o PDF NO BANCO (bytea). O filesystem do pod (OpenShift) é efêmero/somente
-            // -leitura, então gravar em disco falhava com 500 em produção.
-            service.updateEntregaEvidencia(id, filename, file.getBytes(), filesize);
+            
+            storageService.validarArquivo(filename, filesize);
+            Long projetoId = ((Number) entrega.get("projeto_id")).longValue();
+            String fileKey = storageService.uploadEvidenciaEntrega(projetoId, id, filename, file.getContentType(), filesize, file.getInputStream());
+
+            service.updateEntregaEvidencia(id, filename, fileKey, filesize);
 
             if (filename != null && filename.toLowerCase().endsWith(".pdf")) {
                 service.updateEntregaStatus(id, "concluida");
@@ -552,7 +560,33 @@ public class CadastrosController {
             }
             String filename = entrega.get("evidencia_filename") != null
                     ? entrega.get("evidencia_filename").toString() : "evidencia.pdf";
-            // Armazenamento atual: bytes no banco.
+            
+            // Armazenamento atual: ECS (via fileKey) ou arquivo em disco (legado)
+            Object filepath = entrega.get("evidencia_filepath");
+            if (filepath != null && !filepath.toString().isEmpty()) {
+                // If it looks like a path in disk, fallback. ECS keys look like "dev/projetos/..."
+                if (filepath.toString().contains("/") && !filepath.toString().contains(":\\") && !filepath.toString().startsWith("/")) {
+                    try {
+                        java.io.InputStream stream = storageService.download(filepath.toString());
+                        return ResponseEntity.ok()
+                                .contentType(MediaType.APPLICATION_PDF)
+                                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                                .body(new org.springframework.core.io.InputStreamResource(stream));
+                    } catch (Exception e) {
+                        log.warn("Erro ao tentar baixar do ECS: {}", filepath, e);
+                    }
+                } else {
+                    Path p = Paths.get(filepath.toString());
+                    if (Files.exists(p)) {
+                        return ResponseEntity.ok()
+                                .contentType(MediaType.APPLICATION_PDF)
+                                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                                .body(new FileSystemResource(p));
+                    }
+                }
+            }
+            
+            // Fallback legado 2: bytes no banco.
             Map<String, Object> dados = service.getEntregaEvidenciaData(id);
             Object bytes = dados == null ? null : dados.get("evidencia_data");
             if (bytes instanceof byte[] b && b.length > 0) {
@@ -561,17 +595,7 @@ public class CadastrosController {
                         .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                         .body(b);
             }
-            // Fallback legado: arquivo em disco (registros antigos).
-            Object filepath = entrega.get("evidencia_filepath");
-            if (filepath != null) {
-                Path p = Paths.get(filepath.toString());
-                if (Files.exists(p)) {
-                    return ResponseEntity.ok()
-                            .contentType(MediaType.APPLICATION_PDF)
-                            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
-                            .body(new FileSystemResource(p));
-                }
-            }
+            
             return ResponseEntity.status(404).body(err("Evidência não disponível"));
         } catch (Exception e) {
             return fail("Erro ao baixar evidência", e);
@@ -590,6 +614,9 @@ public class CadastrosController {
             }
             Object filepath = entrega.get("evidencia_filepath");
             if (filepath != null) {
+                try {
+                    storageService.delete(filepath.toString());
+                } catch (Exception e) {}
                 deleteFileQuiet(filepath.toString());
             }
             service.updateEntregaEvidencia(id, null, null, null);
