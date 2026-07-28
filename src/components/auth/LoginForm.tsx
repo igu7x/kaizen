@@ -16,6 +16,19 @@ import { AlertCircle, Loader2, Shield, Lock } from "lucide-react";
 import { apiClient, API_BASE_URL } from "@/services/apiClient";
 import { isLocalLoginEnabled } from "@/utils/environment";
 import Storage from "@/utils/storage";
+import { POST_LOGIN_REDIRECT_KEY } from "@/components/auth/ProtectedRoute";
+
+/** Destino após o login: a rota guardada pela ProtectedRoute (deep link) ou a home. */
+function destinoPosLogin(): string {
+  try {
+    const alvo = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
+    sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+    if (alvo && alvo.startsWith("/")) return alvo;
+  } catch {
+    /* sessionStorage indisponível */
+  }
+  return "/";
+}
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -78,8 +91,9 @@ export function LoginForm() {
   const handleSSOLogin = () => {
     setSsoLoading(true);
     setError("");
-    // Redirecionar para o endpoint de login SSO (usa URL detectada automaticamente)
-    const returnUrl = "/";
+    // Redirecionar para o endpoint de login SSO (usa URL detectada automaticamente).
+    // returnUrl = deep link guardado (volta à página pretendida após o callback do SSO).
+    const returnUrl = destinoPosLogin();
     const targetUrl = `${API_BASE_URL}/api/auth/sso/login?returnUrl=${encodeURIComponent(returnUrl)}`;
 
     // Fallback: caso a navegação não ocorra (URL inválida / bloqueio / erro), reabilita o botão
@@ -133,8 +147,8 @@ export function LoginForm() {
       Storage.save("user", response.user);
       localStorage.removeItem("is_sso_user"); // Marcar como login local
 
-      // Redirecionar para dashboard (Forçar reload para atualizar AuthContext)
-      window.location.href = "/";
+      // Volta ao deep link guardado (ou à home). Reload força o AuthContext a reidratar.
+      window.location.href = destinoPosLogin();
     } catch (err: any) {
       setError(
         err.message || "Erro ao fazer login. Verifique suas credenciais.",

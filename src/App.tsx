@@ -28,6 +28,7 @@ import SGJT from "./pages/SGJT";
 import Gerenciamento from "./pages/Gerenciamento";
 import Sprints from "./pages/Sprints";
 import EscritorioProcessos from "./pages/EscritorioProcessos";
+import ProcessoDetalhe from "./pages/ProcessoDetalhe";
 import PainelIndicadores from "./pages/PainelIndicadores";
 import OkrsMetas from "./pages/OkrsMetas";
 import CadastroHub from "./pages/CadastroHub";
@@ -106,6 +107,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <EscritorioProcessos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/gestao-estrategica/processos/:id"
+                    element={
+                      <ProtectedRoute>
+                        <ProcessoDetalhe />
                       </ProtectedRoute>
                     }
                   />

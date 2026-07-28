@@ -6,6 +6,7 @@ import {
   useState,
   Fragment,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import {
   History,
   RefreshCw,
   FileDown,
+  ArrowUpRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -619,6 +621,7 @@ function ColumnChartCard({ title, data }: ColumnChartCardProps) {
 
 export default function EscritorioProcessos() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1040,15 +1043,17 @@ export default function EscritorioProcessos() {
     carregarPopsCriados();
   }, [carregarPopsCriados]);
 
-  // Baixa o documento de uma linha da tabela de artefatos. Como a listagem vem
-  // sem o conteúdo (`data` é removido no payload enxuto), busca o processo completo
-  // via getById, casa o documento e faz o download do base64.
-  const baixarDocumentoArtefato = async (
+  // Abre o documento de uma linha da tabela de artefatos no visualizador do navegador
+  // (nova aba), onde o usuário tem Salvar / Baixar / Imprimir. Como a listagem vem sem o
+  // conteúdo (`data` removido no payload enxuto), busca o processo completo via getById e casa
+  // o documento. A aba é aberta no gesto do clique para não ser bloqueada como popup.
+  const abrirDocumentoArtefato = async (
     rowKey: string,
     processoId: number,
     doc: DocumentoAnexado,
   ) => {
     setBaixandoDocKey(rowKey);
+    const win = window.open("", "_blank");
     try {
       const full = await processosNegocioApi.getById(processoId);
       const docs = full.documentos_anexados || [];
@@ -1060,20 +1065,18 @@ export default function EscritorioProcessos() {
             (d.nome_exibicao || "") === (doc.nome_exibicao || ""),
         ) || docs.find((d) => d.tipo === doc.tipo && d.nome === doc.nome);
       if (!found?.data) {
-        toast.error("Documento não disponível para download.");
+        toast.error("Documento não disponível.");
+        win?.close();
         return;
       }
       const blob = await (await fetch(found.data)).blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = found.nome || `documento-${found.tipo}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
-      toast.error("Não foi possível baixar o documento.");
+      win?.close();
+      toast.error("Não foi possível abrir o documento.");
     } finally {
       setBaixandoDocKey(null);
     }
@@ -1546,7 +1549,7 @@ export default function EscritorioProcessos() {
               areaPadrao={user?.diretoria || undefined}
               baixandoDocKey={baixandoDocKey}
               onBaixarAnexado={(row) =>
-                baixarDocumentoArtefato(row.key, row.processoId, row.doc)
+                abrirDocumentoArtefato(row.key, row.processoId, row.doc)
               }
               criarOpen={criarPopOpen}
               onCriarOpenChange={setCriarPopOpen}
@@ -1619,20 +1622,20 @@ export default function EscritorioProcessos() {
                             <button
                               type="button"
                               onClick={() =>
-                                baixarDocumentoArtefato(
+                                abrirDocumentoArtefato(
                                   row.key,
                                   row.processoId,
                                   row.doc,
                                 )
                               }
                               disabled={baixandoDocKey === row.key}
-                              title="Baixar documento"
+                              title="Abrir documento (PDF)"
                               className="inline-flex items-center justify-center h-9 w-9 rounded-md text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                               {baixandoDocKey === row.key ? (
                                 <Loader2 className="h-5 w-5 animate-spin" />
                               ) : (
-                                <FileDown className="h-5 w-5" />
+                                <FileText className="h-5 w-5" />
                               )}
                             </button>
                           </td>
@@ -1783,11 +1786,26 @@ export default function EscritorioProcessos() {
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 {/* Descrição do Processo */}
                                 <div className="rounded-xl border border-slate-200 bg-white p-5">
-                                  <div className="flex items-center gap-2 mb-3 text-slate-700">
-                                    <Info className="h-4 w-4" />
-                                    <span className="text-sm font-semibold">
-                                      Descrição do Processo
-                                    </span>
+                                  <div className="flex items-center justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-2 text-slate-700 min-w-0">
+                                      <Info className="h-4 w-4 flex-shrink-0" />
+                                      <span className="text-sm font-semibold truncate">
+                                        Descrição do Processo
+                                      </span>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(
+                                          `/gestao-estrategica/processos/${p.id}`,
+                                        );
+                                      }}
+                                      className="h-8 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                      Ver detalhes
+                                      <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                                    </Button>
                                   </div>
                                   {p.descricao?.trim() ? (
                                     <p className="text-sm text-slate-700 whitespace-pre-line [overflow-wrap:anywhere] text-justify">
@@ -1870,7 +1888,7 @@ export default function EscritorioProcessos() {
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                baixarDocumentoArtefato(
+                                                abrirDocumentoArtefato(
                                                   rowKey,
                                                   p.id,
                                                   doc,
@@ -1878,12 +1896,12 @@ export default function EscritorioProcessos() {
                                               }}
                                               disabled={baixando}
                                               className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex-shrink-0"
-                                              title="Baixar documento"
+                                              title="Abrir documento (PDF)"
                                             >
                                               {baixando ? (
                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                               ) : (
-                                                <Download className="h-4 w-4" />
+                                                <FileText className="h-4 w-4" />
                                               )}
                                             </button>
                                           </li>

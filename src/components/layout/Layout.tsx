@@ -23,7 +23,9 @@ export function Layout({ children }: LayoutProps) {
   const isOKRPage = location.pathname === "/gestao-estrategica/okrs";
   const isExecucaoPage = location.pathname === "/gestao-estrategica/execucao";
   const isSprintsPage = location.pathname === "/gestao-estrategica/sprints";
-  const isProcessosPage = location.pathname === "/gestao-estrategica/processos";
+  const isProcessosPage = location.pathname.startsWith(
+    "/gestao-estrategica/processos",
+  );
   const isPainelIndicadoresPage = location.pathname === "/painel-indicadores";
   const isComitesPage = location.pathname === "/comites";
   const isComiteDetalhe = location.pathname.startsWith("/comites/");

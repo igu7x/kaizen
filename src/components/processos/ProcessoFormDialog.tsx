@@ -389,7 +389,6 @@ export function ProcessoFormDialog({
                   id="nome_processo"
                   value={form.nome_processo}
                   onChange={(e) => update("nome_processo", e.target.value)}
-                  placeholder="Ex.: Gerenciamento de Riscos de Segurança da Informação"
                   className="mt-1 bg-white"
                 />
               </div>
@@ -404,7 +403,6 @@ export function ProcessoFormDialog({
                   id="macroprocesso"
                   value={form.macroprocesso}
                   onChange={(e) => update("macroprocesso", e.target.value)}
-                  placeholder="Ex.: Segurança da Informação"
                   className="mt-1 bg-white"
                 />
               </div>

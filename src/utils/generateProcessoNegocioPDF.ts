@@ -1091,6 +1091,43 @@ export function generateProcessoNegocioPDF(
     y += histRowH;
   }
 
+  // Consulta digital no Kaizen — SOMENTE na versão final: as três camadas de validação
+  // concluídas (Responsável + Revisor + Compliance Officer) e o Modelo K1 completo (campos
+  // obrigatórios preenchidos + atas dos comitês exigidos anexadas). Não depende do `status`,
+  // que é rebaixado para em_elaboracao quando uma nova revisão é iniciada, mesmo que a versão
+  // anterior já tenha passado por todas as validações.
+  const todasValidacoesOk =
+    !!processo.validado_autor_em &&
+    !!processo.validado_diretoria_em &&
+    !!processo.validado_final_em;
+  const ehVersaoFinal = todasValidacoesOk && isK1(processo);
+  if (ehVersaoFinal) {
+    const origin =
+      typeof window !== "undefined" && window.location
+        ? window.location.origin
+        : "";
+    const url = `${origin}/gestao-estrategica/processos/${processo.id}`;
+    const boxH = 16;
+    y = checkPageBreak(doc, y + 4, boxH + 4);
+    doc.setFillColor(243, 246, 250);
+    doc.setDrawColor(...BORDER_GRAY);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, boxH, 1.5, 1.5, "FD");
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...SUBTITLE);
+    doc.text(
+      "Consulte a versão digital deste processo no Kaizen",
+      MARGIN_LEFT + 4,
+      y + 6,
+    );
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(37, 99, 235); // azul de link
+    doc.textWithLink(url, MARGIN_LEFT + 4, y + 11.5, { url });
+    y += boxH + 4;
+  }
+
   // Rodapé em todas as páginas
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
