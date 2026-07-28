@@ -425,6 +425,8 @@ export interface ProcessoNegocio {
   updated_by: number | null;
   created_at: string;
   updated_at: string;
+  /** Código de validação de autenticidade (12 dígitos), presente no getById/validação. */
+  codigo_validacao?: string | null;
 }
 
 export interface CreateProcessoNegocioDto {
@@ -479,6 +481,17 @@ export const processosNegocioApi = {
 
   getById(id: number): Promise<ProcessoNegocio> {
     return apiClient.request<ProcessoNegocio>(`${BASE}/${id}`);
+  },
+
+  /**
+   * Valida a autenticidade de um documento pelo código impresso no PDF. Exige login (o backend
+   * checa a autenticação). Resolve para o processo se o código for válido e o documento tiver
+   * passado por todas as camadas de validação; rejeita (404) caso contrário.
+   */
+  validarPorCodigo(codigo: string): Promise<ProcessoNegocio> {
+    return apiClient.request<ProcessoNegocio>(
+      `${BASE}/validacao/${encodeURIComponent(codigo.replace(/\D/g, ""))}`,
+    );
   },
 
   create(data: CreateProcessoNegocioDto): Promise<ProcessoNegocio> {

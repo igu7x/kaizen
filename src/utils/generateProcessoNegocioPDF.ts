@@ -1101,30 +1101,62 @@ export function generateProcessoNegocioPDF(
     !!processo.validado_diretoria_em &&
     !!processo.validado_final_em;
   const ehVersaoFinal = todasValidacoesOk && isK1(processo);
-  if (ehVersaoFinal) {
+  if (ehVersaoFinal && processo.codigo_validacao) {
     const origin =
       typeof window !== "undefined" && window.location
         ? window.location.origin
         : "";
-    const url = `${origin}/gestao-estrategica/processos/${processo.id}`;
-    const boxH = 16;
-    y = checkPageBreak(doc, y + 4, boxH + 4);
-    doc.setFillColor(243, 246, 250);
-    doc.setDrawColor(...BORDER_GRAY);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, boxH, 1.5, 1.5, "FD");
-    doc.setFontSize(8.5);
+    const url = `${origin}/validar-processo`;
+    const codigo = processo.codigo_validacao;
+
+    const boxH = 24;
+    const padX = 5;
+    y = checkPageBreak(doc, y + 5, boxH + 4);
+
+    // Caixa de destaque com barra de acento à esquerda.
+    doc.setFillColor(244, 247, 251);
+    doc.setDrawColor(...SUBTITLE);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, boxH, 2, 2, "FD");
+    doc.setFillColor(...ACCENT);
+    doc.rect(MARGIN_LEFT, y + 1, 1.6, boxH - 2, "F");
+
+    // Chip do código, em evidência à direita.
+    const chipW = 55;
+    const chipH = 16;
+    const chipX = MARGIN_LEFT + CONTENT_WIDTH - chipW - padX;
+    const chipY = y + (boxH - chipH) / 2;
+    doc.setFillColor(...ACCENT);
+    doc.roundedRect(chipX, chipY, chipW, chipH, 1.5, 1.5, "F");
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("CÓDIGO DE VALIDAÇÃO", chipX + chipW / 2, chipY + 5, {
+      align: "center",
+    });
+    doc.setFontSize(13);
+    doc.text(codigo, chipX + chipW / 2, chipY + 12, { align: "center" });
+
+    // Coluna de texto à esquerda.
+    const tx = MARGIN_LEFT + padX;
+    let ty = y + 6;
+    doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...SUBTITLE);
-    doc.text(
-      "Consulte a versão digital deste processo no Kaizen",
-      MARGIN_LEFT + 4,
-      y + 6,
-    );
+    doc.text("VALIDAÇÃO DE AUTENTICIDADE", tx, ty);
+    ty += 5;
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...TEXT_DARK);
+    doc.text("Tribunal de Justiça do Estado de Goiás", tx, ty);
+    ty += 4.5;
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
+    doc.text("Para validar este documento, informe o código no endereço:", tx, ty);
+    ty += 4.5;
     doc.setTextColor(37, 99, 235); // azul de link
-    doc.textWithLink(url, MARGIN_LEFT + 4, y + 11.5, { url });
+    doc.textWithLink(url, tx, ty, { url });
+
     y += boxH + 4;
   }
 

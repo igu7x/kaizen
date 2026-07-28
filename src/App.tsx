@@ -29,6 +29,7 @@ import Gerenciamento from "./pages/Gerenciamento";
 import Sprints from "./pages/Sprints";
 import EscritorioProcessos from "./pages/EscritorioProcessos";
 import ProcessoDetalhe from "./pages/ProcessoDetalhe";
+import ValidarProcesso from "./pages/ValidarProcesso";
 import PainelIndicadores from "./pages/PainelIndicadores";
 import OkrsMetas from "./pages/OkrsMetas";
 import CadastroHub from "./pages/CadastroHub";
@@ -115,6 +116,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <ProcessoDetalhe />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/validar-processo"
+                    element={
+                      <ProtectedRoute>
+                        <ValidarProcesso />
                       </ProtectedRoute>
                     }
                   />
