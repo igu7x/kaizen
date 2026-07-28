@@ -20,6 +20,7 @@ import {
   CalendarClock,
   ShieldCheck,
   AlertTriangle,
+  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -96,6 +97,11 @@ const STATUS_INFO: Record<
 export default function ProcessoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Chegada pelo link do PDF (ref=pdf): reabrimos o Kaizen numa nova aba e devolvemos esta
+  // aba ao PDF, para não trocar uma aba pela outra. Enquanto isso, mostramos um interstício.
+  const [bouncing, setBouncing] = useState(
+    () => new URLSearchParams(window.location.search).get("ref") === "pdf",
+  );
   const [processo, setProcesso] = useState<ProcessoNegocio | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(false);
@@ -125,9 +131,29 @@ export default function ProcessoDetalhe() {
     }
   }, [id]);
 
+  const urlLimpa = `${window.location.origin}/gestao-estrategica/processos/${id}`;
+
+  // Quando aberto pelo link do PDF: tenta abrir esta página numa NOVA aba e devolve a aba
+  // atual ao PDF (o visualizador de PDF navega a própria aba ao clicar num link). Se o
+  // navegador bloquear a nova aba (popup), seguimos exibindo aqui mesmo.
   useEffect(() => {
+    if (!bouncing) return;
+    const novaAba = window.open(urlLimpa, "_blank");
+    if (novaAba) {
+      if (window.history.length > 1) window.history.back();
+      else window.close();
+    } else {
+      window.history.replaceState(null, "", urlLimpa);
+      setBouncing(false);
+    }
+    // Só na montagem (chegada do PDF).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (bouncing) return; // durante o bounce não vale a pena carregar os dados.
     carregar();
-  }, [carregar]);
+  }, [carregar, bouncing]);
 
   const baixarPdf = () => {
     if (!processo) return;
@@ -215,6 +241,29 @@ export default function ProcessoDetalhe() {
       }),
     ];
   }, [processo]);
+
+  if (bouncing) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center py-32 text-center">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mb-3" />
+          <p className="text-slate-700 font-medium">
+            Abrindo os detalhes do processo em uma nova aba…
+          </p>
+          <p className="text-slate-500 text-sm mt-1">
+            Se nada acontecer, seu navegador pode ter bloqueado a nova aba.
+          </p>
+          <a
+            href={urlLimpa}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          >
+            Abrir os detalhes do processo
+            <ArrowUpRight className="h-4 w-4" />
+          </a>
+        </div>
+      </Layout>
+    );
+  }
 
   if (loading) {
     return (
