@@ -1155,7 +1155,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-28 border-0 !bg-transparent shadow-none h-auto p-0 justify-center gap-1 text-sm font-bold text-gray-800 hover:text-gray-600 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                  <span>Situação</span>
+                  <span>Estado</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
@@ -1273,25 +1273,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                   {/* Status */}
                   <div className="w-28 flex flex-col justify-center items-center gap-1">
                     {renderStatusBadge(item.status)}
-                    {item.contract_ids && item.contract_ids.split(',').map(idStr => {
-                      const parts = idStr.split(':');
-                      const id = parts.shift()?.trim();
-                      const noticeNumber = parts.join(':').trim();
-                      if (!id) return null;
-                      return (
-                        <Badge
-                          key={id}
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/contratos-ti/${id}`);
-                          }}
-                          className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
-                        >
-                          CT: {noticeNumber || id}
-                        </Badge>
-                      );
-                    })}
                   </div>
 
                   {/* Ações */}
@@ -1329,29 +1310,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 <div className="flex lg:hidden items-center gap-2">
                   <div className="flex flex-col items-end gap-1">
                     {renderStatusBadge(item.status)}
-                    {item.contract_ids && (
-                      <div className="flex gap-1">
-                        {item.contract_ids.split(',').map(idStr => {
-                          const parts = idStr.split(':');
-                          const id = parts.shift()?.trim();
-                          const noticeNumber = parts.join(':').trim();
-                          if (!id) return null;
-                          return (
-                            <Badge
-                              key={id}
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/contratos-ti/${id}`);
-                              }}
-                              className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] leading-tight px-1 py-0.5"
-                            >
-                              CT: {noticeNumber || id}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-slate-600" />
                 </div>
@@ -1589,20 +1547,20 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="step">Etapa</Label>
+                <Label htmlFor="status">Estado</Label>
                 <Select
-                  value={formData.step || undefined}
+                  value={formData.status ? String(formData.status) : undefined}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, step: value })
+                    setFormData({ ...formData, status: value })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
-                    <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
-                    <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
+                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
+                    <SelectItem value="Em andamento">Em andamento</SelectItem>
+                    <SelectItem value="Concluída">Concluída</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1897,20 +1855,20 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_step">Etapa</Label>
+                <Label htmlFor="edit_status">Estado</Label>
                 <Select
-                  value={formData.step || undefined}
+                  value={formData.status ? String(formData.status) : undefined}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, step: value })
+                    setFormData({ ...formData, status: value })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
-                    <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
-                    <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
+                    <SelectItem value="Não Iniciada">Não Iniciada</SelectItem>
+                    <SelectItem value="Em andamento">Em andamento</SelectItem>
+                    <SelectItem value="Concluída">Concluída</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
