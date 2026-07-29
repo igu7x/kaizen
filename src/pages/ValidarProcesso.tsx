@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   ShieldCheck,
   Loader2,
-  FileDown,
+  ExternalLink,
   AlertTriangle,
   BadgeCheck,
 } from "lucide-react";
@@ -18,6 +17,8 @@ import {
 import { areasApi } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
 
+const AZUL = "#0a2351";
+
 function formatData(v: string | null | undefined): string {
   if (!v) return "—";
   const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -25,27 +26,36 @@ function formatData(v: string | null | undefined): string {
 }
 
 /**
- * Validação de autenticidade de um processo. O usuário já está autenticado (rota protegida);
- * informa o código impresso no PDF e, se válido, o documento é confirmado como autêntico e o
- * PDF do processo é aberto diretamente.
+ * Validação de autenticidade de um processo, dentro da interface do sistema. O usuário já está
+ * autenticado (rota protegida); informa o código impresso no PDF e, se válido, o documento é
+ * confirmado como autêntico e o PDF é exibido em um preview embutido.
  */
 export default function ValidarProcesso() {
   const [searchParams] = useSearchParams();
   const [codigo, setCodigo] = useState(searchParams.get("codigo") || "");
   const [validando, setValidando] = useState(false);
   const [processo, setProcesso] = useState<ProcessoNegocio | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const pdfUrlRef = useRef<string | null>(null);
 
-  const abrirPdf = async (p: ProcessoNegocio) => {
+  // Gera o PDF e devolve a URL do blob para o preview embutido (sem abrir aba). Revoga a URL
+  // anterior para não vazar memória.
+  const gerarPreview = async (p: ProcessoNegocio) => {
     let diretoriaNome = p.diretoria || "";
     try {
       const areas = await areasApi.getAll();
-      diretoriaNome = areas.find((a) => a.sigla === p.diretoria)?.nome || diretoriaNome;
+      diretoriaNome =
+        areas.find((a) => a.sigla === p.diretoria)?.nome || diretoriaNome;
     } catch {
       /* mantém a sigla */
     }
-    const win = window.open("", "_blank");
-    generateProcessoNegocioPDF(p, diretoriaNome, win);
+    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+    const url = generateProcessoNegocioPDF(p, diretoriaNome, null, {
+      suppressOpen: true,
+    });
+    pdfUrlRef.current = url;
+    setPdfUrl(url);
   };
 
   const validar = async (cod: string) => {
@@ -57,10 +67,11 @@ export default function ValidarProcesso() {
     setValidando(true);
     setErro(null);
     setProcesso(null);
+    setPdfUrl(null);
     try {
       const p = await processosNegocioApi.validarPorCodigo(limpo);
       setProcesso(p);
-      await abrirPdf(p);
+      await gerarPreview(p);
     } catch {
       setErro(
         "Nenhum documento validado foi encontrado para este código. Confira os dígitos e tente novamente.",
@@ -74,23 +85,20 @@ export default function ValidarProcesso() {
   useEffect(() => {
     const q = searchParams.get("codigo");
     if (q) validar(q);
+    return () => {
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <Layout>
-      <div className="mx-auto max-w-xl py-10">
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-50 flex items-center justify-center">
-            <ShieldCheck className="h-7 w-7 text-blue-600" />
-          </div>
-          <h1 className="text-xl font-bold text-slate-900">
-            Validação de Documento
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center gap-2.5 border-b border-slate-200 pb-4">
+          <ShieldCheck className="h-6 w-6" style={{ color: AZUL }} />
+          <h1 className="text-2xl font-bold" style={{ color: AZUL }}>
+            Validação de Documentos
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Informe o código impresso no PDF para confirmar a autenticidade do
-            processo e abrir o documento.
-          </p>
         </div>
 
         <form
@@ -98,24 +106,28 @@ export default function ValidarProcesso() {
             e.preventDefault();
             validar(codigo);
           }}
-          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+          className="mt-6 max-w-md"
         >
-          <Label htmlFor="codigo" className="text-sm font-semibold text-slate-700">
+          <label
+            htmlFor="codigo"
+            className="block text-sm font-semibold text-slate-700 mb-1.5"
+          >
             Código de validação
-          </Label>
+          </label>
           <Input
             id="codigo"
             value={codigo}
             onChange={(e) => setCodigo(e.target.value)}
             placeholder="Código de 12 dígitos impresso no PDF"
             inputMode="numeric"
-            className="mt-1.5 tabular-nums tracking-wide"
+            className="tabular-nums tracking-wide"
             autoFocus
           />
           <Button
             type="submit"
             disabled={validando}
-            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white"
+            className="mt-3 text-white"
+            style={{ backgroundColor: AZUL }}
           >
             {validando ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -134,7 +146,7 @@ export default function ValidarProcesso() {
         </form>
 
         {processo && (
-          <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-6">
+          <div className="mt-6 max-w-2xl rounded-xl border border-emerald-200 bg-emerald-50/60 p-6">
             <div className="flex items-center gap-2 text-emerald-700 mb-3">
               <BadgeCheck className="h-5 w-5" />
               <span className="font-semibold">Documento autêntico</span>
@@ -150,16 +162,53 @@ export default function ValidarProcesso() {
                 val={formatData(processo.periodo || processo.updated_at)}
               />
             </dl>
-            <Button
-              onClick={() => abrirPdf(processo)}
-              variant="outline"
-              className="mt-4"
-            >
-              <FileDown className="h-4 w-4 mr-1.5" />
-              Abrir o PDF novamente
-            </Button>
           </div>
         )}
+
+        {/* Preview do PDF embutido (rolável), abaixo do selo — não troca de página. */}
+        {pdfUrl && (
+          <div className="mt-6 max-w-3xl">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <h2 className="text-sm font-bold text-slate-700">
+                Documento do processo
+              </h2>
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Abrir em nova aba
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
+            <iframe
+              src={`${pdfUrl}#navpanes=0&view=FitH`}
+              title="Pré-visualização do PDF do processo"
+              className="w-full h-[80vh] rounded-xl border border-slate-300 bg-slate-100"
+            />
+          </div>
+        )}
+
+        {/* Rodapé institucional */}
+        <div className="mt-12 border-t border-slate-200 pt-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <img
+              src="/brasao-goias.png"
+              alt="Brasão do Estado de Goiás"
+              className="h-11 w-auto"
+            />
+            <div className="text-sm leading-tight">
+              <div className="font-bold text-slate-800">PODER JUDICIÁRIO</div>
+              <div className="text-slate-500">
+                Tribunal de Justiça do Estado de Goiás
+              </div>
+            </div>
+          </div>
+          <div className="text-sm text-right font-bold" style={{ color: AZUL }}>
+            Gerência de Estratégia Judiciária e Tecnológica
+          </div>
+        </div>
       </div>
     </Layout>
   );

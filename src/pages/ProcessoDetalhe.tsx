@@ -211,10 +211,32 @@ export default function ProcessoDetalhe() {
           valor: aprov
             ? `Aprovado — Ata ${comite}${aprov.em ? ` - ${formatData(aprov.em)}` : ""}`
             : "Pendente",
+          // PDF da ata anexada (base64), quando houver — torna o "Aprovado…" clicável.
+          ataData: aprov?.data || null,
+          ataNome: aprov ? `Ata ${comite}.pdf` : null,
         };
       }),
     ];
   }, [processo]);
+
+  // Abre o PDF da ata do comitê em uma nova aba. A aba é aberta no gesto do clique.
+  const abrirAta = async (dataUrlOuBase64: string, nome: string) => {
+    const win = window.open("", "_blank");
+    try {
+      const dataUrl = dataUrlOuBase64.startsWith("data:")
+        ? dataUrlOuBase64
+        : `data:application/pdf;base64,${dataUrlOuBase64}`;
+      const blob = await (await fetch(dataUrl)).blob();
+      const url = URL.createObjectURL(blob);
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      void nome;
+    } catch {
+      win?.close();
+      toast.error("Não foi possível abrir a ata.");
+    }
+  };
 
   if (loading) {
     return (
@@ -512,11 +534,25 @@ export default function ProcessoDetalhe() {
                 <span className="text-sm font-medium text-slate-700">
                   {linha.label}
                 </span>
-                <span
-                  className={`text-sm text-right ${linha.ok ? "text-slate-700" : "text-amber-600"}`}
-                >
-                  {linha.valor}
-                </span>
+                {linha.ataData ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      abrirAta(linha.ataData!, linha.ataNome || "ata.pdf")
+                    }
+                    title="Abrir o PDF da ata"
+                    className="inline-flex items-center gap-1.5 text-sm text-right font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    {linha.valor}
+                    <FileDown className="h-3.5 w-3.5 flex-shrink-0" />
+                  </button>
+                ) : (
+                  <span
+                    className={`text-sm text-right ${linha.ok ? "text-slate-700" : "text-amber-600"}`}
+                  >
+                    {linha.valor}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

@@ -10,6 +10,7 @@ import {
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
+import { API_BASE_URL } from "../services/apiClient";
 
 // ============================================================
 // Paleta institucional revisada (mockup TJGO / Secretaria de
@@ -423,8 +424,8 @@ function drawCabecalhoInstitucional(
   const rowH = 9;
   const titleH = 16; // título institucional ocupa 2 linhas
 
-  // Coluna esquerda — institucional. Atravessa o título + 2 meta-rows.
-  const leftTotalH = titleH + rowH * 2;
+  // Coluna esquerda — institucional. Atravessa o título + 3 meta-rows (Macro, Data, Versão/Revisão).
+  const leftTotalH = titleH + rowH * 3;
   doc.setFillColor(...WHITE);
   doc.rect(MARGIN_LEFT, y, leftColW, leftTotalH, "F");
   doc.setDrawColor(...BORDER_GRAY);
@@ -549,8 +550,38 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 4: NOME DO PROCESSO (label esquerda + valor centralizado, quebra em 2+ linhas se extenso)
-  const yNome = yData + rowH;
+  // Linha 4: Versão | Revisão (dois pares label/valor dividindo a coluna direita). O rótulo
+  // "Versão:" usa a mesma largura (labelW) do rótulo "Data da Versão:" acima, para que a box de
+  // valor da Versão fique alinhada horizontalmente com a box de valor da Data da Versão.
+  const yVerRev = yData + rowH;
+  const verLabelW = labelW;
+  const verValueW = (rightColW - verLabelW * 2) / 2;
+  const versaoHeader = String(processo.versao ?? "1").split(".")[0] || "1";
+  const revisaoHeader = String(processo.revisao ?? "0").split(".")[0] || "0";
+  let vx = MARGIN_LEFT + leftColW;
+  const cellLabelOpts = {
+    bold: true,
+    fontSize: 9,
+    bg: ACCENT_BG_LIGHT,
+    color: TEXT_DARK,
+    align: "center",
+  } as const;
+  drawTextCell(doc, "Versão:", vx, yVerRev, verLabelW, rowH, cellLabelOpts);
+  vx += verLabelW;
+  drawTextCell(doc, versaoHeader, vx, yVerRev, verValueW, rowH, {
+    fontSize: 9,
+    align: "center",
+  });
+  vx += verValueW;
+  drawTextCell(doc, "Revisão:", vx, yVerRev, verLabelW, rowH, cellLabelOpts);
+  vx += verLabelW;
+  drawTextCell(doc, revisaoHeader, vx, yVerRev, verValueW, rowH, {
+    fontSize: 9,
+    align: "center",
+  });
+
+  // Linha 5: NOME DO PROCESSO (label esquerda + valor centralizado, quebra em 2+ linhas se extenso)
+  const yNome = yVerRev + rowH;
   doc.setFontSize(10);
   doc.setFont("helvetica", "bolditalic");
   const nomeLines = doc.splitTextToSize(
@@ -606,6 +637,7 @@ function drawRodapeInstitucional(
     isProposta && Number.isFinite(versaoNum)
       ? `${versaoNum + 1} (Proposta)`
       : versaoBase;
+  const revisaoValue = String(processo.revisao ?? "0").split(".")[0] || "0";
   const modeloLabel =
     isProposta || isK1(processo)
       ? "K1"
@@ -621,6 +653,7 @@ function drawRodapeInstitucional(
       label: "VERSÃO:",
       value: versaoValue,
     },
+    { label: "REVISÃO:", value: revisaoValue },
     { label: "DATA DA PROPOSTA:", value: formatDate(processo.updated_at) },
   ].map((f) => {
     doc.setFontSize(8);
@@ -668,7 +701,9 @@ export function generateProcessoNegocioPDF(
   diretoriaNome?: string,
   // Aba pré-aberta no gesto do clique (evita bloqueio de popup quando há await antes).
   targetWindow?: Window | null,
-) {
+  // Só constrói e retorna a URL do blob, sem abrir aba (para preview embutido em iframe).
+  options?: { suppressOpen?: boolean },
+): string {
   const doc = new jsPDF("p", "mm", "a4");
   let y = 15;
 
@@ -1017,7 +1052,17 @@ export function generateProcessoNegocioPDF(
   const histFontSize = 9;
   const histValueW = CONTENT_WIDTH - histLabelW;
   const exigidos = processo.apreciacao || [];
-  const histLinhas = [
+  // Base da API (host pode diferir do frontend) para o link direto ao PDF da ata.
+  const apiBase =
+    API_BASE_URL ||
+    (typeof window !== "undefined" && window.location
+      ? window.location.origin
+      : "");
+  const histLinhas: Array<{
+    label: string;
+    valor: string;
+    ataUrl?: string;
+  }> = [
     {
       label: "Responsável",
       valor:
@@ -1044,11 +1089,17 @@ export function generateProcessoNegocioPDF(
     ...exigidos.map((comite) => {
       const aprov = aprovacaoDoComite(processo, comite);
       const nome = COMITES_APROVACAO[comite] || comite;
+      // Ata aprovada + código disponível → o valor vira link direto para o PDF da ata.
+      const ataUrl =
+        aprov && processo.codigo_validacao
+          ? `${apiBase}/api/processos-negocio/ata/${processo.codigo_validacao}/${encodeURIComponent(comite)}`
+          : undefined;
       return {
         label: nome,
         valor: aprov
           ? `Aprovado — Ata ${comite}${aprov.em ? ` - ${formatDate(aprov.em)}` : ""}`
           : "Pendente",
+        ataUrl,
       };
     }),
   ];
@@ -1086,8 +1137,17 @@ export function generateProcessoNegocioPDF(
       y,
       histValueW,
       histRowH,
-      { fontSize: histFontSize },
+      {
+        fontSize: histFontSize,
+        color: linha.ataUrl ? [37, 99, 235] : undefined,
+      },
     );
+    // Célula da ata clicável: abre o PDF da ata (via página de validação, com login).
+    if (linha.ataUrl) {
+      doc.link(MARGIN_LEFT + histLabelW, y, histValueW, histRowH, {
+        url: linha.ataUrl,
+      });
+    }
     y += histRowH;
   }
 
@@ -1109,7 +1169,7 @@ export function generateProcessoNegocioPDF(
     const url = `${origin}/validar-processo`;
     const codigo = processo.codigo_validacao;
 
-    const boxH = 24;
+    const boxH = 20;
     const padX = 5;
     y = checkPageBreak(doc, y + 5, boxH + 4);
 
@@ -1122,7 +1182,7 @@ export function generateProcessoNegocioPDF(
     doc.rect(MARGIN_LEFT, y + 1, 1.6, boxH - 2, "F");
 
     // Chip do código, em evidência à direita.
-    const chipW = 55;
+    const chipW = 58;
     const chipH = 16;
     const chipX = MARGIN_LEFT + CONTENT_WIDTH - chipW - padX;
     const chipY = y + (boxH - chipH) / 2;
@@ -1131,29 +1191,24 @@ export function generateProcessoNegocioPDF(
     doc.setFontSize(6);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text("CÓDIGO DE VALIDAÇÃO", chipX + chipW / 2, chipY + 5, {
+    doc.text("CÓDIGO DE VALIDAÇÃO", chipX + chipW / 2, chipY + 5.5, {
       align: "center",
     });
-    doc.setFontSize(13);
+    doc.setFontSize(13.5);
     doc.text(codigo, chipX + chipW / 2, chipY + 12, { align: "center" });
 
-    // Coluna de texto à esquerda.
+    // Coluna de texto à esquerda (centralizada verticalmente na caixa).
     const tx = MARGIN_LEFT + padX;
-    let ty = y + 6;
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...SUBTITLE);
-    doc.text("VALIDAÇÃO DE AUTENTICIDADE", tx, ty);
-    ty += 5;
-    doc.setFontSize(8.5);
+    let ty = y + 7;
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...TEXT_DARK);
     doc.text("Tribunal de Justiça do Estado de Goiás", tx, ty);
-    ty += 4.5;
+    ty += 4.8;
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Para validar este documento, informe o código no endereço:", tx, ty);
-    ty += 4.5;
+    ty += 4.8;
     doc.setTextColor(37, 99, 235); // azul de link
     doc.textWithLink(url, tx, ty, { url });
 
@@ -1173,10 +1228,15 @@ export function generateProcessoNegocioPDF(
     );
   }
 
-  const blobUrl = doc.output("bloburl");
+  const blobUrl = doc.output("bloburl") as unknown as string;
+  if (options?.suppressOpen) {
+    targetWindow?.close();
+    return blobUrl;
+  }
   if (targetWindow) {
-    targetWindow.location.href = blobUrl as unknown as string;
+    targetWindow.location.href = blobUrl;
   } else {
     window.open(blobUrl, "_blank");
   }
+  return blobUrl;
 }

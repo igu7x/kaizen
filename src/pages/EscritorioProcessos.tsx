@@ -819,33 +819,45 @@ export default function EscritorioProcessos() {
   // Validação disponível para o usuário no processo em edição (camada atual). Alimenta o botão
   // "Validar" do form: Responsável valida a camada 1 (enviar), Revisor a 2, Compliance a 3.
   // Ausente = usuário não valida (ex.: Editor/Gestor) → o form mostra só "Salvar Alterações".
-  const validacaoDoEditing = useMemo(() => {
-    const p = editing;
-    if (!p || !user?.id) return null;
-    const uid = Number(user.id);
-    const st = p.status;
-    const area = areas.find(
-      (a) =>
-        a.sigla?.trim().toUpperCase() === p.diretoria?.trim().toUpperCase(),
-    );
-    const ehRevisor =
-      area?.gestor_user_id != null && Number(area.gestor_user_id) === uid;
-    if (
-      (st === "em_elaboracao" || st === "recusado") &&
-      ehResponsavelDoProcesso(p)
-    ) {
-      // Ao EDITAR, o Responsável (e qualquer papel com acesso à edição) valida na hora — não
-      // depende do Editor concluir. A regra do Editor só afeta o "Validar" do rodapé em leitura.
-      return { exec: (id: number) => processosNegocioApi.enviar(id) };
-    }
-    if (st === "validado_autor" && ehRevisor) {
-      return { exec: (id: number) => processosNegocioApi.validarDiretoria(id) };
-    }
-    if (st === "validado_diretoria" && isComplianceOfficer) {
-      return { exec: (id: number) => processosNegocioApi.validarFinal(id) };
-    }
-    return null;
-  }, [editing, user?.id, areas, ehResponsavelDoProcesso, isComplianceOfficer]);
+  // Ação de validação disponível para o usuário no processo, conforme a camada atual. Reusada
+  // tanto pelo botão "Validar" do formulário (edição) quanto pelo do preview (leitura), pra que
+  // apareçam nas MESMAS condições — antes o modal usava uma lógica de papel própria e divergia.
+  const computeValidacao = useCallback(
+    (p: ProcessoNegocio | null) => {
+      if (!p || !user?.id) return null;
+      const uid = Number(user.id);
+      const st = p.status;
+      const area = areas.find(
+        (a) =>
+          a.sigla?.trim().toUpperCase() === p.diretoria?.trim().toUpperCase(),
+      );
+      const ehRevisor =
+        area?.gestor_user_id != null && Number(area.gestor_user_id) === uid;
+      if (
+        (st === "em_elaboracao" || st === "recusado") &&
+        ehResponsavelDoProcesso(p)
+      ) {
+        return { exec: (id: number) => processosNegocioApi.enviar(id) };
+      }
+      if (st === "validado_autor" && ehRevisor) {
+        return { exec: (id: number) => processosNegocioApi.validarDiretoria(id) };
+      }
+      if (st === "validado_diretoria" && isComplianceOfficer) {
+        return { exec: (id: number) => processosNegocioApi.validarFinal(id) };
+      }
+      return null;
+    },
+    [user?.id, areas, ehResponsavelDoProcesso, isComplianceOfficer],
+  );
+
+  const validacaoDoEditing = useMemo(
+    () => computeValidacao(editing),
+    [computeValidacao, editing],
+  );
+  const validacaoDoSelecionado = useMemo(
+    () => computeValidacao(selecionado),
+    [computeValidacao, selecionado],
+  );
 
   // ============================================================
   // ESTATÍSTICAS / DADOS DOS GRÁFICOS
@@ -1951,6 +1963,7 @@ export default function EscritorioProcessos() {
         onChanged={handleChanged}
         onEdit={handleEditar}
         loadingFull={detalheLoading}
+        validacao={validacaoDoSelecionado}
       />
     </Layout>
   );

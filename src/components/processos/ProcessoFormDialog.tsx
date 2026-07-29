@@ -82,7 +82,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   macroprocesso: "",
   diretoria: "",
   periodo: "",
-  revisao: "",
+  revisao: "0",
   codigo_versao: "",
   nome_processo: "",
   descricao: "",
@@ -103,7 +103,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   periodicidade_revisao: "",
   numero_proad: "",
   observacoes_gerais: "",
-  versao: "",
+  versao: "1",
 };
 
 /**
@@ -200,7 +200,7 @@ export function ProcessoFormDialog({
         macroprocesso: processo.macroprocesso || "",
         diretoria: processo.diretoria || "",
         periodo: processo.periodo || "",
-        revisao: processo.revisao || "",
+        revisao: processo.revisao ?? "0",
         codigo_versao: processo.codigo_versao || "",
         nome_processo: processo.nome_processo || "",
         descricao: processo.descricao || "",
@@ -222,8 +222,8 @@ export function ProcessoFormDialog({
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
         versao: processo.versao
-          ? String(parseInt(String(processo.versao), 10) || "")
-          : "",
+          ? String(parseInt(String(processo.versao), 10) || "1")
+          : "1",
       });
     } else {
       setForm({
@@ -287,12 +287,13 @@ export function ProcessoFormDialog({
     }
     setSaving(true);
     try {
-      // A versão só é enviada quando há documento primário (entrada manual). Sem ele,
-      // omitimos o campo para o backend preservar a versão gerida pelo ciclo de homologação.
-      const payload: CreateProcessoNegocioDto = { ...form };
-      if (!temDocumentoPrimario(form)) {
-        delete payload.versao;
-      }
+      // Versão e Revisão são numéricas e informáveis manualmente; em branco caem no padrão
+      // (Versão 1, Revisão 0). O backend ainda incrementa Versão/Revisão no ciclo de homologação.
+      const payload: CreateProcessoNegocioDto = {
+        ...form,
+        versao: String(form.versao ?? "").trim() || "1",
+        revisao: String(form.revisao ?? "").trim() || "0",
+      };
       let saved: ProcessoNegocio;
       if (currentId != null) {
         saved = await processosNegocioApi.update(currentId, payload);
@@ -458,31 +459,54 @@ export function ProcessoFormDialog({
                   No PDF será exibido apenas o mês e o ano.
                 </p>
               </div>
-              {temDocumentoPrimario(form) && (
-                <div>
-                  <Label
-                    htmlFor="versao"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Versão <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="versao"
-                    type="text"
-                    inputMode="numeric"
-                    value={form.versao ?? ""}
-                    onChange={(e) =>
-                      update("versao", e.target.value.replace(/\D/g, ""))
-                    }
-                    placeholder="Ex.: 9"
-                    className="mt-1 bg-white"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Documento primário anexado: informe a versão atual do
-                    processo.
-                  </p>
-                </div>
-              )}
+              <div>
+                <Label
+                  htmlFor="versao"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Versão{" "}
+                  {temDocumentoPrimario(form) && (
+                    <span className="text-red-500">*</span>
+                  )}
+                </Label>
+                <Input
+                  id="versao"
+                  type="text"
+                  inputMode="numeric"
+                  value={form.versao ?? ""}
+                  onChange={(e) =>
+                    update("versao", e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="Ex.: 1"
+                  className="mt-1 bg-white"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Número da versão. Atualiza sozinho (+1) quando um campo é
+                  alterado numa revisão.
+                </p>
+              </div>
+              <div>
+                <Label
+                  htmlFor="revisao"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Revisão
+                </Label>
+                <Input
+                  id="revisao"
+                  type="text"
+                  inputMode="numeric"
+                  value={form.revisao ?? ""}
+                  onChange={(e) =>
+                    update("revisao", e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="0"
+                  className="mt-1 bg-white"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Em branco = 0. Atualiza sozinho (+1) a cada revisão concluída.
+                </p>
+              </div>
             </div>
           </Section>
 
@@ -857,6 +881,7 @@ export function ProcessoFormDialog({
             onChanged={(next) => onProcessoChanged?.(next)}
             onEditar={() => setEditando(true)}
             onFechar={() => onOpenChange(false)}
+            validacao={validacao}
           />
         ) : null}
       </DialogContent>

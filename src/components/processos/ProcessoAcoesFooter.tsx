@@ -15,6 +15,7 @@ import {
   FileDown,
   History,
   UserPlus,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +32,8 @@ import {
   validarComiteParaEnvio,
   temEditores,
   edicaoConcluida,
+  isK1,
+  revisaoVencida,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -45,6 +48,12 @@ interface ProcessoAcoesFooterProps {
   /** Fecha o dialog do form (usado no handleExcluir). */
   onFechar: () => void;
   loadingFull?: boolean;
+  /**
+   * Ação de validação disponível para o usuário na camada atual (calculada na página, com a
+   * resolução completa do responsável por unidade). Quando presente, o preview mostra "Validar"
+   * direto — evita divergência com a permissão local (isResponsavel), que não resolve por unidade.
+   */
+  validacao?: { exec: (id: number) => Promise<ProcessoNegocio> } | null;
 }
 
 /**
@@ -59,6 +68,7 @@ export function ProcessoAcoesFooter({
   onChanged,
   onEditar,
   onFechar,
+  validacao = null,
 }: ProcessoAcoesFooterProps) {
   const { user } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
@@ -241,6 +251,42 @@ export function ProcessoAcoesFooter({
       processosNegocioApi.validarFinal(processo.id),
     );
 
+  // Validação direta no preview usando a ação calculada na página (resolve o responsável por
+  // unidade). Na 1ª camada (em_elaboracao/recusado → envia à validação) valida os obrigatórios.
+  const handleValidarPreview = () => {
+    if (!validacao) return;
+    if (
+      processo.status === "em_elaboracao" ||
+      processo.status === "recusado"
+    ) {
+      const faltam = camposObrigatoriosFaltantes(processo);
+      if (faltam.length > 0) {
+        toast.error(`Para validar, preencha os campos: ${faltam.join(", ")}.`);
+        return;
+      }
+      const erroComite = validarComiteParaEnvio(processo);
+      if (erroComite) {
+        toast.error(erroComite);
+        return;
+      }
+    }
+    handleAcao("Validação", () => validacao.exec(processo.id));
+  };
+
+  const handleIniciarRevisao = async () => {
+    setBusy("Início da revisão");
+    try {
+      const next = await processosNegocioApi.iniciarRevisao(processo.id);
+      onChanged(next);
+      // Já entra no modo de edição para revisar o processo.
+      onEditar();
+    } catch {
+      /* erro já tratado pelo apiClient */
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleRecusarConfirm = async () => {
     if (!recusaMotivo.trim()) {
       toast.error("Informe um motivo pra recusa.");
@@ -330,6 +376,13 @@ export function ProcessoAcoesFooter({
   const ehResponsavel = isResponsavel(processo, user?.id);
   const podePapelEditor =
     isSuperadmin || isDiretorDaArea || ehResponsavel || isComplianceOfficer;
+  // "Iniciar Revisão" no preview: liberado só quando o processo é vigente (Modelo K1 validado) e
+  // já chegou a data prevista de revisão (Data da Versão + 1 ano). Reabre o ciclo de validação.
+  const podeIniciarRevisao =
+    processo.status === "validado_final" &&
+    isK1(processo) &&
+    revisaoVencida(processo) &&
+    (isSuperadmin || isDiretorDaArea || ehResponsavel);
   const podeEditar =
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
@@ -453,7 +506,40 @@ export function ProcessoAcoesFooter({
               Editar
             </Button>
           )}
-          {podeEnviar && (
+          {podeIniciarRevisao && (
+            <Button
+              type="button"
+              onClick={handleIniciarRevisao}
+              disabled={!!busy}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {busy === "Início da revisão" ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Iniciar Revisão
+            </Button>
+          )}
+          {/* Validação unificada (ação calculada na página). Cobre as camadas em que o usuário
+              pode validar, inclusive quando é responsável por unidade (que a permissão local não
+              detecta). Os botões próprios abaixo ficam como fallback quando a ação não é passada. */}
+          {validacao && (
+            <Button
+              type="button"
+              onClick={handleValidarPreview}
+              disabled={!!busy}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {busy === "Validação" ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Validar
+            </Button>
+          )}
+          {podeEnviar && !validacao && (
             <Button
               type="button"
               onClick={handleEnviar}
@@ -483,7 +569,7 @@ export function ProcessoAcoesFooter({
               Recusar
             </Button>
           )}
-          {podeValidarAutor && (
+          {podeValidarAutor && !validacao && (
             <Button
               type="button"
               onClick={handleValidarAutor}
@@ -498,7 +584,7 @@ export function ProcessoAcoesFooter({
               Validar
             </Button>
           )}
-          {podeValidarDiretoria && (
+          {podeValidarDiretoria && !validacao && (
             <Button
               type="button"
               onClick={handleValidarDiretoria}
@@ -513,7 +599,7 @@ export function ProcessoAcoesFooter({
               Validar
             </Button>
           )}
-          {podeValidarFinal && (
+          {podeValidarFinal && !validacao && (
             <Button
               type="button"
               onClick={handleValidarFinal}

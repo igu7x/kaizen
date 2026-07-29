@@ -73,6 +73,12 @@ interface ProcessoDetalheProps {
    * abre na hora com os metadados e preenche o conteúdo pesado quando o fetch retorna.
    */
   loadingFull?: boolean;
+  /**
+   * Ação de validação disponível para o usuário na camada atual (calculada na página, mesma
+   * regra do botão "Validar" da edição). Quando presente, o preview mostra "Validar" direto —
+   * sem precisar entrar no modo de edição.
+   */
+  validacao?: { exec: (id: number) => Promise<ProcessoNegocio> } | null;
 }
 
 // ============================================================
@@ -381,6 +387,7 @@ export function ProcessoDetalhe({
   onChanged,
   onEdit,
   loadingFull = false,
+  validacao = null,
 }: ProcessoDetalheProps) {
   const { user } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
@@ -570,6 +577,28 @@ export function ProcessoDetalhe({
     handleAcao("Validação final", () =>
       processosNegocioApi.validarFinal(processo.id),
     );
+
+  // Validação direta no preview (mesma ação do botão "Validar" da edição). Na 1ª camada
+  // (em_elaboracao/recusado, que envia à validação) valida os campos obrigatórios + comitê antes.
+  const handleValidarPreview = () => {
+    if (!validacao) return;
+    if (
+      processo.status === "em_elaboracao" ||
+      processo.status === "recusado"
+    ) {
+      const faltam = camposObrigatoriosFaltantes(processo);
+      if (faltam.length > 0) {
+        toast.error(`Para validar, preencha os campos: ${faltam.join(", ")}.`);
+        return;
+      }
+      const erroComite = validarComiteParaEnvio(processo);
+      if (erroComite) {
+        toast.error(erroComite);
+        return;
+      }
+    }
+    handleAcao("Validação", () => validacao.exec(processo.id));
+  };
 
   const handleRecusarConfirm = async () => {
     if (!recusaMotivo.trim()) {
@@ -1334,7 +1363,23 @@ export function ProcessoDetalhe({
                   Editar
                 </Button>
               )}
-              {podeEnviar && (
+              {/* Validação direta no preview — mesma condição do botão "Validar" da edição. */}
+              {validacao && (
+                <Button
+                  type="button"
+                  onClick={handleValidarPreview}
+                  disabled={!!busy}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {busy === "Validação" ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                  )}
+                  Validar
+                </Button>
+              )}
+              {podeEnviar && !validacao && (
                 <Button
                   type="button"
                   onClick={handleEnviar}
@@ -1364,7 +1409,7 @@ export function ProcessoDetalhe({
                   Recusar
                 </Button>
               )}
-              {podeValidarAutor && (
+              {podeValidarAutor && !validacao && (
                 <Button
                   type="button"
                   onClick={handleValidarAutor}
@@ -1379,7 +1424,7 @@ export function ProcessoDetalhe({
                   Validar
                 </Button>
               )}
-              {podeValidarDiretoria && (
+              {podeValidarDiretoria && !validacao && (
                 <Button
                   type="button"
                   onClick={handleValidarDiretoria}
@@ -1394,7 +1439,7 @@ export function ProcessoDetalhe({
                   Validar
                 </Button>
               )}
-              {podeValidarFinal && (
+              {podeValidarFinal && !validacao && (
                 <Button
                   type="button"
                   onClick={handleValidarFinal}
