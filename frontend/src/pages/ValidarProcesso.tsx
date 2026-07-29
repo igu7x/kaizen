@@ -94,16 +94,12 @@ export default function ValidarProcesso() {
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center gap-2.5 mb-1">
+        <div className="flex items-center gap-2.5 border-b border-slate-200 pb-4">
           <ShieldCheck className="h-6 w-6" style={{ color: AZUL }} />
           <h1 className="text-2xl font-bold" style={{ color: AZUL }}>
             Validação de Documentos
           </h1>
         </div>
-        <p className="text-slate-600 max-w-2xl border-b border-slate-200 pb-4">
-          Informe o código impresso no PDF para confirmar a autenticidade do
-          processo e abrir o documento.
-        </p>
 
         <form
           onSubmit={(e) => {
