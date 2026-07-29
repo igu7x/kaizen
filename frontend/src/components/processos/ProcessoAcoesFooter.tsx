@@ -15,6 +15,7 @@ import {
   FileDown,
   History,
   UserPlus,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +32,8 @@ import {
   validarComiteParaEnvio,
   temEditores,
   edicaoConcluida,
+  isK1,
+  revisaoVencida,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -270,6 +273,11 @@ export function ProcessoAcoesFooter({
     handleAcao("Validação", () => validacao.exec(processo.id));
   };
 
+  const handleIniciarRevisao = () =>
+    handleAcao("Início da revisão", () =>
+      processosNegocioApi.iniciarRevisao(processo.id),
+    );
+
   const handleRecusarConfirm = async () => {
     if (!recusaMotivo.trim()) {
       toast.error("Informe um motivo pra recusa.");
@@ -359,6 +367,13 @@ export function ProcessoAcoesFooter({
   const ehResponsavel = isResponsavel(processo, user?.id);
   const podePapelEditor =
     isSuperadmin || isDiretorDaArea || ehResponsavel || isComplianceOfficer;
+  // "Iniciar Revisão" no preview: liberado só quando o processo é vigente (Modelo K1 validado) e
+  // já chegou a data prevista de revisão (Data da Versão + 1 ano). Reabre o ciclo de validação.
+  const podeIniciarRevisao =
+    processo.status === "validado_final" &&
+    isK1(processo) &&
+    revisaoVencida(processo) &&
+    (isSuperadmin || isDiretorDaArea || ehResponsavel);
   const podeEditar =
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
@@ -480,6 +495,21 @@ export function ProcessoAcoesFooter({
             >
               <Pencil className="h-4 w-4 mr-2" />
               Editar
+            </Button>
+          )}
+          {podeIniciarRevisao && (
+            <Button
+              type="button"
+              onClick={handleIniciarRevisao}
+              disabled={!!busy}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {busy === "Início da revisão" ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Iniciar Revisão
             </Button>
           )}
           {/* Validação unificada (ação calculada na página). Cobre as camadas em que o usuário
