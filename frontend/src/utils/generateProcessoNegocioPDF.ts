@@ -1019,7 +1019,16 @@ export function generateProcessoNegocioPDF(
   const histFontSize = 9;
   const histValueW = CONTENT_WIDTH - histLabelW;
   const exigidos = processo.apreciacao || [];
-  const histLinhas = [
+  // Endereço da consulta digital, para tornar a linha da ata clicável (abre a ata após login).
+  const ritoOrigin =
+    typeof window !== "undefined" && window.location
+      ? window.location.origin
+      : "";
+  const histLinhas: Array<{
+    label: string;
+    valor: string;
+    ataUrl?: string;
+  }> = [
     {
       label: "Responsável",
       valor:
@@ -1046,11 +1055,17 @@ export function generateProcessoNegocioPDF(
     ...exigidos.map((comite) => {
       const aprov = aprovacaoDoComite(processo, comite);
       const nome = COMITES_APROVACAO[comite] || comite;
+      // Ata aprovada + código disponível → o valor vira link para abrir o PDF da ata (com login).
+      const ataUrl =
+        aprov && processo.codigo_validacao
+          ? `${ritoOrigin}/validar-processo?codigo=${processo.codigo_validacao}&ata=${encodeURIComponent(comite)}`
+          : undefined;
       return {
         label: nome,
         valor: aprov
           ? `Aprovado — Ata ${comite}${aprov.em ? ` - ${formatDate(aprov.em)}` : ""}`
           : "Pendente",
+        ataUrl,
       };
     }),
   ];
@@ -1088,8 +1103,17 @@ export function generateProcessoNegocioPDF(
       y,
       histValueW,
       histRowH,
-      { fontSize: histFontSize },
+      {
+        fontSize: histFontSize,
+        color: linha.ataUrl ? [37, 99, 235] : undefined,
+      },
     );
+    // Célula da ata clicável: abre o PDF da ata (via página de validação, com login).
+    if (linha.ataUrl) {
+      doc.link(MARGIN_LEFT + histLabelW, y, histValueW, histRowH, {
+        url: linha.ataUrl,
+      });
+    }
     y += histRowH;
   }
 
