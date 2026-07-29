@@ -881,6 +881,7 @@ export function ProcessoFormDialog({
             onChanged={(next) => onProcessoChanged?.(next)}
             onEditar={() => setEditando(true)}
             onFechar={() => onOpenChange(false)}
+            validacao={validacao}
           />
         ) : null}
       </DialogContent>
