@@ -653,17 +653,19 @@ public class ProcessosNegocioService {
                 ? ((Number) current.get(0).get("ciclos_homologados")).intValue() : 0;
 
         // Regra de Revisão/Versão numa homologação:
-        //  - 1ª homologação (ciclos == 0): Versão e Revisão ficam como foram informadas (v1, rev0).
-        //  - ciclo de revisão (ciclos >= 1): a Revisão SEMPRE +1; a Versão só +1 (e a Data da Versão
-        //    só atualiza para hoje) se algum campo foi editado no ciclo (revisao_editada).
+        //  - 1ª homologação (ciclos == 0): Versão e Revisão ficam como foram informadas (v1, rev0);
+        //    a Data da Versão é carimbada por stampK1IfFirst (respeitando valor manual).
+        //  - ciclo de revisão (ciclos >= 1): a Revisão SEMPRE +1; a Data da Versão SEMPRE vira hoje
+        //    (assim a próxima revisão = 1 ano após esta revisão); a Versão só +1 se algum campo foi
+        //    editado no ciclo (revisao_editada).
         String novaVersao = versaoAtual;
         String novaRevisao = revisaoAtual;
         boolean atualizaPeriodo = false;
         if (ciclos >= 1) {
             novaRevisao = String.valueOf(parseIntSafe(revisaoAtual.split("\\.")[0], 0) + 1);
+            atualizaPeriodo = true;
             if (editadoNoCiclo) {
                 novaVersao = String.valueOf(parseIntSafe(versaoAtual.split("\\.")[0], 1) + 1);
-                atualizaPeriodo = true;
             }
         }
 
