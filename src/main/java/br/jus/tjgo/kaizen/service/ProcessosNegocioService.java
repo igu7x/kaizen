@@ -187,6 +187,36 @@ public class ProcessosNegocioService {
     }
 
     /**
+     * Bytes do PDF da ata de aprovação de um comitê, ou {@code null} se o processo não estiver
+     * plenamente validado, o comitê não tiver ata ou os dados forem inválidos. Aceita tanto data
+     * URL ({@code data:application/pdf;base64,...}) quanto base64 puro.
+     */
+    public byte[] getAtaPdf(long id, String comite) {
+        if (comite == null) {
+            return null;
+        }
+        Map<String, Object> proc = findByIdIfFinal(id);
+        if (proc == null) {
+            return null;
+        }
+        for (Map<String, Object> a : parseAprovacoes(proc.get("aprovacoes"))) {
+            if (comite.equals(String.valueOf(a.get("comite"))) && a.get("data") != null) {
+                String s = String.valueOf(a.get("data"));
+                int comma = s.indexOf(',');
+                if (s.startsWith("data:") && comma >= 0) {
+                    s = s.substring(comma + 1);
+                }
+                try {
+                    return java.util.Base64.getDecoder().decode(s);
+                } catch (IllegalArgumentException e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Anexa/atualiza a aprovação de UM comitê (CGTIC/CGovTIC) na lista {@code aprovacoes}.
      * Cada comitê tem no máximo uma entrada (re-anexar substitui). Restrito a superadmin no controller.
      */
@@ -314,8 +344,10 @@ public class ProcessosNegocioService {
         }
         if (proc.get("k1_gerado_em") == null && isK1Server(proc)) {
             String codigo = gerarCodigoProcesso(str(proc.get("diretoria")));
+            // Respeita a Data da Versão informada manualmente; só carimba hoje quando ausente.
             List<Map<String, Object>> rows = jdbc.queryForList(
-                    "UPDATE processos_negocio SET periodo = CURRENT_DATE, k1_gerado_em = CURRENT_DATE, " +
+                    "UPDATE processos_negocio SET periodo = COALESCE(NULLIF(btrim(periodo), ''), CURRENT_DATE::text), " +
+                            "k1_gerado_em = CURRENT_DATE, " +
                             "codigo = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE RETURNING *",
                     codigo, id);
             if (!rows.isEmpty()) {
@@ -428,6 +460,9 @@ public class ProcessosNegocioService {
         // Sem a chave, a versão gerida pelo ciclo de homologação é preservada.
         pushScalar(data, fields, values, "versao");
 
+        // Houve edição de conteúdo? (usado para marcar o ciclo de revisão como editado — ver abaixo)
+        boolean editouConteudo = !fields.isEmpty();
+
         // Editar um processo VIGENTE (validado_final) invalida a homologação: volta o status para
         // 'em_elaboracao' e limpa as marcas de validação/recusa (mesmo efeito do iniciarRevisao).
         // A versão volta a incrementar quando o processo for re-homologado (validarFinal). Demais
@@ -463,6 +498,12 @@ public class ProcessosNegocioService {
             values.add(userId);
             fields.add("edicao_concluida_por_nome = ?");
             values.add(userName);
+        }
+
+        // Edição de conteúdo marca o ciclo de revisão como editado: na homologação, além da
+        // Revisão (+1 sempre), a Versão (+1) e a Data da Versão (hoje) também são atualizadas.
+        if (editouConteudo) {
+            fields.add("revisao_editada = TRUE");
         }
 
         if (fields.isEmpty()) {
@@ -507,9 +548,11 @@ public class ProcessosNegocioService {
      * permanece intacto. Só atua sobre processos em 'validado_final'.
      */
     public Map<String, Object> iniciarRevisao(long id, long userId) {
+        // Início do ciclo de revisão: zera a flag de edição. Se nada for editado até a homologação,
+        // apenas a Revisão incrementa; se algo for editado, a Versão também incrementa.
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "UPDATE processos_negocio " +
-                        "SET status = 'em_elaboracao', updated_at = CURRENT_TIMESTAMP, updated_by = ?, " +
+                        "SET status = 'em_elaboracao', revisao_editada = FALSE, updated_at = CURRENT_TIMESTAMP, updated_by = ?, " +
                         "    recusado_em = NULL, recusado_por_user_id = NULL, recusado_por_nome = NULL, " +
                         "    recusado_camada = NULL, recusa_motivo = NULL " +
                         "WHERE id = ? AND is_deleted = FALSE AND status = 'validado_final' " +
@@ -598,32 +641,44 @@ public class ProcessosNegocioService {
     @Transactional
     public Map<String, Object> validarFinal(long id, long userId, String userName) {
         List<Map<String, Object>> current = jdbc.queryForList(
-                "SELECT versao, ciclos_homologados FROM processos_negocio " +
+                "SELECT versao, revisao, revisao_editada, ciclos_homologados FROM processos_negocio " +
                         "WHERE id = ? AND is_deleted = FALSE AND status = 'validado_diretoria'", id);
         if (current.isEmpty()) {
             return null;
         }
         String versaoAtual = current.get(0).get("versao") != null ? str(current.get(0).get("versao")) : "1";
+        String revisaoAtual = current.get(0).get("revisao") != null ? str(current.get(0).get("revisao")) : "0";
+        boolean editadoNoCiclo = Boolean.TRUE.equals(current.get(0).get("revisao_editada"));
         int ciclos = current.get(0).get("ciclos_homologados") != null
                 ? ((Number) current.get(0).get("ciclos_homologados")).intValue() : 0;
 
-        // A versão é um inteiro e incrementa de 1 em 1 a cada nova homologação (1 → 2 → ... → 9 → 10).
-        // O parse do split aceita versões legadas no formato "1.0" (usa apenas a parte inteira).
+        // Regra de Revisão/Versão numa homologação:
+        //  - 1ª homologação (ciclos == 0): Versão e Revisão ficam como foram informadas (v1, rev0);
+        //    a Data da Versão é carimbada por stampK1IfFirst (respeitando valor manual).
+        //  - ciclo de revisão (ciclos >= 1): a Revisão SEMPRE +1; a Data da Versão SEMPRE vira hoje
+        //    (assim a próxima revisão = 1 ano após esta revisão); a Versão só +1 se algum campo foi
+        //    editado no ciclo (revisao_editada).
         String novaVersao = versaoAtual;
+        String novaRevisao = revisaoAtual;
+        boolean atualizaPeriodo = false;
         if (ciclos >= 1) {
-            int atual = parseIntSafe(versaoAtual.split("\\.")[0], 1);
-            novaVersao = String.valueOf(atual + 1);
+            novaRevisao = String.valueOf(parseIntSafe(revisaoAtual.split("\\.")[0], 0) + 1);
+            atualizaPeriodo = true;
+            if (editadoNoCiclo) {
+                novaVersao = String.valueOf(parseIntSafe(versaoAtual.split("\\.")[0], 1) + 1);
+            }
         }
 
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "UPDATE processos_negocio " +
                         "SET status = 'validado_final', validado_final_user_id = ?, validado_final_nome = ?, " +
-                        "    validado_final_em = CURRENT_TIMESTAMP, versao = ?, " +
+                        "    validado_final_em = CURRENT_TIMESTAMP, versao = ?, revisao = ?, revisao_editada = FALSE, " +
+                        (atualizaPeriodo ? "    periodo = CURRENT_DATE::text, " : "") +
                         "    ciclos_homologados = ciclos_homologados + 1, " +
                         "    updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
                         "WHERE id = ? AND is_deleted = FALSE AND status = 'validado_diretoria' " +
                         "RETURNING *",
-                userId, userName, novaVersao, userId, id);
+                userId, userName, novaVersao, novaRevisao, userId, id);
         if (rows.isEmpty()) {
             return null;
         }
