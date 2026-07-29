@@ -18,8 +18,13 @@ trigger: always_on
 - **Arquitetura:** Camadas estritas: Controller -> Service -> Repository. Para lógicas de domínio complexas, use Service Objects focados em uma única responsabilidade. Retornos de operações de negócio devem usar tipos encapsulados de resultado (ex: um record `Result<T>` ou uso de `sealed interfaces` para representar Success/Failure), evitando lançar exceções para fluxo de controle comum.
 - **Armazenamento de Arquivos (Binários):** Arquivos físicos, anexos e quaisquer dados binários NUNCA devem ser persistidos no banco de dados relacional ou no file system local da aplicação. Utilize estritamente o serviço de Object Storage remoto (S3-compatible / ECS). O banco de dados (PostgreSQL) deve armazenar apenas os metadados do arquivo (como ID de referência, nome original, content type e tamanho) para garantir uma arquitetura *stateless* e escalável.
 
-### IMPORTANTE - PARA REFATORAÇÃO CONTÍNUA
-- **REGRA CRÍTICA DE BANCO DE DADOS:** NUNCA utilize siglas (em formato string/texto) ou nomes de áreas como chaves estrangeiras para referenciar as áreas de `cadastros_areas` e unidades de `cadastros_unidades` (ex: `diretoria`, `diretoria_orgao`, `directorate`, `directorate_code`, `area_demandante`, `area_sigla`, `unidade_orgao`, `unidade_sigla`, etc). Você DEVE UTILIZAR ESTRITAMENTE os IDs relacionais numéricos: `cadastros_areas_id` e `cadastros_unidades_id`. Se houverem ocorrências disso no código que está sendo feito, refatore a estrutura completa para comportar o formato pedido. Não crie colunas desnecessárias para guardar informações que já existem nas tabelas relacionadas. *(Nota: O filtro macro de conteúdo do sistema é ditado pela tabela `ambientes`, que é externo a `cadastros_areas`. O código desse ambiente costuma ser tratado como `dominio` (ex: "SGJT", "CGJ"). Não confunda o `dominio` macro com as hierarquias de área ou unidade)*.
+### REGRA CRÍTICA - CHAVES ESTRANGEIRAS E MODELAGEM (REFATORAÇÃO CONTÍNUA)
+
+1. **Uso estrito de IDs Numéricos:** Toda referência a `cadastros_areas` e `cadastros_unidades` **DEVE** utilizar exclusivamente os IDs numéricos `cadastros_areas_id` e `cadastros_unidades_id`.
+2. **Proibido usar texto/siglas como FK:** É **estritamente proibido** criar ou usar chaves em texto/sigla (ex: `diretoria`, `area_sigla`, `unidade_sigla`, `directorate_code`).
+3. **Refatoração Obrigatória:** Refatore imediatamente qualquer código/schema existente que viole essa regra e informe ao usuário.
+4. **Sem Colunas Duplicadas/Redundantes:** Nunca crie colunas para guardar informações que já existem nas tabelas relacionadas (`cadastros_areas` e `cadastros_unidades`).
+5. **Atenção ao `dominio`:** A tabela `ambientes` define o filtro macro via coluna `dominio` (ex: "SGJT", "CGJ"). Este conceito é **externo** e não deve ser confundido com a hierarquia de `cadastros_areas` ou `cadastros_unidades`.
 
 ## 2. Chain of Thought Workflow
 
