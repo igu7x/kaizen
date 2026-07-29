@@ -273,10 +273,19 @@ export function ProcessoAcoesFooter({
     handleAcao("Validação", () => validacao.exec(processo.id));
   };
 
-  const handleIniciarRevisao = () =>
-    handleAcao("Início da revisão", () =>
-      processosNegocioApi.iniciarRevisao(processo.id),
-    );
+  const handleIniciarRevisao = async () => {
+    setBusy("Início da revisão");
+    try {
+      const next = await processosNegocioApi.iniciarRevisao(processo.id);
+      onChanged(next);
+      // Já entra no modo de edição para revisar o processo.
+      onEditar();
+    } catch {
+      /* erro já tratado pelo apiClient */
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const handleRecusarConfirm = async () => {
     if (!recusaMotivo.trim()) {
