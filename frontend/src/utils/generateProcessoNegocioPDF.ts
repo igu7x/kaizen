@@ -668,7 +668,9 @@ export function generateProcessoNegocioPDF(
   diretoriaNome?: string,
   // Aba pré-aberta no gesto do clique (evita bloqueio de popup quando há await antes).
   targetWindow?: Window | null,
-) {
+  // Só constrói e retorna a URL do blob, sem abrir aba (para preview embutido em iframe).
+  options?: { suppressOpen?: boolean },
+): string {
   const doc = new jsPDF("p", "mm", "a4");
   let y = 15;
 
@@ -1109,7 +1111,7 @@ export function generateProcessoNegocioPDF(
     const url = `${origin}/validar-processo`;
     const codigo = processo.codigo_validacao;
 
-    const boxH = 24;
+    const boxH = 20;
     const padX = 5;
     y = checkPageBreak(doc, y + 5, boxH + 4);
 
@@ -1122,7 +1124,7 @@ export function generateProcessoNegocioPDF(
     doc.rect(MARGIN_LEFT, y + 1, 1.6, boxH - 2, "F");
 
     // Chip do código, em evidência à direita.
-    const chipW = 55;
+    const chipW = 58;
     const chipH = 16;
     const chipX = MARGIN_LEFT + CONTENT_WIDTH - chipW - padX;
     const chipY = y + (boxH - chipH) / 2;
@@ -1131,29 +1133,24 @@ export function generateProcessoNegocioPDF(
     doc.setFontSize(6);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text("CÓDIGO DE VALIDAÇÃO", chipX + chipW / 2, chipY + 5, {
+    doc.text("CÓDIGO DE VALIDAÇÃO", chipX + chipW / 2, chipY + 5.5, {
       align: "center",
     });
-    doc.setFontSize(13);
+    doc.setFontSize(13.5);
     doc.text(codigo, chipX + chipW / 2, chipY + 12, { align: "center" });
 
-    // Coluna de texto à esquerda.
+    // Coluna de texto à esquerda (centralizada verticalmente na caixa).
     const tx = MARGIN_LEFT + padX;
-    let ty = y + 6;
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...SUBTITLE);
-    doc.text("VALIDAÇÃO DE AUTENTICIDADE", tx, ty);
-    ty += 5;
-    doc.setFontSize(8.5);
+    let ty = y + 7;
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...TEXT_DARK);
     doc.text("Tribunal de Justiça do Estado de Goiás", tx, ty);
-    ty += 4.5;
+    ty += 4.8;
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Para validar este documento, informe o código no endereço:", tx, ty);
-    ty += 4.5;
+    ty += 4.8;
     doc.setTextColor(37, 99, 235); // azul de link
     doc.textWithLink(url, tx, ty, { url });
 
@@ -1173,10 +1170,15 @@ export function generateProcessoNegocioPDF(
     );
   }
 
-  const blobUrl = doc.output("bloburl");
+  const blobUrl = doc.output("bloburl") as unknown as string;
+  if (options?.suppressOpen) {
+    targetWindow?.close();
+    return blobUrl;
+  }
   if (targetWindow) {
-    targetWindow.location.href = blobUrl as unknown as string;
+    targetWindow.location.href = blobUrl;
   } else {
     window.open(blobUrl, "_blank");
   }
+  return blobUrl;
 }
