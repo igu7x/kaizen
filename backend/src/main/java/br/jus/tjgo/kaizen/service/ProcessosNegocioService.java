@@ -187,6 +187,36 @@ public class ProcessosNegocioService {
     }
 
     /**
+     * Bytes do PDF da ata de aprovação de um comitê, ou {@code null} se o processo não estiver
+     * plenamente validado, o comitê não tiver ata ou os dados forem inválidos. Aceita tanto data
+     * URL ({@code data:application/pdf;base64,...}) quanto base64 puro.
+     */
+    public byte[] getAtaPdf(long id, String comite) {
+        if (comite == null) {
+            return null;
+        }
+        Map<String, Object> proc = findByIdIfFinal(id);
+        if (proc == null) {
+            return null;
+        }
+        for (Map<String, Object> a : parseAprovacoes(proc.get("aprovacoes"))) {
+            if (comite.equals(String.valueOf(a.get("comite"))) && a.get("data") != null) {
+                String s = String.valueOf(a.get("data"));
+                int comma = s.indexOf(',');
+                if (s.startsWith("data:") && comma >= 0) {
+                    s = s.substring(comma + 1);
+                }
+                try {
+                    return java.util.Base64.getDecoder().decode(s);
+                } catch (IllegalArgumentException e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Anexa/atualiza a aprovação de UM comitê (CGTIC/CGovTIC) na lista {@code aprovacoes}.
      * Cada comitê tem no máximo uma entrada (re-anexar substitui). Restrito a superadmin no controller.
      */

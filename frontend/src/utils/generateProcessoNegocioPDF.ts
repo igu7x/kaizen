@@ -10,6 +10,7 @@ import {
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
+import { API_BASE_URL } from "../services/apiClient";
 
 // ============================================================
 // Paleta institucional revisada (mockup TJGO / Secretaria de
@@ -1019,11 +1020,12 @@ export function generateProcessoNegocioPDF(
   const histFontSize = 9;
   const histValueW = CONTENT_WIDTH - histLabelW;
   const exigidos = processo.apreciacao || [];
-  // Endereço da consulta digital, para tornar a linha da ata clicável (abre a ata após login).
-  const ritoOrigin =
-    typeof window !== "undefined" && window.location
+  // Base da API (host pode diferir do frontend) para o link direto ao PDF da ata.
+  const apiBase =
+    API_BASE_URL ||
+    (typeof window !== "undefined" && window.location
       ? window.location.origin
-      : "";
+      : "");
   const histLinhas: Array<{
     label: string;
     valor: string;
@@ -1055,10 +1057,10 @@ export function generateProcessoNegocioPDF(
     ...exigidos.map((comite) => {
       const aprov = aprovacaoDoComite(processo, comite);
       const nome = COMITES_APROVACAO[comite] || comite;
-      // Ata aprovada + código disponível → o valor vira link para abrir o PDF da ata (com login).
+      // Ata aprovada + código disponível → o valor vira link direto para o PDF da ata.
       const ataUrl =
         aprov && processo.codigo_validacao
-          ? `${ritoOrigin}/validar-processo?codigo=${processo.codigo_validacao}&ata=${encodeURIComponent(comite)}`
+          ? `${apiBase}/api/processos-negocio/ata/${processo.codigo_validacao}/${encodeURIComponent(comite)}`
           : undefined;
       return {
         label: nome,

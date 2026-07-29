@@ -37,21 +37,7 @@ export default function ValidarProcesso() {
   const [processo, setProcesso] = useState<ProcessoNegocio | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [previewTitulo, setPreviewTitulo] = useState("Documento do processo");
   const pdfUrlRef = useRef<string | null>(null);
-
-  // Embute um PDF já pronto (base64/data URL) — usado para a ata do comitê.
-  const embutirPdf = async (dataUrlOuBase64: string, titulo: string) => {
-    const dataUrl = dataUrlOuBase64.startsWith("data:")
-      ? dataUrlOuBase64
-      : `data:application/pdf;base64,${dataUrlOuBase64}`;
-    const blob = await (await fetch(dataUrl)).blob();
-    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
-    const url = URL.createObjectURL(blob);
-    pdfUrlRef.current = url;
-    setPdfUrl(url);
-    setPreviewTitulo(titulo);
-  };
 
   // Gera o PDF e devolve a URL do blob para o preview embutido (sem abrir aba). Revoga a URL
   // anterior para não vazar memória.
@@ -70,7 +56,6 @@ export default function ValidarProcesso() {
     });
     pdfUrlRef.current = url;
     setPdfUrl(url);
-    setPreviewTitulo("Documento do processo");
   };
 
   const validar = async (cod: string) => {
@@ -86,16 +71,7 @@ export default function ValidarProcesso() {
     try {
       const p = await processosNegocioApi.validarPorCodigo(limpo);
       setProcesso(p);
-      // Se o link pedir uma ata específica (?ata=SIGLA), embute o PDF da ata; senão o do processo.
-      const ataComite = searchParams.get("ata");
-      const aprov = ataComite
-        ? (p.aprovacoes || []).find((a) => a.comite === ataComite)
-        : undefined;
-      if (aprov?.data) {
-        await embutirPdf(aprov.data, `Ata ${ataComite}`);
-      } else {
-        await gerarPreview(p);
-      }
+      await gerarPreview(p);
     } catch {
       setErro(
         "Nenhum documento validado foi encontrado para este código. Confira os dígitos e tente novamente.",
@@ -194,7 +170,7 @@ export default function ValidarProcesso() {
           <div className="mt-6 max-w-3xl">
             <div className="flex items-center justify-between gap-3 mb-2">
               <h2 className="text-sm font-bold text-slate-700">
-                {previewTitulo}
+                Documento do processo
               </h2>
               <a
                 href={pdfUrl}

@@ -10,7 +10,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -90,6 +92,25 @@ public class ProcessosNegocioController {
         }
         processo.put("codigo_validacao", CodigoValidacao.fromId(id));
         return ResponseEntity.ok(processo);
+    }
+
+    // GET /api/processos-negocio/ata/:codigo/:comite — abre o PDF da ata do comitê diretamente
+    // (inline), a partir do código impresso no PDF. Capability-based: precisa do código válido e do
+    // processo plenamente validado; não expõe listagem nem enumera ids.
+    @GetMapping("/ata/{codigo}/{comite}")
+    public ResponseEntity<byte[]> ata(@PathVariable String codigo, @PathVariable String comite) {
+        Long id = CodigoValidacao.toId(codigo);
+        if (id == null) {
+            return ResponseEntity.notFound().build();
+        }
+        byte[] pdf = service.getAtaPdf(id, comite);
+        if (pdf == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"ata-" + comite + ".pdf\"")
+                .body(pdf);
     }
 
     // POST /api/processos-negocio — Gestor do Escritório (superadmin) ou Diretor/Sub-diretor de macroárea cria do zero
