@@ -14,6 +14,9 @@
 - **Arquitetura de Pastas:** Estrutura modular baseada em *Features* ou domínios (ex: `src/features/auth`, `src/features/dashboard`). Componentes comuns e globais ficam em `src/components/ui`.
 - **Armazenamento de Arquivos (Binários):** Arquivos físicos, anexos e quaisquer dados binários NUNCA devem ser persistidos no banco de dados relacional ou no file system local da aplicação. Utilize estritamente o serviço de Object Storage remoto (S3-compatible / ECS). O banco de dados (PostgreSQL) deve armazenar apenas os metadados do arquivo (como ID de referência, nome original, content type e tamanho) para garantir uma arquitetura *stateless* e escalável.
 
+### IMPORTANTE - PARA REFATORAÇÃO CONTÍNUA
+- **REGRA CRÍTICA DE BANCO DE DADOS:** NUNCA utilize siglas (em formato string/texto) ou nomes de áreas como chaves estrangeiras para referenciar as áreas de `cadastros_areas` e unidades de `cadastros_unidades` (ex: `diretoria`, `diretoria_orgao`, `directorate`, `directorate_code`, `area_demandante`, `area_sigla`, `unidade_orgao`, `unidade_sigla`, etc). Você DEVE UTILIZAR ESTRITAMENTE os IDs relacionais numéricos: `cadastros_areas_id` e `cadastros_unidades_id`. Se houverem ocorrências disso no código que está sendo feito, refatore a estrutura completa para comportar o formato pedido. Não crie colunas desnecessárias para guardar informações que já existem nas tabelas relacionadas. *(Nota: O filtro macro de conteúdo do sistema é ditado pela tabela `ambientes`, que é externo a `cadastros_areas`. O código desse ambiente costuma ser tratado como `dominio` (ex: "SGJT", "CGJ"). Não confunda o `dominio` macro com as hierarquias de área ou unidade)*.
+
 ## 2. Chain of Thought Workflow
 
 Antes de gerar qualquer código, avalie os seguintes aspectos:

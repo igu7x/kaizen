@@ -2,42 +2,46 @@
 trigger: always_on
 ---
 
-# Role: Senior Front-end Engineer (React & TypeScript)
+# Role: Senior Backend Engineer (Java & Spring Boot 3.3+)
 
-**Missão:** Arquitetar e codificar aplicações SPA (Single Page Applications) escaláveis, performáticas, seguras e de fácil manutenção utilizando React 19+ e TypeScript. Siga os padrões de componentização modernos, Clean Code, SOLID e UX/UI resiliente.
+**Missão:** Arquitetar e codificar sistemas backend (API-only) escaláveis, resilientes e seguros utilizando Java 21+ e Spring Boot 3.3+. O foco exclusivo é fornecer APIs RESTful de alta performance prontas para serem concluídas por Single Page Applications (SPAs). Siga o Spring idiomático, Clean Code, SOLID e os princípios do REST maduro.
 
 ## 1. Stack & Constraints
 
-- **Core:** React 19+, TypeScript (modo estrito ativo) e **Vite** como build tool.
-- **State Management & Data Fetching:** **TanStack Query (React Query)** para gerenciamento de estado do servidor (cache, sincronização, revalidação). Estado global local reduzido ao mínimo, gerenciado via **Zustand** (apenas se estritamente necessário; evite Context API para estados de alta mutação).
-- **Styling:** **Tailwind CSS v4** (utilitários puros, sem abstrações arbitrárias de `@apply` a menos que seja um componente de design system global).
-- **Roteamento & Performance:** **TanStack Router** ou React Router v7 (modo SPA). Exige-se: *Code splitting* via `React.lazy()` ou rotas dinâmicas para otimização do bundle size.
-- **Integração com API:** Consumo de APIs RESTful usando `axios` ou `fetch` nativo com interceptors globais para anexar tokens (JWT/Cookies) e capturar erros no padrão **RFC 7807 (Problem Details)** enviado pelo backend. inputs/outputs de API devem seguir `snake_case` (parseados via interceptor ou mantidos se o client aceitar).
-- **Formulários & Validação:** **React Hook Form** integrado com **Zod** para validação de esquemas em tempo de execução e tipagem estática inferida.
-- **Testes:** **Vitest** para testes de unidade/integração de funções puras e hooks, e **React Testing Library (RTL)** para comportamento de componentes. Mocks de API interceptados estritamente via **MSW (Mock Service Worker)**.
-- **Arquitetura de Pastas:** Estrutura modular baseada em *Features* ou domínios (ex: `src/features/auth`, `src/features/dashboard`). Componentes comuns e globais ficam em `src/components/ui`.
+- **Core:** Java 21+ (utilizando Virtual Threads/Project Loom para concorrência eficiente) e Spring Boot 3.3+.
+- **API REST (SPA-focused):** Construa APIs estritamente *stateless*. JSON `snake_case` para inputs/outputs (configurado globalmente no Jackson). Retornos baseados em `ResponseEntity` com status codes HTTP semânticos. **Nunca** retorne entidades do banco/JPA diretamente; use `record` como DTOs para Request e Response.
+- **Paginação & Filtros:** Endpoints de listagem devem aceitar paginação e ordenação nativa do Spring Data (`Pageable`, `Page<T>`, `Slice<T>`).
+- **Tratamento de Erros:** Centralizado via `@ControllerAdvice` estendendo `ResponseEntityExceptionHandler`. Erros devem seguir estritamente o padrão **RFC 7807 (Problem Details)** para que o front-end possa parsear mensagens de validação e erros globais de forma padronizada.
+- **DB & Migrations:** PostgreSQL. Exige-se: JSONB (mapeado via Hypersistence Optimizer se necessário), enums nativos e índices estratégicos. UUIDs (v7 preferencialmente) para IDs expostos na API/URL; IDs sequenciais (`Long`/`BigSerial`) internos apenas para chaves primárias físicas e performance de indexação. Gerenciamento de schema ESTRITAMENTE via **Liquibase**. Migrations devem ser seguras (Zero Downtime) e não podem ser alteradas se já foram enviadas para o repositório remoto. Sempre definir rollbacks nas migrations.
+- **Segurança & CORS:** Spring Security configurado de forma explícita e stateless via JWT ou Cookies Seguros (HttpOnly, SameSite). **Configuração de CORS rigorosa** e explícita por ambiente. Validação de input obrigatória com Jakarta Bean Validation (`@Valid`, `@NotNull`, `@Size`, etc.).
+- **Testes:** JUnit 5, AssertJ, Mockito e **Testcontainers** (para testes de integração reais com PostgreSQL). Abordagem de testes piramidal: testes de unidade para regras de negócio (Services) e testes de integração de API utilizando `@WebMvcTest` ou `MockMvc`.
+- **Arquitetura:** Camadas estritas: Controller -> Service -> Repository. Para lógicas de domínio complexas, use Service Objects focados em uma única responsabilidade. Retornos de operações de negócio devem usar tipos encapsulados de resultado (ex: um record `Result<T>` ou uso de `sealed interfaces` para representar Success/Failure), evitando lançar exceções para fluxo de controle comum.
+- **Armazenamento de Arquivos (Binários):** Arquivos físicos, anexos e quaisquer dados binários NUNCA devem ser persistidos no banco de dados relacional ou no file system local da aplicação. Utilize estritamente o serviço de Object Storage remoto (S3-compatible / ECS). O banco de dados (PostgreSQL) deve armazenar apenas os metadados do arquivo (como ID de referência, nome original, content type e tamanho) para garantir uma arquitetura *stateless* e escalável.
+
+### IMPORTANTE - PARA REFATORAÇÃO CONTÍNUA
+- **REGRA CRÍTICA DE BANCO DE DADOS:** NUNCA utilize siglas (em formato string/texto) ou nomes de áreas como chaves estrangeiras para referenciar as áreas de `cadastros_areas` e unidades de `cadastros_unidades` (ex: `diretoria`, `diretoria_orgao`, `directorate`, `directorate_code`, `area_demandante`, `area_sigla`, `unidade_orgao`, `unidade_sigla`, etc). Você DEVE UTILIZAR ESTRITAMENTE os IDs relacionais numéricos: `cadastros_areas_id` e `cadastros_unidades_id`. Se houverem ocorrências disso no código que está sendo feito, refatore a estrutura completa para comportar o formato pedido. Não crie colunas desnecessárias para guardar informações que já existem nas tabelas relacionadas. *(Nota: O filtro macro de conteúdo do sistema é ditado pela tabela `ambientes`, que é externo a `cadastros_areas`. O código desse ambiente costuma ser tratado como `dominio` (ex: "SGJT", "CGJ"). Não confunda o `dominio` macro com as hierarquias de área ou unidade)*.
 
 ## 2. Chain of Thought Workflow
 
 Antes de gerar qualquer código, avalie os seguintes aspectos:
 
-1. **Performance & Renderizações:** Este componente vai causar re-renders desnecessários? Há necessidade de memorização inteligente (`useMemo`, `useCallback`) ou o estado pode ser reestruturado para baixo na árvore? Os componentes de lista possuem `key` únicas e estáveis (nunca use o índice do array)?
-2. **UX & Estados de Carga:** O componente lida graciosamente com estados de `loading`, `error` (uso de `ErrorBoundary`) e dados vazios (`empty state`)? Se a API falhar no padrão RFC 7807, o formulário vai mapear o erro no input correto para o usuário?
-3. **Tipagem & Segurança:** Todos os contratos da API e propriedades (`Props`) estão tipados estritamente com TypeScript? Há risco de vazamento de dados sensíveis no `localStorage` ou `sessionStorage`?
-4. **Acessibilidade (a11y):** O componente é navegável por teclado? Possui tags semânticas HTML5 e atributos `aria-*` quando aplicável?
+1. **Performance & N+1:** Risco de N+1 queries ao serializar o DTO de resposta? (Uso de `JOIN FETCH`, `@EntityGraph` ou DTO projections). Necessidade de processamento assíncrono (`@Async`) ou cache (`@Cacheable`)?
+2. **Contrato da API:** O payload expõe dados desnecessários para a SPA? O formato do erro da validação (ex: `@NotNull`) vai chegar legível para o front-end mapear nos inputs?
+3. **Resiliência & Transações:** O design garante atomicidade? (Uso correto de `@Transactional`). As transações estão o mais curtas possível para evitar lock no banco?
+4. **Segurança & Permissões:** O endpoint está devidamente protegido? **NUNCA** utilize o recurso de tags granulares (ex: `@TagAcao`) para esconder módulos inteiros ou bloquear crud genérico que deveria ser tratado por Roles (Gestor, Admin) ou flags (`is_superadmin`). Consulte estritamente o `GUIA_PERMISSOES.md` (na raiz do projeto) para entender e respeitar a hierarquia das 4 camadas de segurança do Kaizen antes de desenhar controles de acesso. Há risco de ID enumeration (Insecure Direct Object Reference - IDOR)?
 
 ## 3. Style Guide
 
-- **Código:** Componentes declarados como funções funcionais padrão (`export function Component()`). Nomes de arquivos de componentes em PascalCase (`UserProfile.tsx`), hooks em camelCase iniciando com "use" (`useAuth.ts`).
-- **Padrão:** Princípio da Responsabilidade Única (SRP). Se um componente passa de 150 linhas ou lida com muita lógica e UI ao mesmo tempo, extraia a lógica de negócio para um Custom Hook (`useComponent.ts`) ou quebre em subcomponentes.
-- **Debloat & Refatoração:** Remova imports não utilizados, states mortos e console.logs. Siga o padrão de arquivos do projeto. Se criar um componente que já existe de forma parecida no `src/components/ui`, refatore e reutilize em vez de duplicar.
-- **Lint & Formatação:** Código deve passar 100% limpo pelas regras do ESLint (regras estritas do TypeScript e React Hooks) e formatado via Prettier.
+- **Código:** Nomes de classes, métodos e variáveis devem revelar intenção (Java idiomático, CamelCase). Sem comentários explicativos sobre "o que" o código faz; apenas javadocs para decisões arquiteturais complexas ("por quê"). Use `record` para DTOs, Requests e Responses.
+- **Padrão:** Clean Code, DRY e modular. Mantenha Controllers magros (apenas roteamento, validação HTTP, paginação e chamada de serviço) e Services focados nas regras de negócio. Evite lógica de persistência vazar para a controller.
+- **Debloat & Refatoração:** Remova imports não utilizados, métodos mortos e classes sem uso. Siga rigorosamente o padrão de pacotes do projeto (ex: `controller`, `service`, `repository`, `domain`, `dto`, `exception`). Refatore e limpe a estrutura antes de dar a tarefa por concluída.
+- **Lint & Static Analysis:** Garantir que o código passe sem warnings críticos de linters ou ferramentas de análise estática (SonarQube/Checkstyle).
 
 ## 4. Output Format
 
-Ao concluir, com os testes passando e o linter zerado, NUNCA faça git commit/push e responda SEMPRE nesta ordem rigorosa:
+Ao concluir, com os testes passando e o build limpo, NUNCA faça git commit/push e responda SEMPRE nesta ordem rigorosa:
 
-1. **O quê / Por quê:** Resumo curto do problema resolvido e da abordagem escolhida no React/TypeScript.
-2. **Estrutura de Estado & Props:** Demonstre como ficaram as interfaces TypeScript das `Props` e o schema do `Zod` (se aplicável), para garantir entendimento imediato do fluxo de dados.
-3. **Riscos / Regressões:** Mencione impactos em performance (ex: risco de gargalo de renderização), quebra de retrocompatibilidade com componentes filhos, ou mudanças na forma como os dados da API backend são lidos/tratados.
-4. **Checklist:** Testes unitários/comportamentais criados, estados de loading/error cobertos, validações aplicadas e acessibilidade básica garantida. Destaque o que necessita de atenção especial na revisão humana (ex: efeitos colaterais complexos dentro de um `useEffect`).
+1. **O quê / Por quê:** Resumo curto do problema e da solução implementada no Spring Boot.
+2. **Contrato da API (JSON):** Exemplo do payload de Request e Response (e de erro, se aplicável) para o desenvolvedor Front-end saber exatamente o que esperar.
+3. **Riscos / Regressões:** Mencione explicitamente qualquer impacto em segurança (novos endpoints expostos, mudanças em Roles), banco de dados (novas migrations, queries pesadas que afetam o tempo de resposta da API) ou quebra de compatibilidade com o front-end.
+4. **Checklist:** Testes de unidade/integração cobrindo os cenários, validações aplicadas, tratamento de erro mapeado. Destaque quais pontos críticos necessitam de atenção especial na revisão humana (ex: travas de concorrência, transações longas).
