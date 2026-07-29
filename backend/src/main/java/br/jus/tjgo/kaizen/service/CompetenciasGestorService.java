@@ -159,18 +159,44 @@ public class CompetenciasGestorService {
         return fallback != null ? str(fallback) : null;
     }
 
+    /**
+     * Macroárea (cadastros_areas.id) do formulário: resolvida pela unidade selecionada
+     * (cadastros_unidades.area_id) e, se não resolver, pela sigla da diretoria. É a coluna que
+     * as listagens usam para filtrar por diretoria.
+     */
+    private Long areaIdDaUnidade(Long unidadeId, String diretoriaSigla) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT area_id FROM cadastros_unidades WHERE id = ? LIMIT 1", unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("area_id") != null) {
+                return asLong(rows.get(0).get("area_id"));
+            }
+        }
+        if (diretoriaSigla != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1", diretoriaSigla);
+            if (!rows.isEmpty()) {
+                return asLong(rows.get(0).get("id"));
+            }
+        }
+        return null;
+    }
+
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipo = data.get("tipo") != null ? str(data.get("tipo")) : "equipe";
         Long unidadeId = asLong(data.get("unidade_id"));
         String diretoria = diretoriaDaUnidade(unidadeId, data.get("diretoria"));
+        // A macroárea (cadastros_areas_id) é a fonte de verdade da diretoria pós-refactor; sem
+        // gravá-la aqui, o formulário some das listagens filtradas por diretoria.
+        Long cadastrosAreasId = areaIdDaUnidade(unidadeId, diretoria);
 
         Map<String, Object> formulario = jdbc.queryForMap(
                 "INSERT INTO competencias_gestor_formularios " +
-                        "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, diretoria, unidade_id, qtd_colaboradores, tipo, status, created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?) RETURNING *",
+                        "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, diretoria, cadastros_areas_id, unidade_id, qtd_colaboradores, tipo, status, created_by, updated_by) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?) RETURNING *",
                 userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), diretoria, unidadeId,
+                str(data.get("email_institucional")), diretoria, cadastrosAreasId, unidadeId,
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, tipo, userId, userId);
         long formularioId = ((Number) formulario.get("id")).longValue();
 
@@ -430,6 +456,20 @@ public class CompetenciasGestorService {
     }
 
     public List<Map<String, Object>> findFormulariosPreenchidos(long userId, String userEmail, String tipo) {
+        // Gestor: a autorização vem de gestor_user_id/subdiretor_user_id (não da tabela
+        // autorizacoes_formulario_competencias, que é do fluxo de "equipe"). Sem este ramo os
+        // formulários de gestor já preenchidos nunca apareciam para edição — some após salvar.
+        if ("gestor".equals(tipo)) {
+            return jdbc.queryForList(
+                    "SELECT cgf.id, cgf.unidade_id, cu.nome as unidade_nome, " +
+                            "       cgf.status, cgf.created_at, cgf.updated_at, " +
+                            "       (SELECT COUNT(*) FROM competencias_gestor_itens i WHERE i.formulario_id = cgf.id) as total_competencias " +
+                            "FROM competencias_gestor_formularios cgf " +
+                            "JOIN cadastros_unidades cu ON cu.id = cgf.unidade_id AND (cu.ativo IS NOT FALSE) " +
+                            "WHERE cgf.tipo = 'gestor' AND cgf.is_deleted = FALSE AND cgf.user_id = ? " +
+                            "ORDER BY cu.nome",
+                    userId);
+        }
         return jdbc.queryForList(
                 "SELECT cgf.id, cgf.unidade_id, cu.nome as unidade_nome, " +
                         "       cgf.status, cgf.created_at, cgf.updated_at, " +
