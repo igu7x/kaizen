@@ -550,9 +550,11 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 4: Versão | Revisão (dois pares label/valor dividindo a coluna direita).
+  // Linha 4: Versão | Revisão (dois pares label/valor dividindo a coluna direita). O rótulo
+  // "Versão:" usa a mesma largura (labelW) do rótulo "Data da Versão:" acima, para que a box de
+  // valor da Versão fique alinhada horizontalmente com a box de valor da Data da Versão.
   const yVerRev = yData + rowH;
-  const verLabelW = 20;
+  const verLabelW = labelW;
   const verValueW = (rightColW - verLabelW * 2) / 2;
   const versaoHeader = String(processo.versao ?? "1").split(".")[0] || "1";
   const revisaoHeader = String(processo.revisao ?? "0").split(".")[0] || "0";
