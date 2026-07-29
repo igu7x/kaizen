@@ -806,7 +806,8 @@ export default function EscritorioProcessos() {
       .filter(
         (p) =>
           isK1(p) &&
-          !revisaoVencida(p) &&
+          // Liberado só quando chega a data prevista de revisão (Data da Versão + 1 ano).
+          revisaoVencida(p) &&
           (ehResponsavelDoProcesso(p) || ehDiretorDoProcesso(p)),
       )
       .sort((a, b) => {
@@ -1292,7 +1293,7 @@ export default function EscritorioProcessos() {
                     className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     title={
                       processosParaRevisar.length === 0
-                        ? "Nenhum processo vigente no prazo sob sua responsabilidade para revisar"
+                        ? "Nenhum processo com revisão prevista para hoje (ou vencida) sob sua responsabilidade"
                         : undefined
                     }
                   >
@@ -1301,7 +1302,7 @@ export default function EscritorioProcessos() {
                     ) : (
                       <RefreshCw className="h-4 w-4 mr-2" />
                     )}
-                    Revisar Processo
+                    Iniciar Revisão
                     {processosParaRevisar.length > 0 && (
                       <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
                         {processosParaRevisar.length}
@@ -1311,8 +1312,8 @@ export default function EscritorioProcessos() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
                   <DropdownMenuLabel className="text-xs font-normal text-slate-500">
-                    Processos vigentes no prazo sob sua responsabilidade —
-                    clique para revisar antecipadamente.
+                    Processos com revisão prevista (hoje ou vencida) sob sua
+                    responsabilidade — clique para iniciar a revisão.
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {processosParaRevisar.map((p) => {

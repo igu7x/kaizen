@@ -424,8 +424,8 @@ function drawCabecalhoInstitucional(
   const rowH = 9;
   const titleH = 16; // título institucional ocupa 2 linhas
 
-  // Coluna esquerda — institucional. Atravessa o título + 2 meta-rows.
-  const leftTotalH = titleH + rowH * 2;
+  // Coluna esquerda — institucional. Atravessa o título + 3 meta-rows (Macro, Data, Versão/Revisão).
+  const leftTotalH = titleH + rowH * 3;
   doc.setFillColor(...WHITE);
   doc.rect(MARGIN_LEFT, y, leftColW, leftTotalH, "F");
   doc.setDrawColor(...BORDER_GRAY);
@@ -550,8 +550,36 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 4: NOME DO PROCESSO (label esquerda + valor centralizado, quebra em 2+ linhas se extenso)
-  const yNome = yData + rowH;
+  // Linha 4: Versão | Revisão (dois pares label/valor dividindo a coluna direita).
+  const yVerRev = yData + rowH;
+  const verLabelW = 20;
+  const verValueW = (rightColW - verLabelW * 2) / 2;
+  const versaoHeader = String(processo.versao ?? "1").split(".")[0] || "1";
+  const revisaoHeader = String(processo.revisao ?? "0").split(".")[0] || "0";
+  let vx = MARGIN_LEFT + leftColW;
+  const cellLabelOpts = {
+    bold: true,
+    fontSize: 9,
+    bg: ACCENT_BG_LIGHT,
+    color: TEXT_DARK,
+    align: "center",
+  } as const;
+  drawTextCell(doc, "Versão:", vx, yVerRev, verLabelW, rowH, cellLabelOpts);
+  vx += verLabelW;
+  drawTextCell(doc, versaoHeader, vx, yVerRev, verValueW, rowH, {
+    fontSize: 9,
+    align: "center",
+  });
+  vx += verValueW;
+  drawTextCell(doc, "Revisão:", vx, yVerRev, verLabelW, rowH, cellLabelOpts);
+  vx += verLabelW;
+  drawTextCell(doc, revisaoHeader, vx, yVerRev, verValueW, rowH, {
+    fontSize: 9,
+    align: "center",
+  });
+
+  // Linha 5: NOME DO PROCESSO (label esquerda + valor centralizado, quebra em 2+ linhas se extenso)
+  const yNome = yVerRev + rowH;
   doc.setFontSize(10);
   doc.setFont("helvetica", "bolditalic");
   const nomeLines = doc.splitTextToSize(
@@ -607,6 +635,7 @@ function drawRodapeInstitucional(
     isProposta && Number.isFinite(versaoNum)
       ? `${versaoNum + 1} (Proposta)`
       : versaoBase;
+  const revisaoValue = String(processo.revisao ?? "0").split(".")[0] || "0";
   const modeloLabel =
     isProposta || isK1(processo)
       ? "K1"
@@ -622,6 +651,7 @@ function drawRodapeInstitucional(
       label: "VERSÃO:",
       value: versaoValue,
     },
+    { label: "REVISÃO:", value: revisaoValue },
     { label: "DATA DA PROPOSTA:", value: formatDate(processo.updated_at) },
   ].map((f) => {
     doc.setFontSize(8);
