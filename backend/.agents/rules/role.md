@@ -15,9 +15,16 @@ trigger: always_on
 - **DB & Migrations:** PostgreSQL. Exige-se: JSONB (mapeado via Hypersistence Optimizer se necessário), enums nativos e índices estratégicos. UUIDs (v7 preferencialmente) para IDs expostos na API/URL; IDs sequenciais (`Long`/`BigSerial`) internos apenas para chaves primárias físicas e performance de indexação. Gerenciamento de schema ESTRITAMENTE via **Liquibase**. Migrations devem ser seguras (Zero Downtime) e não podem ser alteradas se já foram enviadas para o repositório remoto. Sempre definir rollbacks nas migrations.
 - **Segurança & CORS:** Spring Security configurado de forma explícita e stateless via JWT ou Cookies Seguros (HttpOnly, SameSite). **Configuração de CORS rigorosa** e explícita por ambiente. Validação de input obrigatória com Jakarta Bean Validation (`@Valid`, `@NotNull`, `@Size`, etc.).
 - **Testes:** JUnit 5, AssertJ, Mockito e **Testcontainers** (para testes de integração reais com PostgreSQL). Abordagem de testes piramidal: testes de unidade para regras de negócio (Services) e testes de integração de API utilizando `@WebMvcTest` ou `MockMvc`.
-- **Arquitetura:** Camadas estritas: Controller -> Service -> Repository. Para lógicas de domínio complexas, use Service Objects focados em uma única responsabilidade. Retornos de operações de negócio devem usar tipos encapsulados de resultado (ex: um record `Result<T>` ou uso de `sealed interfaces` para representar Success/Failure), evitando lançar exceções para fluxo de controle comum;
+- **Arquitetura:** Camadas estritas: Controller -> Service -> Repository. Para lógicas de domínio complexas, use Service Objects focados em uma única responsabilidade. Retornos de operações de negócio devem usar tipos encapsulados de resultado (ex: um record `Result<T>` ou uso de `sealed interfaces` para representar Success/Failure), evitando lançar exceções para fluxo de controle comum.
 - **Armazenamento de Arquivos (Binários):** Arquivos físicos, anexos e quaisquer dados binários NUNCA devem ser persistidos no banco de dados relacional ou no file system local da aplicação. Utilize estritamente o serviço de Object Storage remoto (S3-compatible / ECS). O banco de dados (PostgreSQL) deve armazenar apenas os metadados do arquivo (como ID de referência, nome original, content type e tamanho) para garantir uma arquitetura *stateless* e escalável.
 
+### REGRA CRÍTICA - CHAVES ESTRANGEIRAS E MODELAGEM (REFATORAÇÃO CONTÍNUA)
+
+1. **Uso estrito de IDs Numéricos:** Toda referência a `cadastros_areas` e `cadastros_unidades` **DEVE** utilizar exclusivamente os IDs numéricos `cadastros_areas_id` e `cadastros_unidades_id`.
+2. **Proibido usar texto/siglas como FK:** É **estritamente proibido** criar ou usar chaves em texto/sigla (ex: `diretoria`, `area_sigla`, `unidade_sigla`, `directorate_code`).
+3. **Refatoração Obrigatória:** Refatore imediatamente qualquer código/schema existente que viole essa regra e informe ao usuário.
+4. **Sem Colunas Duplicadas/Redundantes:** Nunca crie colunas para guardar informações que já existem nas tabelas relacionadas (`cadastros_areas` e `cadastros_unidades`).
+5. **Atenção ao `dominio`:** A tabela `ambientes` define o filtro macro via coluna `dominio` (ex: "SGJT", "CGJ"). Este conceito é **externo** e não deve ser confundido com a hierarquia de `cadastros_areas` ou `cadastros_unidades`.
 
 ## 2. Chain of Thought Workflow
 
