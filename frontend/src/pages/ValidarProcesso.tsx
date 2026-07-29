@@ -196,7 +196,7 @@ export default function ValidarProcesso() {
                 </a>
               </div>
               <iframe
-                src={pdfUrl}
+                src={`${pdfUrl}#navpanes=0&view=FitH`}
                 title="Pré-visualização do PDF do processo"
                 className="w-full h-[80vh] rounded-xl border border-slate-300 bg-slate-100"
               />
