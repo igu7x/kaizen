@@ -808,14 +808,24 @@ export default function EscritorioProcessos() {
           isK1(p) &&
           // Liberado só quando chega a data prevista de revisão (Data da Versão + 1 ano).
           revisaoVencida(p) &&
-          (ehResponsavelDoProcesso(p) || ehDiretorDoProcesso(p)),
+          // Gestor do Escritório (superadmin), Responsável (inclui responsável por unidade) ou
+          // Diretor da área podem iniciar a revisão.
+          (isSuperadmin ||
+            ehResponsavelDoProcesso(p) ||
+            ehDiretorDoProcesso(p)),
       )
       .sort((a, b) => {
         const da = proximaRevisao(a)?.getTime() ?? Infinity;
         const db = proximaRevisao(b)?.getTime() ?? Infinity;
         return da - db;
       });
-  }, [processos, user?.id, ehResponsavelDoProcesso, ehDiretorDoProcesso]);
+  }, [
+    processos,
+    user?.id,
+    isSuperadmin,
+    ehResponsavelDoProcesso,
+    ehDiretorDoProcesso,
+  ]);
 
   // Validação disponível para o usuário no processo em edição (camada atual). Alimenta o botão
   // "Validar" do form: Responsável valida a camada 1 (enviar), Revisor a 2, Compliance a 3.
