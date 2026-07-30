@@ -94,7 +94,7 @@ public class IfoService {
                 userId, userId);
 
         Long ifoId = asLong(rows.get(0).get("id"));
-        vincularContratos(ifoId, req.contratos());
+        vincularContratos(ifoId, req.contratos(), userId);
         return get(ifoId);
     }
 
@@ -209,7 +209,7 @@ public class IfoService {
         verificarPermissaoEdicao(id, "VINCULAR_CONTRATOS", userId);
         
         jdbc.update("DELETE FROM ifo_contratos WHERE ifo_id = ?", id);
-        vincularContratos(id, contratosIds);
+        vincularContratos(id, contratosIds, userId);
         
         invalidarPorEdicao(id, userId);
         return get(id);
@@ -612,14 +612,46 @@ public class IfoService {
         return jdbc.queryForList(sql.toString(), params.toArray()).stream().map(this::toDto).toList();
     }
 
-    private void vincularContratos(Long ifoId, List<Long> contratos) {
+    private void vincularContratos(Long ifoId, List<Long> contratos, Long userId) {
         if (contratos == null) return;
         for (Long contractId : contratos) {
             if (contractId == null) continue;
+            Long contractValue = null;
+            try {
+                contractValue = jdbc.queryForObject("SELECT total_value_cents FROM contracts WHERE id = ?", Long.class, contractId);
+            } catch (Exception e) {}
             jdbc.update(
-                    "INSERT INTO ifo_contratos (ifo_id, contract_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
-                    ifoId, contractId);
+                    "INSERT INTO ifo_contratos (ifo_id, contract_id, valor_contrato_cents) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+                    ifoId, contractId, contractValue);
         }
+        recalcularValorIfo(ifoId, userId);
+    }
+
+    private void recalcularValorIfo(Long ifoId, Long userId) {
+        Number somaNum = jdbc.queryForObject(
+                "SELECT SUM(valor_contrato_cents) FROM ifo_contratos WHERE ifo_id = ?",
+                Number.class, ifoId);
+        if (somaNum != null) {
+            jdbc.update("UPDATE ifo SET valor_estimado_cents = ?, updated_at = NOW(), updated_by = ? WHERE id = ?",
+                    somaNum.longValue(), userId, ifoId);
+        }
+    }
+
+    @Transactional
+    public IfoDto atualizarValorContrato(long ifoId, long contractId, Long valorCents, Long userId) {
+        verificarPermissaoEdicao(ifoId, "MODIFICAR_IFO", userId);
+        
+        int rows = jdbc.update(
+                "UPDATE ifo_contratos SET valor_contrato_cents = ? WHERE ifo_id = ? AND contract_id = ?",
+                valorCents, ifoId, contractId);
+        
+        if (rows == 0) {
+            throw new ApiException(404, "Vínculo de contrato não encontrado neste IFO");
+        }
+        
+        recalcularValorIfo(ifoId, userId);
+        invalidarPorEdicao(ifoId, userId);
+        return get(ifoId);
     }
 
     private List<Long> contratosDoIfo(long ifoId) {
@@ -630,11 +662,12 @@ public class IfoService {
 
     private List<IfoContratoDto> detalhesContratosDoIfo(long ifoId) {
         return jdbc.query(
-                "SELECT contract_id, interesse_renovacao, motivo_reclassificacao FROM ifo_contratos WHERE ifo_id = ? ORDER BY contract_id",
+                "SELECT contract_id, interesse_renovacao, motivo_reclassificacao, valor_contrato_cents FROM ifo_contratos WHERE ifo_id = ? ORDER BY contract_id",
                 (rs, i) -> new IfoContratoDto(
                         rs.getLong("contract_id"),
                         rs.getObject("interesse_renovacao") != null ? rs.getBoolean("interesse_renovacao") : true,
-                        rs.getString("motivo_reclassificacao")
+                        rs.getString("motivo_reclassificacao"),
+                        rs.getObject("valor_contrato_cents") != null ? rs.getLong("valor_contrato_cents") : null
                 ), ifoId);
     }
 
