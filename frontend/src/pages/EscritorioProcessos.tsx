@@ -36,6 +36,7 @@ import {
   RefreshCw,
   FileDown,
   ArrowUpRight,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -55,14 +56,7 @@ import {
   TIPO_DOCUMENTO_BADGE,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
 import { PopsTable } from "@/components/processos/PopsTable";
@@ -648,6 +642,14 @@ export default function EscritorioProcessos() {
   const [detalheLoading, setDetalheLoading] = useState(false);
   // Processo cuja revisão antecipada está sendo iniciada (trava o item da lista).
   const [revisando, setRevisando] = useState<number | null>(null);
+  // Modal "Revisar Processo": tipo de revisão (ordinária x extraordinária) e processo selecionado.
+  const [revisarOpen, setRevisarOpen] = useState(false);
+  const [tipoRevisao, setTipoRevisao] = useState<
+    "ordinaria" | "extraordinaria" | null
+  >(null);
+  const [processoRevisaoId, setProcessoRevisaoId] = useState<number | null>(
+    null,
+  );
   // Áreas (sigla → nome) para o rodapé do PDF do Modelo K1.
   const [areas, setAreas] = useState<Area[]>([]);
   // Unidades do cadastro — usadas para resolver o responsável (responsavel_user_id) dinamicamente.
@@ -822,6 +824,34 @@ export default function EscritorioProcessos() {
         return da - db;
       });
   }, [processos, user?.id, ehResponsavelDoProcesso, ehDiretorDoProcesso]);
+
+  // Processos vigentes cuja revisão VENCEU (Revisão Ordinária Anual) sob a responsabilidade do
+  // usuário. Mesmo público-alvo do de cima, porém com a data de revisão já atingida/ultrapassada.
+  const processosRevisaoVencida = useMemo(() => {
+    if (!user?.id) return [];
+    return processos
+      .filter(
+        (p) =>
+          isK1(p) &&
+          revisaoVencida(p) &&
+          (ehResponsavelDoProcesso(p) || ehDiretorDoProcesso(p)),
+      )
+      .sort((a, b) => {
+        const da = proximaRevisao(a)?.getTime() ?? Infinity;
+        const db = proximaRevisao(b)?.getTime() ?? Infinity;
+        return da - db;
+      });
+  }, [processos, user?.id, ehResponsavelDoProcesso, ehDiretorDoProcesso]);
+
+  // Lista exibida no passo 2 do modal, conforme o tipo escolhido.
+  const processosDoTipo =
+    tipoRevisao === "ordinaria"
+      ? processosRevisaoVencida
+      : tipoRevisao === "extraordinaria"
+        ? processosParaRevisar
+        : [];
+  const totalParaRevisar =
+    processosParaRevisar.length + processosRevisaoVencida.length;
 
   // Validação disponível para o usuário no processo em edição (camada atual). Alimenta o botão
   // "Validar" do form: Responsável valida a camada 1 (enviar), Revisor a 2, Compliance a 3.
@@ -1158,6 +1188,18 @@ export default function EscritorioProcessos() {
       setRevisando(null);
     }
   };
+  const abrirRevisar = () => {
+    setTipoRevisao(null);
+    setProcessoRevisaoId(null);
+    setRevisarOpen(true);
+  };
+  // "Avançar" no modal: inicia a revisão do processo escolhido e o leva para a tela de revisão.
+  const avancarRevisao = () => {
+    const p = processosDoTipo.find((x) => x.id === processoRevisaoId);
+    if (!p) return;
+    setRevisarOpen(false);
+    handleIniciarRevisao(p);
+  };
   const handleEditar = (p: ProcessoNegocio) => {
     setDetalheOpen(false);
     setFormModo("editar");
@@ -1301,62 +1343,29 @@ export default function EscritorioProcessos() {
 
           <div className="flex items-center gap-2">
             {aba === "revisao" && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={
-                      processosParaRevisar.length === 0 || revisando != null
-                    }
-                    className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      processosParaRevisar.length === 0
-                        ? "Nenhum processo vigente no prazo sob sua responsabilidade para revisar"
-                        : undefined
-                    }
-                  >
-                    {revisando != null ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Revisar Processo
-                    {processosParaRevisar.length > 0 && (
-                      <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
-                        {processosParaRevisar.length}
-                      </span>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel className="text-xs font-normal text-slate-500">
-                    Processos vigentes no prazo sob sua responsabilidade —
-                    clique para revisar antecipadamente.
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {processosParaRevisar.map((p) => {
-                    const next = proximaRevisao(p);
-                    return (
-                      <DropdownMenuItem
-                        key={p.id}
-                        disabled={revisando != null}
-                        onSelect={() => handleIniciarRevisao(p)}
-                        className="flex flex-col items-start gap-0.5"
-                      >
-                        <span className="font-medium text-slate-800 line-clamp-1">
-                          {p.nome_processo}
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          {p.diretoria}
-                          {next
-                            ? ` · próx. revisão ${next.toLocaleDateString("pt-BR")}`
-                            : ""}
-                        </span>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="outline"
+                onClick={abrirRevisar}
+                disabled={totalParaRevisar === 0 || revisando != null}
+                className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  totalParaRevisar === 0
+                    ? "Nenhum processo sob sua responsabilidade para revisar"
+                    : undefined
+                }
+              >
+                {revisando != null ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Revisar Processo
+                {totalParaRevisar > 0 && (
+                  <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+                    {totalParaRevisar}
+                  </span>
+                )}
+              </Button>
             )}
 
             {(isSuperadmin || ehDiretorOuSubdiretor) && aba === "revisao" && (
@@ -1951,6 +1960,160 @@ export default function EscritorioProcessos() {
         </div>
 
       </div>
+
+      {/* Modal "Revisar Processo" — escolhe o tipo de revisão (Ordinária/Extraordinária) e o
+          processo, e encaminha para a tela de revisão (edição + fluxo de validação). */}
+      <Dialog open={revisarOpen} onOpenChange={setRevisarOpen}>
+        <DialogContent className="max-w-lg gap-0 overflow-hidden border-0 bg-white p-0 sm:rounded-2xl">
+          <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-4">
+            <RefreshCw className="h-6 w-6 text-blue-600 flex-shrink-0" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">
+                Revisar Processo
+              </h2>
+              <p className="text-xs text-slate-500">
+                Selecione o tipo de revisão e o processo a ser revisado.
+              </p>
+            </div>
+          </div>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* Passo 1 — Tipo de Revisão */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                1. Tipo de Revisão
+              </p>
+              <div className="grid gap-2">
+                {[
+                  {
+                    tipo: "ordinaria" as const,
+                    titulo: "Revisão Ordinária Anual",
+                    desc: "Revisão periódica de processos cuja data de revisão já venceu.",
+                    count: processosRevisaoVencida.length,
+                  },
+                  {
+                    tipo: "extraordinaria" as const,
+                    titulo: "Revisão Extraordinária",
+                    desc: "Revisão antecipada, antes da data prevista, por necessidade pontual.",
+                    count: processosParaRevisar.length,
+                  },
+                ].map((op) => {
+                  const ativo = tipoRevisao === op.tipo;
+                  return (
+                    <button
+                      key={op.tipo}
+                      type="button"
+                      onClick={() => {
+                        setTipoRevisao(op.tipo);
+                        setProcessoRevisaoId(null);
+                      }}
+                      className={`flex items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${
+                        ativo
+                          ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                          : "border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 ${
+                          ativo ? "border-blue-600 bg-blue-600" : "border-slate-300"
+                        }`}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">
+                            {op.titulo}
+                          </span>
+                          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold text-slate-600">
+                            {op.count}
+                          </span>
+                        </span>
+                        <span className="block text-xs text-slate-500 mt-0.5">
+                          {op.desc}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Passo 2 — Selecionar Processo */}
+            {tipoRevisao && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  2. Selecionar Processo
+                </p>
+                {processosDoTipo.length === 0 ? (
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
+                    Nenhum processo disponível para este tipo de revisão.
+                  </p>
+                ) : (
+                  <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+                    {processosDoTipo.map((p) => {
+                      const next = proximaRevisao(p);
+                      const sel = processoRevisaoId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setProcessoRevisaoId(p.id)}
+                          className={`flex w-full items-start gap-3 px-3 py-2.5 text-left ${
+                            sel ? "bg-blue-50" : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <span
+                            className={`mt-1 h-3.5 w-3.5 rounded-full border-2 flex-shrink-0 ${
+                              sel ? "border-blue-600 bg-blue-600" : "border-slate-300"
+                            }`}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-medium text-slate-800 line-clamp-1">
+                              {p.nome_processo}
+                            </span>
+                            <span className="block text-[11px] text-slate-500">
+                              {p.diretoria}
+                              {next
+                                ? ` · próx. revisão ${next.toLocaleDateString("pt-BR")}`
+                                : ""}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {tipoRevisao === "extraordinaria" && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      A revisão extraordinária antecipa o ciclo anual. A próxima
+                      revisão passará a contar a partir desta data.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRevisarOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={avancarRevisao}
+              disabled={processoRevisaoId == null}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Avançar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogos */}
       <ProcessoFormDialog
