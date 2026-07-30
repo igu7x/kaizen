@@ -758,8 +758,15 @@ export default function EscritorioProcessos() {
             ? unidades.find((x) => x.id === r.unidade_id)
             : undefined;
         if (!u && r.area) {
+          // A área do responsável pode vir como o nome da unidade, a sigla, ou o rótulo
+          // composto "SIGLA - nome" (como aparece no formulário). Casa em qualquer um deles.
           const alvo = r.area.trim().toLowerCase();
-          u = unidades.find((x) => (x.nome || "").trim().toLowerCase() === alvo);
+          u = unidades.find((x) => {
+            const nome = (x.nome || "").trim().toLowerCase();
+            const sigla = (x.sigla || "").trim().toLowerCase();
+            const composto = sigla && nome ? `${sigla} - ${nome}` : nome;
+            return alvo === nome || alvo === sigla || alvo === composto;
+          });
         }
         return u?.responsavel_user_id != null && Number(u.responsavel_user_id) === uid;
       });
