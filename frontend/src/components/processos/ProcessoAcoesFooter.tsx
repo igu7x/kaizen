@@ -426,8 +426,58 @@ export function ProcessoAcoesFooter({
           ? "final"
           : "autor";
 
+  const dataConclusao = processo.edicao_concluida_em
+    ? new Date(processo.edicao_concluida_em).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
   return (
     <>
+      {/* Sinal do Editor atribuído — dá ao gestor certeza de que o preenchimento terminou (ou não)
+          antes de validar. Só aparece quando há editor atribuído ao processo. */}
+      {temEditoresAtribuidos && (
+        <div
+          className={`flex items-start gap-2 border-t px-6 py-2.5 text-sm flex-shrink-0 ${
+            edicaoJaConcluida
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-amber-200 bg-amber-50 text-amber-800"
+          }`}
+        >
+          {edicaoJaConcluida ? (
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          ) : (
+            <ClipboardCheck className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          )}
+          <span>
+            {edicaoJaConcluida ? (
+              <>
+                <span className="font-semibold">
+                  Edição concluída pelo editor
+                </span>
+                {processo.edicao_concluida_por_nome
+                  ? ` — ${processo.edicao_concluida_por_nome}`
+                  : ""}
+                {dataConclusao ? ` (${dataConclusao})` : ""}. O processo está
+                pronto para validação.
+              </>
+            ) : (
+              <>
+                <span className="font-semibold">
+                  Aguardando o editor concluir as alterações.
+                </span>{" "}
+                A validação fica bloqueada até o editor sinalizar que terminou o
+                preenchimento.
+              </>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Footer fixo — ações (VERBATIM do rodapé do ProcessoDetalhe) */}
       <div className="flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-6 py-3 flex-shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
