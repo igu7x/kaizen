@@ -140,7 +140,7 @@ function CabecalhoInstitucional({ processo }: { processo: ProcessoNegocio }) {
           </div>
           <CabecalhoRow
             label="Revisão:"
-            value={processo.revisao || "—"}
+            value={String(parseInt(String(processo.revisao ?? "0"), 10) || 0).padStart(3, "0")}
             label2="Código/Versão"
             value2={processo.codigo_versao || "—"}
           />

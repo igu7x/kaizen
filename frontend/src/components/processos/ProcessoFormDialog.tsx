@@ -82,7 +82,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   macroprocesso: "",
   diretoria: "",
   periodo: "",
-  revisao: "0",
+  revisao: "000",
   codigo_versao: "",
   nome_processo: "",
   descricao: "",
@@ -103,8 +103,14 @@ const emptyForm: CreateProcessoNegocioDto = {
   periodicidade_revisao: "",
   numero_proad: "",
   observacoes_gerais: "",
-  versao: "1",
+  versao: "001",
 };
+
+/** Numeração de Versão/Revisão em 3 dígitos (000, 001, 002…) — padrão de controle de documentos. */
+function pad3(v: string | number | null | undefined): string {
+  const n = parseInt(String(v ?? "").split(".")[0], 10);
+  return String(Number.isFinite(n) ? n : 0).padStart(3, "0");
+}
 
 /**
  * Calcula a próxima revisão a partir do período do processo (Período + 1 ano).
@@ -200,7 +206,7 @@ export function ProcessoFormDialog({
         macroprocesso: processo.macroprocesso || "",
         diretoria: processo.diretoria || "",
         periodo: processo.periodo || "",
-        revisao: processo.revisao ?? "0",
+        revisao: pad3(processo.revisao ?? "0"),
         codigo_versao: processo.codigo_versao || "",
         nome_processo: processo.nome_processo || "",
         descricao: processo.descricao || "",
@@ -291,8 +297,8 @@ export function ProcessoFormDialog({
       // (Versão 1, Revisão 0). O backend ainda incrementa Versão/Revisão no ciclo de homologação.
       const payload: CreateProcessoNegocioDto = {
         ...form,
-        versao: String(form.versao ?? "").trim() || "1",
-        revisao: String(form.revisao ?? "").trim() || "0",
+        versao: pad3(form.versao || "1"),
+        revisao: pad3(form.revisao || "0"),
       };
       let saved: ProcessoNegocio;
       if (currentId != null) {
@@ -503,9 +509,7 @@ export function ProcessoFormDialog({
                   placeholder="0"
                   className="mt-1 bg-white"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Em branco = 0. Atualiza sozinho (+1) a cada revisão concluída.
-                </p>
+                <p className="text-xs text-slate-500 mt-1">Em branco = 0.</p>
               </div>
             </div>
           </Section>
