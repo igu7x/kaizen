@@ -65,6 +65,7 @@ export interface IfoContratoDetalhe {
   contractId: number;
   interesseRenovacao: boolean;
   motivoReclassificacao: string | null;
+  valorContratoCents?: number | null;
 }
 
 export interface Ifo {
@@ -195,6 +196,11 @@ export const ifoApi = {
   /** Define o interesse na renovação por contrato individualmente. */
   definirInteresseRenovacaoContrato(id: number, contractId: number, interesse: boolean, motivo?: string): Promise<Ifo> {
     return apiClient.patch<Ifo>(`/api/ifo/${id}/contratos/${contractId}/interesse-renovacao`, { interesse, motivo });
+  },
+
+  /** RF-11 — Edita o valor de um contrato vinculado a um IFO. */
+  atualizarValorContrato(id: number, contractId: number, valorContratoCents: number): Promise<Ifo> {
+    return apiClient.patch<Ifo>(`/api/ifo/${id}/contratos/${contractId}/valor`, { valorContratoCents });
   },
 
   /** Remove um IFO. Requer tag de exclusão correspondente ao estado atual. */

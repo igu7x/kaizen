@@ -211,11 +211,12 @@ export function DialogEditarIfo({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Valor Estimado</Label>
+              <Label>Valor Estimado {ifo.contratos && ifo.contratos.length > 0 && <span className="text-xs text-slate-400 font-normal ml-1">(Derivado dos contratos)</span>}</Label>
               <Input
                 placeholder="R$ 0,00"
                 value={displayValue}
                 onChange={handleCurrencyChange}
+                disabled={ifo.contratos && ifo.contratos.length > 0}
               />
             </div>
             <div className="space-y-2">
