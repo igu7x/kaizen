@@ -61,23 +61,17 @@ public class Pca {
     @Column(name = "object_name", columnDefinition = "TEXT")
     private String objectName;
 
-    @Column(name = "directory_acronym", length = 20)
-    private String directoryAcronym;
-
     @Column(name = "estimated_value_cents")
     private Long estimatedValueCents;
 
     @Column(name = "formalized_value_cents")
     private Long formalizedValueCents;
 
-    @Column(name = "id_diretoria")
-    private Long idDiretoria;
-
-    @Column(name = "id_area_demandante")
-    private Long idAreaDemandante;
-
-    @Column(name = "id_cadastros_areas")
+    @Column(name = "cadastros_areas_id")
     private Long idCadastrosAreas;
+
+    @Column(name = "cadastros_unidades_id")
+    private Long cadastrosUnidadesId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "priority", length = 50)

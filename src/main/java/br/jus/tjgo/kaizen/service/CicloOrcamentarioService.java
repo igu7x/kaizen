@@ -675,8 +675,12 @@ public class CicloOrcamentarioService {
         }
 
 
+        jdbc.update("DELETE FROM atas_comites WHERE ciclo_id = ?", ciclo.id());
+        jdbc.update("DELETE FROM revisao_item_validacao WHERE ciclo_id = ?", ciclo.id());
+        jdbc.update("DELETE FROM orcamento_editores WHERE ciclo_id = ?", ciclo.id());
         jdbc.update("DELETE FROM ifo WHERE ciclo_id = ?", ciclo.id());
         jdbc.update("DELETE FROM pcas_snapshots WHERE year = ?", String.valueOf(anoFormacao));
+        jdbc.update("DELETE FROM pcas_snapshots WHERE ciclo_id = ?", ciclo.id());
         jdbc.update("DELETE FROM ciclo_orcamentario WHERE id = ?", ciclo.id());
     }
 

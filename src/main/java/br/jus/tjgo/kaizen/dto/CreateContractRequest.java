@@ -22,8 +22,6 @@ public record CreateContractRequest(
         String objectName,
         String description,
         String noticeNumber,
-        String directory,
-        String unidade,
         Long cadastroAreaId,
         Long cadastroUnidadeId,
         Long totalValueCents,

@@ -81,16 +81,16 @@ public class IfoService {
         Long cents = req.valorEstimado() == null ? null : Math.round(req.valorEstimado() * 100);
 
         var rows = jdbc.queryForList(
-                "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, objeto, area_demandante, " +
-                        "unidade_id, area_id, estado, valor_estimado_cents, interesse_renovacao, " +
+                "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, objeto, " +
+                        "cadastros_unidades_id, cadastros_areas_id, estado, valor_estimado_cents, interesse_renovacao, " +
                         "description, justification, process, financial_resource_type, contract_type, " +
-                        "formalized_value_cents, id_cadastros_areas, priority, estimated_date, " +
+                        "formalized_value_cents, priority, estimated_date, " +
                         "created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 codigo, req.ano(), req.cicloId(), req.bloco(), req.natureza(), req.objeto(),
-                req.areaDemandante(), req.unidadeId(), req.areaId(), cents, req.interesseRenovacao(),
+                req.cadastrosUnidadesId(), req.cadastrosAreasId(), cents, req.interesseRenovacao(),
                 req.description(), req.justification(), req.process(), req.financialResourceType(), req.contractType(),
-                req.formalizedValueCents(), req.idCadastrosAreas(), req.priority(), req.estimatedDate(),
+                req.formalizedValueCents(), req.priority(), req.estimatedDate(),
                 userId, userId);
 
         Long ifoId = asLong(rows.get(0).get("id"));
@@ -189,13 +189,13 @@ public class IfoService {
             jdbc.update("UPDATE ifo SET valor_estimado_cents=?, updated_at=NOW(), updated_by=? WHERE id=?", cents, userId, id);
         } else {
             jdbc.update(
-                "UPDATE ifo SET bloco=?, natureza=?, objeto=?, area_demandante=?, unidade_id=?, area_id=?, " +
+                "UPDATE ifo SET bloco=?, natureza=?, objeto=?, cadastros_unidades_id=?, cadastros_areas_id=?, " +
                 "valor_estimado_cents=?, interesse_renovacao=?, description=?, justification=?, process=?, " +
-                "financial_resource_type=?, contract_type=?, formalized_value_cents=?, id_cadastros_areas=?, " +
+                "financial_resource_type=?, contract_type=?, formalized_value_cents=?, " +
                 "priority=?, estimated_date=?, updated_at=NOW(), updated_by=? WHERE id=?",
-                req.bloco(), req.natureza(), req.objeto(), req.areaDemandante(), req.unidadeId(), req.areaId(),
+                req.bloco(), req.natureza(), req.objeto(), req.cadastrosUnidadesId(), req.cadastrosAreasId(),
                 cents, req.interesseRenovacao(), req.description(), req.justification(), req.process(),
-                req.financialResourceType(), req.contractType(), req.formalizedValueCents(), req.idCadastrosAreas(),
+                req.financialResourceType(), req.contractType(), req.formalizedValueCents(),
                 req.priority(), req.estimatedDate(), userId, id
             );
         }
@@ -284,14 +284,14 @@ public class IfoService {
             // RF-41/49/58 — materializa o IFO como Item de PCA oficial (linha viva em `pcas`) da versão
             // que está sendo publicada. contract_type derivado do bloco (Renovação vs demais → Nova Contratação).
             String contractType = "renovacao".equals(str(row.get("bloco"))) ? "RENOVACAO" : "NOVA_CONTRATACAO";
-            Long unidadeId = asLong(row.get("unidade_id"));
+            Long unidadeId = asLong(row.get("cadastros_unidades_id"));
+            Long areaId = asLong(row.get("cadastros_areas_id"));
             jdbc.update(
-                    "INSERT INTO pcas (code, contract_type, directory_acronym, object_name, estimated_value_cents, " +
-                            "status, year, id_diretoria, id_cadastros_areas, created_by) " +
-                            "VALUES (?, ?, ?, ?, COALESCE(?, 0), 'NAO_INICIADA', ?, ?, " +
-                            "(SELECT area_id FROM cadastros_unidades WHERE id = ?), ?)",
-                    codigoOficial, contractType, str(row.get("area_demandante")), str(row.get("objeto")),
-                    asLong(row.get("valor_estimado_cents")), String.valueOf(ano), unidadeId, unidadeId, userId);
+                    "INSERT INTO pcas (code, contract_type, object_name, estimated_value_cents, " +
+                            "status, year, cadastros_unidades_id, cadastros_areas_id, created_by) " +
+                            "VALUES (?, ?, ?, COALESCE(?, 0), 'NAO_INICIADA', ?, ?, ?, ?)",
+                    codigoOficial, contractType, str(row.get("objeto")),
+                    asLong(row.get("valor_estimado_cents")), String.valueOf(ano), unidadeId, areaId, userId);
             jdbc.update(
                     "UPDATE ifo SET codigo_oficial = ?, estado = 'publicado', updated_at = NOW(), updated_by = ? WHERE id = ?",
                     codigoOficial, userId, id);
@@ -395,14 +395,12 @@ public class IfoService {
 
             var inserted = jdbc.queryForList(
                     "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
-                    "objeto, area_demandante, unidade_id, area_id, id_cadastros_areas, valor_estimado_cents, " +
+                    "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
                     "created_by, updated_by) " +
                     "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', FALSE, " +
-                    "?, ?, ?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
+                    "?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
                     codigo, asInt(ifoOriginal.get("ano")), cicloId, "encerramento",
-                    str(c.get("object_name")), str(ifoOriginal.get("area_demandante")),
-                    asLong(ifoOriginal.get("unidade_id")), asLong(ifoOriginal.get("area_id")),
-                    asLong(ifoOriginal.get("id_cadastros_areas")), cents,
+                    str(c.get("object_name")), asLong(ifoOriginal.get("cadastros_unidades_id")), asLong(ifoOriginal.get("cadastros_areas_id")), cents,
                     userId, userId);
 
             Long newIfoId = asLong(inserted.get(0).get("id"));
@@ -476,14 +474,14 @@ public class IfoService {
     public int remeterParticao(long cicloId, long unidadeId, Long userId) {
         papelService.exigirTransicao("demandante", cicloId);
         Integer pendentes = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM ifo WHERE ciclo_id = ? AND unidade_id = ? AND estado = 'rascunho' " +
+                "SELECT COUNT(*) FROM ifo WHERE ciclo_id = ? AND cadastros_unidades_id = ? AND estado = 'rascunho' " +
                         "AND validacao <> 'validada_2a'",
                 Integer.class, cicloId, unidadeId);
         if (pendentes != null && pendentes > 0) {
             throw new ApiException(409, "Há demandas não validadas em 2ª camada; a partição não pode ser remetida");
         }
         return jdbc.update("UPDATE ifo SET estado = 'enviado_cca', updated_at = NOW(), updated_by = ? " +
-                "WHERE ciclo_id = ? AND unidade_id = ? AND estado = 'rascunho'", userId, cicloId, unidadeId);
+                "WHERE ciclo_id = ? AND cadastros_unidades_id = ? AND estado = 'rascunho'", userId, cicloId, unidadeId);
     }
 
     /** Devolução da partição pela CCA (Autoridade CCA) à área, reabrindo para edição. */
@@ -492,7 +490,7 @@ public class IfoService {
         papelService.exigirTransicao("cca", cicloId);
         return jdbc.update("UPDATE ifo SET estado = 'rascunho', validacao = 'em_edicao', " +
                 "validado_1a_por = NULL, validado_1a_em = NULL, validado_2a_por = NULL, validado_2a_em = NULL, " +
-                "updated_at = NOW(), updated_by = ? WHERE ciclo_id = ? AND unidade_id = ? AND estado = 'enviado_cca'",
+                "updated_at = NOW(), updated_by = ? WHERE ciclo_id = ? AND cadastros_unidades_id = ? AND estado = 'enviado_cca'",
                 userId, cicloId, unidadeId);
     }
 
@@ -509,8 +507,8 @@ public class IfoService {
         var rows = jdbc.queryForList(
                 "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome " +
                 "FROM ifo i " +
-                "LEFT JOIN cadastros_areas ca ON i.area_id = ca.id " +
-                "LEFT JOIN cadastros_unidades cu ON i.unidade_id = cu.id " +
+                "LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
+                "LEFT JOIN cadastros_unidades cu ON i.cadastros_unidades_id = cu.id " +
                 "WHERE i.id = ?", id);
         if (rows.isEmpty()) {
             throw new ApiException(404, "IFO não encontrado");
@@ -556,8 +554,8 @@ public class IfoService {
         StringBuilder sql = new StringBuilder(
                 "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome " +
                 "FROM ifo i " +
-                "LEFT JOIN cadastros_areas ca ON i.area_id = ca.id " +
-                "LEFT JOIN cadastros_unidades cu ON i.unidade_id = cu.id " +
+                "LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
+                "LEFT JOIN cadastros_unidades cu ON i.cadastros_unidades_id = cu.id " +
                 "WHERE i.is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
@@ -597,13 +595,13 @@ public class IfoService {
             } else {
                 sql.append(" AND (");
                 if (!userAreaIds.isEmpty()) {
-                    sql.append("i.area_id IN (").append(userAreaIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
+                    sql.append("i.cadastros_areas_id IN (").append(userAreaIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
                 } else {
                     sql.append("1 = 0");
                 }
                 sql.append(" OR ");
                 if (!userUnidadeIds.isEmpty()) {
-                    sql.append("i.unidade_id IN (").append(userUnidadeIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
+                    sql.append("i.cadastros_unidades_id IN (").append(userUnidadeIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
                 } else {
                     sql.append("1 = 0");
                 }
@@ -651,9 +649,8 @@ public class IfoService {
                 str(r.get("bloco")),
                 str(r.get("natureza")),
                 str(r.get("objeto")),
-                str(r.get("area_demandante")),
-                asLong(r.get("unidade_id")),
-                asLong(r.get("area_id")),
+                asLong(r.get("cadastros_unidades_id")),
+                asLong(r.get("cadastros_areas_id")),
                 str(r.get("estado")),
                 cents == null ? null : cents / 100.0,
                 (Boolean) r.get("interesse_renovacao"),
@@ -667,7 +664,6 @@ public class IfoService {
                 str(r.get("financial_resource_type")),
                 str(r.get("contract_type")),
                 asLong(r.get("formalized_value_cents")),
-                asLong(r.get("id_cadastros_areas")),
                 str(r.get("priority")),
                 r.get("estimated_date") != null ? ((java.sql.Date) r.get("estimated_date")).toLocalDate() : null,
                 asLong(r.get("pca_origem_id")),
@@ -692,9 +688,8 @@ public class IfoService {
 
         int anoAtual = anoFormacao - 1;
         String queryPcas = "SELECT id, code, year, description, justification, process, " +
-                "financial_resource_type, contract_type, object_name, directory_acronym, " +
-                "estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
-                "id_cadastros_areas, priority, estimated_date " +
+                "estimated_value_cents, formalized_value_cents, cadastros_unidades_id, " +
+                "cadastros_areas_id, priority, estimated_date " +
                 "FROM pcas " +
                 "WHERE year = ? AND contract_type = 'NOVA_CONTRATACAO' " +
                 "AND (is_deleted = FALSE OR is_deleted IS NULL) " +
@@ -704,8 +699,8 @@ public class IfoService {
 
         for (Map<String, Object> pca : pcas) {
             String codigo = gerarCodigo(anoFormacao);
-            Long areaId = asLong(pca.get("id_cadastros_areas"));
-            Long unidadeId = asLong(pca.get("id_area_demandante"));
+            Long areaId = asLong(pca.get("cadastros_areas_id"));
+            Long unidadeId = asLong(pca.get("cadastros_unidades_id"));
             String areaDemandanteText = str(pca.get("directory_acronym"));
 
             // Fallback: resolver area_demandante pela tabela cadastros_areas
@@ -727,22 +722,19 @@ public class IfoService {
 
             var inserted = jdbc.queryForList(
                     "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, " +
-                    "objeto, area_demandante, unidade_id, area_id, valor_estimado_cents, " +
+                    "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
                     "description, justification, process, financial_resource_type, contract_type, " +
-                    "formalized_value_cents, id_cadastros_areas, priority, estimated_date, " +
+                    "formalized_value_cents, priority, estimated_date, " +
                     "pca_origem_id, created_by, updated_by) " +
                     "VALUES (?, ?, ?, 'nova_contratacao', 'pontual', 'rascunho', " +
-                    "?, ?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                    "?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                     codigo, anoFormacao, cicloId,
-                    str(pca.get("object_name")), areaDemandanteText,
-                    unidadeId, areaId, asLong(pca.get("estimated_value_cents")),
+                    str(pca.get("object_name")), unidadeId, areaId, asLong(pca.get("estimated_value_cents")),
                     str(pca.get("description")), str(pca.get("justification")),
                     str(pca.get("process")), str(pca.get("financial_resource_type")),
                     str(pca.get("contract_type")), asLong(pca.get("formalized_value_cents")),
-                    asLong(pca.get("id_cadastros_areas")), str(pca.get("priority")),
-                    pca.get("estimated_date"),
-                    asLong(pca.get("id")),
-                    userId, userId);
+                    str(pca.get("priority")), pca.get("estimated_date"),
+                    asLong(pca.get("id")), userId, userId);
 
             Long ifoId = asLong(inserted.get(0).get("id"));
 
@@ -763,8 +755,8 @@ public class IfoService {
         var check = jdbc.queryForList("SELECT id FROM ifo WHERE ciclo_id = ? AND bloco = 'renovacao' LIMIT 1", cicloId);
         if (!check.isEmpty()) return;
 
-        String queryContratos = "SELECT c.id as contract_id, c.object_name, c.total_value_cents, c.directory, c.unidade, " +
-                "c.cadastro_unidade_id, c.cadastro_area_id, cp.pca_id, " +
+        String queryContratos = "SELECT c.id as contract_id, c.object_name, c.total_value_cents, " +
+                "c.cadastros_unidades_id, c.cadastros_areas_id, cp.pca_id, " +
                 "c.start_date, c.limit_date, c.end_date, COALESCE(c.year_duration_standard, 10) as year_duration_standard " +
                 "FROM contracts c " +
                 "LEFT JOIN contracts_pcas cp ON c.id = cp.contract_id " +
@@ -827,8 +819,8 @@ public class IfoService {
             Long pcaId = pcaEntry.getKey();
 
             var pcaRows = jdbc.queryForList(
-                    "SELECT object_name, directory_acronym, estimated_value_cents, id_diretoria, " +
-                    "id_cadastros_areas, id_area_demandante, priority, description, justification, " +
+                    "SELECT object_name, estimated_value_cents, cadastros_unidades_id, " +
+                    "cadastros_areas_id, priority, description, justification, " +
                     "process, financial_resource_type, contract_type, formalized_value_cents " +
                     "FROM pcas WHERE id = ?", pcaId);
 
@@ -841,53 +833,30 @@ public class IfoService {
 
                 String codigo = gerarCodigo(anoFormacao);
 
-                Long areaId = asLong(pca.get("id_cadastros_areas"));
-                Long unidadeId = asLong(pca.get("id_area_demandante"));
-                String areaDemandanteText = str(pca.get("directory_acronym"));
+                Long areaId = asLong(pca.get("cadastros_areas_id"));
+                Long unidadeId = asLong(pca.get("cadastros_unidades_id"));
                 
                 if (areaId == null || unidadeId == null) {
                     Map<String, Object> firstContract = contratosDoPca.isEmpty() ? null : contratosDoPca.get(0);
                     if (firstContract != null) {
-                        if (areaId == null) areaId = asLong(firstContract.get("cadastro_area_id"));
-                        if (unidadeId == null) unidadeId = asLong(firstContract.get("cadastro_unidade_id"));
-                        if (areaDemandanteText == null || areaDemandanteText.isBlank() || "null".equals(areaDemandanteText)) {
-                            areaDemandanteText = str(firstContract.get("unidade") != null ? firstContract.get("unidade") : firstContract.get("directory"));
-                        }
-                        
-                        if (areaId == null && firstContract.get("directory") != null) {
-                            String dirStr = str(firstContract.get("directory"));
-                            var res = jdbc.queryForList("SELECT id FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?)) LIMIT 1", dirStr, dirStr);
-                            if (!res.isEmpty()) areaId = asLong(res.get(0).get("id"));
-                        }
-                        if (unidadeId == null && areaDemandanteText != null) {
-                            var res = jdbc.queryForList("SELECT id FROM cadastros_unidades WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?)) LIMIT 1", areaDemandanteText, areaDemandanteText);
-                            if (!res.isEmpty()) unidadeId = asLong(res.get(0).get("id"));
-                        }
-                    }
-                }
-
-                if (areaId != null) {
-                    var resArea = jdbc.queryForList("SELECT sigla FROM cadastros_areas WHERE id = ?", areaId);
-                    if (!resArea.isEmpty() && resArea.get(0).get("sigla") != null) {
-                        areaDemandanteText = str(resArea.get(0).get("sigla"));
+                        if (areaId == null) areaId = asLong(firstContract.get("cadastros_areas_id"));
+                        if (unidadeId == null) unidadeId = asLong(firstContract.get("cadastros_unidades_id"));
                     }
                 }
 
                 var inserted = jdbc.queryForList(
                         "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
-                        "objeto, area_demandante, unidade_id, area_id, valor_estimado_cents, " +
+                        "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
                         "description, justification, process, financial_resource_type, contract_type, " +
-                        "formalized_value_cents, id_cadastros_areas, priority, created_by, updated_by) " +
+                        "formalized_value_cents, priority, created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', TRUE, " +
-                        "?, ?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                        "?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                         codigo, anoFormacao, cicloId, bloco,
-                        str(pca.get("object_name")), areaDemandanteText,
-                        unidadeId, areaId,
+                        str(pca.get("object_name")), unidadeId, areaId,
                         asLong(pca.get("estimated_value_cents")),
                         str(pca.get("description")), str(pca.get("justification")), str(pca.get("process")),
                         str(pca.get("financial_resource_type")), str(pca.get("contract_type")),
-                        asLong(pca.get("formalized_value_cents")), asLong(pca.get("id_cadastros_areas")),
-                        str(pca.get("priority")), userId, userId);
+                        asLong(pca.get("formalized_value_cents")), str(pca.get("priority")), userId, userId);
 
                 Long ifoId = asLong(inserted.get(0).get("id"));
 
@@ -901,36 +870,17 @@ public class IfoService {
         for (Map<String, Object> c : avulsos) {
             String codigo = gerarCodigo(anoFormacao);
             String bloco = (String) c.get("bloco_calculado");
-            Long unidadeId = asLong(c.get("cadastro_unidade_id"));
-            Long areaId = asLong(c.get("cadastro_area_id"));
-            String areaDemandanteText = str(c.get("unidade") != null ? c.get("unidade") : c.get("directory"));
-            
-            if (areaId == null && c.get("directory") != null) {
-                String dirStr = str(c.get("directory"));
-                var res = jdbc.queryForList("SELECT id FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?)) LIMIT 1", dirStr, dirStr);
-                if (!res.isEmpty()) areaId = asLong(res.get(0).get("id"));
-            }
-            if (unidadeId == null && areaDemandanteText != null) {
-                var res = jdbc.queryForList("SELECT id FROM cadastros_unidades WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?)) LIMIT 1", areaDemandanteText, areaDemandanteText);
-                if (!res.isEmpty()) unidadeId = asLong(res.get(0).get("id"));
-            }
-
-            if (areaId != null) {
-                var resArea = jdbc.queryForList("SELECT sigla FROM cadastros_areas WHERE id = ?", areaId);
-                if (!resArea.isEmpty() && resArea.get(0).get("sigla") != null) {
-                    areaDemandanteText = str(resArea.get(0).get("sigla"));
-                }
-            }
+            Long unidadeId = asLong(c.get("cadastros_unidades_id"));
+            Long areaId = asLong(c.get("cadastros_areas_id"));
 
             var inserted = jdbc.queryForList(
                     "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
-                    "objeto, area_demandante, unidade_id, area_id, id_cadastros_areas, valor_estimado_cents, " +
+                    "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
                     "created_by, updated_by) " +
                     "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', TRUE, " +
-                    "?, ?, ?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
+                    "?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
                     codigo, anoFormacao, cicloId, bloco,
-                    str(c.get("object_name")), areaDemandanteText,
-                    unidadeId, areaId, areaId, asLong(c.get("total_value_cents")),
+                    str(c.get("object_name")), unidadeId, areaId, asLong(c.get("total_value_cents")),
                     userId, userId);
 
             Long ifoId = asLong(inserted.get(0).get("id"));
