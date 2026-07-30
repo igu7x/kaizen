@@ -14,6 +14,7 @@ import { ifoApi, type Ifo } from "@/services/dfdApi";
 import { Contract } from "@/types";
 import { formatCurrency } from "@/services/pcaApi";
 import { getApiBaseUrl } from "@/services/apiClient";
+import { getAreaLabel } from "@/utils/formatters";
 import { DialogNovoIfo } from "@/components/ciclo/DialogNovoIfo";
 import { DialogEditarIfo } from "@/components/ciclo/DialogEditarIfo";
 import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContratos";
@@ -135,15 +136,7 @@ function EsteiraControls({
   );
 }
 
-const getAreaLabel = (ifo: Ifo) => {
-  let label = ifo.areaDemandante || "-";
-  if (ifo.unidadeId) {
-    label = ifo.unidadeSigla || ifo.areaNome || label;
-  } else if (ifo.areaId) {
-    label = ifo.areaSigla || label;
-  }
-  return label;
-};
+
 
 export default function FormacaoPca() {
   const hoje = useMemo(() => new Date(), []);
@@ -849,7 +842,7 @@ export default function FormacaoPca() {
                                                       </div>
                                                     </TooltipTrigger>
                                                     <TooltipContent side="top" className="max-w-[250px] text-xs text-center">
-                                                      A equipe {ifo.areaDemandante || "da área"} decidiu não renovar o contrato {c.noticeNumber ? c.noticeNumber : c.id}.
+                                                      A equipe {getAreaLabel(ifo)} decidiu não renovar o contrato {c.noticeNumber ? c.noticeNumber : c.id}.
                                                     </TooltipContent>
                                                   </Tooltip>
                                                 </TooltipProvider>

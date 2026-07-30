@@ -75,9 +75,8 @@ export interface Ifo {
   bloco: BlocoIfo;
   natureza: string | null;
   objeto: string | null;
-  areaDemandante: string | null;
-  unidadeId: number | null;
-  areaId?: number | null;
+  cadastrosUnidadesId: number | null;
+  cadastrosAreasId: number | null;
   estado: EstadoIfo;
   valorEstimado: number | null;
   interesseRenovacao: boolean | null;
@@ -94,7 +93,7 @@ export interface Ifo {
   financialResourceType?: string | null;
   contractType?: string | null;
   formalizedValueCents?: number | null;
-  idCadastrosAreas?: number | null;
+
   priority?: string | null;
   estimatedDate?: string | null;
   /** ID do PCA de origem, quando o IFO foi gerado a partir de um PCA existente (bloco nova_contratacao). */
@@ -113,9 +112,8 @@ export interface CriarIfoRequest {
   bloco: BlocoIfo;
   natureza?: string | null;
   objeto?: string | null;
-  areaDemandante?: string | null;
-  unidadeId?: number | null;
-  areaId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  cadastrosAreasId?: number | null;
   valorEstimado?: number | null;
   interesseRenovacao?: boolean | null;
   description?: string | null;
@@ -124,7 +122,7 @@ export interface CriarIfoRequest {
   financialResourceType?: string | null;
   contractType?: string | null;
   formalizedValueCents?: number | null;
-  idCadastrosAreas?: number | null;
+
   priority?: string | null;
   estimatedDate?: string | null;
   contratos: number[];
@@ -134,9 +132,8 @@ export interface AtualizarIfoRequest {
   bloco: BlocoIfo;
   natureza?: string | null;
   objeto?: string | null;
-  areaDemandante?: string | null;
-  unidadeId?: number | null;
-  areaId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  cadastrosAreasId?: number | null;
   valorEstimado?: number | null;
   interesseRenovacao?: boolean | null;
   description?: string | null;

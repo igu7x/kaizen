@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Contract } from '@/types';
 import { contractsApi } from '@/services/contractsApi';
 import { formatCurrency } from '@/services/pcaApi';
+import { getAreaLabel } from "@/utils/formatters";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -335,7 +336,7 @@ export function ContractDetails() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Unidade / Diretoria</p>
-                  <p className="font-medium">{contract.unidade || contract.directory || '-'}</p>
+                  <p className="font-medium">{getAreaLabel(contract)}</p>
                 </div>
               </div>
 

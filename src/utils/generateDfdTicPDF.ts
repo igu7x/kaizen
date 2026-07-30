@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import type { Ciclo } from "../services/cicloOrcamentarioApi";
 import type { Ifo, BlocoIfo } from "../services/dfdApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
+import { getAreaLabel } from "../utils/formatters";
 
 /**
  * RF-33 — "Proposta de DFD-TIC" (Formação). A Especificação v2 não define o layout campo-a-campo
@@ -90,7 +91,7 @@ export function generateDfdTicPDF(ciclo: Ciclo, ifos: Ifo[]): void {
       body: doBloco.map((i) => [
         i.codigoOficial ?? i.codigo,
         i.objeto ?? "—",
-        i.areaDemandante ?? "—",
+        getAreaLabel(i),
         naturezaLabel(i.natureza),
         BRL.format(i.valorEstimado ?? 0),
       ]),
