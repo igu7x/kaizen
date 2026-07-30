@@ -206,7 +206,7 @@ export default function ValidarProcesso() {
             </div>
           </div>
           <div className="text-sm text-right font-bold" style={{ color: AZUL }}>
-            Gerência de Estratégia Judiciária e Tecnológica
+            Secretaria de Governança Judiciária e Tecnológica
           </div>
         </div>
       </div>

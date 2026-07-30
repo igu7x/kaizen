@@ -39,6 +39,12 @@ const FOOTER_Y = PAGE_HEIGHT - 18;
 // Helpers
 // ============================================================
 
+/** Numeração de Versão/Revisão em 3 dígitos (000, 001, 002…). */
+function pad3(v: string | number | null | undefined): string {
+  const n = parseInt(String(v ?? "").split(".")[0], 10);
+  return String(Number.isFinite(n) ? n : 0).padStart(3, "0");
+}
+
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
   try {
@@ -520,11 +526,13 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 3: Data da Versão — preenchida só após homologação (validado_final).
+  // Linha 3: Data — rótulo muda conforme o estado (Proposta enquanto não homologado; Vigência
+  // quando vigente). Valor preenchido só após homologação (validado_final).
+  const emProposta = processo.status !== "validado_final";
   const yData = yMacro + rowH;
   drawTextCell(
     doc,
-    "Data da Versão:",
+    emProposta ? "Data da Proposta:" : "Data da Vigência:",
     MARGIN_LEFT + leftColW,
     yData,
     labelW,
@@ -556,8 +564,9 @@ function drawCabecalhoInstitucional(
   const yVerRev = yData + rowH;
   const verLabelW = labelW;
   const verValueW = (rightColW - verLabelW * 2) / 2;
-  const versaoHeader = String(processo.versao ?? "1").split(".")[0] || "1";
-  const revisaoHeader = String(processo.revisao ?? "0").split(".")[0] || "0";
+  const sufixoProposta = emProposta ? " (Proposta)" : "";
+  const versaoHeader = pad3(processo.versao ?? "1") + sufixoProposta;
+  const revisaoHeader = pad3(processo.revisao ?? "0") + sufixoProposta;
   let vx = MARGIN_LEFT + leftColW;
   const cellLabelOpts = {
     bold: true,
@@ -635,9 +644,9 @@ function drawRodapeInstitucional(
   const versaoNum = parseInt(versaoBase, 10);
   const versaoValue =
     isProposta && Number.isFinite(versaoNum)
-      ? `${versaoNum + 1} (Proposta)`
-      : versaoBase;
-  const revisaoValue = String(processo.revisao ?? "0").split(".")[0] || "0";
+      ? `${pad3(versaoNum + 1)} (Proposta)`
+      : pad3(versaoBase);
+  const revisaoValue = pad3(processo.revisao ?? "0");
   const modeloLabel =
     isProposta || isK1(processo)
       ? "K1"
@@ -654,7 +663,12 @@ function drawRodapeInstitucional(
       value: versaoValue,
     },
     { label: "REVISÃO:", value: revisaoValue },
-    { label: "DATA DA PROPOSTA:", value: formatDate(processo.updated_at) },
+    {
+      label: isProposta ? "DATA DA PROPOSTA:" : "DATA DA VIGÊNCIA:",
+      value: isProposta
+        ? formatDate(processo.updated_at)
+        : formatDate(processo.periodo) || formatDate(processo.updated_at),
+    },
   ].map((f) => {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");

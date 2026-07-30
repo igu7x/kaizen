@@ -25,6 +25,8 @@ import {
   Save,
   ShieldCheck,
   XCircle,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -82,7 +84,7 @@ const emptyForm: CreateProcessoNegocioDto = {
   macroprocesso: "",
   diretoria: "",
   periodo: "",
-  revisao: "0",
+  revisao: "000",
   codigo_versao: "",
   nome_processo: "",
   descricao: "",
@@ -103,8 +105,59 @@ const emptyForm: CreateProcessoNegocioDto = {
   periodicidade_revisao: "",
   numero_proad: "",
   observacoes_gerais: "",
-  versao: "1",
+  versao: "001",
 };
+
+/** Numeração de Versão/Revisão em 3 dígitos (000, 001, 002…) — padrão de controle de documentos. */
+function pad3(v: string | number | null | undefined): string {
+  const n = parseInt(String(v ?? "").split(".")[0], 10);
+  return String(Number.isFinite(n) ? n : 0).padStart(3, "0");
+}
+
+/**
+ * Campos de conteúdo do documento considerados no "Resumo de alterações" de uma revisão.
+ * A comparação (form atual x processo persistido) define se a revisão teve alteração de conteúdo
+ * — o que, pela política de controle de documentos, também incrementa a Versão.
+ */
+const CAMPOS_CONTEUDO: Array<{ key: string; label: string }> = [
+  { key: "nome_processo", label: "Nome do Processo" },
+  { key: "macroprocesso", label: "Macroprocesso" },
+  { key: "descricao", label: "Descrição do Processo" },
+  { key: "detalhamento", label: "Estrutura / Detalhamento do Processo" },
+  { key: "indicadores", label: "Indicadores" },
+  { key: "proprietarios", label: "Proprietários" },
+  { key: "atores", label: "Atores" },
+  { key: "areas_responsaveis", label: "Áreas Responsáveis" },
+  { key: "entradas", label: "Entradas" },
+  { key: "saidas", label: "Saídas" },
+  { key: "sistemas_ferramentas", label: "Sistemas e Ferramentas" },
+  { key: "normativos_referencias", label: "Normativos e Referências" },
+  { key: "fluxograma_data", label: "Fluxograma" },
+  { key: "documentos_anexados", label: "Documentos Anexados" },
+  { key: "apreciacao", label: "Apreciação" },
+  { key: "numero_proad", label: "Número PROAD" },
+  { key: "observacoes_gerais", label: "Observações Gerais" },
+];
+
+/** Normaliza um valor de campo para comparação estável (string trim; arrays/objetos via JSON). */
+function normConteudo(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v.trim();
+  return JSON.stringify(v);
+}
+
+/** Lista os rótulos dos campos de conteúdo que diferem entre o form atual e o processo salvo. */
+function camposAlterados(
+  form: CreateProcessoNegocioDto,
+  processo: ProcessoNegocio | null | undefined,
+): string[] {
+  if (!processo) return [];
+  const f = form as unknown as Record<string, unknown>;
+  const p = processo as unknown as Record<string, unknown>;
+  return CAMPOS_CONTEUDO.filter(
+    (c) => normConteudo(f[c.key]) !== normConteudo(p[c.key]),
+  ).map((c) => c.label);
+}
 
 /**
  * Calcula a próxima revisão a partir do período do processo (Período + 1 ano).
@@ -159,6 +212,15 @@ export function ProcessoFormDialog({
   const isEdit = !!processo;
   const [form, setForm] = useState<CreateProcessoNegocioDto>(emptyForm);
   const [saving, setSaving] = useState(false);
+  // "Resumo de alterações" — modal de confirmação exibido ao finalizar uma REVISÃO (processo já
+  // homologado, com código K1). Preenchido enquanto o modal está aberto; null quando fechado.
+  const [resumo, setResumo] = useState<{
+    alterados: string[];
+    revDe: string;
+    revPara: string;
+    verDe: string;
+    verPara: string;
+  } | null>(null);
   // Modo do form: quando "visualizar", começa travado (somente leitura) até clicar em "Editar".
   const [editando, setEditando] = useState(true);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -200,7 +262,7 @@ export function ProcessoFormDialog({
         macroprocesso: processo.macroprocesso || "",
         diretoria: processo.diretoria || "",
         periodo: processo.periodo || "",
-        revisao: processo.revisao ?? "0",
+        revisao: pad3(processo.revisao ?? "0"),
         codigo_versao: processo.codigo_versao || "",
         nome_processo: processo.nome_processo || "",
         descricao: processo.descricao || "",
@@ -265,7 +327,7 @@ export function ProcessoFormDialog({
     return null;
   };
 
-  const handleSave = async (validarApos: boolean) => {
+  const handleSave = async (validarApos: boolean, pularResumo = false) => {
     const err = validate();
     if (err) {
       toast.error(err);
@@ -285,14 +347,33 @@ export function ProcessoFormDialog({
         return;
       }
     }
+    // Ao FINALIZAR uma revisão (processo já homologado, com código K1), mostra o "Resumo de
+    // alterações" com a numeração resultante antes de enviar para validação. A confirmação
+    // reentra em handleSave(true, true), pulando este gate.
+    const ehRevisao = !!processo?.codigo;
+    if (validarApos && ehRevisao && !pularResumo) {
+      const alterados = camposAlterados(form, processo);
+      const revNum = parseInt(String(processo?.revisao ?? "0").split(".")[0], 10);
+      const verNum = parseInt(String(processo?.versao ?? "1").split(".")[0], 10);
+      const revBase = Number.isFinite(revNum) ? revNum : 0;
+      const verBase = Number.isFinite(verNum) ? verNum : 1;
+      setResumo({
+        alterados,
+        revDe: pad3(revBase),
+        revPara: pad3(revBase + 1),
+        verDe: pad3(verBase),
+        verPara: alterados.length > 0 ? pad3(verBase + 1) : pad3(verBase),
+      });
+      return;
+    }
     setSaving(true);
     try {
       // Versão e Revisão são numéricas e informáveis manualmente; em branco caem no padrão
       // (Versão 1, Revisão 0). O backend ainda incrementa Versão/Revisão no ciclo de homologação.
       const payload: CreateProcessoNegocioDto = {
         ...form,
-        versao: String(form.versao ?? "").trim() || "1",
-        revisao: String(form.revisao ?? "").trim() || "0",
+        versao: pad3(form.versao || "1"),
+        revisao: pad3(form.revisao || "0"),
       };
       let saved: ProcessoNegocio;
       if (currentId != null) {
@@ -321,7 +402,10 @@ export function ProcessoFormDialog({
     }
   };
 
+  const resumoComAlteracao = !!resumo && resumo.alterados.length > 0;
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl gap-0 overflow-hidden border-0 bg-white p-0 sm:rounded-2xl max-h-[92vh] flex flex-col">
         {/* Header fixo */}
@@ -503,9 +587,7 @@ export function ProcessoFormDialog({
                   placeholder="0"
                   className="mt-1 bg-white"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Em branco = 0. Atualiza sozinho (+1) a cada revisão concluída.
-                </p>
+                <p className="text-xs text-slate-500 mt-1">Em branco = 0.</p>
               </div>
             </div>
           </Section>
@@ -886,5 +968,111 @@ export function ProcessoFormDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+
+    {/* "Resumo de alterações" — confirmação exibida ao finalizar uma revisão, antes de enviar
+        para o fluxo de validação. Mostra os campos alterados e a numeração resultante. */}
+    <Dialog open={!!resumo} onOpenChange={(o) => !o && setResumo(null)}>
+      <DialogContent className="max-w-lg gap-0 overflow-hidden border-0 bg-white p-0 sm:rounded-2xl">
+        <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-4">
+          {resumoComAlteracao ? (
+            <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-6 w-6 text-emerald-500 flex-shrink-0" />
+          )}
+          <h2 className="text-lg font-bold text-slate-800">
+            Resumo de alterações
+          </h2>
+        </div>
+
+        {resumo && (
+          <div className="px-6 py-5 space-y-4">
+            {resumoComAlteracao ? (
+              <>
+                <p className="text-sm text-slate-600">
+                  Foram identificadas alterações de conteúdo nesta revisão. Por
+                  isso, o número da <strong>revisão</strong> e o da{" "}
+                  <strong>versão</strong> serão atualizados automaticamente.
+                </p>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                    Campos alterados
+                  </p>
+                  <ul className="space-y-1">
+                    {resumo.alterados.map((label) => (
+                      <li
+                        key={label}
+                        className="flex items-center gap-2 text-sm text-slate-700"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                        {label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-600">
+                Não foram identificadas alterações de conteúdo nesta revisão.
+                Apenas o número da <strong>revisão</strong> será atualizado; a{" "}
+                <strong>versão</strong> permanece a mesma.
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Revisão
+                </p>
+                <p className="text-base font-bold tabular-nums text-slate-800">
+                  {resumo.revDe} <span className="text-slate-400">→</span>{" "}
+                  {resumo.revPara}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Versão
+                </p>
+                <p className="text-base font-bold tabular-nums text-slate-800">
+                  {resumo.verDe} <span className="text-slate-400">→</span>{" "}
+                  {resumo.verPara}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm font-medium text-slate-700">
+              Deseja confirmar e enviar o processo para validação?
+            </p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setResumo(null)}
+            disabled={saving}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setResumo(null);
+              handleSave(true, true);
+            }}
+            disabled={saving}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 mr-2" />
+            )}
+            Confirmar e enviar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
