@@ -662,10 +662,11 @@ public class ProcessosNegocioService {
         String novaRevisao = revisaoAtual;
         boolean atualizaPeriodo = false;
         if (ciclos >= 1) {
-            novaRevisao = String.valueOf(parseIntSafe(revisaoAtual.split("\\.")[0], 0) + 1);
+            // Numeração com 3 dígitos (000, 001, 002…), padrão do controle de documentos.
+            novaRevisao = String.format("%03d", parseIntSafe(revisaoAtual.split("\\.")[0], 0) + 1);
             atualizaPeriodo = true;
             if (editadoNoCiclo) {
-                novaVersao = String.valueOf(parseIntSafe(versaoAtual.split("\\.")[0], 1) + 1);
+                novaVersao = String.format("%03d", parseIntSafe(versaoAtual.split("\\.")[0], 1) + 1);
             }
         }
 
