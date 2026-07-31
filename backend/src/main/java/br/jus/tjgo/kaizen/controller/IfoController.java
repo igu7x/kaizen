@@ -79,6 +79,14 @@ public class IfoController {
         return service.definirInteresseRenovacaoContrato(id, contractId, interesse, motivo, resolveUserId(userId));
     }
 
+    // PATCH /api/ifo/:id/contratos/:contractId/valor
+    @PatchMapping("/{id:\\d+}/contratos/{contractId:\\d+}/valor")
+    public IfoDto atualizarValorContrato(@PathVariable long id, @PathVariable long contractId, @RequestBody Map<String, Object> body,
+                                         @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        Long valorCents = body.get("valorContratoCents") != null ? num(body.get("valorContratoCents")) : null;
+        return service.atualizarValorContrato(id, contractId, valorCents, resolveUserId(userId));
+    }
+
     // POST /api/ifo/:id/enviar-cca — envia o IFO à CCA (RF-26)
     @PostMapping("/{id:\\d+}/enviar-cca")
     public IfoDto enviarCca(@PathVariable long id,

@@ -136,18 +136,22 @@ public class Contract {
     @Column(name = "year_value")
     private Long yearValue;
 
-    @Column(name = "directory", length = 50)
-    private String directory;
 
 
-    @Column(name = "cadastro_area_id")
+
+    @Column(name = "cadastros_areas_id")
     private Long cadastroAreaId;
 
-    @Column(name = "cadastro_unidade_id")
+    @Column(name = "cadastros_unidades_id")
     private Long cadastroUnidadeId;
 
-    @Column(name = "unidade", length = 255)
-    private String unidade;
+    @Transient
+    private String areaSigla;
+
+    @Transient
+    private String unidadeSigla;
+
+
 
     @Column(name = "contract_members_id")
     private Long contractMembersId;

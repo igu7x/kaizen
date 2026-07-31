@@ -32,10 +32,10 @@ public class ContractsController {
                 contract.getAdditiveTermType(),
                 contract.getObjectName(),
                 contract.getNoticeNumber(),
-                contract.getDirectory(),
-                contract.getUnidade(),
                 contract.getCadastroAreaId(),
                 contract.getCadastroUnidadeId(),
+                contract.getAreaSigla(),
+                contract.getUnidadeSigla(),
                 contract.getTotalValueCents(),
                 contract.getMonthlyValueCents(),
                 "Ativo", // simplificação

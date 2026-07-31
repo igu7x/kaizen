@@ -77,13 +77,40 @@ public class ContractService {
             ).toList();
         }
         
+        populateAreaAndUnidadeSiglas(contracts);
         return contracts;
     }
 
+    private void populateAreaAndUnidadeSiglas(List<Contract> contracts) {
+        if (contracts.isEmpty()) return;
+        
+        var areasRows = jdbcTemplate.queryForList("SELECT id, sigla FROM cadastros_areas");
+        var unidadesRows = jdbcTemplate.queryForList("SELECT id, sigla FROM cadastros_unidades");
+        
+        java.util.Map<Long, String> areaSiglas = areasRows.stream()
+                .filter(r -> r.get("id") != null && r.get("sigla") != null)
+                .collect(Collectors.toMap(r -> ((Number) r.get("id")).longValue(), r -> r.get("sigla").toString()));
+                
+        java.util.Map<Long, String> unidadeSiglas = unidadesRows.stream()
+                .filter(r -> r.get("id") != null && r.get("sigla") != null)
+                .collect(Collectors.toMap(r -> ((Number) r.get("id")).longValue(), r -> r.get("sigla").toString()));
+                
+        for (Contract c : contracts) {
+            if (c.getCadastroAreaId() != null) {
+                c.setAreaSigla(areaSiglas.get(c.getCadastroAreaId()));
+            }
+            if (c.getCadastroUnidadeId() != null) {
+                c.setUnidadeSigla(unidadeSiglas.get(c.getCadastroUnidadeId()));
+            }
+        }
+    }
+
     public Contract findById(Long id) {
-        return contractRepository.findById(id)
-                .filter(c -> !c.getIsDeleted())
+        Contract c = contractRepository.findById(id)
+                .filter(contract -> !contract.getIsDeleted())
                 .orElseThrow(() -> new ApiException(404, "Contrato não encontrado"));
+        populateAreaAndUnidadeSiglas(List.of(c));
+        return c;
     }
 
     private String resolveUnidade(Long cadastroUnidadeId, Long cadastroAreaId) {
@@ -129,14 +156,13 @@ public class ContractService {
         contract.setObjectName(req.objectName());
         contract.setDescription(req.description());
         contract.setNoticeNumber(req.noticeNumber());
-        contract.setDirectory(req.directory());
         contract.setCadastroAreaId(req.cadastroAreaId());
         contract.setCadastroUnidadeId(req.cadastroUnidadeId());
         contract.setTotalValueCents(req.totalValueCents() != null ? req.totalValueCents() : 0L);
         contract.setMonthlyValueCents(req.monthlyValueCents() != null ? req.monthlyValueCents() : 0L);
         contract.setYearDurationStandard(req.yearDurationStandard());
 
-        contract.setUnidade(resolveUnidade(req.cadastroUnidadeId(), req.cadastroAreaId()));
+
 
         if (req.pcaIds() != null && !req.pcaIds().isEmpty()) {
             List<Pca> pcas = pcaRepository.findAllById(req.pcaIds());
@@ -146,7 +172,9 @@ public class ContractService {
         contract.setCreatedAt(LocalDateTime.now());
         contract.setCreatedBy(userId);
 
-        return contractRepository.save(contract);
+        contract = contractRepository.save(contract);
+        populateAreaAndUnidadeSiglas(List.of(contract));
+        return contract;
     }
 
     @Transactional
@@ -168,7 +196,6 @@ public class ContractService {
         if (req.objectName() != null) contract.setObjectName(req.objectName());
         if (req.description() != null) contract.setDescription(req.description());
         if (req.noticeNumber() != null) contract.setNoticeNumber(req.noticeNumber());
-        if (req.directory() != null) contract.setDirectory(req.directory());
         if (req.totalValueCents() != null) contract.setTotalValueCents(req.totalValueCents());
         if (req.monthlyValueCents() != null) contract.setMonthlyValueCents(req.monthlyValueCents());
         if (req.yearDurationStandard() != null) contract.setYearDurationStandard(req.yearDurationStandard());
@@ -183,9 +210,7 @@ public class ContractService {
             updateUnidade = true;
         }
         
-        if (updateUnidade) {
-            contract.setUnidade(resolveUnidade(contract.getCadastroUnidadeId(), contract.getCadastroAreaId()));
-        }
+
 
         if (req.pcaIds() != null) {
             List<Pca> pcas = pcaRepository.findAllById(req.pcaIds());
@@ -195,7 +220,9 @@ public class ContractService {
         contract.setUpdatedAt(LocalDateTime.now());
         contract.setUpdatedBy(userId);
 
-        return contractRepository.save(contract);
+        contract = contractRepository.save(contract);
+        populateAreaAndUnidadeSiglas(List.of(contract));
+        return contract;
     }
 
     @Transactional

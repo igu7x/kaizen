@@ -6,9 +6,8 @@ public record AtualizarIfoRequest(
         String bloco,
         String natureza,
         String objeto,
-        String areaDemandante,
-        Long unidadeId,
-        Long areaId,
+        Long cadastrosUnidadesId,
+        Long cadastrosAreasId,
         Double valorEstimado,
         Boolean interesseRenovacao,
         
@@ -18,7 +17,6 @@ public record AtualizarIfoRequest(
         String financialResourceType,
         String contractType,
         Long formalizedValueCents,
-        Long idCadastrosAreas,
         String priority,
         LocalDate estimatedDate
 ) {}

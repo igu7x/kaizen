@@ -52,31 +52,31 @@ public class PcaService {
     private static final String SELECT_COLUMNS =
             "SELECT p.id, p.code as item_pca, " +
             "CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
-            "p.directory_acronym as area_demandante, p.object_name as objeto, " +
+            "COALESCE(cadastro_areas.sigla, cadastro_areas.nome) as area_demandante, p.object_name as objeto, " +
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
-            "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
+            "p.cadastros_areas_id, p.cadastros_unidades_id, " +
             "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
-            "cadastro_unidades_diretoria.nome as diretoria_nome, " +
-            "cadastro_unidades_area.nome as area_demandante_nome, ";
+            "cadastro_areas.nome as diretoria_nome, " +
+            "cadastro_unidades.nome as area_demandante_nome, ";
 
     private static final String SELECT_COLUMNS_SNAPSHOT =
             "SELECT p.original_pca_id as id, p.code as item_pca, " +
             "CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
-            "p.directory_acronym as area_demandante, p.object_name as objeto, " +
+            "COALESCE(cadastro_areas.sigla, cadastro_areas.nome) as area_demandante, p.object_name as objeto, " +
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
-            "p.id_diretoria, p.id_area_demandante, p.id_cadastros_areas, " +
+            "p.cadastros_areas_id, p.cadastros_unidades_id, " +
             "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
-            "cadastro_unidades_diretoria.nome as diretoria_nome, " +
-            "cadastro_unidades_area.nome as area_demandante_nome, ";
+            "cadastro_areas.nome as diretoria_nome, " +
+            "cadastro_unidades.nome as area_demandante_nome, ";
 
     private static final String FROM_JOINS =
             "FROM pcas p " +
-            "LEFT JOIN cadastros_unidades cadastro_unidades_diretoria ON cadastro_unidades_diretoria.id = p.id_diretoria " +
-            "LEFT JOIN cadastros_unidades cadastro_unidades_area ON cadastro_unidades_area.id = p.id_area_demandante ";
+            "LEFT JOIN cadastros_areas cadastro_areas ON cadastro_areas.id = p.cadastros_areas_id " +
+            "LEFT JOIN cadastros_unidades cadastro_unidades ON cadastro_unidades.id = p.cadastros_unidades_id ";
 
     private String parseMonthToDateStr(String monthName, Object yearObj) {
         if (monthName == null) return null;
@@ -99,8 +99,8 @@ public class PcaService {
                         "p.priority, p.process, p.description, p.justification, p.financial_resource_type, p.step, " +
                         "CAST(p.year AS INTEGER) as ano, p.is_deleted, p.created_at, p.updated_at " +
                         fromTable +
-                        "LEFT JOIN cadastros_unidades cadastro_unidades_diretoria ON cadastro_unidades_diretoria.id = p.id_diretoria " +
-                        "LEFT JOIN cadastros_unidades cadastro_unidades_area ON cadastro_unidades_area.id = p.id_area_demandante " +
+                        "LEFT JOIN cadastros_areas cadastro_areas ON cadastro_areas.id = p.cadastros_areas_id " +
+                        "LEFT JOIN cadastros_unidades cadastro_unidades ON cadastro_unidades.id = p.cadastros_unidades_id " +
                         "WHERE (p.is_deleted = FALSE OR p.is_deleted IS NULL)");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
@@ -108,7 +108,7 @@ public class PcaService {
             params.add(String.valueOf(ano));
         }
         if (diretoriaId != null) {
-            sql.append(" AND p.id_cadastros_areas = ?");
+            sql.append(" AND p.cadastros_areas_id = ?");
             params.add(diretoriaId);
         }
         if (versionNumber != null) {
@@ -239,36 +239,17 @@ public class PcaService {
         Long valCents = asCents(data.get("valor_estimado"));
         Long formCents = asCents(data.get("valor_formalizado"));
         String tipo = mapTipoToContractType((String) data.get("tipo"));
-        Long idDiretoria = numOrNull(data.get("id_diretoria"));
-        Long idAreaDemandante = numOrNull(data.get("id_area_demandante"));
-
-        // Se diretoria FK fornecida, derivar directory_acronym para retro-compatibilidade e id_cadastros_areas
-        Long idCadastrosAreas = null;
-        String areaDemandante = (String) data.get("area_demandante");
-        if (idDiretoria != null) {
-            var uniRows = jdbc.queryForList("SELECT nome, area_id FROM cadastros_unidades WHERE id = ?", idDiretoria);
-            if (!uniRows.isEmpty()) {
-                idCadastrosAreas = asLong(uniRows.get(0).get("area_id"));
-                if (idCadastrosAreas != null) {
-                    var areaRows = jdbc.queryForList("SELECT sigla FROM cadastros_areas WHERE id = ?", idCadastrosAreas);
-                    if (!areaRows.isEmpty()) {
-                        areaDemandante = (String) areaRows.get(0).get("sigla");
-                    }
-                } else if (areaDemandante == null || areaDemandante.isEmpty()) {
-                    areaDemandante = (String) uniRows.get(0).get("nome");
-                }
-            }
-        }
+        Long idCadastrosAreas = numOrNull(data.getOrDefault("cadastros_areas_id", data.get("id_diretoria")));
+        Long idCadastrosUnidades = numOrNull(data.getOrDefault("cadastros_unidades_id", data.get("id_area_demandante")));
 
         Map<String, Object> created = jdbc.queryForMap(
-                "INSERT INTO pcas (code, contract_type, directory_acronym, " +
+                "INSERT INTO pcas (code, contract_type, " +
                         "object_name, estimated_value_cents, formalized_value_cents, estimated_date, status, year, " +
                         "process, description, justification, financial_resource_type, step, priority, " +
-                        "id_diretoria, id_area_demandante, id_cadastros_areas, created_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, CAST(? AS DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                        "cadastros_areas_id, cadastros_unidades_id, created_by) " +
+                        "VALUES (?, ?, ?, ?, ?, CAST(? AS DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 itemPca,
                 tipo,
-                areaDemandante,
                 data.get("objeto"),
                 valCents,
                 formCents,
@@ -281,9 +262,8 @@ public class PcaService {
                 data.get("financial_resource_type"),
                 data.get("step"),
                 parsePriorityStr((String) data.get("priority")),
-                idDiretoria,
-                idAreaDemandante,
                 idCadastrosAreas,
+                idCadastrosUnidades,
                 userId);
         long newId = ((Number) created.get("id")).longValue();
         audit.log("pcas", newId, "INSERT", userId, null, null, created);
@@ -307,7 +287,7 @@ public class PcaService {
         
         if (data.containsKey("item_pca")) { updates.add("code = ?"); values.add(data.get("item_pca")); }
         if (data.containsKey("tipo")) { updates.add("contract_type = ?"); values.add(mapTipoToContractType((String) data.get("tipo"))); }
-        if (data.containsKey("area_demandante")) { updates.add("directory_acronym = ?"); values.add(data.get("area_demandante")); }
+
         if (data.containsKey("objeto")) { updates.add("object_name = ?"); values.add(data.get("objeto")); }
         if (data.containsKey("valor_estimado")) { updates.add("estimated_value_cents = ?"); values.add(asCents(data.get("valor_estimado"))); }
         if (data.containsKey("valor_formalizado")) { updates.add("formalized_value_cents = ?"); values.add(asCents(data.get("valor_formalizado"))); }
@@ -320,43 +300,14 @@ public class PcaService {
         if (data.containsKey("financial_resource_type")) { updates.add("financial_resource_type = ?"); values.add(data.get("financial_resource_type")); }
         if (data.containsKey("step")) { updates.add("step = ?"); values.add(data.get("step")); }
         if (data.containsKey("priority")) { updates.add("priority = ?"); values.add(parsePriorityStr((String) data.get("priority"))); }
-        if (data.containsKey("id_diretoria")) {
-            updates.add("id_diretoria = ?");
-            values.add(numOrNull(data.get("id_diretoria")));
-            // Sync directory_acronym for retro-compatibility and id_cadastros_areas
-            Long areaId = numOrNull(data.get("id_diretoria"));
-            if (areaId != null) {
-                var uniRows = jdbc.queryForList("SELECT nome, area_id FROM cadastros_unidades WHERE id = ?", areaId);
-                if (!uniRows.isEmpty()) {
-                    Long idCadastrosAreas = asLong(uniRows.get(0).get("area_id"));
-                    updates.add("id_cadastros_areas = ?");
-                    values.add(idCadastrosAreas);
-                    
-                    if (idCadastrosAreas != null) {
-                        var areaRows = jdbc.queryForList("SELECT sigla FROM cadastros_areas WHERE id = ?", idCadastrosAreas);
-                        if (!areaRows.isEmpty()) {
-                            int idx = updates.indexOf("directory_acronym = ?");
-                            if (idx >= 0) { updates.remove(idx); values.remove(idx); }
-                            updates.add("directory_acronym = ?");
-                            values.add(areaRows.get(0).get("sigla"));
-                        } else {
-                            int idx = updates.indexOf("directory_acronym = ?");
-                            if (idx >= 0) { updates.remove(idx); values.remove(idx); }
-                            updates.add("directory_acronym = ?");
-                            values.add(uniRows.get(0).get("nome"));
-                        }
-                    } else {
-                        int idx = updates.indexOf("directory_acronym = ?");
-                        if (idx >= 0) { updates.remove(idx); values.remove(idx); }
-                        updates.add("directory_acronym = ?");
-                        values.add(uniRows.get(0).get("nome"));
-                    }
-                }
-            } else {
-                updates.add("id_cadastros_areas = NULL");
-            }
+        if (data.containsKey("cadastros_areas_id") || data.containsKey("id_diretoria")) {
+            updates.add("cadastros_areas_id = ?");
+            values.add(numOrNull(data.getOrDefault("cadastros_areas_id", data.get("id_diretoria"))));
         }
-        if (data.containsKey("id_area_demandante")) { updates.add("id_area_demandante = ?"); values.add(numOrNull(data.get("id_area_demandante"))); }
+        if (data.containsKey("cadastros_unidades_id") || data.containsKey("id_area_demandante")) {
+            updates.add("cadastros_unidades_id = ?");
+            values.add(numOrNull(data.getOrDefault("cadastros_unidades_id", data.get("id_area_demandante"))));
+        }
 
         updates.add("updated_by = ?");
         values.add(userId);
@@ -385,7 +336,11 @@ public class PcaService {
                 "UPDATE pcas SET status = ?, updated_by = ?, updated_at = NOW() " +
                         "WHERE id = ? AND (is_deleted = FALSE OR is_deleted IS NULL) RETURNING id, code as item_pca, " +
                         "CASE WHEN contract_type = 'RENOVACAO' THEN 'Renovação' WHEN contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
-                        "directory_acronym as area_demandante, object_name as objeto, estimated_value_cents / 100.0 as valor_estimado, " +
+                        "COALESCE((SELECT sigla FROM cadastros_areas WHERE id = cadastros_areas_id), (SELECT nome FROM cadastros_areas WHERE id = cadastros_areas_id)) as area_demandante, " +
+                        "cadastros_areas_id, cadastros_unidades_id, " +
+                        "(SELECT sigla FROM cadastros_areas WHERE id = cadastros_areas_id) as area_sigla, " +
+                        "(SELECT sigla FROM cadastros_unidades WHERE id = cadastros_unidades_id) as unidade_sigla, " +
+                        "object_name as objeto, estimated_value_cents / 100.0 as valor_estimado, " +
                         "CAST(estimated_date AS TEXT) as data_estimada_contratacao, " +
                         "CASE status WHEN 'CONCLUIDA' THEN 'Concluída' WHEN 'EM_ANDAMENTO' THEN 'Em andamento' ELSE 'Não Iniciada' END as status, " +
                         "priority, process, description, justification, financial_resource_type, step, " +
@@ -473,14 +428,14 @@ public class PcaService {
 
         String insertSql = "INSERT INTO pcas_snapshots (original_pca_id, snapshot_version, snapshot_created_by, " +
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
-                "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
-                "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
+                "estimated_value_cents, formalized_value_cents, cadastros_areas_id, cadastros_unidades_id, " +
+                "priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
                 "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade, " +
                 "ciclo_id, finalidade, publicado_por, publicado_em) " +
                 "SELECT id, ?, ?, " +
                 "year, code, description, justification, process, financial_resource_type, contract_type, object_name, " +
-                "directory_acronym, estimated_value_cents, formalized_value_cents, id_diretoria, id_area_demandante, " +
-                "id_cadastros_areas, priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
+                "estimated_value_cents, formalized_value_cents, cadastros_areas_id, cadastros_unidades_id, " +
+                "priority, step, estimated_date, status, is_deleted, created_at, updated_at, " +
                 "created_by, updated_by, deleted_at, deleted_by, origem_ciclo_id, origem_proad, origem_finalidade, " +
                 "?, ?, ?, NOW() " +
                 "FROM pcas WHERE year = ? AND (is_deleted = FALSE OR is_deleted IS NULL)";
@@ -514,7 +469,7 @@ public class PcaService {
 
     public List<String> getAreasDemandantes() {
         return jdbc.queryForList(
-                "SELECT DISTINCT directory_acronym FROM pcas WHERE is_deleted = FALSE ORDER BY directory_acronym",
+                "SELECT DISTINCT sigla FROM cadastros_areas WHERE sigla IS NOT NULL ORDER BY sigla",
                 String.class);
     }
 

@@ -675,8 +675,12 @@ public class CicloOrcamentarioService {
         }
 
 
+        jdbc.update("DELETE FROM atas_comites WHERE ciclo_id = ?", ciclo.id());
+        jdbc.update("DELETE FROM revisao_item_validacao WHERE ciclo_id = ?", ciclo.id());
+        jdbc.update("DELETE FROM orcamento_editores WHERE ciclo_id = ?", ciclo.id());
         jdbc.update("DELETE FROM ifo WHERE ciclo_id = ?", ciclo.id());
         jdbc.update("DELETE FROM pcas_snapshots WHERE year = ?", String.valueOf(anoFormacao));
+        jdbc.update("DELETE FROM pcas_snapshots WHERE ciclo_id = ?", ciclo.id());
         jdbc.update("DELETE FROM ciclo_orcamentario WHERE id = ?", ciclo.id());
     }
 
@@ -712,8 +716,9 @@ public class CicloOrcamentarioService {
         }
 
         // Busca todos os IFOs ordenados por bloco e código
-        var ifos = jdbc.queryForList("SELECT id, codigo, bloco, objeto, valor_estimado_cents, area_demandante " + 
-                                     "FROM ifo WHERE ciclo_id = ? AND is_deleted = FALSE ORDER BY bloco, codigo", ciclo.id());
+        var ifos = jdbc.queryForList("SELECT i.id, i.codigo, i.bloco, i.objeto, i.valor_estimado_cents, ca.sigla as area_demandante " + 
+                                     "FROM ifo i LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
+                                     "WHERE i.ciclo_id = ? AND i.is_deleted = FALSE ORDER BY i.bloco, i.codigo", ciclo.id());
 
         var contratos = jdbc.queryForList(
             "SELECT ic.ifo_id, c.id, c.notice_number, c.situation, c.expense_nature, c.year_value, c.end_date " +
