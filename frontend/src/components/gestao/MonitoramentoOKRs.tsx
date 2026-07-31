@@ -250,10 +250,8 @@ export function MonitoramentoOKRs() {
   // Filtrar por diretoria e ordenar por código para manter posição consistente
   // "KRs Transversais" deve aparecer por último
   const filteredObjectives = useMemo(() => {
-    console.log("OBJECTIVES FROM CONTEXT:", objectives);
-    console.log("SELECTED AREA ID:", selectedAreaId);
     return objectives
-      .filter((obj) => Number(obj.cadastrosAreasId) === selectedAreaId)
+      .filter((obj) => Number(obj.cadastrosAreasId) === Number(selectedAreaId))
       .sort((a, b) => {
         // KRs Transversais sempre por último
         const aIsTransversal =
@@ -271,7 +269,9 @@ export function MonitoramentoOKRs() {
   }, [objectives, selectedAreaId]);
 
   const filteredKeyResults = useMemo(() => {
-    return keyResults.filter((kr) => Number(kr.cadastrosAreasId) === selectedAreaId);
+    return keyResults.filter(
+      (kr) => Number(kr.cadastrosAreasId) === Number(selectedAreaId),
+    );
   }, [keyResults, selectedAreaId]);
 
   const situacaoOKRs = useMemo(() => {

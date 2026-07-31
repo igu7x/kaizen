@@ -51,7 +51,10 @@ export function DirectorateProvider({ children }: { children: ReactNode }) {
 
   // Determina a ID inicial baseada no usuário
   const getUserDefaultAreaId = (): number | null => {
-    const userAreaId = user?.cadastrosAreasId || null;
+    // Coage para número: a API pode entregar cadastrosAreasId como string, e o filtro dos OKRs
+    // compara com `===` estrito contra Number(cadastrosAreasId) — string aqui zerava a listagem.
+    const userAreaId =
+      user?.cadastrosAreasId != null ? Number(user.cadastrosAreasId) : null;
     if (userAreaId) {
       return userAreaId;
     }
@@ -86,11 +89,13 @@ export function DirectorateProvider({ children }: { children: ReactNode }) {
     }
 
     // O fallback prioriza a primeira área cadastrada se disponível (V4)
-    const userAreaId = user?.cadastrosAreasId;
+    const userAreaId =
+      user?.cadastrosAreasId != null ? Number(user.cadastrosAreasId) : null;
     const isRoot = isDomainRoot(user, areas);
 
-    // Se o usuário não é root, fixar a área dele
-    if (userAreaId && !isRoot && selectedAreaId !== userAreaId) {
+    // Se o usuário não é root, fixar a área dele (comparação/atribuição numéricas — auto-corrige
+    // um selectedAreaId que tenha ficado como string em sessões antigas).
+    if (userAreaId && !isRoot && Number(selectedAreaId) !== userAreaId) {
       setSelectedAreaId(userAreaId);
     }
 

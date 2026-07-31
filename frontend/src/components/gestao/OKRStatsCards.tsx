@@ -10,7 +10,7 @@ export function OKRStatsCards() {
 
   const stats = useMemo(() => {
     const filteredKRs = keyResults.filter(
-      (kr) => Number(kr.cadastrosAreasId) === selectedAreaId,
+      (kr) => Number(kr.cadastrosAreasId) === Number(selectedAreaId),
     );
     const total = filteredKRs.length;
     const concluido = filteredKRs.filter(
