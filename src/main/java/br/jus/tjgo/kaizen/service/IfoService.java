@@ -380,8 +380,7 @@ public class IfoService {
 
             // Pega o primeiro contrato para derivar os dados descritivos, ou usa do proprio IFO (fallback)
             var c = jdbc.queryForMap(
-                "SELECT object_name, total_value_cents, directory, unidade, cadastro_unidade_id, cadastro_area_id " +
-                "FROM contracts WHERE id = ?", contractIds.get(0));
+                "SELECT object_name FROM contracts WHERE id = ?", contractIds.get(0));
 
             // Pega os dados do IFO original para copiar
             var ifoOriginal = jdbc.queryForMap("SELECT * FROM ifo WHERE id = ?", ifoId);
