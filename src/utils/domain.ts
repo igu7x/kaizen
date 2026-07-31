@@ -21,8 +21,11 @@ export function isDomainRoot(user: User | null, areas?: Area[]): boolean {
 
   if (isSuperAdmin(user)) return true;
 
-  if (areas && areas.length > 0 && user?.cadastrosAreasId) {
-    const area = areas.find((a) => a.id === user.cadastrosAreasId);
+  if (areas && areas.length > 0 && user?.cadastrosAreasId != null) {
+    // Comparação numérica: cadastrosAreasId pode chegar como string da API.
+    const area = areas.find(
+      (a) => Number(a.id) === Number(user.cadastrosAreasId),
+    );
     if (area && area.is_domain_root === true) return true;
   }
 
