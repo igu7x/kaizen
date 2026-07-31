@@ -259,11 +259,14 @@ export type PcaTipo = "Contratação" | "Renovação";
 
 export interface PcaItem {
   id: number;
-  item_pca: string;
-  tipo: PcaTipo;
-  area_demandante: string;
-  area_demandante_id: number | null;
-  area_demandante_nome?: string;
+  itemPca: string;
+  tipo: string;
+  cadastrosAreasId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  areaSigla?: string | null;
+  areaNome?: string | null;
+  unidadeSigla?: string | null;
+  unidadeNome?: string | null;
   objeto: string;
   valor_estimado: number;
   valor_formalizado: number | null;
@@ -286,17 +289,11 @@ export interface PcaItem {
   financial_resource_type?: string;
   contract_type?: string;
   object_name?: string;
-  directory_acronym?: string;
+
   estimated_value_cents?: number;
   priority?: string;
   step?: string;
   estimated_date?: string;
-
-  // Campos FK para Diretoria/Área Demandante
-  id_diretoria?: number;
-  id_area_demandante?: number;
-  diretoria_sigla?: string;
-  diretoria_nome?: string;
 
   // RF-55 — rastreabilidade ao ciclo de origem (Formação/Revisão) e ao PROAD de instrução.
   origem_ciclo_id?: number | null;
@@ -306,9 +303,13 @@ export interface PcaItem {
 
 export interface CreatePcaItemDto {
   item_pca: string;
-  tipo?: PcaTipo | string;
-  area_demandante: string;
-  area_demandante_id?: number;
+  tipo: string;
+  cadastrosAreasId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  areaSigla?: string | null;
+  areaNome?: string | null;
+  unidadeSigla?: string | null;
+  unidadeNome?: string | null;
   objeto: string;
   valor_estimado: number;
   valor_formalizado?: number;
@@ -321,16 +322,17 @@ export interface CreatePcaItemDto {
   financial_resource_type?: string;
   priority?: string;
   step?: string;
-  // FK Diretoria/Área
-  id_diretoria?: number;
-  id_area_demandante?: number;
 }
 
 export interface UpdatePcaItemDto {
   item_pca?: string;
   tipo?: PcaTipo | string;
-  area_demandante?: string;
-  area_demandante_id?: number;
+  cadastrosAreasId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  areaSigla?: string | null;
+  areaNome?: string | null;
+  unidadeSigla?: string | null;
+  unidadeNome?: string | null;
   objeto?: string;
   valor_estimado?: number;
   valor_formalizado?: number;
@@ -343,9 +345,6 @@ export interface UpdatePcaItemDto {
   financial_resource_type?: string;
   priority?: string;
   step?: string;
-  // FK Diretoria/Área
-  id_diretoria?: number;
-  id_area_demandante?: number;
 }
 
 export interface PcaStats {
@@ -574,6 +573,12 @@ export interface RenovacaoStats {
 }
 
 export interface RenovacaoResumo {
+  cadastrosAreasId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  areaSigla?: string | null;
+  areaNome?: string | null;
+  unidadeSigla?: string | null;
+  unidadeNome?: string | null;
   total: number;
   valor_total: number;
   por_status: { [key: string]: number };
@@ -997,10 +1002,12 @@ export interface Contract {
   monthlyValueCents?: number;
   monthlyValueCurrency?: string;
   yearValue?: number;
-  directory?: string;
   cadastroAreaId?: number;
   cadastroUnidadeId?: number;
-  unidade?: string;
+  areaSigla?: string | null;
+  areaNome?: string | null;
+  unidadeSigla?: string | null;
+  unidadeNome?: string | null;
   contractMembersId?: number;
   createdAt?: string;
   updatedAt?: string;

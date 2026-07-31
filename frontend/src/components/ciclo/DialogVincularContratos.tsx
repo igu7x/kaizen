@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { getAreaLabel } from "@/utils/formatters";
 import { Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { ifoApi, type Ifo } from "@/services/dfdApi";
@@ -118,7 +119,7 @@ export function DialogVincularContratos({
                       {c.objectName || "Sem objeto descrito"}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
-                      Unidade: {c.directory || "-"}
+                      Unidade: {getAreaLabel(c)}
                     </p>
                   </div>
                 </div>

@@ -58,8 +58,7 @@ export function ContratosTI() {
     endDate: '',
     effectiveDate: '',
     limitDate: '',
-    directory: '',
-    unidade: '',
+
     cadastroAreaId: undefined as number | undefined,
     cadastroUnidadeId: undefined as number | undefined,
     monthlyValueCents: 0,
@@ -103,8 +102,7 @@ export function ContratosTI() {
       endDate: '',
       effectiveDate: '',
       limitDate: '',
-      directory: '',
-      unidade: '',
+
       cadastroAreaId: undefined,
       cadastroUnidadeId: undefined,
       monthlyValueCents: 0,
@@ -366,9 +364,7 @@ export function ContratosTI() {
                   setFormData(prev => ({
                     ...prev,
                     cadastroAreaId: dirId,
-                    directory: dir?.sigla || dir?.nome || "",
-                    cadastroUnidadeId: undefined,
-                    unidade: ""
+                    cadastroUnidadeId: undefined
                   }));
                 }}
               >

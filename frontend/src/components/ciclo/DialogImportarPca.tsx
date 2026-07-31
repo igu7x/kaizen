@@ -5,6 +5,8 @@ import { Ifo } from "@/services/dfdApi";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Loader2, Pencil } from "lucide-react";
 
+import { getAreaLabel } from "@/utils/formatters";
+
 interface DialogImportarPcaProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,7 +72,7 @@ export function DialogImportarPca({ open, onOpenChange, ifos, onConfirm, onEditI
                   <tr key={ifo.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono text-slate-600">{ifo.codigo}</td>
                     <td className="px-4 py-3 text-slate-800 line-clamp-2 max-w-[300px]" title={ifo.objeto}>{ifo.objeto || "-"}</td>
-                    <td className="px-4 py-3 text-slate-600">{ifo.areaDemandante || "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">{getAreaLabel(ifo)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 focus-within:ring-1 focus-within:ring-slate-900 focus-within:border-slate-900 transition-shadow flex-1">

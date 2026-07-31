@@ -58,9 +58,8 @@ export function DialogEditarIfo({
         natureza: ifo.natureza,
         objeto: ifo.objeto,
         valorEstimado: ifo.valorEstimado,
-        areaDemandante: ifo.areaDemandante,
-        unidadeId: ifo.unidadeId,
-        areaId: ifo.areaId || ifo.idCadastrosAreas || null,
+        cadastrosUnidadesId: ifo.cadastrosUnidadesId,
+        cadastrosAreasId: ifo.cadastrosAreasId || null,
         interesseRenovacao: ifo.interesseRenovacao,
         description: ifo.description,
         justification: ifo.justification,
@@ -68,7 +67,7 @@ export function DialogEditarIfo({
         financialResourceType: ifo.financialResourceType,
         contractType: ifo.contractType,
         formalizedValueCents: ifo.formalizedValueCents,
-        idCadastrosAreas: ifo.idCadastrosAreas,
+
         priority: ifo.priority,
         estimatedDate: ifo.estimatedDate,
       });
@@ -82,15 +81,15 @@ export function DialogEditarIfo({
   }, [open, ifo]);
 
   useEffect(() => {
-    if (formData.areaId) {
+    if (formData.cadastrosAreasId) {
       areasApi
-        .getUnidades(formData.areaId)
+        .getUnidades(formData.cadastrosAreasId)
         .then(setUnidadesList)
         .catch(() => setUnidadesList([]));
     } else {
       setUnidadesList([]);
     }
-  }, [formData.areaId]);
+  }, [formData.cadastrosAreasId]);
 
   const handleChange = (field: keyof AtualizarIfoRequest, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -110,7 +109,7 @@ export function DialogEditarIfo({
   };
 
   const handleSave = async () => {
-    if (!ifo || !formData.objeto || !formData.areaDemandante) {
+    if (!ifo || !formData.objeto || (!formData.cadastrosAreasId && !formData.cadastrosUnidadesId)) {
       toast.error("Preencha os campos obrigatórios (Objeto e Área demandante).");
       return;
     }
@@ -158,15 +157,12 @@ export function DialogEditarIfo({
             <div className="space-y-2">
               <Label>Diretoria</Label>
               <Select
-                value={formData.areaId ? String(formData.areaId) : undefined}
+                value={formData.cadastrosAreasId ? String(formData.cadastrosAreasId) : undefined}
                 disabled={isRestrictedBlock}
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
-                  const unidade = diretoriasList.find((d) => d.id === dirId);
-                  handleChange("areaId", dirId);
-                  handleChange("idCadastrosAreas", dirId);
-                  handleChange("areaDemandante", unidade?.nome || "");
-                  handleChange("unidadeId", undefined);
+                  handleChange("cadastrosAreasId", dirId);
+                  handleChange("cadastrosUnidadesId", undefined);
                 }}
               >
                 <SelectTrigger>
@@ -184,9 +180,9 @@ export function DialogEditarIfo({
             <div className="space-y-2">
               <Label>Unidade Demandante</Label>
               <Select
-                value={formData.unidadeId ? String(formData.unidadeId) : undefined}
-                onValueChange={(v) => handleChange("unidadeId", parseInt(v, 10))}
-                disabled={isRestrictedBlock || !formData.areaId || unidadesList.length === 0}
+                value={formData.cadastrosUnidadesId ? String(formData.cadastrosUnidadesId) : undefined}
+                onValueChange={(v) => handleChange("cadastrosUnidadesId", parseInt(v, 10))}
+                disabled={isRestrictedBlock || !formData.cadastrosAreasId || unidadesList.length === 0}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a unidade" />
@@ -215,11 +211,12 @@ export function DialogEditarIfo({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Valor Estimado</Label>
+              <Label>Valor Estimado {ifo.contratos && ifo.contratos.length > 0 && <span className="text-xs text-slate-400 font-normal ml-1">(Derivado dos contratos)</span>}</Label>
               <Input
                 placeholder="R$ 0,00"
                 value={displayValue}
                 onChange={handleCurrencyChange}
+                disabled={ifo.contratos && ifo.contratos.length > 0}
               />
             </div>
             <div className="space-y-2">

@@ -14,10 +14,12 @@ import { ifoApi, type Ifo } from "@/services/dfdApi";
 import { Contract } from "@/types";
 import { formatCurrency } from "@/services/pcaApi";
 import { getApiBaseUrl } from "@/services/apiClient";
+import { getAreaLabel } from "@/utils/formatters";
 import { DialogNovoIfo } from "@/components/ciclo/DialogNovoIfo";
 import { DialogEditarIfo } from "@/components/ciclo/DialogEditarIfo";
 import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContratos";
 import { DialogImportarPca } from "@/components/ciclo/DialogImportarPca";
+import { DialogEditarValorContratoIfo } from "@/components/ciclo/DialogEditarValorContratoIfo";
 import { FaseBanner } from "@/components/ciclo/FaseBanner";
 import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
 import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
@@ -135,15 +137,7 @@ function EsteiraControls({
   );
 }
 
-const getAreaLabel = (ifo: Ifo) => {
-  let label = ifo.areaDemandante || "-";
-  if (ifo.unidadeId) {
-    label = ifo.unidadeSigla || ifo.areaNome || label;
-  } else if (ifo.areaId) {
-    label = ifo.areaSigla || label;
-  }
-  return label;
-};
+
 
 export default function FormacaoPca() {
   const hoje = useMemo(() => new Date(), []);
@@ -171,6 +165,7 @@ export default function FormacaoPca() {
   const [ifoLinking, setIfoLinking] = useState<Ifo | null>(null);
   const [ifoDeleting, setIfoDeleting] = useState<Ifo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingContractVal, setEditingContractVal] = useState<{ ifoId: number; contractId: number; initialValue: number | null } | null>(null);
 
   // Validações de fase
   const [validacaoDfd, setValidacaoDfd] = useState<"V" | "X" | null>(null);
@@ -746,6 +741,22 @@ export default function FormacaoPca() {
           </section>
         )}
 
+        {editingContractVal && (
+          <DialogEditarValorContratoIfo
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) setEditingContractVal(null);
+            }}
+            ifoId={editingContractVal.ifoId}
+            contractId={editingContractVal.contractId}
+            initialValueCents={editingContractVal.initialValue}
+            onSuccess={() => {
+              setEditingContractVal(null);
+              loadBlocos();
+            }}
+          />
+        )}
+
         {/* Blocos só aparecem se já tiver PROAD instruído (ou seja, se a consulta foi liberada) e se tiver acesso à fase atual */}
         {ciclo && ciclo.proad && temAcessoFaseAtual && (
           <div className="space-y-8 mt-8">
@@ -849,7 +860,7 @@ export default function FormacaoPca() {
                                                       </div>
                                                     </TooltipTrigger>
                                                     <TooltipContent side="top" className="max-w-[250px] text-xs text-center">
-                                                      A equipe {ifo.areaDemandante || "da área"} decidiu não renovar o contrato {c.noticeNumber ? c.noticeNumber : c.id}.
+                                                      A equipe {getAreaLabel(ifo)} decidiu não renovar o contrato {c.noticeNumber ? c.noticeNumber : c.id}.
                                                     </TooltipContent>
                                                   </Tooltip>
                                                 </TooltipProvider>
@@ -858,8 +869,27 @@ export default function FormacaoPca() {
                                           </td>
                                           <td className="px-4 py-2 text-slate-600">{ifo.bloco === "nova_contratacao" ? (ifo.natureza || "pontual") : "continuada"}</td>
                                           <td className="px-4 py-2 text-slate-600">{(c as any).expenseNature || "-"}</td>
-                                          <td className="px-4 py-2 text-right text-slate-700 font-medium">
-                                            {formatCurrency((c.totalValueCents || 0) / 100)}
+                                          <td className="px-4 py-2 text-right text-slate-700 font-medium whitespace-nowrap">
+                                            <div className="flex items-center justify-end gap-2">
+                                              <span>{formatCurrency(((detalhe?.valorContratoCents != null ? detalhe.valorContratoCents : c.totalValueCents) || 0) / 100)}</span>
+                                              {podeEditarIfo && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-6 w-6 text-slate-400 hover:text-blue-600"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingContractVal({
+                                                      ifoId: ifo.id,
+                                                      contractId: c.id,
+                                                      initialValue: detalhe?.valorContratoCents != null ? detalhe.valorContratoCents : (c.totalValueCents || 0)
+                                                    });
+                                                  }}
+                                                >
+                                                  <Pencil className="h-3 w-3" />
+                                                </Button>
+                                              )}
+                                            </div>
                                           </td>
                                           <td className="px-4 py-2 text-slate-600">
                                             {c.endDate ? `até ${new Date(c.endDate).toLocaleDateString('pt-BR')}` : "-"}

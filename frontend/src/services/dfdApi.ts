@@ -65,6 +65,7 @@ export interface IfoContratoDetalhe {
   contractId: number;
   interesseRenovacao: boolean;
   motivoReclassificacao: string | null;
+  valorContratoCents?: number | null;
 }
 
 export interface Ifo {
@@ -75,9 +76,8 @@ export interface Ifo {
   bloco: BlocoIfo;
   natureza: string | null;
   objeto: string | null;
-  areaDemandante: string | null;
-  unidadeId: number | null;
-  areaId?: number | null;
+  cadastrosUnidadesId: number | null;
+  cadastrosAreasId: number | null;
   estado: EstadoIfo;
   valorEstimado: number | null;
   interesseRenovacao: boolean | null;
@@ -94,7 +94,7 @@ export interface Ifo {
   financialResourceType?: string | null;
   contractType?: string | null;
   formalizedValueCents?: number | null;
-  idCadastrosAreas?: number | null;
+
   priority?: string | null;
   estimatedDate?: string | null;
   /** ID do PCA de origem, quando o IFO foi gerado a partir de um PCA existente (bloco nova_contratacao). */
@@ -113,9 +113,8 @@ export interface CriarIfoRequest {
   bloco: BlocoIfo;
   natureza?: string | null;
   objeto?: string | null;
-  areaDemandante?: string | null;
-  unidadeId?: number | null;
-  areaId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  cadastrosAreasId?: number | null;
   valorEstimado?: number | null;
   interesseRenovacao?: boolean | null;
   description?: string | null;
@@ -124,7 +123,7 @@ export interface CriarIfoRequest {
   financialResourceType?: string | null;
   contractType?: string | null;
   formalizedValueCents?: number | null;
-  idCadastrosAreas?: number | null;
+
   priority?: string | null;
   estimatedDate?: string | null;
   contratos: number[];
@@ -134,9 +133,8 @@ export interface AtualizarIfoRequest {
   bloco: BlocoIfo;
   natureza?: string | null;
   objeto?: string | null;
-  areaDemandante?: string | null;
-  unidadeId?: number | null;
-  areaId?: number | null;
+  cadastrosUnidadesId?: number | null;
+  cadastrosAreasId?: number | null;
   valorEstimado?: number | null;
   interesseRenovacao?: boolean | null;
   description?: string | null;
@@ -198,6 +196,11 @@ export const ifoApi = {
   /** Define o interesse na renovação por contrato individualmente. */
   definirInteresseRenovacaoContrato(id: number, contractId: number, interesse: boolean, motivo?: string): Promise<Ifo> {
     return apiClient.patch<Ifo>(`/api/ifo/${id}/contratos/${contractId}/interesse-renovacao`, { interesse, motivo });
+  },
+
+  /** RF-11 — Edita o valor de um contrato vinculado a um IFO. */
+  atualizarValorContrato(id: number, contractId: number, valorContratoCents: number): Promise<Ifo> {
+    return apiClient.patch<Ifo>(`/api/ifo/${id}/contratos/${contractId}/valor`, { valorContratoCents });
   },
 
   /** Remove um IFO. Requer tag de exclusão correspondente ao estado atual. */

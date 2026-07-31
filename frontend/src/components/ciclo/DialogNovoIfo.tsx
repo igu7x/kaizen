@@ -46,7 +46,6 @@ export function DialogNovoIfo({
     bloco: "nova_contratacao",
     objeto: "",
     valorEstimado: 0,
-    areaDemandante: "",
     natureza: "",
     process: proad || "",
     contratos: [],
@@ -67,15 +66,15 @@ export function DialogNovoIfo({
   }, [open, proad]);
 
   useEffect(() => {
-    if (formData.areaId) {
+    if (formData.cadastrosAreasId) {
       areasApi
-        .getUnidades(formData.areaId)
+        .getUnidades(formData.cadastrosAreasId)
         .then(setUnidadesList)
         .catch(() => setUnidadesList([]));
     } else {
       setUnidadesList([]);
     }
-  }, [formData.areaId]);
+  }, [formData.cadastrosAreasId]);
 
   const handleChange = (field: keyof CriarIfoRequest, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -118,7 +117,7 @@ export function DialogNovoIfo({
   };
 
   const handleSave = async () => {
-    if (!formData.objeto || !formData.areaDemandante) {
+    if (!formData.objeto || (!formData.cadastrosAreasId && !formData.cadastrosUnidadesId)) {
       toast.error("Preencha os campos obrigatórios (Objeto e Área demandante).");
       return;
     }
@@ -139,10 +138,9 @@ export function DialogNovoIfo({
         bloco: "nova_contratacao",
         objeto: "",
         valorEstimado: 0,
-        areaDemandante: "",
         natureza: "",
-        areaId: undefined,
-        unidadeId: undefined,
+        cadastrosAreasId: undefined,
+        cadastrosUnidadesId: undefined,
         process: proad || "",
         contratos: [],
       });
@@ -173,15 +171,13 @@ export function DialogNovoIfo({
             <div className="space-y-2">
               <Label>Diretoria</Label>
               <Select
-                value={formData.areaId ? String(formData.areaId) : undefined}
+                value={formData.cadastrosAreasId ? String(formData.cadastrosAreasId) : undefined}
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
-                  const unidade = diretoriasList.find((d) => d.id === dirId);
                   setFormData({
                     ...formData,
-                    areaId: dirId,
-                    areaDemandante: unidade?.nome || "",
-                    unidadeId: undefined,
+                    cadastrosAreasId: dirId,
+                    cadastrosUnidadesId: undefined,
                   });
                 }}
               >
@@ -200,18 +196,15 @@ export function DialogNovoIfo({
             <div className="space-y-2">
               <Label>Área demandante *</Label>
               <Select
-                value={formData.unidadeId ? String(formData.unidadeId) : undefined}
+                value={formData.cadastrosUnidadesId ? String(formData.cadastrosUnidadesId) : undefined}
                 onValueChange={(v) => {
                   const unidId = parseInt(v, 10);
-                  const dir = diretoriasList.find((d) => d.id === formData.areaId);
-                  const sigla = dir?.sigla || dir?.nome || "";
                   setFormData({
                     ...formData,
-                    unidadeId: unidId,
-                    areaDemandante: sigla,
+                    cadastrosUnidadesId: unidId,
                   });
                 }}
-                disabled={!formData.areaId}
+                disabled={!formData.cadastrosAreasId}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione..." />
@@ -219,7 +212,7 @@ export function DialogNovoIfo({
                 <SelectContent>
                   {unidadesList.map((u) => {
                     const dir = diretoriasList.find(
-                      (d) => d.id === formData.areaId
+                      (d) => d.id === formData.cadastrosAreasId
                     );
                     const sigla = dir?.sigla || dir?.nome;
                     return (
