@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowUpRight, ArrowRight, Check } from "lucide-react";
+import { ArrowUpRight, ArrowRight, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { homeApi, HomeResumo } from "@/services/homeApi";
 import { usePermissoes } from "@/hooks/usePermissoes";
 
@@ -23,106 +23,25 @@ const prefersReduced =
   typeof window !== "undefined" &&
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-/* Revela elementos [data-rv] quando entram na viewport; parallax leve ligado ao scroll do <main>.
-   Só ativa quando o conteúdo está montado (`ready`); o estado escondido é escopado por
-   [data-choreo="on"] — se o JS não rodar, nada fica invisível (fail-safe). */
-function useScrollChoreography(
-  rootRef: React.RefObject<HTMLElement>,
-  ready: boolean,
-) {
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root || !ready) return;
-
-    const revealables = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-rv]"),
-    );
-    root.setAttribute("data-choreo", "on");
-    const clear = () => root.removeAttribute("data-choreo");
-
-    if (prefersReduced) {
-      revealables.forEach((el) => el.classList.add("rv-in"));
-      return clear;
-    }
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            e.target.classList.add("rv-in");
-            io.unobserve(e.target);
-          }
-        });
-      },
-      { threshold: 0.15, rootMargin: "0px 0px -6% 0px" },
-    );
-    revealables.forEach((el) => io.observe(el));
-    // Rede de segurança: se o observer não disparar por algum motivo, revela tudo.
-    const fallback = window.setTimeout(() => {
-      revealables.forEach((el) => el.classList.add("rv-in"));
-    }, 1600);
-
-    const scroller = (root.closest("main") as HTMLElement | null) ?? null;
-    let raf = 0;
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        const y = scroller ? scroller.scrollTop : window.scrollY;
-        root.style.setProperty("--sy", String(y));
-        raf = 0;
-      });
-    };
-    onScroll();
-    const target: HTMLElement | Window = scroller ?? window;
-    target.addEventListener("scroll", onScroll, { passive: true });
-
-    return () => {
-      io.disconnect();
-      window.clearTimeout(fallback);
-      target.removeEventListener("scroll", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-      clear();
-    };
-  }, [rootRef, ready]);
-}
-
-function CountUp({ value }: { value: number }) {
+function CountUp({ value, active }: { value: number; active: boolean }) {
   const [n, setN] = useState(prefersReduced ? value : 0);
-  const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    if (prefersReduced) {
-      setN(value);
+    if (prefersReduced || !active) {
+      if (prefersReduced) setN(value);
       return;
     }
-    const el = ref.current;
-    if (!el) return;
-    let started = false;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !started) {
-          started = true;
-          const dur = 900;
-          const t0 = performance.now();
-          const tick = (t: number) => {
-            const p = Math.min(1, (t - t0) / dur);
-            const eased = 1 - Math.pow(1 - p, 3);
-            setN(Math.round(value * eased));
-            if (p < 1) requestAnimationFrame(tick);
-          };
-          requestAnimationFrame(tick);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.6 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [value]);
-  return (
-    <span ref={ref} className="tabular-nums">
-      {n}
-    </span>
-  );
+    let raf = 0;
+    const t0 = performance.now();
+    const dur = 900;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / dur);
+      setN(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, active]);
+  return <span className="tabular-nums">{n}</span>;
 }
 
 const HOME_CSS = `
@@ -130,52 +49,57 @@ const HOME_CSS = `
     --ink: #0E2440;
     --navy: #0E3D73;
     --azure: #1478B4;
-    --azure-hi: #1E9BD7;
+    --cyan: #1E9BD7;
     --g2: #5A6B84;
     --g3: #8A98AE;
-    --line: #E4EAF3;
-    --light: #F5F9FE;
-    --d1: #06162E;
-    --d2: #0B2A55;
-    --d3: #123C76;
+    --line: #E7ECF4;
+    --bg: #FFFFFF;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
   }
   .kz-display { font-family: "Bricolage Grotesque", Inter, ui-sans-serif, system-ui, sans-serif; }
 
-  /* Reveal — só esconde quando a coreografia está ativa (JS rodando). */
-  .kz[data-choreo="on"] [data-rv] { opacity: 0; transform: translateY(26px); transition: opacity 0.9s cubic-bezier(0.16,0.8,0.24,1), transform 0.9s cubic-bezier(0.16,0.8,0.24,1); }
-  .kz[data-choreo="on"] [data-rv].rv-in { opacity: 1; transform: none; }
+  /* ── Cenas (zoom entre hero e dashboard) ── */
+  .kz-jack { position: relative; height: 100%; overflow: hidden; background: var(--bg); }
+  .kz-scene {
+    position: absolute; inset: 0;
+    transition: transform 0.82s cubic-bezier(0.7, 0, 0.2, 1), opacity 0.66s ease;
+    will-change: transform, opacity;
+  }
+  .kz-scene.on { transform: none; opacity: 1; }
+  .kz-hero.off { transform: scale(1.9); opacity: 0; pointer-events: none; }        /* hero mergulha pra frente */
+  .kz-dash.off { transform: scale(0.9); opacity: 0; pointer-events: none; }         /* dashboard espera pequeno */
+  .kz-dash { overflow-y: auto; overflow-x: hidden; }
 
-  /* Hero */
-  .kz-hero { background:
-      radial-gradient(90% 70% at 72% 18%, rgba(30,155,215,0.28), transparent 60%),
-      radial-gradient(70% 60% at 12% 92%, rgba(18,60,118,0.55), transparent 62%),
-      linear-gradient(160deg, var(--d1), var(--d2) 55%, var(--d3)); }
-  .kz-grid { background-image:
-      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-    background-size: 46px 46px;
-    mask-image: radial-gradient(120% 90% at 60% 20%, #000 30%, transparent 78%);
-    -webkit-mask-image: radial-gradient(120% 90% at 60% 20%, #000 30%, transparent 78%); }
+  /* Fallback acessível: rolagem normal, sem zoom */
+  .kz-flow .kz-scene { position: relative; inset: auto; opacity: 1; transform: none; min-height: 88vh; overflow: visible; }
 
-  @keyframes kz-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
-  @keyframes kz-pulse { 0%,100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.06); } }
+  /* ── Motion ── */
+  @keyframes kz-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+  @keyframes kz-pulse { 0%,100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } }
   @keyframes kz-spin { to { transform: rotate(360deg); } }
   @keyframes kz-spin-rev { to { transform: rotate(-360deg); } }
-  @keyframes kz-cue { 0%,100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(6px); opacity: 1; } }
+  @keyframes kz-cue { 0%,100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(5px); opacity: 1; } }
 
-  .kz-symbol { animation: kz-float 8s ease-in-out infinite; filter: drop-shadow(0 20px 60px rgba(30,155,215,0.45)); }
-  .kz-halo { animation: kz-pulse 6s ease-in-out infinite; }
-  .kz-ring { transform-origin: center; animation: kz-spin 42s linear infinite; }
-  .kz-ring-2 { transform-origin: center; animation: kz-spin-rev 80s linear infinite; }
+  /* Intro ao entrar na Home */
+  @keyframes kz-in-sym { from { opacity: 0; transform: scale(0.55) rotate(-55deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+  @keyframes kz-in-up { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+  @keyframes kz-in-fade { from { opacity: 0; } to { opacity: 1; } }
+
+  .kz-symwrap { animation: kz-in-sym 1.15s cubic-bezier(0.16, 0.84, 0.3, 1) both; }
+  .kz-symbol { animation: kz-float 8s ease-in-out infinite; }
+  .kz-halo { animation: kz-in-fade 1.4s ease both, kz-pulse 6s ease-in-out 1.4s infinite; }
+  .kz-ring { transform-origin: center; animation: kz-spin 40s linear infinite; }
+  .kz-ring-2 { transform-origin: center; animation: kz-spin-rev 75s linear infinite; }
   .kz-cue { animation: kz-cue 1.8s ease-in-out infinite; }
+  .kz-in-1 { animation: kz-in-up 0.9s cubic-bezier(0.16,0.84,0.3,1) 0.25s both; }
+  .kz-in-2 { animation: kz-in-up 0.9s cubic-bezier(0.16,0.84,0.3,1) 0.36s both; }
+  .kz-in-3 { animation: kz-in-up 0.9s cubic-bezier(0.16,0.84,0.3,1) 0.48s both; }
+  .kz-in-4 { animation: kz-in-up 0.9s cubic-bezier(0.16,0.84,0.3,1) 0.6s both; }
 
-  .kz-chip { transition: border-color 0.2s ease, background-color 0.2s ease; }
-  .kz-chip:hover { border-color: rgba(105,208,247,0.7); background: rgba(105,208,247,0.10); }
-
-  /* Módulos */
+  /* Interações */
   .kz-tile { background: #fff; border: 1px solid var(--line); border-radius: 14px; transition: border-color 0.25s ease, transform 0.35s cubic-bezier(0.16,0.8,0.24,1); }
-  .kz-tile:hover { border-color: var(--azure-hi); transform: translateY(-4px); }
+  .kz-tile:hover { border-color: var(--cyan); transform: translateY(-4px); }
   .kz-tile:focus-visible { outline: 2px solid var(--azure); outline-offset: 3px; }
   .kz-tile .kz-tt { transition: color 0.2s ease; }
   .kz-tile:hover .kz-tt { color: var(--azure); }
@@ -183,16 +107,18 @@ const HOME_CSS = `
   .kz-tile:hover .kz-underline { width: 100%; }
   .kz-arrow { transition: transform 0.3s cubic-bezier(0.16,0.8,0.24,1); }
   .kz-tile:hover .kz-arrow, .kz-row:hover .kz-arrow { transform: translate(4px, -4px); }
-
   .kz-row { transition: background-color 0.2s ease; }
-  .kz-row:hover { background: #EEF4FB; }
+  .kz-row:hover { background: #F1F6FC; }
   .kz-row .kz-rl { transition: color 0.2s ease; }
   .kz-row:hover .kz-rl { color: var(--azure); }
   .kz-row:focus-visible { outline: 2px solid var(--azure); outline-offset: -2px; border-radius: 8px; }
+  .kz-chip { transition: border-color 0.2s ease, background-color 0.2s ease; }
+  .kz-chip:hover { border-color: var(--cyan); background: #F1F9FE; }
 
   @media (prefers-reduced-motion: reduce) {
-    .kz-symbol, .kz-halo, .kz-ring, .kz-ring-2, .kz-cue { animation: none; }
-    .kz [data-rv] { opacity: 1; transform: none; transition: none; }
+    .kz-symwrap, .kz-symbol, .kz-halo, .kz-ring, .kz-ring-2, .kz-cue,
+    .kz-in-1, .kz-in-2, .kz-in-3, .kz-in-4 { animation: none !important; opacity: 1; transform: none; }
+    .kz-scene { transition: none; }
     .kz-tile, .kz-arrow, .kz-underline, .kz-row, .kz-tt, .kz-rl, .kz-chip { transition: none; }
     .kz-tile:hover { transform: none; }
   }
@@ -206,34 +132,10 @@ interface Modulo {
   permissaoCodigo: string;
 }
 const MODULOS: Modulo[] = [
-  {
-    key: "projetos",
-    label: "Escritório de Projetos",
-    desc: "Projetos em execução e suas entregas.",
-    link: "/gestao-estrategica/execucao",
-    permissaoCodigo: "gestao_execucao",
-  },
-  {
-    key: "okrs",
-    label: "Monitoramento de OKRs",
-    desc: "Objetivos e resultados-chave da diretoria.",
-    link: "/gestao-estrategica/okrs",
-    permissaoCodigo: "gestao_okrs",
-  },
-  {
-    key: "pca",
-    label: "Plano de Contratações",
-    desc: "PCA 2026 e as contratações do ciclo.",
-    link: "/pca",
-    permissaoCodigo: "contratacoes_novas",
-  },
-  {
-    key: "competencias",
-    label: "Gestão por Competências",
-    desc: "Matriz, autoavaliação e avaliação.",
-    link: "/pessoas/competencias",
-    permissaoCodigo: "pessoas_competencias",
-  },
+  { key: "projetos", label: "Escritório de Projetos", desc: "Projetos em execução e suas entregas.", link: "/gestao-estrategica/execucao", permissaoCodigo: "gestao_execucao" },
+  { key: "okrs", label: "Monitoramento de OKRs", desc: "Objetivos e resultados-chave da diretoria.", link: "/gestao-estrategica/okrs", permissaoCodigo: "gestao_okrs" },
+  { key: "pca", label: "Plano de Contratações", desc: "PCA 2026 e as contratações do ciclo.", link: "/pca", permissaoCodigo: "contratacoes_novas" },
+  { key: "competencias", label: "Gestão por Competências", desc: "Matriz, autoavaliação e avaliação.", link: "/pessoas/competencias", permissaoCodigo: "pessoas_competencias" },
 ];
 
 export default function Home() {
@@ -245,9 +147,11 @@ export default function Home() {
   const [resumo, setResumo] = useState<HomeResumo | null>(null);
   const [loading, setLoading] = useState(true);
   const { podeAcessar } = usePermissoes();
-  const rootRef = useRef<HTMLDivElement>(null);
 
-  useScrollChoreography(rootRef, !loading && !!resumo);
+  // Cena: 0 = hero, 1 = dashboard (pendências + módulos).
+  const [scene, setScene] = useState(0);
+  const animatingRef = useRef(false);
+  const dashRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     homeApi
@@ -257,18 +161,87 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  const scrollToModulos = useCallback(() => {
-    rootRef.current
-      ?.querySelector("#modulos")
-      ?.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth" });
-  }, []);
+  const go = useCallback(
+    (to: number) => {
+      if (to === scene) return;
+      if (prefersReduced) {
+        setScene(to);
+        return;
+      }
+      if (animatingRef.current) return;
+      animatingRef.current = true;
+      setScene(to);
+      window.setTimeout(() => {
+        animatingRef.current = false;
+      }, 840);
+    },
+    [scene],
+  );
+
+  // Captura de scroll/teclado/toque para trocar de cena com zoom (não rola a página).
+  useEffect(() => {
+    if (prefersReduced || loading || !resumo) return;
+    const dash = dashRef.current;
+
+    const atTop = () => (dashRef.current?.scrollTop ?? 0) <= 2;
+
+    const onWheel = (e: WheelEvent) => {
+      if (animatingRef.current) {
+        e.preventDefault();
+        return;
+      }
+      if (scene === 0) {
+        if (e.deltaY > 4) {
+          e.preventDefault();
+          go(1);
+        }
+      } else if (e.deltaY < -4 && atTop()) {
+        e.preventDefault();
+        go(0);
+      }
+    };
+
+    let touchStart = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      touchStart = e.touches[0].clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (animatingRef.current) return;
+      const dy = touchStart - e.touches[0].clientY;
+      if (scene === 0 && dy > 36) go(1);
+      else if (scene === 1 && dy < -36 && atTop()) go(0);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (animatingRef.current) return;
+      if (scene === 0 && ["ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) {
+        e.preventDefault();
+        go(1);
+      } else if (scene === 1 && ["ArrowUp", "PageUp"].includes(e.key) && atTop()) {
+        e.preventDefault();
+        go(0);
+      }
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene, go, loading, resumo, dashRef.current]);
 
   if (loading || !resumo) {
     return (
       <Layout>
-        <div className="kz kz-hero flex min-h-screen items-center justify-center">
+        <div className="kz flex h-full items-center justify-center bg-white">
           <style>{HOME_CSS}</style>
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-[var(--g3)]">
             {loading ? "Carregando…" : "Não foi possível carregar o resumo."}
           </p>
         </div>
@@ -281,265 +254,217 @@ export default function Home() {
   const emDia = pendencias.length === 0;
   const totalPend = pendencias.reduce((s, p) => s + p.count, 0);
   const proj = resumo.projetos;
-
   const visiveis = MODULOS.filter((m) => podeAcessar(m.permissaoCodigo));
   const primario = visiveis[0] ?? null;
   const secundarios = visiveis.slice(1);
 
   return (
     <Layout>
-      <div ref={rootRef} className="kz bg-[var(--light)]">
+      <div className={`kz relative h-full ${prefersReduced ? "kz-flow overflow-auto bg-white" : "kz-jack"}`}>
         <style>{HOME_CSS}</style>
 
-        {/* ══════════════ HERO ══════════════ */}
-        <section className="kz-hero relative flex min-h-[90vh] flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
-          <div className="kz-grid pointer-events-none absolute inset-0" />
+        {/* Seletor de Diretoria — só superadmin/SGJT; flutua no canto (posição de sempre). */}
+        {podeSelecionarDiretoria && (
+          <div className="absolute right-3 top-3 z-30 lg:right-5 lg:top-5">
+            <DirectorateSelector />
+          </div>
+        )}
 
-          {/* Emblema — o símbolo da marca como herói */}
-          <div
-            className="relative mb-9 h-[220px] w-[220px] sm:h-[280px] sm:w-[280px]"
-            style={{
-              transform: "translateY(calc(var(--sy,0) * -0.06px))",
-            }}
-            data-rv
-          >
-            <div className="kz-halo absolute inset-[6%] rounded-full bg-[radial-gradient(circle,rgba(105,208,247,0.55),transparent_62%)] blur-2xl" />
-            <svg
-              viewBox="0 0 400 400"
-              className="absolute inset-0 h-full w-full"
-              aria-hidden="true"
-            >
-              <circle
-                className="kz-ring"
-                cx="200"
-                cy="200"
-                r="196"
-                fill="none"
-                stroke="rgba(105,208,247,0.5)"
-                strokeWidth="1.5"
-                strokeDasharray="2 16"
-                strokeLinecap="round"
-              />
-              <circle
-                className="kz-ring-2"
-                cx="200"
-                cy="200"
-                r="180"
-                fill="none"
-                stroke="rgba(255,255,255,0.14)"
-                strokeWidth="1"
-                strokeDasharray="1 22"
-                strokeLinecap="round"
-              />
+        {/* ══════════════ CENA 0 — HERO ══════════════ */}
+        <section
+          className={`kz-scene kz-hero flex flex-col items-center justify-center px-6 text-center ${
+            scene === 0 ? "on" : "off"
+          }`}
+          aria-hidden={scene !== 0}
+        >
+          {/* Emblema — símbolo da marca (cores originais no branco) */}
+          <div className="kz-symwrap relative mb-8 h-[210px] w-[210px] sm:h-[270px] sm:w-[270px]">
+            <div className="kz-halo absolute inset-[8%] rounded-full bg-[radial-gradient(circle,rgba(30,155,215,0.22),transparent_60%)] blur-2xl" />
+            <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full" aria-hidden="true">
+              <circle className="kz-ring" cx="200" cy="200" r="196" fill="none" stroke="rgba(30,155,215,0.45)" strokeWidth="1.5" strokeDasharray="2 15" strokeLinecap="round" />
+              <circle className="kz-ring-2" cx="200" cy="200" r="180" fill="none" stroke="rgba(14,61,115,0.16)" strokeWidth="1" strokeDasharray="1 20" strokeLinecap="round" />
             </svg>
             <img
               src={SIMBOLO}
               alt="Kaizen — balança da justiça no ciclo de melhoria contínua"
-              className="kz-symbol absolute inset-[13%] h-[74%] w-[74%] object-contain brightness-0 invert"
+              className="kz-symbol absolute inset-[13%] h-[74%] w-[74%] object-contain"
               draggable={false}
             />
           </div>
 
-          <p
-            className="mb-4 text-[12px] font-medium uppercase tracking-[0.34em] text-[color:rgba(105,208,247,0.9)]"
-            data-rv
-            style={{ transitionDelay: "80ms" }}
-          >
+          <p className="kz-in-1 mb-3 text-[12px] font-medium uppercase tracking-[0.34em] text-[var(--azure)]">
             {saudacao()}, {nome}
           </p>
-          <h1
-            className="kz-display text-[clamp(3rem,9vw,7rem)] font-extrabold leading-[0.92] tracking-[-0.03em] text-white"
-            data-rv
-            style={{ transitionDelay: "140ms" }}
-          >
+          <h1 className="kz-in-2 kz-display text-[clamp(3rem,9vw,7rem)] font-extrabold leading-[0.9] tracking-[-0.035em] text-[var(--navy)]">
             Kaizen
           </h1>
-          <p
-            className="mt-5 max-w-xl text-balance text-lg text-white/70 sm:text-xl"
-            data-rv
-            style={{ transitionDelay: "220ms" }}
-          >
+          <p className="kz-in-3 mt-4 max-w-xl text-balance text-lg text-[var(--g2)] sm:text-xl">
             Melhoria contínua da governança judiciária e tecnológica.
           </p>
 
-          {/* Estado — resultado confiante, dentro do hero */}
-          <div
-            className="mt-9 flex flex-wrap items-center justify-center gap-3"
-            data-rv
-            style={{ transitionDelay: "300ms" }}
-          >
+          <div className="kz-in-4 mt-8 flex flex-wrap items-center justify-center gap-3">
             {emDia ? (
-              <span className="kz-chip inline-flex items-center gap-2.5 rounded-full border border-[rgba(105,208,247,0.4)] bg-white/[0.06] px-5 py-2.5 text-sm text-white/90 backdrop-blur-sm">
-                <Check
-                  className="h-4 w-4 text-[color:rgba(105,208,247,1)]"
-                  strokeWidth={2.5}
-                />
+              <span className="kz-chip inline-flex items-center gap-2.5 rounded-full border border-[var(--line)] bg-white px-5 py-2.5 text-sm text-[var(--ink)]">
+                <Check className="h-4 w-4 text-[var(--cyan)]" strokeWidth={2.5} />
                 Tudo resolvido — nenhuma pendência aguardando você.
               </span>
             ) : (
               <button
-                onClick={scrollToModulos}
-                className="kz-chip inline-flex items-center gap-2.5 rounded-full border border-[rgba(105,208,247,0.4)] bg-white/[0.06] px-5 py-2.5 text-sm text-white/90 backdrop-blur-sm"
+                onClick={() => go(1)}
+                className="kz-chip inline-flex items-center gap-2.5 rounded-full border border-[var(--line)] bg-white px-5 py-2.5 text-sm text-[var(--ink)]"
               >
-                <span className="kz-display text-base font-bold text-[color:rgba(105,208,247,1)]">
+                <span className="kz-display text-base font-bold text-[var(--cyan)]">
                   {totalPend}
                 </span>
                 {totalPend === 1 ? "item aguarda" : "itens aguardam"} sua ação
                 <ArrowRight className="h-4 w-4" />
               </button>
             )}
-            {podeSelecionarDiretoria && (
-              <div className="[&_*]:!text-white/90">
-                <DirectorateSelector />
-              </div>
-            )}
           </div>
 
-          {/* Scroll cue */}
+          {/* Cue de scroll → troca de cena */}
           <button
-            onClick={scrollToModulos}
-            aria-label="Ver módulos"
-            className="kz-cue absolute bottom-7 left-1/2 -translate-x-1/2 text-white/60 hover:text-white"
+            onClick={() => go(1)}
+            aria-label="Ver pendências e módulos"
+            className="kz-cue absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 text-[var(--g3)] hover:text-[var(--azure)]"
           >
-            <svg width="26" height="40" viewBox="0 0 26 40" fill="none">
-              <rect
-                x="1"
-                y="1"
-                width="24"
-                height="38"
-                rx="12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-              <circle cx="13" cy="11" r="3" fill="currentColor" />
-            </svg>
+            <span className="text-[11px] uppercase tracking-[0.2em]">
+              Role para continuar
+            </span>
+            <ChevronDown className="h-5 w-5" />
           </button>
         </section>
 
-        {/* ══════════════ SUA FILA (só quando há itens) ══════════════ */}
-        {!emDia && (
-          <section
-            id="fila"
-            className="mx-auto max-w-5xl px-6 py-20 sm:py-28"
-          >
-            <p
-              className="mb-2 text-[12px] font-semibold uppercase tracking-[0.24em] text-[var(--azure)]"
-              data-rv
+        {/* ══════════════ CENA 1 — DASHBOARD ══════════════ */}
+        <div
+          ref={dashRef}
+          className={`kz-scene kz-dash ${scene === 1 ? "on" : "off"}`}
+          aria-hidden={scene !== 1}
+        >
+          <div className="mx-auto max-w-6xl px-6 py-14 sm:py-16">
+            {/* Voltar ao início */}
+            <button
+              onClick={() => go(0)}
+              className="mb-10 inline-flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.18em] text-[var(--g3)] hover:text-[var(--azure)]"
             >
-              Sua fila
-            </p>
-            <h2
-              className="kz-display mb-8 text-[clamp(1.9rem,4vw,3rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]"
-              data-rv
-              style={{ transitionDelay: "60ms" }}
-            >
-              O que precisa de você agora.
-            </h2>
-            <ul className="border-t border-[var(--line)]">
-              {pendencias.map((p, i) => (
-                <li key={i} data-rv style={{ transitionDelay: `${i * 70}ms` }}>
-                  <button
-                    onClick={() => navigate(p.link)}
-                    className="kz-row group flex w-full items-center gap-5 border-b border-[var(--line)] px-3 py-5 text-left"
-                  >
-                    <span className="kz-display w-12 shrink-0 text-2xl font-bold tabular-nums text-[var(--navy)] sm:text-3xl">
-                      {p.count}
-                    </span>
-                    <span className="kz-rl flex-1 text-lg text-[var(--ink)] sm:text-xl">
-                      {p.label}
-                    </span>
-                    <ArrowUpRight className="kz-arrow h-5 w-5 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+              <ChevronUp className="h-4 w-4" />
+              Voltar ao início
+            </button>
 
-        {/* ══════════════ MÓDULOS ══════════════ */}
-        {primario && (
-          <section
-            id="modulos"
-            className="mx-auto max-w-6xl px-6 py-20 sm:py-28"
-          >
-            <div className="mb-10 flex items-end justify-between gap-4" data-rv>
+            {/* Sua fila */}
+            <div className="mb-16">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.24em] text-[var(--azure)]">
+                Sua fila
+              </p>
+              {emDia ? (
+                <div className="flex items-center gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--cyan)] text-[var(--cyan)]">
+                    <Check className="h-5 w-5" strokeWidth={2.5} />
+                  </span>
+                  <div>
+                    <h2 className="kz-display text-[clamp(1.6rem,3.4vw,2.4rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+                      Tudo resolvido.
+                    </h2>
+                    <p className="mt-1 text-[15px] text-[var(--g2)]">
+                      Nenhuma pendência aguardando você agora.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h2 className="kz-display mb-6 text-[clamp(1.7rem,3.6vw,2.6rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+                    O que precisa de você agora.
+                  </h2>
+                  <ul className="border-t border-[var(--line)]">
+                    {pendencias.map((p, i) => (
+                      <li key={i}>
+                        <button
+                          onClick={() => navigate(p.link)}
+                          className="kz-row group flex w-full items-center gap-5 border-b border-[var(--line)] px-3 py-5 text-left"
+                        >
+                          <span className="kz-display w-12 shrink-0 text-2xl font-bold tabular-nums text-[var(--navy)] sm:text-3xl">
+                            {p.count}
+                          </span>
+                          <span className="kz-rl flex-1 text-lg text-[var(--ink)] sm:text-xl">
+                            {p.label}
+                          </span>
+                          <ArrowUpRight className="kz-arrow h-5 w-5 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+
+            {/* Módulos */}
+            {primario && (
               <div>
                 <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.24em] text-[var(--azure)]">
                   Módulos
                 </p>
-                <h2 className="kz-display text-[clamp(1.9rem,4vw,3rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+                <h2 className="kz-display mb-8 text-[clamp(1.7rem,3.6vw,2.6rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
                   Onde o trabalho acontece.
                 </h2>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {/* Primário — largo */}
-              <Link
-                to={primario.link}
-                data-rv
-                className="kz-tile group col-span-1 flex flex-col justify-between overflow-hidden p-7 sm:col-span-3 sm:p-9"
-              >
-                <div className="flex items-start justify-between gap-6">
-                  <div>
-                    <h3 className="kz-tt kz-display text-[clamp(1.5rem,3vw,2.25rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
-                      {primario.label}
-                    </h3>
-                    <div className="kz-underline mt-2 h-[2px] w-10 bg-[var(--azure-hi)]" />
-                    <p className="mt-4 max-w-md text-[15px] text-[var(--g2)]">
-                      {primario.desc}
-                    </p>
-                  </div>
-                  <ArrowUpRight className="kz-arrow h-6 w-6 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
-                </div>
-
-                {primario.key === "projetos" && (
-                  <div className="mt-8 flex flex-wrap items-baseline gap-x-10 gap-y-3">
-                    <span className="flex items-baseline gap-2">
-                      <span className="kz-display text-4xl font-bold text-[var(--navy)] sm:text-5xl">
-                        <CountUp value={proj.total} />
-                      </span>
-                      <span className="text-[13px] text-[var(--g3)]">
-                        em execução
-                      </span>
-                    </span>
-                    {proj.em_atraso > 0 && (
-                      <span className="flex items-baseline gap-2">
-                        <span className="kz-display text-4xl font-bold text-[#B4780A] sm:text-5xl">
-                          <CountUp value={proj.em_atraso} />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Link
+                    to={primario.link}
+                    className="kz-tile group col-span-1 flex flex-col justify-between overflow-hidden p-7 sm:col-span-3 sm:p-9"
+                  >
+                    <div className="flex items-start justify-between gap-6">
+                      <div>
+                        <h3 className="kz-tt kz-display text-[clamp(1.5rem,3vw,2.25rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+                          {primario.label}
+                        </h3>
+                        <div className="kz-underline mt-2 h-[2px] w-10 bg-[var(--cyan)]" />
+                        <p className="mt-4 max-w-md text-[15px] text-[var(--g2)]">
+                          {primario.desc}
+                        </p>
+                      </div>
+                      <ArrowUpRight className="kz-arrow h-6 w-6 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
+                    </div>
+                    {primario.key === "projetos" && (
+                      <div className="mt-8 flex flex-wrap items-baseline gap-x-10 gap-y-3">
+                        <span className="flex items-baseline gap-2">
+                          <span className="kz-display text-4xl font-bold text-[var(--navy)] sm:text-5xl">
+                            <CountUp value={proj.total} active={scene === 1} />
+                          </span>
+                          <span className="text-[13px] text-[var(--g3)]">em execução</span>
                         </span>
-                        <span className="text-[13px] text-[var(--g3)]">
-                          em atraso
-                        </span>
-                      </span>
+                        {proj.em_atraso > 0 && (
+                          <span className="flex items-baseline gap-2">
+                            <span className="kz-display text-4xl font-bold text-[#B4780A] sm:text-5xl">
+                              <CountUp value={proj.em_atraso} active={scene === 1} />
+                            </span>
+                            <span className="text-[13px] text-[var(--g3)]">em atraso</span>
+                          </span>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
-              </Link>
+                  </Link>
 
-              {/* Secundários */}
-              {secundarios.map((m, i) => (
-                <Link
-                  key={m.key}
-                  to={m.link}
-                  data-rv
-                  style={{ transitionDelay: `${(i + 1) * 80}ms` }}
-                  className="kz-tile group flex flex-col justify-between p-6"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="kz-tt kz-display text-xl font-bold leading-tight tracking-[-0.01em] text-[var(--ink)]">
-                      {m.label}
-                    </h3>
-                    <ArrowUpRight className="kz-arrow h-4 w-4 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
-                  </div>
-                  <p className="mt-3 text-[13.5px] leading-relaxed text-[var(--g2)]">
-                    {m.desc}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+                  {secundarios.map((m) => (
+                    <Link
+                      key={m.key}
+                      to={m.link}
+                      className="kz-tile group flex flex-col justify-between p-6"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="kz-tt kz-display text-xl font-bold leading-tight tracking-[-0.01em] text-[var(--ink)]">
+                          {m.label}
+                        </h3>
+                        <ArrowUpRight className="kz-arrow h-4 w-4 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
+                      </div>
+                      <p className="mt-3 text-[13.5px] leading-relaxed text-[var(--g2)]">
+                        {m.desc}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </Layout>
   );
