@@ -81,7 +81,6 @@ const HOME_CSS = `
   .kz-dash { overflow-y: auto; overflow-x: hidden; background: #fff; }
   .kz-flow .kz-scene { position: relative; inset: auto; opacity: 1 !important; transform: none !important; min-height: 88vh; overflow: visible; }
 
-  @keyframes kz-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-11px); } }
   @keyframes kz-spin { to { transform: rotate(360deg); } }
   @keyframes kz-cue { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
   @keyframes kz-in-sym { from { opacity: 0; transform: scale(0.55) rotate(-50deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
@@ -89,7 +88,6 @@ const HOME_CSS = `
   @keyframes kz-in-fade { from { opacity: 0; } to { opacity: 1; } }
 
   .kz-symwrap { animation: kz-in-sym 1.15s cubic-bezier(0.16,0.84,0.3,1) both; }
-  .kz-symbol { animation: kz-float 8s ease-in-out infinite; }
   .kz-halo { animation: kz-in-fade 1.5s ease both; }
   .kz-ring { transform-origin: center; animation: kz-spin 34s linear infinite; }
   .kz-cue svg { animation: kz-cue 1.6s ease-in-out infinite; }
