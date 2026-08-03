@@ -25,6 +25,9 @@ function primeiroNome(name: string) {
   return (name || "").trim().split(" ")[0] || "";
 }
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+const ZOOM_MS = 1150; // duração da transição hero <-> dashboard
+const easeInOut = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
 const prefersReduced =
   typeof window !== "undefined" &&
@@ -71,7 +74,6 @@ const HOME_CSS = `
 
   @keyframes kz-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-11px); } }
   @keyframes kz-spin { to { transform: rotate(360deg); } }
-  @keyframes kz-spin-rev { to { transform: rotate(-360deg); } }
   @keyframes kz-cue { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
   @keyframes kz-in-sym { from { opacity: 0; transform: scale(0.55) rotate(-50deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
   @keyframes kz-in-up { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
@@ -81,7 +83,6 @@ const HOME_CSS = `
   .kz-symbol { animation: kz-float 8s ease-in-out infinite; }
   .kz-halo { animation: kz-in-fade 1.5s ease both; }
   .kz-ring { transform-origin: center; animation: kz-spin 34s linear infinite; }
-  .kz-ring-2 { transform-origin: center; animation: kz-spin-rev 60s linear infinite; }
   .kz-cue svg { animation: kz-cue 1.6s ease-in-out infinite; }
   .kz-in-1 { animation: kz-in-up 0.85s cubic-bezier(0.16,0.84,0.3,1) 0.22s both; }
   .kz-in-2 { animation: kz-in-up 0.85s cubic-bezier(0.16,0.84,0.3,1) 0.34s both; }
@@ -107,7 +108,7 @@ const HOME_CSS = `
   .kz-link:hover { color: var(--azure); }
 
   @media (prefers-reduced-motion: reduce) {
-    .kz-symwrap, .kz-symbol, .kz-halo, .kz-ring, .kz-ring-2, .kz-cue svg,
+    .kz-symwrap, .kz-symbol, .kz-halo, .kz-ring, .kz-cue svg,
     .kz-in-1, .kz-in-2, .kz-in-3, .kz-in-4 { animation: none !important; opacity: 1; transform: none; }
     .kz-cta, .kz-mod, .kz-mn, .kz-ma, .kz-row, .kz-rl, .kz-link { transition: none; }
   }
@@ -139,9 +140,12 @@ export default function Home() {
 
   const heroRef = useRef<HTMLElement>(null);
   const dashRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef(0); // 0 = hero, 1 = dashboard
+  const targetRef = useRef(0); // destino: 0 = hero, 1 = dashboard
+  const currentRef = useRef(0); // progresso exibido
+  const tweenFromRef = useRef(0);
+  const tweenStartRef = useRef(0);
   const committedRef = useRef(false);
-  const settleRef = useRef(0);
+  const rafRef = useRef(0);
   const [committed, setCommitted] = useState(false);
 
   useEffect(() => {
@@ -152,20 +156,17 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  const applyProgress = useCallback((p: number, animated: boolean) => {
+  const applyProgress = useCallback((p: number) => {
     const hero = heroRef.current;
     const dash = dashRef.current;
     if (!hero || !dash) return;
-    const tr = animated
-      ? "transform 0.72s cubic-bezier(0.7,0,0.2,1), opacity 0.5s ease"
-      : "none";
-    hero.style.transition = tr;
-    dash.style.transition = tr;
-    hero.style.transform = `scale(${1 + p * 1.05})`;
-    hero.style.opacity = String(clamp01(1 - p * 1.3));
+    hero.style.transition = "none";
+    dash.style.transition = "none";
+    hero.style.transform = `scale(${1 + p * 0.42})`;
+    hero.style.opacity = String(clamp01(1 - p * 1.18));
     hero.style.pointerEvents = p > 0.5 ? "none" : "auto";
-    dash.style.transform = `scale(${0.92 + p * 0.08})`;
-    dash.style.opacity = String(clamp01(p * 1.35));
+    dash.style.transform = `scale(${0.94 + p * 0.06})`;
+    dash.style.opacity = String(clamp01(p * 1.25));
     dash.style.pointerEvents = p >= 0.5 ? "auto" : "none";
   }, []);
 
@@ -174,51 +175,67 @@ export default function Home() {
     setCommitted((prev) => (prev === v ? prev : v));
   }, []);
 
-  const settle = useCallback(() => {
-    const target = progressRef.current > 0.4 ? 1 : 0;
-    progressRef.current = target;
-    applyProgress(target, true);
-    setCommittedBoth(target >= 1);
-    if (target === 0 && dashRef.current) dashRef.current.scrollTop = 0;
+  // Tween por TEMPO fixo com ease-in-out: transição limpa e de velocidade constante,
+  // independente da velocidade do scroll; reversível (mudar de direção re-tweena da posição atual).
+  const loop = useCallback(() => {
+    const t = clamp01((performance.now() - tweenStartRef.current) / ZOOM_MS);
+    currentRef.current =
+      tweenFromRef.current + (targetRef.current - tweenFromRef.current) * easeInOut(t);
+    applyProgress(currentRef.current);
+    setCommittedBoth(currentRef.current >= 0.999);
+    if (t < 1) {
+      rafRef.current = requestAnimationFrame(loop);
+    } else {
+      currentRef.current = targetRef.current;
+      applyProgress(currentRef.current);
+      setCommittedBoth(targetRef.current >= 1);
+      if (targetRef.current === 0 && dashRef.current) dashRef.current.scrollTop = 0;
+      rafRef.current = 0;
+    }
   }, [applyProgress, setCommittedBoth]);
 
+  // O scroll define apenas o DESTINO (0 = hero, 1 = dashboard); o tween faz o resto.
   const go = useCallback(
     (to: number) => {
-      window.clearTimeout(settleRef.current);
-      progressRef.current = to;
-      if (!prefersReduced) applyProgress(to, true);
-      setCommittedBoth(to >= 1);
-      if (to === 0 && dashRef.current) dashRef.current.scrollTop = 0;
+      if (
+        targetRef.current === to &&
+        (rafRef.current !== 0 || currentRef.current === to)
+      ) {
+        return; // já indo/está no destino — não reinicia (preserva a suavidade)
+      }
+      targetRef.current = to;
+      if (prefersReduced) {
+        currentRef.current = to;
+        applyProgress(to);
+        setCommittedBoth(to >= 1);
+        if (to === 0 && dashRef.current) dashRef.current.scrollTop = 0;
+        return;
+      }
+      tweenFromRef.current = currentRef.current;
+      tweenStartRef.current = performance.now();
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(loop);
     },
-    [applyProgress, setCommittedBoth],
+    [loop, applyProgress, setCommittedBoth],
   );
 
   // Estado inicial das cenas (esconde o dashboard sem flash).
   useLayoutEffect(() => {
     if (prefersReduced || loading || !resumo) return;
-    applyProgress(0, false);
+    applyProgress(0);
   }, [applyProgress, loading, resumo]);
 
-  // Scroll CONTROLADO: o zoom acompanha o quanto se rola; solta e faz snap.
+  // Captura scroll/toque/teclado: só decide a direção; a animação é constante e reversível.
   useEffect(() => {
     if (prefersReduced || loading || !resumo) return;
-
-    const scrub = (delta: number) => {
-      progressRef.current = clamp01(progressRef.current + delta / 850);
-      applyProgress(progressRef.current, false);
-      setCommittedBoth(progressRef.current >= 0.999);
-      window.clearTimeout(settleRef.current);
-      settleRef.current = window.setTimeout(settle, 120);
-    };
     const atTop = () => (dashRef.current?.scrollTop ?? 0) <= 0;
 
     const onWheel = (e: WheelEvent) => {
       if (!committedRef.current) {
         e.preventDefault();
-        scrub(e.deltaY);
+        go(e.deltaY > 0 ? 1 : 0);
       } else if (e.deltaY < 0 && atTop()) {
         e.preventDefault();
-        scrub(e.deltaY);
+        go(0);
       }
     };
 
@@ -227,15 +244,15 @@ export default function Home() {
       lastY = e.touches[0].clientY;
     };
     const onTouchMove = (e: TouchEvent) => {
-      const y = e.touches[0].clientY;
-      const dy = lastY - y;
-      lastY = y;
+      const dy = lastY - e.touches[0].clientY;
+      lastY = e.touches[0].clientY;
+      if (Math.abs(dy) < 2) return;
       if (!committedRef.current) {
         e.preventDefault();
-        scrub(dy * 2.2);
+        go(dy > 0 ? 1 : 0);
       } else if (dy < 0 && atTop()) {
         e.preventDefault();
-        scrub(dy * 2.2);
+        go(0);
       }
     };
 
@@ -258,9 +275,9 @@ export default function Home() {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("keydown", onKey);
-      window.clearTimeout(settleRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [loading, resumo, applyProgress, settle, go, setCommittedBoth]);
+  }, [loading, resumo, go]);
 
   if (loading || !resumo) {
     return (
@@ -303,9 +320,7 @@ export default function Home() {
           <div className="kz-symwrap relative mb-7 h-[200px] w-[200px] sm:h-[250px] sm:w-[250px]">
             <div className="kz-halo absolute inset-[10%] rounded-full bg-[radial-gradient(circle,rgba(30,155,215,0.18),transparent_62%)] blur-2xl" />
             <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full" aria-hidden="true">
-              <circle cx="200" cy="200" r="196" fill="none" stroke="rgba(30,155,215,0.20)" strokeWidth="1" />
-              <circle className="kz-ring" cx="200" cy="200" r="196" fill="none" stroke="rgba(30,155,215,0.85)" strokeWidth="2.5" strokeDasharray="5 11" strokeLinecap="round" />
-              <circle className="kz-ring-2" cx="200" cy="200" r="176" fill="none" stroke="rgba(14,61,115,0.35)" strokeWidth="1.5" strokeDasharray="2 12" strokeLinecap="round" />
+              <circle className="kz-ring" cx="200" cy="200" r="192" fill="none" stroke="var(--cyan)" strokeWidth="2.5" strokeDasharray="5 12" strokeLinecap="round" />
             </svg>
             <img
               src={SIMBOLO}
@@ -332,13 +347,6 @@ export default function Home() {
 
           {/* CTA em destaque + estado */}
           <div className="kz-in-4 mt-9 flex flex-col items-center gap-4">
-            <button
-              onClick={() => go(1)}
-              className="kz-cta inline-flex items-center gap-2.5 rounded-full bg-[var(--navy)] px-7 py-3.5 text-[15px] font-semibold text-white"
-            >
-              Ir para pendências
-              <ChevronDown className="h-4 w-4" />
-            </button>
             <span className="flex items-center gap-2 text-[13px] text-[var(--g2)]">
               {emDia ? (
                 <>
@@ -354,6 +362,13 @@ export default function Home() {
                 </>
               )}
             </span>
+            <button
+              onClick={() => go(1)}
+              className="kz-cta inline-flex items-center gap-2.5 rounded-full bg-[var(--navy)] px-7 py-3.5 text-[15px] font-semibold text-white"
+            >
+              Ir para pendências
+              <ChevronDown className="h-4 w-4" />
+            </button>
           </div>
 
           <div className="kz-cue absolute bottom-8 left-1/2 -translate-x-1/2 text-[var(--g3)]">
