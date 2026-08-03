@@ -144,6 +144,8 @@ export default function Home() {
     user?.diretoria === "SGJT";
   const [resumo, setResumo] = useState<HomeResumo | null>(null);
   const [loading, setLoading] = useState(true);
+  // Só exibe "Carregando…" se a carga passar de ~300ms — evita o flash em prod (carga ~1ms).
+  const [showLoading, setShowLoading] = useState(false);
   const { podeAcessar } = usePermissoes();
 
   const heroRef = useRef<HTMLElement>(null);
@@ -158,11 +160,20 @@ export default function Home() {
   const [introKey, setIntroKey] = useState(0); // muda p/ re-disparar a intro do hero
 
   useEffect(() => {
+    let done = false;
+    const timer = window.setTimeout(() => {
+      if (!done) setShowLoading(true);
+    }, 300);
     homeApi
       .getResumo()
       .then(setResumo)
       .catch(() => undefined)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        done = true;
+        window.clearTimeout(timer);
+        setLoading(false);
+      });
+    return () => window.clearTimeout(timer);
   }, []);
 
   const applyProgress = useCallback((p: number) => {
@@ -306,13 +317,25 @@ export default function Home() {
     };
   }, [loading, resumo, go, resetToHomeIntro]);
 
-  if (loading || !resumo) {
+  if (loading) {
+    return (
+      <Layout>
+        <div className="kz flex h-full items-center justify-center bg-white">
+          <style>{HOME_CSS}</style>
+          {showLoading && (
+            <p className="text-sm text-[var(--g3)]">Carregando…</p>
+          )}
+        </div>
+      </Layout>
+    );
+  }
+  if (!resumo) {
     return (
       <Layout>
         <div className="kz flex h-full items-center justify-center bg-white">
           <style>{HOME_CSS}</style>
           <p className="text-sm text-[var(--g3)]">
-            {loading ? "Carregando…" : "Não foi possível carregar o resumo."}
+            Não foi possível carregar o resumo.
           </p>
         </div>
       </Layout>
