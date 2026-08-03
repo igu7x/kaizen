@@ -132,11 +132,11 @@ const CAMPOS_CONTEUDO: Array<{ key: string; label: string }> = [
   { key: "saidas", label: "Saídas" },
   { key: "sistemas_ferramentas", label: "Sistemas e Ferramentas" },
   { key: "normativos_referencias", label: "Normativos e Referências" },
-  { key: "fluxograma_data", label: "Fluxograma" },
-  { key: "documentos_anexados", label: "Documentos Anexados" },
   { key: "apreciacao", label: "Apreciação" },
   { key: "numero_proad", label: "Número PROAD" },
   { key: "observacoes_gerais", label: "Observações Gerais" },
+  // Anexos (documentos_anexados) NÃO entram: alterar anexos não gera nova versão. A única
+  // exceção — o Fluxograma — é comparada à parte em camposAlterados (via getFluxograma).
 ];
 
 /** Normaliza um valor de campo para comparação estável (string trim; arrays/objetos via JSON). */
@@ -154,9 +154,15 @@ function camposAlterados(
   if (!processo) return [];
   const f = form as unknown as Record<string, unknown>;
   const p = processo as unknown as Record<string, unknown>;
-  return CAMPOS_CONTEUDO.filter(
+  const mudados = CAMPOS_CONTEUDO.filter(
     (c) => normConteudo(f[c.key]) !== normConteudo(p[c.key]),
   ).map((c) => c.label);
+  // Fluxograma é o único anexo versionável — pode estar nos campos legados ou como doc
+  // tipo FLUXOGRAMA. Compara o conteúdo resolvido dos dois lados.
+  if (getFluxograma(form).data !== getFluxograma(processo).data) {
+    mudados.push("Fluxograma");
+  }
+  return mudados;
 }
 
 /**
@@ -283,9 +289,7 @@ export function ProcessoFormDialog({
         periodicidade_revisao: processo.periodicidade_revisao || "",
         numero_proad: processo.numero_proad || "",
         observacoes_gerais: processo.observacoes_gerais || "",
-        versao: processo.versao
-          ? String(parseInt(String(processo.versao), 10) || "1")
-          : "1",
+        versao: pad3(processo.versao ?? "1"),
       });
     } else {
       setForm({
@@ -527,21 +531,27 @@ export function ProcessoFormDialog({
               </div>
               <div>
                 <Label
-                  htmlFor="periodo"
+                  htmlFor="revisao"
                   className="text-xs font-semibold text-slate-700"
                 >
-                  Data da Versão
+                  Revisão
                 </Label>
                 <Input
-                  id="periodo"
-                  type="date"
-                  value={form.periodo || ""}
-                  onChange={(e) => update("periodo", e.target.value)}
+                  id="revisao"
+                  type="text"
+                  inputMode="numeric"
+                  value={form.revisao ?? ""}
+                  onChange={(e) =>
+                    update("revisao", e.target.value.replace(/\D/g, ""))
+                  }
+                  onBlur={(e) =>
+                    e.target.value.trim() &&
+                    update("revisao", pad3(e.target.value))
+                  }
+                  placeholder="0"
                   className="mt-1 bg-white"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  No PDF será exibido apenas o mês e o ano.
-                </p>
+                <p className="text-xs text-slate-500 mt-1">Em branco = 0.</p>
               </div>
               <div>
                 <Label
@@ -561,7 +571,11 @@ export function ProcessoFormDialog({
                   onChange={(e) =>
                     update("versao", e.target.value.replace(/\D/g, ""))
                   }
-                  placeholder="Ex.: 1"
+                  onBlur={(e) =>
+                    e.target.value.trim() &&
+                    update("versao", pad3(e.target.value))
+                  }
+                  placeholder="Ex.: 001"
                   className="mt-1 bg-white"
                 />
                 <p className="text-xs text-slate-500 mt-1">
@@ -571,23 +585,21 @@ export function ProcessoFormDialog({
               </div>
               <div>
                 <Label
-                  htmlFor="revisao"
+                  htmlFor="periodo"
                   className="text-xs font-semibold text-slate-700"
                 >
-                  Revisão
+                  Data da Versão
                 </Label>
                 <Input
-                  id="revisao"
-                  type="text"
-                  inputMode="numeric"
-                  value={form.revisao ?? ""}
-                  onChange={(e) =>
-                    update("revisao", e.target.value.replace(/\D/g, ""))
-                  }
-                  placeholder="0"
+                  id="periodo"
+                  type="date"
+                  value={form.periodo || ""}
+                  onChange={(e) => update("periodo", e.target.value)}
                   className="mt-1 bg-white"
                 />
-                <p className="text-xs text-slate-500 mt-1">Em branco = 0.</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  No PDF será exibido apenas o mês e o ano.
+                </p>
               </div>
             </div>
           </Section>

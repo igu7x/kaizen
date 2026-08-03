@@ -638,15 +638,12 @@ function drawRodapeInstitucional(
   // Fase de proposta = enquanto não finalizado (status ≠ validado_final). Neste PDF o
   // formulário já corresponde ao Modelo K1, então:
   //  - MODELO: sempre "K1" (mesmo antes da aprovação);
-  //  - VERSÃO: última versão aprovada + 1, com sufixo "(Proposta)".
+  //  - VERSÃO/REVISÃO: MESMA regra do cabeçalho — o número atual (3 dígitos) com sufixo
+  //    "(Proposta)" enquanto não homologado. Rodapé e cabeçalho exibem valores idênticos.
   const isProposta = processo.status !== "validado_final";
-  const versaoBase = (processo.versao || "1").replace(/\.0$/, "");
-  const versaoNum = parseInt(versaoBase, 10);
-  const versaoValue =
-    isProposta && Number.isFinite(versaoNum)
-      ? `${pad3(versaoNum + 1)} (Proposta)`
-      : pad3(versaoBase);
-  const revisaoValue = pad3(processo.revisao ?? "0");
+  const sufixoProposta = isProposta ? " (Proposta)" : "";
+  const versaoValue = pad3(processo.versao ?? "1") + sufixoProposta;
+  const revisaoValue = pad3(processo.revisao ?? "0") + sufixoProposta;
   const modeloLabel =
     isProposta || isK1(processo)
       ? "K1"
@@ -949,59 +946,10 @@ export function generateProcessoNegocioPDF(
   }
   y += 4;
 
-  // 8. Documentos Anexados
-  y = checkPageBreak(doc, y, 25);
-  y = drawNumberedSectionHeader(doc, 8, "Documentos Anexados", y);
-  if ((processo.documentos_anexados || []).length === 0) {
-    y = drawMultilineContent(doc, "Nenhum documento anexado.", y, 14);
-  } else {
-    const docHeaderH = 8;
-    const colTipo = CONTENT_WIDTH * 0.25;
-    const colDoc = CONTENT_WIDTH * 0.75;
-    drawTextCell(doc, "TIPO", MARGIN_LEFT, y, colTipo, docHeaderH, {
-      bold: true,
-      fontSize: 8.5,
-      align: "center",
-      bg: ACCENT_BG_LIGHT,
-      color: SUBTITLE,
-    });
-    drawTextCell(
-      doc,
-      "DOCUMENTO",
-      MARGIN_LEFT + colTipo,
-      y,
-      colDoc,
-      docHeaderH,
-      {
-        bold: true,
-        fontSize: 8.5,
-        align: "center",
-        bg: ACCENT_BG_LIGHT,
-        color: SUBTITLE,
-      },
-    );
-    y += docHeaderH;
-    for (const docAnx of processo.documentos_anexados) {
-      const rowH = calcRowHeight(doc, [
-        { text: docAnx.tipo, width: colTipo },
-        { text: docAnx.nome, width: colDoc },
-      ]);
-      y = checkPageBreak(doc, y, rowH);
-      drawTextCell(doc, docAnx.tipo, MARGIN_LEFT, y, colTipo, rowH, {
-        align: "center",
-        bold: true,
-      });
-      drawTextCell(doc, docAnx.nome, MARGIN_LEFT + colTipo, y, colDoc, rowH, {
-        align: "center",
-      });
-      y += rowH;
-    }
-  }
-  y += 6;
-
-  // 9. Revisão (2 colunas: Periodicidade | Próxima Revisão)
+  // 8. Revisão (2 colunas: Periodicidade | Próxima Revisão)
+  // (A antiga seção "Documentos Anexados" foi removida do PDF a pedido da equipe.)
   y = checkPageBreak(doc, y, 30);
-  y = drawNumberedSectionHeader(doc, 9, "Revisão", y);
+  y = drawNumberedSectionHeader(doc, 8, "Revisão", y);
   const revHeaderH = 8;
   const revColW = CONTENT_WIDTH / 2;
   drawTextCell(doc, "PERIODICIDADE", MARGIN_LEFT, y, revColW, revHeaderH, {
@@ -1061,7 +1009,7 @@ export function generateProcessoNegocioPDF(
   );
   y += revRowH + 6;
 
-  // 10. Rito de Aprovação
+  // 9. Rito de Aprovação
   const histLabelW = 60;
   const histFontSize = 9;
   const histValueW = CONTENT_WIDTH - histLabelW;
@@ -1137,7 +1085,7 @@ export function generateProcessoNegocioPDF(
   }
 
   y = checkPageBreak(doc, y, histLinhas.length * histRowH + 12);
-  y = drawNumberedSectionHeader(doc, 10, "Rito de Aprovação", y);
+  y = drawNumberedSectionHeader(doc, 9, "Rito de Aprovação", y);
   for (const linha of histLinhas) {
     drawTextCell(doc, linha.label, MARGIN_LEFT, y, histLabelW, histRowH, {
       bold: true,
