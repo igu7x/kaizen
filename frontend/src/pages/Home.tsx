@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight, ArrowRight, Check } from "lucide-react";
 import { homeApi, HomeResumo } from "@/services/homeApi";
 import { usePermissoes } from "@/hooks/usePermissoes";
+
+const SIMBOLO = "/logo%20kaizen%20desenho.png";
 
 function saudacao() {
   const h = new Date().getHours();
@@ -13,82 +15,173 @@ function saudacao() {
   if (h < 18) return "Boa tarde";
   return "Boa noite";
 }
-
 function primeiroNome(name: string) {
   return (name || "").trim().split(" ")[0] || "";
 }
 
-function dataCurta() {
-  const d = new Date().toLocaleDateString("pt-BR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-  });
-  return d.replace(".", "").replace(/\bde\b/g, "").replace(/\s+/g, " ").trim();
+const prefersReduced =
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+/* Revela elementos [data-rv] quando entram na viewport; parallax leve ligado ao scroll do <main>. */
+function useScrollChoreography(rootRef: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const revealables = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-rv]"),
+    );
+    if (prefersReduced) {
+      revealables.forEach((el) => el.classList.add("rv-in"));
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("rv-in");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.18, rootMargin: "0px 0px -8% 0px" },
+    );
+    revealables.forEach((el) => io.observe(el));
+
+    const scroller =
+      (root.closest("main") as HTMLElement | null) ?? null;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        const y = scroller ? scroller.scrollTop : window.scrollY;
+        root.style.setProperty("--sy", String(y));
+        raf = 0;
+      });
+    };
+    onScroll();
+    const target: HTMLElement | Window = scroller ?? window;
+    target.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      io.disconnect();
+      target.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [rootRef]);
 }
 
-/**
- * Sistema visual da home — extraído das referências (Mercury, Linear-app, Stripe Dashboard,
- * Vercel/Geist, suíço/Vignelli, Muji/Hara): restrição, grid disciplinado, hierarquia por peso
- * e não por cor, ornamento zero, densidade útil. Sem sombra, sem gradiente, sem ícone
- * decorativo. Space Grotesk só em títulos/rótulos; corpo em sans neutra; números em mono
- * tabular. Neutros com viés frio (em direção ao azul da marca). Desenhada para o estado ZERO
- * como caso principal — "Tudo resolvido" é um resultado, não uma ausência.
- */
-const HM_CSS = `
-  .hm {
-    --bg: #F6F8FB;
-    --surface: #FFFFFF;
-    --ink: #152536;
-    --g2: #56637A;
-    --g3: #8A93A3;
-    --line: #E4E8EF;
-    --line-strong: #C7D0DC;
+function CountUp({ value }: { value: number }) {
+  const [n, setN] = useState(prefersReduced ? value : 0);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (prefersReduced) {
+      setN(value);
+      return;
+    }
+    const el = ref.current;
+    if (!el) return;
+    let started = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !started) {
+          started = true;
+          const dur = 900;
+          const t0 = performance.now();
+          const tick = (t: number) => {
+            const p = Math.min(1, (t - t0) / dur);
+            const eased = 1 - Math.pow(1 - p, 3);
+            setN(Math.round(value * eased));
+            if (p < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [value]);
+  return (
+    <span ref={ref} className="tabular-nums">
+      {n}
+    </span>
+  );
+}
+
+const HOME_CSS = `
+  .kz {
+    --ink: #0E2440;
     --navy: #0E3D73;
     --azure: #1478B4;
-    --amber: #A96A08;
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    color: var(--ink);
+    --azure-hi: #1E9BD7;
+    --g2: #5A6B84;
+    --g3: #8A98AE;
+    --line: #E4EAF3;
+    --light: #F5F9FE;
+    --d1: #06162E;
+    --d2: #0B2A55;
+    --d3: #123C76;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  .hm-display { font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; }
-  .hm-mono {
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
-  }
-  .hm-label {
-    font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--g3);
-  }
+  .kz-display { font-family: "Bricolage Grotesque", Inter, ui-sans-serif, system-ui, sans-serif; }
 
-  .hm-tile {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    transition: border-color 0.15s ease, background-color 0.15s ease;
-  }
-  .hm-tile:hover { border-color: var(--navy); }
-  .hm-tile:focus-visible { outline: 2px solid var(--azure); outline-offset: 2px; }
-  .hm-tile .hm-tile-title { transition: color 0.15s ease; }
-  .hm-tile:hover .hm-tile-title { color: var(--azure); }
+  /* Reveal */
+  .kz [data-rv] { opacity: 0; transform: translateY(26px); transition: opacity 0.9s cubic-bezier(0.16,0.8,0.24,1), transform 0.9s cubic-bezier(0.16,0.8,0.24,1); }
+  .kz [data-rv].rv-in { opacity: 1; transform: none; }
 
-  .hm-row { transition: background-color 0.15s ease; }
-  .hm-row:hover { background: #EDF2F8; }
-  .hm-row .hm-row-label { transition: color 0.15s ease; }
-  .hm-row:hover .hm-row-label { color: var(--azure); }
-  .hm-row:focus-visible { outline: 2px solid var(--azure); outline-offset: -2px; border-radius: 4px; }
-  .hm-arrow { transition: transform 0.2s ease, color 0.15s ease; }
-  .hm-row:hover .hm-arrow, .hm-tile:hover .hm-arrow { transform: translate(2px, -2px); color: var(--azure); }
+  /* Hero */
+  .kz-hero { background:
+      radial-gradient(90% 70% at 72% 18%, rgba(30,155,215,0.28), transparent 60%),
+      radial-gradient(70% 60% at 12% 92%, rgba(18,60,118,0.55), transparent 62%),
+      linear-gradient(160deg, var(--d1), var(--d2) 55%, var(--d3)); }
+  .kz-grid { background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(120% 90% at 60% 20%, #000 30%, transparent 78%);
+    -webkit-mask-image: radial-gradient(120% 90% at 60% 20%, #000 30%, transparent 78%); }
 
-  @keyframes hm-in { from { opacity: 0; } to { opacity: 1; } }
-  .hm-in { animation: hm-in 0.4s ease both; }
+  @keyframes kz-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+  @keyframes kz-pulse { 0%,100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.06); } }
+  @keyframes kz-spin { to { transform: rotate(360deg); } }
+  @keyframes kz-spin-rev { to { transform: rotate(-360deg); } }
+  @keyframes kz-cue { 0%,100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(6px); opacity: 1; } }
+
+  .kz-symbol { animation: kz-float 8s ease-in-out infinite; filter: drop-shadow(0 20px 60px rgba(30,155,215,0.45)); }
+  .kz-halo { animation: kz-pulse 6s ease-in-out infinite; }
+  .kz-ring { transform-origin: center; animation: kz-spin 42s linear infinite; }
+  .kz-ring-2 { transform-origin: center; animation: kz-spin-rev 80s linear infinite; }
+  .kz-cue { animation: kz-cue 1.8s ease-in-out infinite; }
+
+  .kz-chip { transition: border-color 0.2s ease, background-color 0.2s ease; }
+  .kz-chip:hover { border-color: rgba(105,208,247,0.7); background: rgba(105,208,247,0.10); }
+
+  /* Módulos */
+  .kz-tile { background: #fff; border: 1px solid var(--line); border-radius: 14px; transition: border-color 0.25s ease, transform 0.35s cubic-bezier(0.16,0.8,0.24,1); }
+  .kz-tile:hover { border-color: var(--azure-hi); transform: translateY(-4px); }
+  .kz-tile:focus-visible { outline: 2px solid var(--azure); outline-offset: 3px; }
+  .kz-tile .kz-tt { transition: color 0.2s ease; }
+  .kz-tile:hover .kz-tt { color: var(--azure); }
+  .kz-underline { transition: width 0.4s cubic-bezier(0.16,0.8,0.24,1); }
+  .kz-tile:hover .kz-underline { width: 100%; }
+  .kz-arrow { transition: transform 0.3s cubic-bezier(0.16,0.8,0.24,1); }
+  .kz-tile:hover .kz-arrow, .kz-row:hover .kz-arrow { transform: translate(4px, -4px); }
+
+  .kz-row { transition: background-color 0.2s ease; }
+  .kz-row:hover { background: #EEF4FB; }
+  .kz-row .kz-rl { transition: color 0.2s ease; }
+  .kz-row:hover .kz-rl { color: var(--azure); }
+  .kz-row:focus-visible { outline: 2px solid var(--azure); outline-offset: -2px; border-radius: 8px; }
+
   @media (prefers-reduced-motion: reduce) {
-    .hm-in { animation: none; }
-    .hm-arrow, .hm-tile, .hm-row, .hm-tile-title, .hm-row-label { transition: none; }
+    .kz-symbol, .kz-halo, .kz-ring, .kz-ring-2, .kz-cue { animation: none; }
+    .kz [data-rv] { opacity: 1; transform: none; transition: none; }
+    .kz-tile, .kz-arrow, .kz-underline, .kz-row, .kz-tt, .kz-rl, .kz-chip { transition: none; }
+    .kz-tile:hover { transform: none; }
   }
 `;
 
@@ -99,9 +192,6 @@ interface Modulo {
   link: string;
   permissaoCodigo: string;
 }
-
-// Hierarquia FIXA por importância de negócio (nunca muda com o dado): o 1º módulo permitido é o
-// primário (tile largo); os demais são pares. Só o conteúdo/sinal interno de cada tile varia.
 const MODULOS: Modulo[] = [
   {
     key: "projetos",
@@ -142,6 +232,9 @@ export default function Home() {
   const [resumo, setResumo] = useState<HomeResumo | null>(null);
   const [loading, setLoading] = useState(true);
   const { podeAcessar } = usePermissoes();
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useScrollChoreography(rootRef);
 
   useEffect(() => {
     homeApi
@@ -151,176 +244,290 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  const shell = (children: React.ReactNode) => (
-    <Layout>
-      <div className="hm min-h-full bg-[var(--bg)]">
-        <style>{HM_CSS}</style>
-        <div className="mx-auto max-w-[1160px] px-5 sm:px-8">{children}</div>
-      </div>
-    </Layout>
-  );
+  const scrollToModulos = useCallback(() => {
+    rootRef.current
+      ?.querySelector("#modulos")
+      ?.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth" });
+  }, []);
 
-  if (loading) {
-    return shell(
-      <div className="py-24 text-center text-sm text-[var(--g3)]">
-        Carregando…
-      </div>,
-    );
-  }
-  if (!resumo) {
-    return shell(
-      <div className="py-24 text-[var(--g2)]">
-        Não foi possível carregar o resumo.
-      </div>,
+  if (loading || !resumo) {
+    return (
+      <Layout>
+        <div className="kz kz-hero flex min-h-screen items-center justify-center">
+          <style>{HOME_CSS}</style>
+          <p className="text-sm text-white/60">
+            {loading ? "Carregando…" : "Não foi possível carregar o resumo."}
+          </p>
+        </div>
+      </Layout>
     );
   }
 
   const nome = primeiroNome(resumo.user.name);
-  const emDia = resumo.pendencias.every((p) => p.count <= 0);
   const pendencias = resumo.pendencias.filter((p) => p.count > 0);
+  const emDia = pendencias.length === 0;
+  const totalPend = pendencias.reduce((s, p) => s + p.count, 0);
+  const proj = resumo.projetos;
 
   const visiveis = MODULOS.filter((m) => podeAcessar(m.permissaoCodigo));
   const primario = visiveis[0] ?? null;
   const secundarios = visiveis.slice(1);
-  const proj = resumo.projetos;
 
-  return shell(
-    <div className="hm-in">
-      {/* ── Barra de contexto: saudação + filtro global de Diretoria ─── */}
-      <div className="flex h-14 items-center justify-between gap-4 border-b border-[var(--line)]">
-        <div className="flex items-baseline gap-2 min-w-0">
-          <h1 className="hm-display truncate text-[20px] font-semibold text-[var(--navy)]">
-            {saudacao()}, {nome}.
+  return (
+    <Layout>
+      <div ref={rootRef} className="kz bg-[var(--light)]">
+        <style>{HOME_CSS}</style>
+
+        {/* ══════════════ HERO ══════════════ */}
+        <section className="kz-hero relative flex min-h-[calc(100vh-56px)] flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
+          <div className="kz-grid pointer-events-none absolute inset-0" />
+
+          {/* Emblema — o símbolo da marca como herói */}
+          <div
+            className="relative mb-9 h-[220px] w-[220px] sm:h-[280px] sm:w-[280px]"
+            style={{
+              transform: "translateY(calc(var(--sy,0) * -0.06px))",
+            }}
+            data-rv
+          >
+            <div className="kz-halo absolute inset-[6%] rounded-full bg-[radial-gradient(circle,rgba(105,208,247,0.55),transparent_62%)] blur-2xl" />
+            <svg
+              viewBox="0 0 400 400"
+              className="absolute inset-0 h-full w-full"
+              aria-hidden="true"
+            >
+              <circle
+                className="kz-ring"
+                cx="200"
+                cy="200"
+                r="196"
+                fill="none"
+                stroke="rgba(105,208,247,0.5)"
+                strokeWidth="1.5"
+                strokeDasharray="2 16"
+                strokeLinecap="round"
+              />
+              <circle
+                className="kz-ring-2"
+                cx="200"
+                cy="200"
+                r="180"
+                fill="none"
+                stroke="rgba(255,255,255,0.14)"
+                strokeWidth="1"
+                strokeDasharray="1 22"
+                strokeLinecap="round"
+              />
+            </svg>
+            <img
+              src={SIMBOLO}
+              alt="Kaizen — balança da justiça no ciclo de melhoria contínua"
+              className="kz-symbol absolute inset-[13%] h-[74%] w-[74%] object-contain brightness-0 invert"
+              draggable={false}
+            />
+          </div>
+
+          <p
+            className="mb-4 text-[12px] font-medium uppercase tracking-[0.34em] text-[color:rgba(105,208,247,0.9)]"
+            data-rv
+            style={{ transitionDelay: "80ms" }}
+          >
+            {saudacao()}, {nome}
+          </p>
+          <h1
+            className="kz-display text-[clamp(3rem,9vw,7rem)] font-extrabold leading-[0.92] tracking-[-0.03em] text-white"
+            data-rv
+            style={{ transitionDelay: "140ms" }}
+          >
+            Kaizen
           </h1>
-          <span className="hidden text-[13px] text-[var(--g3)] sm:inline">
-            · {dataCurta()}
-          </span>
-        </div>
-        {podeSelecionarDiretoria && (
-          <div className="flex shrink-0 items-center gap-2.5">
-            <span className="hm-label hidden sm:inline">Diretoria</span>
-            <DirectorateSelector />
-          </div>
-        )}
-      </div>
+          <p
+            className="mt-5 max-w-xl text-balance text-lg text-white/70 sm:text-xl"
+            data-rv
+            style={{ transitionDelay: "220ms" }}
+          >
+            Melhoria contínua da governança judiciária e tecnológica.
+          </p>
 
-      {/* ── Sua fila: ZERO é o caso principal (resultado, não ausência) ── */}
-      <div className="border-b border-[var(--line)] py-5">
-        {emDia ? (
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-[var(--azure)] text-[var(--azure)]">
-              <Check className="h-4 w-4" strokeWidth={2.5} />
-            </span>
-            <div>
-              <p className="hm-display text-[15px] font-semibold text-[var(--navy)]">
-                Tudo resolvido
-              </p>
-              <p className="text-[13px] text-[var(--g2)]">
-                Nenhuma pendência aguardando você.
-              </p>
-            </div>
+          {/* Estado — resultado confiante, dentro do hero */}
+          <div
+            className="mt-9 flex flex-wrap items-center justify-center gap-3"
+            data-rv
+            style={{ transitionDelay: "300ms" }}
+          >
+            {emDia ? (
+              <span className="kz-chip inline-flex items-center gap-2.5 rounded-full border border-[rgba(105,208,247,0.4)] bg-white/[0.06] px-5 py-2.5 text-sm text-white/90 backdrop-blur-sm">
+                <Check
+                  className="h-4 w-4 text-[color:rgba(105,208,247,1)]"
+                  strokeWidth={2.5}
+                />
+                Tudo resolvido — nenhuma pendência aguardando você.
+              </span>
+            ) : (
+              <button
+                onClick={scrollToModulos}
+                className="kz-chip inline-flex items-center gap-2.5 rounded-full border border-[rgba(105,208,247,0.4)] bg-white/[0.06] px-5 py-2.5 text-sm text-white/90 backdrop-blur-sm"
+              >
+                <span className="kz-display text-base font-bold text-[color:rgba(105,208,247,1)]">
+                  {totalPend}
+                </span>
+                {totalPend === 1 ? "item aguarda" : "itens aguardam"} sua ação
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+            {podeSelecionarDiretoria && (
+              <div className="[&_*]:!text-white/90">
+                <DirectorateSelector />
+              </div>
+            )}
           </div>
-        ) : (
-          <div>
-            <h2 className="hm-label mb-1">Sua fila</h2>
-            <ul className="divide-y divide-[var(--line)]">
+
+          {/* Scroll cue */}
+          <button
+            onClick={scrollToModulos}
+            aria-label="Ver módulos"
+            className="kz-cue absolute bottom-7 left-1/2 -translate-x-1/2 text-white/60 hover:text-white"
+          >
+            <svg width="26" height="40" viewBox="0 0 26 40" fill="none">
+              <rect
+                x="1"
+                y="1"
+                width="24"
+                height="38"
+                rx="12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <circle cx="13" cy="11" r="3" fill="currentColor" />
+            </svg>
+          </button>
+        </section>
+
+        {/* ══════════════ SUA FILA (só quando há itens) ══════════════ */}
+        {!emDia && (
+          <section
+            id="fila"
+            className="mx-auto max-w-5xl px-6 py-20 sm:py-28"
+          >
+            <p
+              className="mb-2 text-[12px] font-semibold uppercase tracking-[0.24em] text-[var(--azure)]"
+              data-rv
+            >
+              Sua fila
+            </p>
+            <h2
+              className="kz-display mb-8 text-[clamp(1.9rem,4vw,3rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]"
+              data-rv
+              style={{ transitionDelay: "60ms" }}
+            >
+              O que precisa de você agora.
+            </h2>
+            <ul className="border-t border-[var(--line)]">
               {pendencias.map((p, i) => (
-                <li key={i}>
+                <li key={i} data-rv style={{ transitionDelay: `${i * 70}ms` }}>
                   <button
                     onClick={() => navigate(p.link)}
-                    className="hm-row group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 px-2 py-2.5 text-left"
+                    className="kz-row group flex w-full items-center gap-5 border-b border-[var(--line)] px-3 py-5 text-left"
                   >
-                    <span className="hm-mono w-8 shrink-0 text-right text-[15px] text-[var(--navy)]">
+                    <span className="kz-display w-12 shrink-0 text-2xl font-bold tabular-nums text-[var(--navy)] sm:text-3xl">
                       {p.count}
                     </span>
-                    <span className="hm-row-label flex-1 truncate text-[14px] text-[var(--ink)]">
+                    <span className="kz-rl flex-1 text-lg text-[var(--ink)] sm:text-xl">
                       {p.label}
                     </span>
-                    <ArrowUpRight className="hm-arrow h-4 w-4 shrink-0 text-[var(--g3)]" />
+                    <ArrowUpRight className="kz-arrow h-5 w-5 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
                   </button>
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         )}
-      </div>
 
-      {/* ── Módulos: o coração da página, geometria fixa ──────────────── */}
-      {primario && (
-        <div className="py-6">
-          <h2 className="hm-label mb-3">Módulos</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {/* Primário (largo) */}
-            <Link
-              to={primario.link}
-              className="hm-tile group col-span-1 flex flex-col p-5 sm:col-span-3"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="hm-tile-title hm-display text-[18px] font-semibold text-[var(--navy)]">
-                    {primario.label}
-                  </h3>
-                  <p className="mt-1 text-[13px] text-[var(--g2)]">
-                    {primario.desc}
-                  </p>
-                </div>
-                <ArrowUpRight className="hm-arrow h-4 w-4 shrink-0 text-[var(--g3)]" />
+        {/* ══════════════ MÓDULOS ══════════════ */}
+        {primario && (
+          <section
+            id="modulos"
+            className="mx-auto max-w-6xl px-6 py-20 sm:py-28"
+          >
+            <div className="mb-10 flex items-end justify-between gap-4" data-rv>
+              <div>
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.24em] text-[var(--azure)]">
+                  Módulos
+                </p>
+                <h2 className="kz-display text-[clamp(1.9rem,4vw,3rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+                  Onde o trabalho acontece.
+                </h2>
               </div>
+            </div>
 
-              {/* Sinal intrínseco — só o módulo de Projetos tem métrica própria. */}
-              {primario.key === "projetos" && (
-                <div className="mt-5 flex items-baseline gap-6">
-                  {proj.total > 0 ? (
-                    <>
-                      <span className="flex items-baseline gap-1.5">
-                        <span className="hm-mono text-[24px] text-[var(--navy)]">
-                          {proj.total}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {/* Primário — largo */}
+              <Link
+                to={primario.link}
+                data-rv
+                className="kz-tile group col-span-1 flex flex-col justify-between overflow-hidden p-7 sm:col-span-3 sm:p-9"
+              >
+                <div className="flex items-start justify-between gap-6">
+                  <div>
+                    <h3 className="kz-tt kz-display text-[clamp(1.5rem,3vw,2.25rem)] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+                      {primario.label}
+                    </h3>
+                    <div className="kz-underline mt-2 h-[2px] w-10 bg-[var(--azure-hi)]" />
+                    <p className="mt-4 max-w-md text-[15px] text-[var(--g2)]">
+                      {primario.desc}
+                    </p>
+                  </div>
+                  <ArrowUpRight className="kz-arrow h-6 w-6 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
+                </div>
+
+                {primario.key === "projetos" && (
+                  <div className="mt-8 flex flex-wrap items-baseline gap-x-10 gap-y-3">
+                    <span className="flex items-baseline gap-2">
+                      <span className="kz-display text-4xl font-bold text-[var(--navy)] sm:text-5xl">
+                        <CountUp value={proj.total} />
+                      </span>
+                      <span className="text-[13px] text-[var(--g3)]">
+                        em execução
+                      </span>
+                    </span>
+                    {proj.em_atraso > 0 && (
+                      <span className="flex items-baseline gap-2">
+                        <span className="kz-display text-4xl font-bold text-[#B4780A] sm:text-5xl">
+                          <CountUp value={proj.em_atraso} />
                         </span>
-                        <span className="text-[12px] text-[var(--g3)]">
-                          em execução
+                        <span className="text-[13px] text-[var(--g3)]">
+                          em atraso
                         </span>
                       </span>
-                      {proj.em_atraso > 0 && (
-                        <span className="flex items-baseline gap-1.5">
-                          <span className="hm-mono text-[24px] text-[var(--amber)]">
-                            {proj.em_atraso}
-                          </span>
-                          <span className="text-[12px] text-[var(--g3)]">
-                            em atraso
-                          </span>
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-[13px] text-[var(--g3)]">
-                      Nenhum projeto em execução.
-                    </span>
-                  )}
-                </div>
-              )}
-            </Link>
-
-            {/* Secundários (pares) */}
-            {secundarios.map((m) => (
-              <Link
-                key={m.key}
-                to={m.link}
-                className="hm-tile group flex flex-col p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="hm-tile-title hm-display text-[15px] font-semibold text-[var(--navy)]">
-                    {m.label}
-                  </h3>
-                  <ArrowUpRight className="hm-arrow h-3.5 w-3.5 shrink-0 text-[var(--g3)]" />
-                </div>
-                <p className="mt-1 text-[12.5px] leading-snug text-[var(--g2)]">
-                  {m.desc}
-                </p>
+                    )}
+                  </div>
+                )}
               </Link>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>,
+
+              {/* Secundários */}
+              {secundarios.map((m, i) => (
+                <Link
+                  key={m.key}
+                  to={m.link}
+                  data-rv
+                  style={{ transitionDelay: `${(i + 1) * 80}ms` }}
+                  className="kz-tile group flex flex-col justify-between p-6"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="kz-tt kz-display text-xl font-bold leading-tight tracking-[-0.01em] text-[var(--ink)]">
+                      {m.label}
+                    </h3>
+                    <ArrowUpRight className="kz-arrow h-4 w-4 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
+                  </div>
+                  <p className="mt-3 text-[13.5px] leading-relaxed text-[var(--g2)]">
+                    {m.desc}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </Layout>
   );
 }
