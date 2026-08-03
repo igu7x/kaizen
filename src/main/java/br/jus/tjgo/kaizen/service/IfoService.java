@@ -306,6 +306,9 @@ public class IfoService {
      */
     @Transactional
     public IfoDto definirInteresseRenovacao(long id, boolean interesse, String motivo, Long userId) {
+        if (motivo != null && motivo.length() > 128) {
+            throw new ApiException(400, "O motivo deve ter no máximo 128 caracteres");
+        }
         verificarPermissaoEdicao(id, "MODIFICAR_IFO", userId);
         
         IfoDto ifo = get(id);
@@ -334,6 +337,9 @@ public class IfoService {
 
     @Transactional
     public IfoDto definirInteresseRenovacaoContrato(long ifoId, long contractId, boolean interesse, String motivo, Long userId) {
+        if (motivo != null && motivo.length() > 128) {
+            throw new ApiException(400, "O motivo deve ter no máximo 128 caracteres");
+        }
         verificarPermissaoEdicao(ifoId, "MODIFICAR_IFO", userId);
         
         IfoDto ifo = get(ifoId);
@@ -357,40 +363,48 @@ public class IfoService {
 
     @Transactional
     public void processarNaoRenovacoes(long cicloId, Long userId) {
-        // Encontra todos os contratos marcados como NÃO renovar dentro de IFOs de renovação.
-        // O group by ifo_id agrupa os contratos que não serão renovados de um mesmo IFO.
-        List<Map<String, Object>> naoRenovados = jdbc.queryForList(
-            "SELECT ic.ifo_id, array_agg(ic.contract_id) as contract_ids " +
+        // Encontra todos os IFOs que possuem contratos marcados como NÃO renovar.
+        List<Map<String, Object>> ifosComNaoRenovados = jdbc.queryForList(
+            "SELECT DISTINCT ic.ifo_id " +
             "FROM ifo_contratos ic " +
             "JOIN ifo i ON ic.ifo_id = i.id " +
-            "WHERE i.ciclo_id = ? AND i.bloco = 'renovacao' AND ic.interesse_renovacao = FALSE " +
-            "GROUP BY ic.ifo_id", cicloId);
+            "WHERE i.ciclo_id = ? AND i.bloco = 'renovacao' AND ic.interesse_renovacao = FALSE", cicloId);
 
-        for (Map<String, Object> row : naoRenovados) {
-            Long ifoId = asLong(row.get("ifo_id"));
-            Long[] contractIdsArr;
-            try {
-                contractIdsArr = (Long[]) ((java.sql.Array) row.get("contract_ids")).getArray();
-            } catch (java.sql.SQLException e) {
-                throw new ApiException(500, "Erro ao ler array de contratos: " + e.getMessage());
-            }
-            List<Long> contractIds = List.of(contractIdsArr);
+        for (Map<String, Object> rowIfo : ifosComNaoRenovados) {
+            Long ifoId = asLong(rowIfo.get("ifo_id"));
+            
+            // Busca os contratos não renovados e seus motivos para este IFO
+            List<Map<String, Object>> contratosNaoRenovados = jdbc.queryForList(
+                "SELECT contract_id, motivo_reclassificacao " +
+                "FROM ifo_contratos " +
+                "WHERE ifo_id = ? AND interesse_renovacao = FALSE", ifoId);
+                
+            if (contratosNaoRenovados.isEmpty()) continue;
 
-            if (contractIds.isEmpty()) continue;
+            Long primeiroContractId = asLong(contratosNaoRenovados.get(0).get("contract_id"));
 
+<<<<<<< Updated upstream
             // Pega o primeiro contrato para derivar os dados descritivos, ou usa do proprio IFO (fallback)
             var c = jdbc.queryForMap(
                 "SELECT object_name FROM contracts WHERE id = ?", contractIds.get(0));
 
             // Pega os dados do IFO original para copiar
+=======
+            // Pega o primeiro contrato para derivar os dados descritivos, usando queryForList para fallback seguro
+            var cList = jdbc.queryForList("SELECT object_name FROM contracts WHERE id = ?", primeiroContractId);
+>>>>>>> Stashed changes
             var ifoOriginal = jdbc.queryForMap("SELECT * FROM ifo WHERE id = ?", ifoId);
+            String objectName = cList.isEmpty() ? str(ifoOriginal.get("objeto")) : str(cList.get(0).get("object_name"));
             
             String codigo = gerarCodigo(asInt(ifoOriginal.get("ano")));
-            Long cents = 0L;
-            for (Long cid : contractIds) {
-                var cv = jdbc.queryForObject("SELECT total_value_cents FROM contracts WHERE id = ?", Long.class, cid);
-                if (cv != null) cents += cv;
-            }
+            
+            // Buscar o valor total de todos os contratos não renovados em uma única query
+            List<Long> contractIds = contratosNaoRenovados.stream().map(m -> asLong(m.get("contract_id"))).toList();
+            String inSql = String.join(",", java.util.Collections.nCopies(contractIds.size(), "?"));
+            Long cents = jdbc.queryForObject(
+                "SELECT SUM(total_value_cents) FROM contracts WHERE id IN (" + inSql + ")",
+                Long.class, contractIds.toArray());
+            if (cents == null) cents = 0L;
 
             var inserted = jdbc.queryForList(
                     "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
@@ -399,16 +413,23 @@ public class IfoService {
                     "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', FALSE, " +
                     "?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
                     codigo, asInt(ifoOriginal.get("ano")), cicloId, "encerramento",
-                    str(c.get("object_name")), asLong(ifoOriginal.get("cadastros_unidades_id")), asLong(ifoOriginal.get("cadastros_areas_id")), cents,
+                    objectName, asLong(ifoOriginal.get("cadastros_unidades_id")), asLong(ifoOriginal.get("cadastros_areas_id")), cents,
                     userId, userId);
 
             Long newIfoId = asLong(inserted.get(0).get("id"));
 
-            // Remove do original e adiciona ao novo
-            for (Long cid : contractIds) {
-                jdbc.update("DELETE FROM ifo_contratos WHERE ifo_id = ? AND contract_id = ?", ifoId, cid);
-                jdbc.update("INSERT INTO ifo_contratos (ifo_id, contract_id, interesse_renovacao) VALUES (?, ?, FALSE)", newIfoId, cid);
+            // Prepara exclusão e inserção em lote (batchUpdate) preservando o motivo
+            List<Object[]> deleteBatchArgs = new ArrayList<>();
+            List<Object[]> insertBatchArgs = new ArrayList<>();
+            for (Map<String, Object> contratoMap : contratosNaoRenovados) {
+                Long cid = asLong(contratoMap.get("contract_id"));
+                String motivo = str(contratoMap.get("motivo_reclassificacao"));
+                deleteBatchArgs.add(new Object[]{ifoId, cid});
+                insertBatchArgs.add(new Object[]{newIfoId, cid, false, motivo});
             }
+            
+            jdbc.batchUpdate("DELETE FROM ifo_contratos WHERE ifo_id = ? AND contract_id = ?", deleteBatchArgs);
+            jdbc.batchUpdate("INSERT INTO ifo_contratos (ifo_id, contract_id, interesse_renovacao, motivo_reclassificacao) VALUES (?, ?, ?, ?)", insertBatchArgs);
 
             // Verifica se o IFO original ficou vazio
             Integer remainingContracts = jdbc.queryForObject("SELECT COUNT(*) FROM ifo_contratos WHERE ifo_id = ?", Integer.class, ifoId);
