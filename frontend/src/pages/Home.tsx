@@ -266,7 +266,7 @@ export default function Home() {
         go(e.deltaY > 0 ? 1 : 0);
       } else if (e.deltaY < 0 && atTop()) {
         e.preventDefault();
-        go(0);
+        resetToHomeIntro();
       }
     };
 
@@ -283,7 +283,7 @@ export default function Home() {
         go(dy > 0 ? 1 : 0);
       } else if (dy < 0 && atTop()) {
         e.preventDefault();
-        go(0);
+        resetToHomeIntro();
       }
     };
 
@@ -293,7 +293,7 @@ export default function Home() {
         go(1);
       } else if (committedRef.current && ["ArrowUp", "PageUp"].includes(e.key) && atTop()) {
         e.preventDefault();
-        go(0);
+        resetToHomeIntro();
       }
     };
 
@@ -308,7 +308,7 @@ export default function Home() {
       window.removeEventListener("keydown", onKey);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [loading, resumo, go]);
+  }, [loading, resumo, go, resetToHomeIntro]);
 
   if (loading || !resumo) {
     return (
