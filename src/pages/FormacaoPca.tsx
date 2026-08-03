@@ -20,6 +20,7 @@ import { DialogEditarIfo } from "@/components/ciclo/DialogEditarIfo";
 import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContratos";
 import { DialogImportarPca } from "@/components/ciclo/DialogImportarPca";
 import { DialogEditarValorContratoIfo } from "@/components/ciclo/DialogEditarValorContratoIfo";
+import { DialogMotivoNaoRenovacao } from "@/components/ciclo/DialogMotivoNaoRenovacao";
 import { FaseBanner } from "@/components/ciclo/FaseBanner";
 import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
 import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
@@ -166,6 +167,11 @@ export default function FormacaoPca() {
   const [ifoDeleting, setIfoDeleting] = useState<Ifo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingContractVal, setEditingContractVal] = useState<{ ifoId: number; contractId: number; initialValue: number | null } | null>(null);
+  
+  // Justificativa
+  const [isMotivoDialogOpen, setIsMotivoDialogOpen] = useState(false);
+  const [motivoContractId, setMotivoContractId] = useState<number | null>(null);
+  const [motivoIfoId, setMotivoIfoId] = useState<number | null>(null);
 
   // Validações de fase
   const [validacaoDfd, setValidacaoDfd] = useState<"V" | "X" | null>(null);
@@ -379,9 +385,9 @@ export default function FormacaoPca() {
     }
   };
 
-  const handleDefinirInteresseContrato = async (ifoId: number, contractId: number, interesse: boolean) => {
+  const handleDefinirInteresseContrato = async (ifoId: number, contractId: number, interesse: boolean, motivo?: string) => {
     try {
-      await ifoApi.definirInteresseRenovacaoContrato(ifoId, contractId, interesse);
+      await ifoApi.definirInteresseRenovacaoContrato(ifoId, contractId, interesse, motivo);
       toast.success(interesse ? "Renovação confirmada para o contrato." : "Contrato marcado para Encerramento.");
       loadBlocos();
     } catch {
@@ -851,7 +857,7 @@ export default function FormacaoPca() {
                                           <td className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono">
                                             <div className="flex items-center gap-1.5">
                                               {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
-                                              {ifo.bloco === "encerramento" && formacaoEstado === "consolidacao_cca" && (
+                                              {ifo.bloco === "encerramento" && formacaoEstado && ["consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg", "publicado"].includes(formacaoEstado) && interesseRenovacao === false && (
                                                 <TooltipProvider delayDuration={200}>
                                                   <Tooltip>
                                                     <TooltipTrigger asChild>
@@ -859,8 +865,8 @@ export default function FormacaoPca() {
                                                         <Info className="h-4 w-4 text-blue-500 cursor-help" />
                                                       </div>
                                                     </TooltipTrigger>
-                                                    <TooltipContent side="top" className="max-w-[250px] text-xs text-center">
-                                                      A equipe {getAreaLabel(ifo)} decidiu não renovar o contrato {c.noticeNumber ? c.noticeNumber : c.id}.
+                                                    <TooltipContent side="top" className="max-w-[300px] text-xs text-center break-words break-all whitespace-normal">
+                                                      <strong>Sem interesse na renovação. Motivo: </strong>{detalhe?.motivoReclassificacao}
                                                     </TooltipContent>
                                                   </Tooltip>
                                                 </TooltipProvider>
@@ -911,7 +917,11 @@ export default function FormacaoPca() {
                                                     variant="ghost"
                                                     size="icon"
                                                     className={`h-6 w-6 rounded-full ${!interesseRenovacao ? 'bg-red-100 text-red-700' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
-                                                    onClick={() => handleDefinirInteresseContrato(ifo.id, contractId, false)}
+                                                    onClick={() => {
+                                                      setMotivoIfoId(ifo.id);
+                                                      setMotivoContractId(contractId);
+                                                      setIsMotivoDialogOpen(true);
+                                                    }}
                                                     title="Não Renovar"
                                                   >
                                                     <X className="h-4 w-4" />
@@ -1077,6 +1087,16 @@ export default function FormacaoPca() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DialogMotivoNaoRenovacao
+        open={isMotivoDialogOpen}
+        onOpenChange={setIsMotivoDialogOpen}
+        ifoId={motivoIfoId}
+        contractId={motivoContractId}
+        onConfirm={async (ifoId, contractId, motivo) => {
+          await handleDefinirInteresseContrato(ifoId, contractId, false, motivo);
+        }}
+      />
     </Layout>
   );
 }
