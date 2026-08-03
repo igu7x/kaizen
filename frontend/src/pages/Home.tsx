@@ -155,6 +155,7 @@ export default function Home() {
   const committedRef = useRef(false);
   const rafRef = useRef(0);
   const [committed, setCommitted] = useState(false);
+  const [introKey, setIntroKey] = useState(0); // muda p/ re-disparar a intro do hero
 
   useEffect(() => {
     homeApi
@@ -227,11 +228,32 @@ export default function Home() {
     [loop, applyProgress, setCommittedBoth],
   );
 
+  // Volta ao hero e RE-DISPARA a intro (mesma animação de quando se entra na Home).
+  const resetToHomeIntro = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    targetRef.current = 0;
+    currentRef.current = 0;
+    if (dashRef.current) dashRef.current.scrollTop = 0;
+    applyProgress(0);
+    setCommittedBoth(false);
+    setIntroKey((k) => k + 1);
+  }, [applyProgress, setCommittedBoth]);
+
+  // Clique no header (mesmo já na Home) dispara o replay da intro.
+  useEffect(() => {
+    const onHome = () => resetToHomeIntro();
+    window.addEventListener("kaizen:home", onHome);
+    return () => window.removeEventListener("kaizen:home", onHome);
+  }, [resetToHomeIntro]);
+
   // Estado inicial das cenas (esconde o dashboard sem flash).
   useLayoutEffect(() => {
     if (prefersReduced || loading || !resumo) return;
     applyProgress(0);
-  }, [applyProgress, loading, resumo]);
+  }, [applyProgress, loading, resumo, introKey]);
 
   // Captura scroll/toque/teclado: só decide a direção; a animação é constante e reversível.
   useEffect(() => {
@@ -321,6 +343,7 @@ export default function Home() {
 
         {/* ══════════════ CENA 0 — HERO ══════════════ */}
         <section
+          key={introKey}
           ref={heroRef}
           className="kz-scene flex flex-col items-center justify-center px-6 text-center"
           aria-hidden={committed}
@@ -335,6 +358,7 @@ export default function Home() {
               src={SIMBOLO}
               alt="Kaizen — balança da justiça no ciclo de melhoria contínua"
               className="kz-symbol absolute inset-[14%] h-[72%] w-[72%] object-contain"
+              style={{ transform: "translate(1.6%, 4.9%)" }}
               draggable={false}
             />
           </div>
@@ -389,7 +413,7 @@ export default function Home() {
         <div ref={dashRef} className="kz-scene kz-dash" aria-hidden={!committed}>
           <div className="mx-auto max-w-2xl px-6 py-16 text-center sm:py-20">
             <button
-              onClick={() => go(0)}
+              onClick={resetToHomeIntro}
               className="kz-link mb-14 inline-flex items-center gap-1.5 text-[12px] font-medium uppercase tracking-[0.18em] text-[var(--g3)]"
             >
               <ChevronUp className="h-4 w-4" />

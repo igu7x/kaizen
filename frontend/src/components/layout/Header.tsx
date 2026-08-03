@@ -26,7 +26,11 @@ export function Header({ onMenuToggle }: HeaderProps) {
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
         minWidth: "320px",
       }}
-      onClick={() => navigate("/")}
+      onClick={() => {
+        navigate("/");
+        // Replay da intro da Home mesmo quando já se está nela (rota não remonta).
+        window.dispatchEvent(new CustomEvent("kaizen:home"));
+      }}
       role="button"
       aria-label="Ir para Início"
     >
