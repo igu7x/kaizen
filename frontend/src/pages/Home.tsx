@@ -228,19 +228,14 @@ export default function Home() {
     [loop, applyProgress, setCommittedBoth],
   );
 
-  // Volta ao hero e RE-DISPARA a intro (mesma animação de quando se entra na Home).
+  // Volta ao hero COMBINANDO os dois: o slide de volta (go(0)) + o replay da intro (remount por
+  // introKey). O slide é no container das cenas; a intro anima os elementos internos do hero, então
+  // ambos rodam juntos. Se já estiver no hero, go(0) é no-op e só a intro roda.
   const resetToHomeIntro = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
-    }
-    targetRef.current = 0;
-    currentRef.current = 0;
     if (dashRef.current) dashRef.current.scrollTop = 0;
-    applyProgress(0);
-    setCommittedBoth(false);
     setIntroKey((k) => k + 1);
-  }, [applyProgress, setCommittedBoth]);
+    go(0);
+  }, [go]);
 
   // Clique no header (mesmo já na Home) dispara o replay da intro.
   useEffect(() => {
@@ -249,11 +244,12 @@ export default function Home() {
     return () => window.removeEventListener("kaizen:home", onHome);
   }, [resetToHomeIntro]);
 
-  // Estado inicial das cenas (esconde o dashboard sem flash).
+  // Estado inicial das cenas (esconde o dashboard sem flash). NÃO depende de introKey — o replay
+  // da intro usa o slide (go(0)), não um reset instantâneo.
   useLayoutEffect(() => {
     if (prefersReduced || loading || !resumo) return;
     applyProgress(0);
-  }, [applyProgress, loading, resumo, introKey]);
+  }, [applyProgress, loading, resumo]);
 
   // Captura scroll/toque/teclado: só decide a direção; a animação é constante e reversível.
   useEffect(() => {
