@@ -662,9 +662,11 @@ function drawRodapeInstitucional(
     { label: "REVISÃO:", value: revisaoValue },
     {
       label: isProposta ? "DATA DA PROPOSTA:" : "DATA DA VIGÊNCIA:",
+      // Mesma informação do cabeçalho: em proposta, "Pendente de aprovação"; vigente, a data da
+      // última aprovação (Data da Vigência).
       value: isProposta
-        ? formatDate(processo.updated_at)
-        : formatDate(processo.periodo) || formatDate(processo.updated_at),
+        ? "Pendente de aprovação"
+        : formatDate(processo.periodo) || formatDate(processo.validado_final_em),
     },
   ].map((f) => {
     doc.setFontSize(8);
@@ -976,9 +978,12 @@ export function generateProcessoNegocioPDF(
   );
   y += revHeaderH;
 
-  const proximaRevisao = processo.periodo
-    ? addOneYearToDate(processo.periodo)
-    : "—";
+  // Enquanto em proposta (não homologado), a Próxima Revisão fica VAZIA; só aparece no documento
+  // vigente (após a validação final), calculada a partir da Data da Versão/Vigência.
+  const proximaRevisao =
+    processo.status === "validado_final" && processo.periodo
+      ? addOneYearToDate(processo.periodo)
+      : "";
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   const periodicidadeLines = doc.splitTextToSize(
