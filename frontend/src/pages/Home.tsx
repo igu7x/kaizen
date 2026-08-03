@@ -23,18 +23,26 @@ const prefersReduced =
   typeof window !== "undefined" &&
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-/* Revela elementos [data-rv] quando entram na viewport; parallax leve ligado ao scroll do <main>. */
-function useScrollChoreography(rootRef: React.RefObject<HTMLElement>) {
+/* Revela elementos [data-rv] quando entram na viewport; parallax leve ligado ao scroll do <main>.
+   Só ativa quando o conteúdo está montado (`ready`); o estado escondido é escopado por
+   [data-choreo="on"] — se o JS não rodar, nada fica invisível (fail-safe). */
+function useScrollChoreography(
+  rootRef: React.RefObject<HTMLElement>,
+  ready: boolean,
+) {
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root || !ready) return;
 
     const revealables = Array.from(
       root.querySelectorAll<HTMLElement>("[data-rv]"),
     );
+    root.setAttribute("data-choreo", "on");
+    const clear = () => root.removeAttribute("data-choreo");
+
     if (prefersReduced) {
       revealables.forEach((el) => el.classList.add("rv-in"));
-      return;
+      return clear;
     }
 
     const io = new IntersectionObserver(
@@ -46,12 +54,15 @@ function useScrollChoreography(rootRef: React.RefObject<HTMLElement>) {
           }
         });
       },
-      { threshold: 0.18, rootMargin: "0px 0px -8% 0px" },
+      { threshold: 0.15, rootMargin: "0px 0px -6% 0px" },
     );
     revealables.forEach((el) => io.observe(el));
+    // Rede de segurança: se o observer não disparar por algum motivo, revela tudo.
+    const fallback = window.setTimeout(() => {
+      revealables.forEach((el) => el.classList.add("rv-in"));
+    }, 1600);
 
-    const scroller =
-      (root.closest("main") as HTMLElement | null) ?? null;
+    const scroller = (root.closest("main") as HTMLElement | null) ?? null;
     let raf = 0;
     const onScroll = () => {
       if (raf) return;
@@ -67,10 +78,12 @@ function useScrollChoreography(rootRef: React.RefObject<HTMLElement>) {
 
     return () => {
       io.disconnect();
+      window.clearTimeout(fallback);
       target.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
+      clear();
     };
-  }, [rootRef]);
+  }, [rootRef, ready]);
 }
 
 function CountUp({ value }: { value: number }) {
@@ -129,9 +142,9 @@ const HOME_CSS = `
   }
   .kz-display { font-family: "Bricolage Grotesque", Inter, ui-sans-serif, system-ui, sans-serif; }
 
-  /* Reveal */
-  .kz [data-rv] { opacity: 0; transform: translateY(26px); transition: opacity 0.9s cubic-bezier(0.16,0.8,0.24,1), transform 0.9s cubic-bezier(0.16,0.8,0.24,1); }
-  .kz [data-rv].rv-in { opacity: 1; transform: none; }
+  /* Reveal — só esconde quando a coreografia está ativa (JS rodando). */
+  .kz[data-choreo="on"] [data-rv] { opacity: 0; transform: translateY(26px); transition: opacity 0.9s cubic-bezier(0.16,0.8,0.24,1), transform 0.9s cubic-bezier(0.16,0.8,0.24,1); }
+  .kz[data-choreo="on"] [data-rv].rv-in { opacity: 1; transform: none; }
 
   /* Hero */
   .kz-hero { background:
@@ -234,7 +247,7 @@ export default function Home() {
   const { podeAcessar } = usePermissoes();
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useScrollChoreography(rootRef);
+  useScrollChoreography(rootRef, !loading && !!resumo);
 
   useEffect(() => {
     homeApi
@@ -279,7 +292,7 @@ export default function Home() {
         <style>{HOME_CSS}</style>
 
         {/* ══════════════ HERO ══════════════ */}
-        <section className="kz-hero relative flex min-h-[calc(100vh-56px)] flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
+        <section className="kz-hero relative flex min-h-[90vh] flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
           <div className="kz-grid pointer-events-none absolute inset-0" />
 
           {/* Emblema — o símbolo da marca como herói */}
