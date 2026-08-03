@@ -3,11 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 import { homeApi, HomeResumo } from "@/services/homeApi";
 import { usePermissoes } from "@/hooks/usePermissoes";
-
-const SIMBOLO = "/logo%20kaizen%20desenho.png";
 
 function saudacao() {
   const h = new Date().getHours();
@@ -20,125 +18,120 @@ function primeiroNome(name: string) {
   return (name || "").trim().split(" ")[0] || "";
 }
 
-function pad2(n: number) {
-  return String(Math.max(0, n)).padStart(2, "0");
+function dataCurta() {
+  const d = new Date().toLocaleDateString("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+  return d.replace(".", "").replace(/\bde\b/g, "").replace(/\s+/g, " ").trim();
 }
 
 /**
- * Direção de arte: "O Emblema". A identidade da marca é a protagonista — a balança-justiça
- * dentro do ciclo de setas (o símbolo do Kaizen) é o herói visual, sobre fundo claro azulado.
- * Azul-marinho estrutura os títulos e os números; o azul-ciano das setas é o acento. Um anel
- * tracejado gira devagar atrás do símbolo, ecoando o ciclo de melhoria contínua.
+ * Sistema visual da home — extraído das referências (Mercury, Linear-app, Stripe Dashboard,
+ * Vercel/Geist, suíço/Vignelli, Muji/Hara): restrição, grid disciplinado, hierarquia por peso
+ * e não por cor, ornamento zero, densidade útil. Sem sombra, sem gradiente, sem ícone
+ * decorativo. Space Grotesk só em títulos/rótulos; corpo em sans neutra; números em mono
+ * tabular. Neutros com viés frio (em direção ao azul da marca). Desenhada para o estado ZERO
+ * como caso principal — "Tudo resolvido" é um resultado, não uma ausência.
  */
-const KZ_CSS = `
-  .kz {
-    --bg: #F3F7FC;
+const HM_CSS = `
+  .hm {
+    --bg: #F6F8FB;
+    --surface: #FFFFFF;
+    --ink: #152536;
+    --g2: #56637A;
+    --g3: #8A93A3;
+    --line: #E4E8EF;
+    --line-strong: #C7D0DC;
     --navy: #0E3D73;
-    --azure: #1E9BD7;
-    --ink: #16324F;
-    --ink2: #5B7089;
-    --ink3: #93A6BD;
-    --line: rgba(14, 61, 115, 0.12);
-    --card: #FFFFFF;
+    --azure: #1478B4;
+    --amber: #A96A08;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--ink);
   }
-  .kz-grotesk { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
-  .kz-tnum { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .hm-display { font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; }
+  .hm-mono {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .hm-label {
+    font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--g3);
+  }
 
-  @keyframes kz-spin { to { transform: rotate(360deg); } }
-  @keyframes kz-spin-rev { to { transform: rotate(-360deg); } }
-  @keyframes kz-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-  @keyframes kz-fade { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes kz-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .hm-tile {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .hm-tile:hover { border-color: var(--navy); }
+  .hm-tile:focus-visible { outline: 2px solid var(--azure); outline-offset: 2px; }
+  .hm-tile .hm-tile-title { transition: color 0.15s ease; }
+  .hm-tile:hover .hm-tile-title { color: var(--azure); }
 
-  .kz-ring { transform-origin: 200px 200px; animation: kz-spin 48s linear infinite; }
-  .kz-ring-2 { transform-origin: 200px 200px; animation: kz-spin-rev 90s linear infinite; }
-  .kz-symbol { animation: kz-float 7s ease-in-out infinite; }
-  .kz-rise { opacity: 0; animation: kz-rise 0.85s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
-  .kz-fade { opacity: 0; animation: kz-fade 1.4s ease forwards; }
+  .hm-row { transition: background-color 0.15s ease; }
+  .hm-row:hover { background: #EDF2F8; }
+  .hm-row .hm-row-label { transition: color 0.15s ease; }
+  .hm-row:hover .hm-row-label { color: var(--azure); }
+  .hm-row:focus-visible { outline: 2px solid var(--azure); outline-offset: -2px; border-radius: 4px; }
+  .hm-arrow { transition: transform 0.2s ease, color 0.15s ease; }
+  .hm-row:hover .hm-arrow, .hm-tile:hover .hm-arrow { transform: translate(2px, -2px); color: var(--azure); }
 
-  .kz-item { transition: color 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1); }
-  .kz-item:hover { color: var(--azure); }
-  @media (hover: hover) { .kz-item:hover { transform: translateX(6px); } }
-  .kz-dot { transition: background-color 0.25s ease, transform 0.3s ease; }
-  .kz-item:hover .kz-dot { background-color: var(--azure); transform: scale(1.7); }
-  .kz-arrow { transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), color 0.25s ease; }
-  .kz-item:hover .kz-arrow { transform: translate(3px, -3px); }
-
+  @keyframes hm-in { from { opacity: 0; } to { opacity: 1; } }
+  .hm-in { animation: hm-in 0.4s ease both; }
   @media (prefers-reduced-motion: reduce) {
-    .kz-ring, .kz-ring-2, .kz-symbol { animation: none; }
-    .kz-rise, .kz-fade { animation: none; opacity: 1; transform: none; }
-    .kz-item, .kz-dot, .kz-arrow { transition: none; }
-    .kz-item:hover { transform: none; }
+    .hm-in { animation: none; }
+    .hm-arrow, .hm-tile, .hm-row, .hm-tile-title, .hm-row-label { transition: none; }
   }
 `;
 
-function Emblema() {
-  return (
-    <div className="relative mx-auto aspect-square w-full max-w-[300px] sm:max-w-[360px] lg:max-w-[420px]">
-      {/* halo azul */}
-      <div className="absolute inset-[10%] rounded-full bg-[var(--azure)] opacity-[0.12] blur-3xl kz-fade" />
-      {/* anéis tracejados girando (ecoam o ciclo de setas do símbolo) */}
-      <svg
-        viewBox="0 0 400 400"
-        className="absolute inset-0 h-full w-full"
-        aria-hidden="true"
-      >
-        <circle
-          className="kz-ring"
-          cx="200"
-          cy="200"
-          r="194"
-          fill="none"
-          stroke="var(--azure)"
-          strokeOpacity="0.35"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeDasharray="1.5 13"
-        />
-        <circle
-          className="kz-ring-2"
-          cx="200"
-          cy="200"
-          r="182"
-          fill="none"
-          stroke="var(--navy)"
-          strokeOpacity="0.12"
-          strokeWidth="1"
-          strokeLinecap="round"
-          strokeDasharray="1 20"
-        />
-      </svg>
-      {/* símbolo da marca (balança + ciclo) */}
-      <img
-        src={SIMBOLO}
-        alt="Kaizen — balança da justiça no ciclo de melhoria contínua"
-        className="kz-symbol absolute inset-[12%] h-[76%] w-[76%] object-contain"
-        draggable={false}
-      />
-    </div>
-  );
+interface Modulo {
+  key: string;
+  label: string;
+  desc: string;
+  link: string;
+  permissaoCodigo: string;
 }
 
-function SectionLabel({
-  title,
-  meta,
-}: {
-  title: string;
-  meta?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-1 flex items-baseline justify-between border-t border-[var(--line)] pt-3">
-      <h2 className="kz-grotesk text-xs font-semibold uppercase tracking-[0.24em] text-[var(--navy)]">
-        {title}
-      </h2>
-      {meta && (
-        <span className="text-[11px] uppercase tracking-[0.2em] text-[var(--ink3)]">
-          {meta}
-        </span>
-      )}
-    </div>
-  );
-}
+// Hierarquia FIXA por importância de negócio (nunca muda com o dado): o 1º módulo permitido é o
+// primário (tile largo); os demais são pares. Só o conteúdo/sinal interno de cada tile varia.
+const MODULOS: Modulo[] = [
+  {
+    key: "projetos",
+    label: "Escritório de Projetos",
+    desc: "Projetos em execução e suas entregas.",
+    link: "/gestao-estrategica/execucao",
+    permissaoCodigo: "gestao_execucao",
+  },
+  {
+    key: "okrs",
+    label: "Monitoramento de OKRs",
+    desc: "Objetivos e resultados-chave da diretoria.",
+    link: "/gestao-estrategica/okrs",
+    permissaoCodigo: "gestao_okrs",
+  },
+  {
+    key: "pca",
+    label: "Plano de Contratações",
+    desc: "PCA 2026 e as contratações do ciclo.",
+    link: "/pca",
+    permissaoCodigo: "contratacoes_novas",
+  },
+  {
+    key: "competencias",
+    label: "Gestão por Competências",
+    desc: "Matriz, autoavaliação e avaliação.",
+    link: "/pessoas/competencias",
+    permissaoCodigo: "pessoas_competencias",
+  },
+];
 
 export default function Home() {
   const navigate = useNavigate();
@@ -158,301 +151,176 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="kz min-h-[60vh] bg-[var(--bg)]">
-          <style>{KZ_CSS}</style>
-          <div className="mx-auto max-w-6xl px-5 pt-24 text-center sm:px-8 lg:px-12">
-            <p className="kz-grotesk text-lg text-[var(--ink3)]">Carregando…</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (!resumo) {
-    return (
-      <Layout>
-        <div className="kz min-h-[60vh] bg-[var(--bg)]">
-          <style>{KZ_CSS}</style>
-          <div className="mx-auto max-w-6xl px-5 pt-24 sm:px-8 lg:px-12">
-            <p className="kz-grotesk text-xl text-[var(--ink2)]">
-              Não foi possível carregar o resumo.
-            </p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  const totalPendencias = resumo.pendencias.reduce((s, p) => s + p.count, 0);
-  const nome = primeiroNome(resumo.user.name);
-  const emDia = totalPendencias === 0;
-  const temProjetos = resumo.projetos.total > 0;
-
-  const lead = emDia
-    ? "A fila está limpa. O ciclo segue — bom momento para olhar o que vem a seguir."
-    : `${totalPendencias} ${totalPendencias === 1 ? "item aguarda" : "itens aguardam"} sua ação para o ciclo avançar.`;
-
-  const atalhos = [
-    {
-      label: "Monitoramento de OKRs",
-      desc: "Objetivos e resultados-chave em acompanhamento.",
-      link: "/gestao-estrategica/okrs",
-      permissaoCodigo: "gestao_okrs",
-    },
-    {
-      label: "Escritório de Projetos",
-      desc: "Projetos em execução e suas entregas.",
-      link: "/gestao-estrategica/execucao",
-      permissaoCodigo: "gestao_execucao",
-    },
-    {
-      label: "Plano de Contratações",
-      desc: "PCA 2026 e as contratações do ciclo.",
-      link: "/pca",
-      permissaoCodigo: "contratacoes_novas",
-    },
-    {
-      label: "Gestão por Competências",
-      desc: "Matriz, autoavaliação e avaliação.",
-      link: "/pessoas/competencias",
-      permissaoCodigo: "pessoas_competencias",
-    },
-  ];
-  const atalhosVisiveis = atalhos.filter((a) => podeAcessar(a.permissaoCodigo));
-
-  return (
+  const shell = (children: React.ReactNode) => (
     <Layout>
-      <div className="kz relative min-h-full overflow-hidden bg-[var(--bg)] text-[var(--ink)]">
-        <style>{KZ_CSS}</style>
-
-        {/* textura de grade sutil (identidade do fundo da marca) */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.5]"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, rgba(14,61,115,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(14,61,115,0.04) 1px, transparent 1px)",
-            backgroundSize: "44px 44px",
-            maskImage:
-              "radial-gradient(120% 80% at 70% 0%, #000 30%, transparent 75%)",
-            WebkitMaskImage:
-              "radial-gradient(120% 80% at 70% 0%, #000 30%, transparent 75%)",
-          }}
-          aria-hidden="true"
-        />
-
-        <div className="relative mx-auto max-w-6xl px-5 pb-28 sm:px-8 lg:px-12">
-          {/* ── TOP BAR ─────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between gap-4 pt-7 sm:pt-9">
-            <div className="flex items-center gap-2.5">
-              <img
-                src={SIMBOLO}
-                alt=""
-                aria-hidden="true"
-                className="h-8 w-8 object-contain"
-                draggable={false}
-              />
-              <span className="kz-grotesk text-sm font-semibold uppercase tracking-[0.3em] text-[var(--navy)]">
-                Kaizen
-              </span>
-            </div>
-            {podeSelecionarDiretoria && <DirectorateSelector />}
-          </div>
-
-          {/* ── HERO: manchete + emblema ────────────────────────────── */}
-          <section className="grid grid-cols-12 items-center gap-x-6 gap-y-10 pt-12 pb-6 sm:pt-16 lg:min-h-[62vh]">
-            <div className="col-span-12 lg:col-span-7">
-              <p className="kz-rise mb-5 text-[11px] uppercase tracking-[0.28em] text-[var(--azure)]">
-                Melhoria contínua
-              </p>
-              <h1
-                className="kz-grotesk kz-rise text-[3rem] font-semibold leading-[1.02] tracking-tight text-[var(--navy)] sm:text-[4.25rem] lg:text-[5rem]"
-                style={{ animationDelay: "60ms" }}
-              >
-                {saudacao()},
-                <br />
-                {nome}.
-              </h1>
-              <p
-                className="kz-rise mt-7 max-w-md text-lg leading-relaxed text-[var(--ink2)] sm:text-xl"
-                style={{ animationDelay: "140ms" }}
-              >
-                {lead}
-              </p>
-
-              {/* indicador compacto da fila */}
-              <div
-                className="kz-rise mt-9 inline-flex items-center gap-4"
-                style={{ animationDelay: "220ms" }}
-              >
-                <span
-                  className={`kz-grotesk kz-tnum text-5xl font-semibold leading-none ${
-                    emDia ? "text-[var(--ink3)]" : "text-[var(--azure)]"
-                  }`}
-                >
-                  {pad2(totalPendencias)}
-                </span>
-                <span className="text-sm leading-snug text-[var(--ink2)]">
-                  {emDia ? (
-                    <>
-                      tudo em dia
-                      <br />
-                      na sua fila
-                    </>
-                  ) : (
-                    <>
-                      {totalPendencias === 1 ? "item" : "itens"} na sua fila
-                      <br />
-                      aguardando ação
-                    </>
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <div className="col-span-12 lg:col-span-5">
-              <Emblema />
-            </div>
-          </section>
-
-          {/* ── PENDÊNCIAS ──────────────────────────────────────────── */}
-          <section
-            className="kz-rise mt-10 sm:mt-14"
-            style={{ animationDelay: "260ms" }}
-            aria-labelledby="h-pendencias"
-          >
-            <SectionLabel
-              title="Pendências"
-              meta={emDia ? "Em dia" : `${totalPendencias} aguardando`}
-            />
-            {emDia ? (
-              <p className="max-w-2xl py-8 text-xl leading-relaxed text-[var(--ink2)] sm:text-2xl">
-                Nada aguarda você agora — o ciclo está em ordem.
-              </p>
-            ) : (
-              <ul>
-                {resumo.pendencias.map((p, i) => (
-                  <li key={i}>
-                    <button
-                      onClick={() => navigate(p.link)}
-                      className="kz-item group flex w-full items-center gap-5 border-b border-[var(--line)] py-5 text-left"
-                    >
-                      <span
-                        className="kz-dot h-2 w-2 shrink-0 rounded-full bg-[var(--ink3)]"
-                        aria-hidden="true"
-                      />
-                      <span className="kz-grotesk kz-tnum w-10 shrink-0 text-2xl font-semibold text-[var(--navy)] sm:text-3xl">
-                        {pad2(p.count)}
-                      </span>
-                      <span className="flex-1 text-lg leading-snug text-[var(--ink)] sm:text-xl">
-                        {p.label}
-                      </span>
-                      <span className="hidden text-[11px] uppercase tracking-[0.2em] text-[var(--ink3)] transition-colors group-hover:text-[var(--azure)] sm:inline">
-                        Resolver
-                      </span>
-                      <ArrowUpRight className="kz-arrow h-5 w-5 shrink-0 text-[var(--ink3)] group-hover:text-[var(--azure)]" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* ── PROJETOS ────────────────────────────────────────────── */}
-          {temProjetos && (
-            <section
-              className="kz-rise mt-14 sm:mt-16"
-              style={{ animationDelay: "320ms" }}
-              aria-labelledby="h-projetos"
-            >
-              <SectionLabel title="Seus projetos" meta="Em execução" />
-              <div className="grid grid-cols-3">
-                <Figure
-                  n={resumo.projetos.total}
-                  label="Em execução"
-                  onClick={() => navigate("/gestao-estrategica/execucao")}
-                />
-                <Figure
-                  n={resumo.projetos.no_prazo}
-                  label="No prazo"
-                  onClick={() => navigate("/gestao-estrategica/execucao")}
-                />
-                <Figure
-                  n={resumo.projetos.em_atraso}
-                  label="Em atraso"
-                  accent={resumo.projetos.em_atraso > 0}
-                  onClick={() => navigate("/gestao-estrategica/execucao")}
-                />
-              </div>
-            </section>
-          )}
-
-          {/* ── ACESSOS ─────────────────────────────────────────────── */}
-          {atalhosVisiveis.length > 0 && (
-            <section
-              className="kz-rise mt-14 sm:mt-16"
-              style={{ animationDelay: "380ms" }}
-              aria-labelledby="h-acessos"
-            >
-              <SectionLabel title="Acessos" meta="Ir direto" />
-              <div className="grid grid-cols-1 md:grid-cols-2">
-                {atalhosVisiveis.map((a, i) => (
-                  <Link
-                    key={i}
-                    to={a.link}
-                    className="kz-item group flex items-start gap-5 border-b border-[var(--line)] py-6 md:odd:border-r md:odd:border-r-[var(--line)] md:odd:pr-8 md:even:pl-8"
-                  >
-                    <span className="kz-grotesk kz-tnum pt-1 text-sm text-[var(--ink3)] transition-colors group-hover:text-[var(--azure)]">
-                      {pad2(i + 1)}
-                    </span>
-                    <div className="flex-1">
-                      <h3 className="kz-grotesk text-xl font-semibold leading-tight text-[var(--navy)] transition-colors group-hover:text-[var(--azure)] sm:text-2xl">
-                        {a.label}
-                      </h3>
-                      <p className="mt-1.5 text-sm text-[var(--ink2)]">
-                        {a.desc}
-                      </p>
-                    </div>
-                    <ArrowUpRight className="kz-arrow mt-1.5 h-4 w-4 shrink-0 text-[var(--ink3)] group-hover:text-[var(--azure)]" />
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+      <div className="hm min-h-full bg-[var(--bg)]">
+        <style>{HM_CSS}</style>
+        <div className="mx-auto max-w-[1160px] px-5 sm:px-8">{children}</div>
       </div>
     </Layout>
   );
-}
 
-function Figure({
-  n,
-  label,
-  accent = false,
-  onClick,
-}: {
-  n: number;
-  label: string;
-  accent?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="kz-item group border-[var(--line)] py-6 pr-4 text-left [&:not(:first-child)]:border-l [&:not(:first-child)]:pl-5 sm:[&:not(:first-child)]:pl-8"
-    >
-      <span
-        className={`kz-grotesk kz-tnum block text-5xl font-semibold leading-none sm:text-6xl ${
-          accent ? "text-[var(--azure)]" : "text-[var(--navy)]"
-        }`}
-      >
-        {n}
-      </span>
-      <span className="mt-3 block text-[11px] uppercase tracking-[0.2em] text-[var(--ink3)] transition-colors group-hover:text-[var(--navy)]">
-        {label}
-      </span>
-    </button>
+  if (loading) {
+    return shell(
+      <div className="py-24 text-center text-sm text-[var(--g3)]">
+        Carregando…
+      </div>,
+    );
+  }
+  if (!resumo) {
+    return shell(
+      <div className="py-24 text-[var(--g2)]">
+        Não foi possível carregar o resumo.
+      </div>,
+    );
+  }
+
+  const nome = primeiroNome(resumo.user.name);
+  const emDia = resumo.pendencias.every((p) => p.count <= 0);
+  const pendencias = resumo.pendencias.filter((p) => p.count > 0);
+
+  const visiveis = MODULOS.filter((m) => podeAcessar(m.permissaoCodigo));
+  const primario = visiveis[0] ?? null;
+  const secundarios = visiveis.slice(1);
+  const proj = resumo.projetos;
+
+  return shell(
+    <div className="hm-in">
+      {/* ── Barra de contexto: saudação + filtro global de Diretoria ─── */}
+      <div className="flex h-14 items-center justify-between gap-4 border-b border-[var(--line)]">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <h1 className="hm-display truncate text-[20px] font-semibold text-[var(--navy)]">
+            {saudacao()}, {nome}.
+          </h1>
+          <span className="hidden text-[13px] text-[var(--g3)] sm:inline">
+            · {dataCurta()}
+          </span>
+        </div>
+        {podeSelecionarDiretoria && (
+          <div className="flex shrink-0 items-center gap-2.5">
+            <span className="hm-label hidden sm:inline">Diretoria</span>
+            <DirectorateSelector />
+          </div>
+        )}
+      </div>
+
+      {/* ── Sua fila: ZERO é o caso principal (resultado, não ausência) ── */}
+      <div className="border-b border-[var(--line)] py-5">
+        {emDia ? (
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-[var(--azure)] text-[var(--azure)]">
+              <Check className="h-4 w-4" strokeWidth={2.5} />
+            </span>
+            <div>
+              <p className="hm-display text-[15px] font-semibold text-[var(--navy)]">
+                Tudo resolvido
+              </p>
+              <p className="text-[13px] text-[var(--g2)]">
+                Nenhuma pendência aguardando você.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <h2 className="hm-label mb-1">Sua fila</h2>
+            <ul className="divide-y divide-[var(--line)]">
+              {pendencias.map((p, i) => (
+                <li key={i}>
+                  <button
+                    onClick={() => navigate(p.link)}
+                    className="hm-row group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 px-2 py-2.5 text-left"
+                  >
+                    <span className="hm-mono w-8 shrink-0 text-right text-[15px] text-[var(--navy)]">
+                      {p.count}
+                    </span>
+                    <span className="hm-row-label flex-1 truncate text-[14px] text-[var(--ink)]">
+                      {p.label}
+                    </span>
+                    <ArrowUpRight className="hm-arrow h-4 w-4 shrink-0 text-[var(--g3)]" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* ── Módulos: o coração da página, geometria fixa ──────────────── */}
+      {primario && (
+        <div className="py-6">
+          <h2 className="hm-label mb-3">Módulos</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* Primário (largo) */}
+            <Link
+              to={primario.link}
+              className="hm-tile group col-span-1 flex flex-col p-5 sm:col-span-3"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="hm-tile-title hm-display text-[18px] font-semibold text-[var(--navy)]">
+                    {primario.label}
+                  </h3>
+                  <p className="mt-1 text-[13px] text-[var(--g2)]">
+                    {primario.desc}
+                  </p>
+                </div>
+                <ArrowUpRight className="hm-arrow h-4 w-4 shrink-0 text-[var(--g3)]" />
+              </div>
+
+              {/* Sinal intrínseco — só o módulo de Projetos tem métrica própria. */}
+              {primario.key === "projetos" && (
+                <div className="mt-5 flex items-baseline gap-6">
+                  {proj.total > 0 ? (
+                    <>
+                      <span className="flex items-baseline gap-1.5">
+                        <span className="hm-mono text-[24px] text-[var(--navy)]">
+                          {proj.total}
+                        </span>
+                        <span className="text-[12px] text-[var(--g3)]">
+                          em execução
+                        </span>
+                      </span>
+                      {proj.em_atraso > 0 && (
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="hm-mono text-[24px] text-[var(--amber)]">
+                            {proj.em_atraso}
+                          </span>
+                          <span className="text-[12px] text-[var(--g3)]">
+                            em atraso
+                          </span>
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[13px] text-[var(--g3)]">
+                      Nenhum projeto em execução.
+                    </span>
+                  )}
+                </div>
+              )}
+            </Link>
+
+            {/* Secundários (pares) */}
+            {secundarios.map((m) => (
+              <Link
+                key={m.key}
+                to={m.link}
+                className="hm-tile group flex flex-col p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="hm-tile-title hm-display text-[15px] font-semibold text-[var(--navy)]">
+                    {m.label}
+                  </h3>
+                  <ArrowUpRight className="hm-arrow h-3.5 w-3.5 shrink-0 text-[var(--g3)]" />
+                </div>
+                <p className="mt-1 text-[12.5px] leading-snug text-[var(--g2)]">
+                  {m.desc}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>,
   );
 }
