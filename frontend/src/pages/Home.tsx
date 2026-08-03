@@ -9,7 +9,16 @@ import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { DirectorateSelector } from "@/components/gestao/DirectorateSelector";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowUpRight, Check, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
+  Target,
+  FilePlus,
+  BookOpen,
+} from "lucide-react";
 import { homeApi, HomeResumo } from "@/services/homeApi";
 import { usePermissoes } from "@/hooks/usePermissoes";
 
@@ -25,7 +34,7 @@ function primeiroNome(name: string) {
   return (name || "").trim().split(" ")[0] || "";
 }
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
-const ZOOM_MS = 900; // duração da transição hero <-> dashboard
+const ZOOM_MS = 700; // duração da transição hero <-> dashboard
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -69,7 +78,7 @@ const HOME_CSS = `
 
   .kz-jack { position: relative; height: 100%; overflow: hidden; background: #fff; }
   .kz-scene { position: absolute; inset: 0; will-change: transform, opacity; transform-origin: center 42%; }
-  .kz-dash { overflow-y: auto; overflow-x: hidden; }
+  .kz-dash { overflow-y: auto; overflow-x: hidden; background: #fff; }
   .kz-flow .kz-scene { position: relative; inset: auto; opacity: 1 !important; transform: none !important; min-height: 88vh; overflow: visible; }
 
   @keyframes kz-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-11px); } }
@@ -120,12 +129,13 @@ interface Modulo {
   desc: string;
   link: string;
   permissaoCodigo: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }
 const MODULOS: Modulo[] = [
-  { key: "projetos", label: "Escritório de Projetos", desc: "Projetos em execução e suas entregas.", link: "/gestao-estrategica/execucao", permissaoCodigo: "gestao_execucao" },
-  { key: "okrs", label: "Monitoramento de OKRs", desc: "Objetivos e resultados-chave da diretoria.", link: "/gestao-estrategica/okrs", permissaoCodigo: "gestao_okrs" },
-  { key: "pca", label: "Plano de Contratações", desc: "PCA 2026 e as contratações do ciclo.", link: "/pca", permissaoCodigo: "contratacoes_novas" },
-  { key: "competencias", label: "Gestão por Competências", desc: "Matriz, autoavaliação e avaliação.", link: "/pessoas/competencias", permissaoCodigo: "pessoas_competencias" },
+  { key: "projetos", label: "Escritório de Projetos", desc: "Projetos em execução e suas entregas.", link: "/gestao-estrategica/execucao", permissaoCodigo: "gestao_execucao", icon: ClipboardList },
+  { key: "okrs", label: "Monitoramento de OKRs", desc: "Objetivos e resultados-chave da diretoria.", link: "/gestao-estrategica/okrs", permissaoCodigo: "gestao_okrs", icon: Target },
+  { key: "pca", label: "Plano de Contratações", desc: "PCA 2026 e as contratações do ciclo.", link: "/pca", permissaoCodigo: "contratacoes_novas", icon: FilePlus },
+  { key: "competencias", label: "Gestão por Competências", desc: "Matriz, autoavaliação e avaliação.", link: "/pessoas/competencias", permissaoCodigo: "pessoas_competencias", icon: BookOpen },
 ];
 
 export default function Home() {
@@ -162,11 +172,12 @@ export default function Home() {
     if (!hero || !dash) return;
     hero.style.transition = "none";
     dash.style.transition = "none";
-    hero.style.transform = `scale(${1 + p * 0.42})`;
-    hero.style.opacity = String(clamp01(1 - p * 1.18));
+    // Slide vertical: o dashboard sobe (de baixo) cobrindo o hero, que recua de leve.
+    hero.style.transform = `translateY(${-p * 9}%)`;
+    hero.style.opacity = String(clamp01(1 - p * 0.55));
     hero.style.pointerEvents = p > 0.5 ? "none" : "auto";
-    dash.style.transform = `scale(${0.94 + p * 0.06})`;
-    dash.style.opacity = String(clamp01(p * 1.25));
+    dash.style.transform = `translateY(${(1 - p) * 100}%)`;
+    dash.style.opacity = "1";
     dash.style.pointerEvents = p >= 0.5 ? "auto" : "none";
   }, []);
 
@@ -428,16 +439,20 @@ export default function Home() {
             {visiveis.length > 0 && (
               <div>
                 <p className="mb-6 text-[12px] font-semibold uppercase tracking-[0.28em] text-[var(--azure)]">
-                  Módulos
+                  Acesso Rápido
                 </p>
                 <div className="mx-auto max-w-lg divide-y divide-[var(--line)] border-y border-[var(--line)] text-left">
                   {visiveis.map((m) => (
                     <Link
                       key={m.key}
                       to={m.link}
-                      className="kz-mod group flex items-center justify-between gap-6 py-5"
+                      className="kz-mod group flex items-center gap-4 py-5"
                     >
-                      <div>
+                      <m.icon
+                        className="h-[22px] w-[22px] shrink-0 text-[var(--azure)]"
+                        strokeWidth={1.75}
+                      />
+                      <div className="min-w-0 flex-1">
                         <h3 className="kz-mn text-[17px] font-semibold text-[var(--ink)]">
                           {m.label}
                         </h3>
