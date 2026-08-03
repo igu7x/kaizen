@@ -34,7 +34,7 @@ function primeiroNome(name: string) {
   return (name || "").trim().split(" ")[0] || "";
 }
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
-const ZOOM_MS = 200; // duração da transição hero <-> dashboard
+const ZOOM_MS = 300; // duração da transição hero <-> dashboard
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
