@@ -2,7 +2,9 @@ package br.jus.tjgo.kaizen.service;
 
 import br.jus.tjgo.kaizen.utils.OrgCodigos;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -460,17 +462,20 @@ public class ProcessosNegocioService {
         // Sem a chave, a versão gerida pelo ciclo de homologação é preservada.
         pushScalar(data, fields, values, "versao");
 
-        // Houve edição de conteúdo? (usado para marcar o ciclo de revisão como editado — ver abaixo)
-        boolean editouConteudo = !fields.isEmpty();
-
         // Editar um processo VIGENTE (validado_final) invalida a homologação: volta o status para
         // 'em_elaboracao' e limpa as marcas de validação/recusa (mesmo efeito do iniciarRevisao).
         // A versão volta a incrementar quando o processo for re-homologado (validarFinal). Demais
         // status ficam intactos — preserva a correção in-layer do Revisor (validado_autor) e do
         // Compliance (validado_diretoria), que validam a própria camada sem devolver ao autor.
         List<Map<String, Object>> atual = jdbc.queryForList(
-                "SELECT status FROM processos_negocio WHERE id = ? AND is_deleted = FALSE", id);
-        String statusAtual = atual.isEmpty() ? null : str(atual.get(0).get("status"));
+                "SELECT * FROM processos_negocio WHERE id = ? AND is_deleted = FALSE", id);
+        Map<String, Object> atualRow = atual.isEmpty() ? null : atual.get(0);
+        String statusAtual = atualRow == null ? null : str(atualRow.get("status"));
+
+        // Houve edição de CONTEÚDO VERSIONÁVEL? Compara o payload com o estado atual: alteração
+        // apenas de anexos (documentos_anexados) NÃO conta — só o Fluxograma. Marca revisao_editada
+        // para a homologação incrementar a Versão (a Revisão sempre incrementa).
+        boolean editouConteudo = atualRow != null && houveEdicaoVersionavel(atualRow, data);
         // Editar um processo VIGENTE (validado_final) reabre o ciclo: volta o status para
         // 'em_elaboracao' (precisa revalidar). NÃO limpa os carimbos das camadas — o processo já é
         // Modelo K1 e o PDF/tela continuam mostrando a ÚLTIMA validação até a revalidação
@@ -825,6 +830,80 @@ public class ProcessosNegocioService {
         } catch (Exception e) {
             return "null";
         }
+    }
+
+    /**
+     * Campos cuja alteração incrementa a Versão na homologação. Anexos (documentos_anexados) NÃO
+     * entram nesta lista: alterar anexos não gera nova versão — a única exceção é o Fluxograma, que
+     * é versionável tanto pelos campos legados (fluxograma_*) quanto pela entrada tipo FLUXOGRAMA
+     * dentro dos anexos (tratada à parte em {@link #houveEdicaoVersionavel}).
+     */
+    private static final List<String> CAMPOS_VERSIONAVEIS = List.of(
+            "nome_processo", "macroprocesso", "descricao", "detalhamento", "indicadores",
+            "proprietarios", "atores", "areas_responsaveis", "entradas", "saidas",
+            "sistemas_ferramentas", "normativos_referencias", "apreciacao",
+            "numero_proad", "observacoes_gerais",
+            "fluxograma_data", "fluxograma_filename", "fluxograma_mime");
+
+    /**
+     * Houve edição de conteúdo que justifique incrementar a Versão? Compara o payload com o estado
+     * atual persistido. Só conta campos versionáveis; entre os anexos, apenas o Fluxograma.
+     */
+    private boolean houveEdicaoVersionavel(Map<String, Object> current, Map<String, Object> data) {
+        for (String col : CAMPOS_VERSIONAVEIS) {
+            if (data.containsKey(col) && !nodesIguais(current.get(col), data.get(col))) {
+                return true;
+            }
+        }
+        if (data.containsKey("documentos_anexados")
+                && !fluxogramaNode(current.get("documentos_anexados"))
+                        .equals(fluxogramaNode(data.get("documentos_anexados")))) {
+            return true;
+        }
+        return false;
+    }
+
+    /** Compara dois valores (escalar ou JSONB) sem sensibilidade à ordem das chaves de objetos. */
+    private boolean nodesIguais(Object a, Object b) {
+        return asNode(a).equals(asNode(b));
+    }
+
+    /**
+     * Converte um valor em JsonNode para comparação. Cobre os dois lados: estruturas do payload
+     * (Map/List) e o que vem do banco (String escalar, ou jsonb como PGobject/String). Escalares
+     * viram sempre textNode (evita falso "mudou" por 123 número vs "123" texto). Comparação de
+     * objetos é insensível à ordem das chaves (o jsonb reordena chaves).
+     */
+    private JsonNode asNode(Object v) {
+        if (v == null) {
+            return objectMapper.nullNode();
+        }
+        try {
+            if (v instanceof Map || v instanceof Iterable) {
+                return objectMapper.valueToTree(v);
+            }
+            String t = String.valueOf(v).trim();
+            if (t.startsWith("[") || t.startsWith("{")) {
+                return objectMapper.readTree(t);
+            }
+            return objectMapper.getNodeFactory().textNode(t);
+        } catch (Exception e) {
+            return objectMapper.getNodeFactory().textNode(String.valueOf(v));
+        }
+    }
+
+    /** Extrai apenas as entradas tipo FLUXOGRAMA dos anexos, como array, para comparação. */
+    private ArrayNode fluxogramaNode(Object docs) {
+        ArrayNode out = objectMapper.createArrayNode();
+        JsonNode arr = asNode(docs);
+        if (arr.isArray()) {
+            for (JsonNode d : arr) {
+                if ("FLUXOGRAMA".equals(d.path("tipo").asText())) {
+                    out.add(d);
+                }
+            }
+        }
+        return out;
     }
 
     private static int parseIntSafe(String s, int fallback) {

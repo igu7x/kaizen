@@ -18,7 +18,8 @@ export type TipoDocumentoAnexado =
   | "AUX"
   | "PRI"
   | "FLUXOGRAMA"
-  | "IT";
+  | "IT"
+  | "OUTROS";
 
 export interface DocumentoAnexado {
   tipo: TipoDocumentoAnexado;
@@ -55,6 +56,7 @@ export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoAnexado, string> = {
   PRI: "Documento Primário",
   FLUXOGRAMA: "Fluxograma",
   IT: "Instrução de Trabalho",
+  OUTROS: "Outros anexos",
 };
 
 export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
@@ -64,6 +66,7 @@ export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumentoAnexado, string> = {
   PRI: "bg-violet-100 text-violet-700 border-violet-200",
   FLUXOGRAMA: "bg-pink-100 text-pink-700 border-pink-200",
   IT: "bg-pink-100 text-pink-700 border-pink-200",
+  OUTROS: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
 /**

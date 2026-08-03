@@ -221,6 +221,9 @@ export function DocumentosAnexadosInput({
                   <SelectItem value="MPS">{TIPO_DOCUMENTO_LABEL.MPS}</SelectItem>
                   <SelectItem value="IT">{TIPO_DOCUMENTO_LABEL.IT}</SelectItem>
                   <SelectItem value="PRI">{TIPO_DOCUMENTO_LABEL.PRI}</SelectItem>
+                  <SelectItem value="OUTROS">
+                    {TIPO_DOCUMENTO_LABEL.OUTROS}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
