@@ -71,8 +71,8 @@ export function Layout({ children }: LayoutProps) {
     isGerenciamentoPage ||
     isCicloOrcamentarioPage ||
     isPermissoesPage;
-  // Páginas sem padding (apenas comitês)
-  const isNoPaddingPage = isComitesPage || isComiteDetalhe;
+  // Páginas sem padding (comitês + Home, que usa hero full-bleed próprio)
+  const isNoPaddingPage = isComitesPage || isComiteDetalhe || isHomePage;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
