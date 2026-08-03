@@ -168,74 +168,42 @@ export function CompetenciasGestorResumo({
       !nomesGerenciais.has(c.nome),
   );
 
-  // Detectar se foi preenchido pelo sub-diretor (para camada extra de validação)
   const areaForm = areas.find(
     (a) => (a.sigla || "").toUpperCase() === formDiretoria.toUpperCase(),
   );
-  const subdiretorId = areaForm
-    ? Number((areaForm as any).subdiretor_user_id || 0)
-    : 0;
   const autorUserId = Number((formulario as any).user_id || 0);
-  const preenchidoPorSubdiretor =
-    isGestor && subdiretorId > 0 && autorUserId === subdiretorId;
 
-  // Camada Diretoria: usuário precisa ser o gestor da diretoria (cadastros_areas.gestor_user_id)
+  // Camada 1 (Autor): quem PREENCHEU a matriz valida a própria camada quando 'enviado'. Na matriz
+  // do GESTOR, o autor é o gestor da unidade; na da equipe, o autor da equipe. Identifica pelo
+  // user_id (fonte da verdade no backend) e, como fallback, pelo e-mail institucional informado.
+  const isAutor =
+    (!!userId && !!autorUserId && userId === autorUserId) ||
+    (!!formulario.email_institucional &&
+      userEmail === formulario.email_institucional.toLowerCase().trim());
+  const canValidateAutor = formulario.status === "enviado" && isAutor;
+
+  // Camada 2 (Diretoria): o gestor da área (cadastros_areas.gestor_user_id) valida depois que a
+  // camada 1 passou (validado_autor).
   const isGestorDaDiretoria = !!(
     userId &&
     areaForm?.gestor_user_id &&
     Number(areaForm.gestor_user_id) === userId
   );
-  // Regra (produção): o SUB-DIRETOR não participa da validação — só preenche e salva. O formulário
-  // dele chega direto ao Diretor da área para validação, sem a camada intermediária do subdiretor.
-  // Por isso o Diretor valida um formulário de gestor tanto em 'enviado' (fluxo normal) quanto em
-  // 'validado_autor' (formulários antigos que já passaram pela antiga camada do subdiretor).
   const canValidateDiretoria =
-    isGestorDaDiretoria &&
-    (isGestor
-      ? formulario.status === "enviado" ||
-        formulario.status === "validado_autor"
-      : formulario.status === "validado_autor");
+    isGestorDaDiretoria && formulario.status === "validado_autor";
 
-  // Camada Final
+  // Camada 3 (Final): o validador final valida depois que a diretoria passou (validado_diretoria).
   const canValidateFinal =
     formulario.status === "validado_diretoria" && isValidadorFinal(userEmail);
 
-  // Camada Autor: apenas o autor pode validar quando status = 'enviado'
-  // - Para tipo 'equipe': o autor (email_institucional) valida
-  // - Para tipo 'gestor' preenchido pelo sub-diretor: o sub-diretor valida
-  const isAutor =
-    !!formulario.email_institucional &&
-    userEmail === formulario.email_institucional.toLowerCase().trim();
-  // Regra (produção): o SUB-DIRETOR não valida — só preenche e salva. Mantemos a detecção de que
-  // ele é o autor apenas para permitir que continue EDITANDO o próprio formulário enquanto não
-  // validado; mas ele NÃO recebe botão de validar (nem como autor).
-  const ehSubdiretorAutor =
-    preenchidoPorSubdiretor && !!userId && userId === subdiretorId;
-  const canValidateAutor =
-    formulario.status === "enviado" && !isGestor && isAutor;
+  // Edição: cada validador pode EDITAR a matriz antes de validar ou recusar a sua camada — autor
+  // em 'enviado', diretoria em 'validado_autor', final em 'validado_diretoria'. A edição apenas
+  // SALVA (não valida): os botões Validar/Recusar continuam disponíveis depois. O backend (canEdit)
+  // já autoriza cada papel na respectiva etapa.
+  const podeEditar =
+    canValidateAutor || canValidateDiretoria || canValidateFinal;
 
-  // Permissão de edição: além de quem valida a próxima camada, o sub-diretor autor pode editar/
-  // salvar (sem validar) enquanto o formulário não foi validado.
-  const foiRecusado =
-    !!formulario.recusado_em && formulario.status === "enviado";
-  const podeEditar = (() => {
-    if (formulario.status !== "enviado") return false;
-    if (foiRecusado) return canValidateAutor || ehSubdiretorAutor;
-    return canValidateAutor || canValidateDiretoria || ehSubdiretorAutor;
-  })();
-
-  // Camada que o usuário superior valida agora (Diretoria/Final). Quando setada, a edição feita
-  // por ele deve JÁ validar essa camada ao salvar — "editar e validar direto", sem Recusar (que
-  // devolveria ao primeiro membro da cadeia). O backend (canEdit) já autoriza: gestor da diretoria
-  // edita em 'validado_autor'; validador final edita em 'validado_diretoria'.
-  const camadaAoEditar: "diretoria" | "final" | null = canValidateDiretoria
-    ? "diretoria"
-    : canValidateFinal
-      ? "final"
-      : null;
-
-  // O botão Editar aparece para o autor/camada-1 (podeEditar) OU para o superior que valida agora.
-  const mostrarBotaoEditar = !!onEdit && (podeEditar || camadaAoEditar !== null);
+  const mostrarBotaoEditar = !!onEdit && podeEditar;
 
   const handleValidarAutor = async () => {
     setValidating(true);
@@ -315,15 +283,16 @@ export function CompetenciasGestorResumo({
       {/* Banners de validação — o subdiretor não é mais uma camada de validação (só preenche). */}
       <ValidacaoStatusBanners formulario={formulario} preenchidoPorSubdiretor={false} />
 
-      {/* Botão Editar — autor/camada-1 edita; superior (Diretoria/Final) edita E valida ao salvar. */}
+      {/* Botão Editar — cada validador (autor/diretoria/final) edita a matriz na sua etapa. A
+          edição apenas salva; a validação/recusa é feita depois, pelos botões abaixo. */}
       {mostrarBotaoEditar && (
         <div className="flex justify-end">
           <Button
             variant="outline"
-            onClick={() => onEdit!(formulario, camadaAoEditar ?? undefined)}
+            onClick={() => onEdit!(formulario)}
             className="border-gray-300"
           >
-            {camadaAoEditar ? "Editar e validar" : "Editar"}
+            Editar
           </Button>
         </div>
       )}
