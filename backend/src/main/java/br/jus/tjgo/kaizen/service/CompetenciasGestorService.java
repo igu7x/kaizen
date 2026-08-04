@@ -42,6 +42,7 @@ public class CompetenciasGestorService {
     }
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.CompetenciasMatrizNotificacoes matrizNotificacoes;
     private final ObjectMapper objectMapper;
     private final CompetenciasTecnicasAdminService tecnicasAdminService;
 
@@ -634,7 +635,9 @@ public class CompetenciasGestorService {
                         "  updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ?",
                 userId, userId, id);
-        return findById(id);
+        Map<String, Object> f = findById(id);
+        matrizNotificacoes.aoValidarAutor(f);
+        return f;
     }
 
     /** Camada 2: Validação da diretoria. */
@@ -691,7 +694,9 @@ public class CompetenciasGestorService {
                         "  updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ?",
                 userId, userId, id);
-        return findById(id);
+        Map<String, Object> f = findById(id);
+        matrizNotificacoes.aoValidarDiretoria(f);
+        return f;
     }
 
     /** Camada 3: Validação final. */
@@ -803,7 +808,9 @@ public class CompetenciasGestorService {
                         "  updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ?",
                 userId, userName, comentario, userId, id);
-        return findById(id);
+        Map<String, Object> f = findById(id);
+        matrizNotificacoes.aoRecusar(f);
+        return f;
     }
 
     /** Recusar pela camada FINAL — volta para 'enviado', limpa validações do autor e diretoria. */
@@ -832,7 +839,9 @@ public class CompetenciasGestorService {
                         "  updated_at = NOW(), updated_by = ? " +
                         "WHERE id = ?",
                 userId, userName, comentario, userId, id);
-        return findById(id);
+        Map<String, Object> f = findById(id);
+        matrizNotificacoes.aoRecusar(f);
+        return f;
     }
 
     /** Listar versões históricas com self-healing do snapshot final. */

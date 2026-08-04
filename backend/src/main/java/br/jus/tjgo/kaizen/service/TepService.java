@@ -23,6 +23,7 @@ import java.util.Map;
 public class TepService {
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.ProjetosTapTepNotificacoes tapTepNotificacoes;
     private final ObjectMapper objectMapper;
 
     public Map<String, Object> findByProjetoId(long projetoId) {
@@ -100,6 +101,7 @@ public class TepService {
         jdbc.update("UPDATE cadastros_projetos SET status = ?, updated_at = NOW() WHERE id = ?",
                 tipoEncerramento, projetoId);
 
+        tapTepNotificacoes.aoCriarTep(projetoId);
         return tep;
     }
 
@@ -167,6 +169,7 @@ public class TepService {
             gravarSnapshot(projetoId, userId);
         }
 
+        tapTepNotificacoes.aoValidarTep(projetoId, camada);
         return Map.of("success", true, "camada", camada, "projetoId", projetoId);
     }
 
@@ -254,6 +257,7 @@ public class TepService {
                         "WHERE projeto_id = ?",
                 userId, userName, comentario, camadaLabel, projetoId);
 
+        tapTepNotificacoes.aoRecusarTep(projetoId);
         return Map.of("success", true, "camada", camada, "projetoId", projetoId);
     }
 

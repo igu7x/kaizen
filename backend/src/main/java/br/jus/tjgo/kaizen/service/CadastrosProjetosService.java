@@ -39,6 +39,7 @@ import java.util.Set;
 public class CadastrosProjetosService {
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.ProjetosTapTepNotificacoes tapTepNotificacoes;
     private final DomainService domainService;
     private final ObjectMapper objectMapper;
 
@@ -520,6 +521,7 @@ public class CadastrosProjetosService {
         String tapId = prefix + String.format("%03d", nextSeq);
         jdbc.update("UPDATE cadastros_projetos SET tap_id = ?, tap_versao = 1, tap_gerado_em = NOW(), updated_at = NOW() WHERE id = ?",
                 tapId, projetoId);
+        tapTepNotificacoes.aoGerarTap(projetoId);
         return getProjetoById(projetoId);
     }
 
@@ -1033,6 +1035,7 @@ public class CadastrosProjetosService {
             }
         }
 
+        tapTepNotificacoes.aoValidarTap(projetoId, camada);
         return Map.of("success", true, "camada", camada, "projetoId", projetoId);
     }
 
@@ -1079,6 +1082,7 @@ public class CadastrosProjetosService {
                 "tap_recusado_em = NOW(), tap_recusado_por = ?, tap_recusado_por_nome = ?, " +
                 "tap_recusado_comentario = ?, tap_recusado_camada = ?, updated_at = NOW() WHERE id = ?",
                 userId, userName, comentario, camadaLabel, projetoId);
+        tapTepNotificacoes.aoRecusarTap(projetoId);
         return Map.of("success", true, "camada", camada, "projetoId", projetoId);
     }
 

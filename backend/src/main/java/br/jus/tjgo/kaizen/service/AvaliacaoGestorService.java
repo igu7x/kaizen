@@ -24,6 +24,7 @@ import java.util.Map;
 public class AvaliacaoGestorService {
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.AvaliacoesNotificacoes avaliacoesNotificacoes;
     private final ObjectMapper objectMapper;
 
     public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
@@ -325,6 +326,7 @@ public class AvaliacaoGestorService {
             log.error("[validar] Erro ao cascatear atualização para avaliação integrada: {}", err.getMessage());
         }
 
+        avaliacoesNotificacoes.aoAvaliacaoGestorValidada(id);
         return formularioCompleto;
     }
 

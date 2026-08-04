@@ -23,6 +23,7 @@ import java.util.Map;
 public class AvaliacaoIntegradaService {
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.AvaliacoesNotificacoes avaliacoesNotificacoes;
     private final ObjectMapper objectMapper;
 
     public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
@@ -348,7 +349,11 @@ public class AvaliacaoIntegradaService {
                     r.get("tipo") != null ? str(r.get("tipo")) : "tecnica", i + 1);
         }
 
-        return findById(formularioId);
+        Map<String, Object> criada = findById(formularioId);
+        if (criada != null) {
+            avaliacoesNotificacoes.aoIntegradaEnviada(criada);
+        }
+        return criada;
     }
 
     @Transactional
@@ -378,7 +383,11 @@ public class AvaliacaoIntegradaService {
                         "WHERE id = ?",
                 userId, userName, userId, id);
 
-        return findById(id);
+        Map<String, Object> f = findById(id);
+        if (f != null) {
+            avaliacoesNotificacoes.aoIntegradaValidadaGestor(f);
+        }
+        return f;
     }
 
     @Transactional

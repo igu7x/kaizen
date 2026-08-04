@@ -26,6 +26,7 @@ import java.util.Map;
 public class AutoavaliacaoService {
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.AvaliacoesNotificacoes avaliacoesNotificacoes;
     private final ObjectMapper objectMapper;
 
     /** Buscar todos os formulários filtrados por domínio (múltiplas diretorias). */
@@ -275,6 +276,7 @@ public class AutoavaliacaoService {
             log.error("[validar] Erro ao cascatear atualização para avaliação do gestor: {}", err.getMessage());
         }
 
+        avaliacoesNotificacoes.aoAutoavaliacaoValidada(id);
         return formularioCompleto;
     }
 
