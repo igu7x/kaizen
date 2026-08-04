@@ -29,6 +29,11 @@ public record IfoDto(
         /** §8.4 — estado de validação da demanda: em_edicao | validada_1a | validada_2a. */
         String validacao,
         
+        String strategicObjective,
+        Boolean isSustainable,
+        Boolean isSharedAcquisition,
+        String quantity,
+        
         // Atributos de PCA herdados/mesclados
         String description,
         String justification,

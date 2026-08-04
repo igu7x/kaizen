@@ -18,6 +18,11 @@ public record CriarIfoRequest(
         Double valorEstimado,
         Boolean interesseRenovacao,
         
+        String strategicObjective,
+        Boolean isSustainable,
+        Boolean isSharedAcquisition,
+        String quantity,
+        
         // Atributos de PCA herdados/mesclados
         String description,
         String justification,

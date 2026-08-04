@@ -83,12 +83,14 @@ public class IfoService {
         var rows = jdbc.queryForList(
                 "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, objeto, " +
                         "cadastros_unidades_id, cadastros_areas_id, estado, valor_estimado_cents, interesse_renovacao, " +
+                        "strategic_objective, is_sustainable, is_shared_acquisition, quantity, " +
                         "description, justification, process, financial_resource_type, contract_type, " +
                         "formalized_value_cents, priority, estimated_date, " +
                         "created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 codigo, req.ano(), req.cicloId(), req.bloco(), req.natureza(), req.objeto(),
                 req.cadastrosUnidadesId(), req.cadastrosAreasId(), cents, req.interesseRenovacao(),
+                req.strategicObjective(), req.isSustainable(), req.isSharedAcquisition(), req.quantity(),
                 req.description(), req.justification(), req.process(), req.financialResourceType(), req.contractType(),
                 req.formalizedValueCents(), req.priority(), req.estimatedDate(),
                 userId, userId);
@@ -186,15 +188,18 @@ public class IfoService {
         boolean isSuperAdmin = optUser.isPresent() && optUser.get().isSuperadmin();
 
         if (!isSuperAdmin && !isEspecial && List.of("plurianual", "encerramento", "renovacao").contains(currentBloco)) {
-            jdbc.update("UPDATE ifo SET valor_estimado_cents=?, updated_at=NOW(), updated_by=? WHERE id=?", cents, userId, id);
+            jdbc.update("UPDATE ifo SET valor_estimado_cents=?, is_sustainable=?, is_shared_acquisition=?, quantity=?, priority=?, financial_resource_type=?, updated_at=NOW(), updated_by=? WHERE id=?", 
+                cents, req.isSustainable(), req.isSharedAcquisition(), req.quantity(), req.priority(), req.financialResourceType(), userId, id);
         } else {
             jdbc.update(
                 "UPDATE ifo SET bloco=?, natureza=?, objeto=?, cadastros_unidades_id=?, cadastros_areas_id=?, " +
-                "valor_estimado_cents=?, interesse_renovacao=?, description=?, justification=?, process=?, " +
+                "valor_estimado_cents=?, interesse_renovacao=?, strategic_objective=?, is_sustainable=?, is_shared_acquisition=?, quantity=?, " +
+                "description=?, justification=?, process=?, " +
                 "financial_resource_type=?, contract_type=?, formalized_value_cents=?, " +
                 "priority=?, estimated_date=?, updated_at=NOW(), updated_by=? WHERE id=?",
                 req.bloco(), req.natureza(), req.objeto(), req.cadastrosUnidadesId(), req.cadastrosAreasId(),
-                cents, req.interesseRenovacao(), req.description(), req.justification(), req.process(),
+                cents, req.interesseRenovacao(), req.strategicObjective(), req.isSustainable(), req.isSharedAcquisition(), req.quantity(),
+                req.description(), req.justification(), req.process(),
                 req.financialResourceType(), req.contractType(), req.formalizedValueCents(),
                 req.priority(), req.estimatedDate(), userId, id
             );
@@ -268,13 +273,18 @@ public class IfoService {
             if (codigosManuais.containsKey(id)) {
                 codigoOficial = codigosManuais.get(id);
             } else {
-                codigoOficial = String.valueOf(prox);
-                prox++;
+                while (true) {
+                    codigoOficial = String.valueOf(prox);
+                    prox++;
+                    if (!codigosManuais.containsValue(codigoOficial)) {
+                        break;
+                    }
+                }
             }
 
             // Verifica se o código já existe no banco antes de tentar inserir para evitar exceção feia
             Integer exists = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM pcas WHERE code = ? AND year = ?",
+                "SELECT COUNT(*) FROM pcas WHERE code = ? AND year = ? AND is_deleted = false",
                 Integer.class, codigoOficial, String.valueOf(ano)
             );
             if (exists != null && exists > 0) {
@@ -286,12 +296,21 @@ public class IfoService {
             String contractType = "renovacao".equals(str(row.get("bloco"))) ? "RENOVACAO" : "NOVA_CONTRATACAO";
             Long unidadeId = asLong(row.get("cadastros_unidades_id"));
             Long areaId = asLong(row.get("cadastros_areas_id"));
+            
             jdbc.update(
                     "INSERT INTO pcas (code, contract_type, object_name, estimated_value_cents, " +
-                            "status, year, cadastros_unidades_id, cadastros_areas_id, created_by) " +
-                            "VALUES (?, ?, ?, COALESCE(?, 0), 'NAO_INICIADA', ?, ?, ?, ?)",
+                            "formalized_value_cents, estimated_date, status, year, " +
+                            "process, description, justification, financial_resource_type, priority, " +
+                            "cadastros_unidades_id, cadastros_areas_id, created_by) " +
+                            "VALUES (?, ?, ?, COALESCE(?, 0), COALESCE(?, 0), CAST(? AS DATE), 'NAO_INICIADA', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     codigoOficial, contractType, str(row.get("objeto")),
-                    asLong(row.get("valor_estimado_cents")), String.valueOf(ano), unidadeId, areaId, userId);
+                    asLong(row.get("valor_estimado_cents")), asLong(row.get("formalized_value_cents")), 
+                    row.get("estimated_date"), String.valueOf(ano),
+                    str(row.get("process")), str(row.get("description")), str(row.get("justification")),
+                    str(row.get("financial_resource_type")), 
+                    str(row.get("priority")),
+                    unidadeId, areaId, userId);
+            
             jdbc.update(
                     "UPDATE ifo SET codigo_oficial = ?, estado = 'publicado', updated_at = NOW(), updated_by = ? WHERE id = ?",
                     codigoOficial, userId, id);
@@ -703,6 +722,10 @@ public class IfoService {
                 str(r.get("motivo_reclassificacao")),
                 str(r.get("codigo_oficial")),
                 str(r.get("validacao")),
+                str(r.get("strategic_objective")),
+                (Boolean) r.get("is_sustainable"),
+                (Boolean) r.get("is_shared_acquisition"),
+                str(r.get("quantity")),
                 str(r.get("description")),
                 str(r.get("justification")),
                 str(r.get("process")),
