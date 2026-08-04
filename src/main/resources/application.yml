@@ -46,12 +46,14 @@ spring:
     properties:
       mail:
         smtp:
-          auth: true
+          # Gmail: auth=true + starttls=true (default). Relay institucional (porta 25, sem auth/TLS):
+          # setar SMTP_AUTH=false e SMTP_STARTTLS=false.
+          auth: ${SMTP_AUTH:true}
           starttls:
-            enable: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
+            enable: ${SMTP_STARTTLS:true}
+          connectiontimeout: 8000
+          timeout: 8000
+          writetimeout: 8000
 
 server:
   port: ${PORT:8081}
