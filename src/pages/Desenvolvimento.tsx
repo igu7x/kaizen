@@ -648,9 +648,15 @@ export default function Desenvolvimento() {
                                   {Object.keys(row).map((key) => (
                                     <td key={key} className="px-4 py-2 whitespace-nowrap font-mono text-xs">
                                       {row[key] !== null ? (
-                                        String(row[key]).length > 64 
-                                          ? String(row[key]).substring(0, 64) + "..." 
-                                          : String(row[key])
+                                        typeof row[key] === 'object' ? (
+                                          JSON.stringify(row[key]).length > 64
+                                            ? JSON.stringify(row[key]).substring(0, 64) + "..."
+                                            : JSON.stringify(row[key])
+                                        ) : String(row[key]).length > 64 ? (
+                                          String(row[key]).substring(0, 64) + "..."
+                                        ) : (
+                                          String(row[key])
+                                        )
                                       ) : (
                                         <span className="text-white/20 italic">null</span>
                                       )}
@@ -673,7 +679,15 @@ export default function Desenvolvimento() {
                                   <div key={key} className="contents font-mono">
                                     <div className="text-cyan-400/70 font-semibold">{key}</div>
                                     <div className="text-white break-words">
-                                      {row[key] !== null ? String(row[key]) : <span className="text-white/20 italic">null</span>}
+                                      {row[key] !== null ? (
+                                        typeof row[key] === 'object' ? (
+                                          <pre className="whitespace-pre-wrap m-0 font-mono text-xs text-white/80">{JSON.stringify(row[key], null, 2)}</pre>
+                                        ) : (
+                                          String(row[key])
+                                        )
+                                      ) : (
+                                        <span className="text-white/20 italic">null</span>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
