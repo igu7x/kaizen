@@ -8,7 +8,6 @@ import {
   isK1,
   isVigente,
   dataVigencia,
-  temDocumentoPrimario,
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
@@ -651,9 +650,8 @@ function drawRodapeInstitucional(
   const sufixoProposta = isProposta ? " (Proposta)" : "";
   const versaoValue = pad3(processo.versao ?? "1") + sufixoProposta;
   const revisaoValue = pad3(processo.revisao ?? "0") + sufixoProposta;
-  // MODELO fixo "K1" (independe de proposta/vigente, regra institucional); "Doc. Primário" só
-  // quando há anexo primário.
-  const modeloLabel = temDocumentoPrimario(processo) ? "Doc. Primário" : "K1";
+  // MODELO fixo "K1" — sempre (regra institucional: independe de proposta/vigente e de anexos).
+  const modeloLabel = "K1";
 
   const GAP_LABEL_VALUE = 1.6; // respiro entre o label e o valor
   const footerFields = [
