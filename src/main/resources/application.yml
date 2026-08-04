@@ -36,6 +36,22 @@ spring:
       write-dates-as-timestamps: false
     default-property-inclusion: ALWAYS
     time-zone: America/Sao_Paulo
+  # SMTP para notificações de pendências. Default = Gmail (smtp.gmail.com:587 STARTTLS).
+  # Preencha SMTP_USER + SMTP_PASSWORD (app password do Gmail) via env/secret.
+  mail:
+    host: ${OPENSHIFT_SMTP_HOST:${SMTP_HOST:smtp.gmail.com}}
+    port: ${OPENSHIFT_SMTP_PORT:${SMTP_PORT:587}}
+    username: ${OPENSHIFT_SMTP_USER:${SMTP_USER:}}
+    password: ${OPENSHIFT_SMTP_PASSWORD:${SMTP_PASSWORD:}}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 server:
   port: ${PORT:8081}
@@ -72,6 +88,11 @@ kaizen:
     redirect-uri: ${OPENSHIFT_SSO_KEYCLOACK_REDIRECT_URI:${KEYCLOAK_REDIRECT_URI:}}
   frontend:
     url: ${OPENSHIFT_FRONTEND_URL:${FRONTEND_URL:http://localhost:5173}}
+  # Notificações de pendências por e-mail. enabled=false (default) => nada é enviado (no-op).
+  # Ligue setando NOTIFICACOES_ENABLED=true + o SMTP acima. `remetente` vazio => usa o SMTP_USER.
+  notificacoes:
+    enabled: ${OPENSHIFT_NOTIFICACOES_ENABLED:${NOTIFICACOES_ENABLED:false}}
+    remetente: ${OPENSHIFT_NOTIFICACOES_REMETENTE:${NOTIFICACOES_REMETENTE:}}
   node-env: ${OPENSHIFT_NODE_ENV:${NODE_ENV:development}}
   jwt-secret: ${JWT_SECRET:}
   ecs:
