@@ -7,6 +7,7 @@ import {
   COMITES_APROVACAO,
   isK1,
   isVigente,
+  dataVigencia,
   temDocumentoPrimario,
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
@@ -548,11 +549,11 @@ function drawCabecalhoInstitucional(
       align: "center",
     },
   );
+  // Vigente: a Data da Vigência é a DATA DE APROVAÇÃO (comitê p/ TI, Compliance p/ judiciário),
+  // que substitui a Data da Versão. Em proposta: pendente.
   const dataVersao = emProposta
     ? "Pendente de aprovação"
-    : formatDate(processo.periodo) ||
-      formatDate(processo.validado_final_em) ||
-      "—";
+    : formatDate(dataVigencia(processo)) || "—";
   drawTextCell(
     doc,
     dataVersao,
@@ -650,12 +651,8 @@ function drawRodapeInstitucional(
   const sufixoProposta = isProposta ? " (Proposta)" : "";
   const versaoValue = pad3(processo.versao ?? "1") + sufixoProposta;
   const revisaoValue = pad3(processo.revisao ?? "0") + sufixoProposta;
-  const modeloLabel =
-    isProposta || isK1(processo)
-      ? "K1"
-      : temDocumentoPrimario(processo)
-        ? "Doc. Primário"
-        : "—";
+  // MODELO nunca exibe "K1" (regra institucional): só "Doc. Primário" quando há anexo primário.
+  const modeloLabel = temDocumentoPrimario(processo) ? "Doc. Primário" : "—";
 
   const GAP_LABEL_VALUE = 1.6; // respiro entre o label e o valor
   const footerFields = [
@@ -668,13 +665,10 @@ function drawRodapeInstitucional(
     { label: "REVISÃO:", value: revisaoValue },
     {
       label: isProposta ? "DATA DA PROPOSTA:" : "DATA DA VIGÊNCIA:",
-      // Mesma informação do cabeçalho: em proposta, "Pendente de aprovação"; vigente, a data da
-      // vigência (Data da Versão informada ou, na falta, a data da homologação).
+      // Vigente: a data de aprovação (comitê/Compliance) que substitui a Data da Versão.
       value: isProposta
         ? "Pendente de aprovação"
-        : formatDate(processo.periodo) ||
-          formatDate(processo.validado_final_em) ||
-          "—",
+        : formatDate(dataVigencia(processo)) || "—",
     },
   ].map((f) => {
     doc.setFontSize(8);
@@ -987,12 +981,10 @@ export function generateProcessoNegocioPDF(
   y += revHeaderH;
 
   // Enquanto em proposta (não vigente), a Próxima Revisão fica VAZIA; só aparece no documento
-  // vigente (K1 com comitês aprovados ou documento primário), calculada a partir da Data da
-  // Versão/Vigência.
-  const proximaRevisao =
-    isVigente(processo) && processo.periodo
-      ? addOneYearToDate(processo.periodo)
-      : "";
+  // vigente, calculada como 1 ano após a DATA DE APROVAÇÃO (comitê p/ TI, Compliance p/ judiciário).
+  const proximaRevisao = isVigente(processo)
+    ? addOneYearToDate(dataVigencia(processo))
+    : "";
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   const periodicidadeLines = doc.splitTextToSize(

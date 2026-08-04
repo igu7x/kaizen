@@ -6,7 +6,7 @@ import {
   useState,
   Fragment,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,7 @@ import {
   normalizeResponsavel,
   isComplianceOfficerEmail,
   proximaRevisao,
+  dataVigencia,
   TIPO_DOCUMENTO_BADGE,
 } from "@/services/processosNegocioApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -692,6 +693,30 @@ export default function EscritorioProcessos() {
       .catch(() => {
         /* sem unidades, o responsável cai só no snapshot do processo */
       });
+  }, []);
+
+  // Deep-link vindo da Home / do e-mail de pendência (?abrir=<id>): abre o processo direto no modal
+  // de visualização (onde ficam as ações Validar/Enviar), em vez da tela de detalhe só-leitura.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const abrir = searchParams.get("abrir");
+    if (!abrir) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("abrir");
+    setSearchParams(next, { replace: true });
+    const id = Number(abrir);
+    if (!Number.isFinite(id)) return;
+    processosNegocioApi
+      .getById(id)
+      .then((full) => {
+        setFormModo("visualizar");
+        setEditing(full);
+        setFormOpen(true);
+      })
+      .catch(() => {
+        /* processo inacessível — ignora */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -1770,10 +1795,10 @@ export default function EscritorioProcessos() {
                               <button
                                 type="button"
                                 onClick={(e) => handleAbrirModeloK1(e, p)}
-                                title="Abrir PDF do processo (Modelo K1)"
+                                title="Abrir PDF da versão vigente"
                                 className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors"
                               >
-                                Modelo K1
+                                Vigente
                               </button>
                             ) : docPri ? (
                               <button
@@ -1791,7 +1816,7 @@ export default function EscritorioProcessos() {
                             )}
                           </td>
                           <td className="px-5 py-3 text-center text-slate-700 tabular-nums">
-                            {formatDataVersao(p.periodo)}
+                            {formatDataVersao(dataVigencia(p) ?? p.periodo)}
                           </td>
                           <td
                             className={`px-5 py-3 text-center tabular-nums font-medium ${overdue ? "text-red-600" : "text-slate-700"}`}

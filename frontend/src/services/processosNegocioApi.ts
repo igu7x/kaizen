@@ -200,10 +200,55 @@ export function isK1(p: ProcessoNegocio): boolean {
   return exigidos.every((c) => aprovados.some((a) => a.comite === c));
 }
 
-/** Próxima revisão = período cadastrado + 1 ano. Null se período ausente/inválido. */
-export function proximaRevisao(p: { periodo: string | null }): Date | null {
-  if (!p.periodo) return null;
-  const m = p.periodo.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+/**
+ * Vigente = em vigor AGORA. A regra depende do tipo de área (regras institucionais):
+ *  - Áreas de TI (DITI/DSTI/GEJUT — {@link exigeComiteAprovacao}): vigente após a ata do comitê
+ *    anexada + a data de aprovação preenchida, para TODOS os comitês exigidos.
+ *  - Áreas judiciárias (DIJUD/DPE) e demais sem comitê: vigente após a validação do Compliance
+ *    Officer (validado_final).
+ *  - Documento primário: vigente pelo próprio anexo.
+ * Em qualquer caso, só é vigente quando possui ID ({@code codigo}) e os campos obrigatórios.
+ */
+export function isVigente(p: ProcessoNegocio): boolean {
+  if (temDocumentoPrimario(p)) return true;
+  if (!p.codigo) return false; // regra: só é vigente quando possui um ID
+  if (camposObrigatoriosFaltantes(p).length > 0) return false;
+  if (exigeComiteAprovacao(p.diretoria)) {
+    const exigidos = p.apreciacao || [];
+    if (exigidos.length === 0) return !!p.validado_final_em;
+    return exigidos.every((c) =>
+      (p.aprovacoes || []).some((a) => a.comite === c && !!a.em),
+    );
+  }
+  return !!p.validado_final_em;
+}
+
+/**
+ * Data de aprovação que SUBSTITUI a "Data da Versão" e é a referência da Próxima Revisão:
+ *  - TI (comitê): a data de aprovação do comitê (a mais recente entre os comitês exigidos);
+ *  - Judiciário: a data de aprovação do Compliance Officer (validado_final);
+ *  - Documento primário: o período informado.
+ * Null quando o processo ainda não é vigente.
+ */
+export function dataVigencia(p: ProcessoNegocio): string | null {
+  if (!isVigente(p)) return null;
+  if (exigeComiteAprovacao(p.diretoria)) {
+    const exigidos = p.apreciacao || [];
+    const datas = (p.aprovacoes || [])
+      .filter((a) => exigidos.includes(a.comite) && a.em)
+      .map((a) => (a.em as string).substring(0, 10))
+      .sort();
+    if (datas.length) return datas[datas.length - 1];
+  }
+  if (p.validado_final_em) return p.validado_final_em.substring(0, 10);
+  return p.periodo ? p.periodo.substring(0, 10) : null;
+}
+
+/** Próxima revisão = data de aprovação (Data da Vigência) + 1 ano. Null se não vigente/ inválida. */
+export function proximaRevisao(p: ProcessoNegocio): Date | null {
+  const base = dataVigencia(p);
+  if (!base) return null;
+  const m = base.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return null;
   const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
   if (Number.isNaN(d.getTime())) return null;
@@ -211,19 +256,10 @@ export function proximaRevisao(p: { periodo: string | null }): Date | null {
   return d;
 }
 
-/** Revisão vencida = próxima revisão no passado. */
-export function revisaoVencida(p: { periodo: string | null }): boolean {
+/** Revisão vencida = próxima revisão no passado (só faz sentido para processo vigente). */
+export function revisaoVencida(p: ProcessoNegocio): boolean {
   const next = proximaRevisao(p);
   return next != null && next.getTime() < Date.now();
-}
-
-/**
- * Vigente = em vigor AGORA. Um Modelo K1 só é vigente enquanto está `validado_final`; ao ser
- * reaberto (edição de um vigente → volta para 'em_elaboracao'), sai de "vigentes" e vai só para
- * "em revisão" até ser revalidado. Documento primário segue vigente pelo próprio anexo.
- */
-export function isVigente(p: ProcessoNegocio): boolean {
-  return temDocumentoPrimario(p) || (isK1(p) && p.status === "validado_final");
 }
 
 /**
