@@ -34,6 +34,7 @@ Antes de gerar qualquer código, avalie os seguintes aspectos:
 2. **Contrato da API:** O payload expõe dados desnecessários para a SPA? O formato do erro da validação (ex: `@NotNull`) vai chegar legível para o front-end mapear nos inputs?
 3. **Resiliência & Transações:** O design garante atomicidade? (Uso correto de `@Transactional`). As transações estão o mais curtas possível para evitar lock no banco?
 4. **Segurança & Permissões:** O endpoint está devidamente protegido? **NUNCA** utilize o recurso de tags granulares (ex: `@TagAcao`) para esconder módulos inteiros ou bloquear crud genérico que deveria ser tratado por Roles (Gestor, Admin) ou flags (`is_superadmin`). Consulte estritamente o `GUIA_PERMISSOES.md` (na raiz do projeto) para entender e respeitar a hierarquia das 4 camadas de segurança do Kaizen antes de desenhar controles de acesso. Há risco de ID enumeration (Insecure Direct Object Reference - IDOR)?
+5. **Auditoria (Audit Log):** Como o projeto utiliza `JdbcTemplate` sem um ORM com eventos de ciclo de vida (como o Hibernate), lembre-se sempre de injetar e chamar manualmente o `AuditService.log()` em todos os novos Services que implementam operações de alteração de banco de dados (INSERT, UPDATE, DELETE, etc.), passando o estado antigo e o novo estado quando aplicável.
 
 ## 3. Style Guide
 
