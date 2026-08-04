@@ -142,8 +142,8 @@ export default function Home() {
   const podeSelecionarDiretoria =
     (user as { is_superadmin?: boolean } | null)?.is_superadmin === true ||
     user?.diretoria === "SGJT";
+  // O hero renderiza na hora (não depende do resumo); a fila/projetos preenchem quando chega.
   const [resumo, setResumo] = useState<HomeResumo | null>(null);
-  const [loading, setLoading] = useState(true);
   const { podeAcessar } = usePermissoes();
 
   const heroRef = useRef<HTMLElement>(null);
@@ -161,8 +161,7 @@ export default function Home() {
     homeApi
       .getResumo()
       .then(setResumo)
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
+      .catch(() => undefined);
   }, []);
 
   const applyProgress = useCallback((p: number) => {
@@ -247,13 +246,13 @@ export default function Home() {
   // Estado inicial das cenas (esconde o dashboard sem flash). NÃO depende de introKey — o replay
   // da intro usa o slide (go(0)), não um reset instantâneo.
   useLayoutEffect(() => {
-    if (prefersReduced || loading || !resumo) return;
+    if (prefersReduced) return;
     applyProgress(0);
-  }, [applyProgress, loading, resumo]);
+  }, [applyProgress]);
 
   // Captura scroll/toque/teclado: só decide a direção; a animação é constante e reversível.
   useEffect(() => {
-    if (prefersReduced || loading || !resumo) return;
+    if (prefersReduced) return;
     const atTop = () => (dashRef.current?.scrollTop ?? 0) <= 0;
 
     const onWheel = (e: WheelEvent) => {
@@ -304,26 +303,14 @@ export default function Home() {
       window.removeEventListener("keydown", onKey);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [loading, resumo, go, resetToHomeIntro]);
+  }, [go, resetToHomeIntro]);
 
-  if (loading || !resumo) {
-    return (
-      <Layout>
-        <div className="kz flex h-full items-center justify-center bg-white">
-          <style>{HOME_CSS}</style>
-          <p className="text-sm text-[var(--g3)]">
-            {loading ? "Carregando…" : "Não foi possível carregar o resumo."}
-          </p>
-        </div>
-      </Layout>
-    );
-  }
-
-  const nome = primeiroNome(resumo.user.name);
-  const pendencias = resumo.pendencias.filter((p) => p.count > 0);
+  // Dados null-safe: a página renderiza na hora; a fila/projetos preenchem quando o resumo chega.
+  const nome = primeiroNome(user?.name || resumo?.user.name || "");
+  const pendencias = resumo ? resumo.pendencias.filter((p) => p.count > 0) : [];
   const emDia = pendencias.length === 0;
   const totalPend = pendencias.reduce((s, p) => s + p.count, 0);
-  const proj = resumo.projetos;
+  const proj = resumo?.projetos ?? { total: 0, no_prazo: 0, em_atraso: 0 };
   const visiveis = MODULOS.filter((m) => podeAcessar(m.permissaoCodigo));
 
   return (
