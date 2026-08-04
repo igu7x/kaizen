@@ -719,7 +719,7 @@ export default function FormacaoPca() {
                           )}
                         </div>
                       </div>
-                    ) : (
+                    ) : formacaoEstado === "publicado" ? null : (
                       <EsteiraControls
                         ciclo={ciclo}
                         onAvancar={avancarEsteira}

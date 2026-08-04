@@ -88,6 +88,10 @@ export interface Ifo {
   codigoOficial: string | null;
   /** §8.4 — validação por demanda: em_edicao → validada_1a → validada_2a. */
   validacao: ValidacaoDemanda | null;
+  strategicObjective?: string | null;
+  isSustainable?: boolean | null;
+  isSharedAcquisition?: boolean | null;
+  quantity?: string | null;
   description?: string | null;
   justification?: string | null;
   process?: string | null;
@@ -117,6 +121,10 @@ export interface CriarIfoRequest {
   cadastrosAreasId?: number | null;
   valorEstimado?: number | null;
   interesseRenovacao?: boolean | null;
+  strategicObjective?: string | null;
+  isSustainable?: boolean | null;
+  isSharedAcquisition?: boolean | null;
+  quantity?: string | null;
   description?: string | null;
   justification?: string | null;
   process?: string | null;
@@ -137,6 +145,10 @@ export interface AtualizarIfoRequest {
   cadastrosAreasId?: number | null;
   valorEstimado?: number | null;
   interesseRenovacao?: boolean | null;
+  strategicObjective?: string | null;
+  isSustainable?: boolean | null;
+  isSharedAcquisition?: boolean | null;
+  quantity?: string | null;
   description?: string | null;
   justification?: string | null;
   process?: string | null;

@@ -23,6 +23,28 @@ import { toast } from "sonner";
 import { ifoApi, type CriarIfoRequest } from "@/services/dfdApi";
 import { areasApi, type Area, type Unidade } from "@/services/areasApi";
 
+const MESES_ORDENADOS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+const getIsoDateFromMes = (mes: string, ano: number): string => {
+  const index = MESES_ORDENADOS.indexOf(mes);
+  if (index === -1) return "";
+  const monthStr = String(index + 1).padStart(2, "0");
+  return `${ano}-${monthStr}-01`;
+};
+
+const getMesFromIsoDate = (isoDate: string | null | undefined): string => {
+  if (!isoDate) return "";
+  const parts = isoDate.split("-");
+  if (parts.length >= 2) {
+    const month = parseInt(parts[1], 10);
+    return MESES_ORDENADOS[month - 1] || "";
+  }
+  return "";
+};
+
 interface DialogNovoIfoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,6 +71,8 @@ export function DialogNovoIfo({
     natureza: "",
     process: proad || "",
     contratos: [],
+    strategicObjective: "",
+    quantity: "",
   });
   
   // Combobox lists
@@ -143,6 +167,10 @@ export function DialogNovoIfo({
         cadastrosUnidadesId: undefined,
         process: proad || "",
         contratos: [],
+        strategicObjective: "",
+        isSustainable: null,
+        isSharedAcquisition: null,
+        quantity: "",
       });
       setDisplayValue("");
     } catch (err) {
@@ -167,6 +195,43 @@ export function DialogNovoIfo({
 
         <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto px-2">
           
+          {/* Linha 1 - Tipo e Data Estimada */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Tipo de Contrato</Label>
+              <Select
+                value={formData.contractType || undefined}
+                onValueChange={(v) => handleChange("contractType", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NOVA_CONTRATACAO">Nova Contratação</SelectItem>
+                  <SelectItem value="RENOVACAO">Renovação</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Data Estimada</Label>
+              <Select
+                value={getMesFromIsoDate(formData.estimatedDate) || undefined}
+                onValueChange={(v) => handleChange("estimatedDate", getIsoDateFromMes(v, ano))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MESES_ORDENADOS.map((mes) => (
+                    <SelectItem key={mes} value={mes}>
+                      {mes}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Diretoria</Label>
@@ -232,6 +297,54 @@ export function DialogNovoIfo({
               placeholder="ex.: Solução de observabilidade"
               value={formData.objeto || ""}
               onChange={(e) => handleChange("objeto", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Indicação do Objetivo Estratégico TJGO</Label>
+            <Textarea
+              placeholder="Descreva o objetivo estratégico"
+              rows={2}
+              value={formData.strategicObjective || ""}
+              onChange={(e) => handleChange("strategicObjective", e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Alinhado às diretrizes de sustentabilidade (PLS)?</Label>
+              <Select
+                value={formData.isSustainable === true ? "true" : formData.isSustainable === false ? "false" : undefined}
+                onValueChange={(v) => handleChange("isSustainable", v === "true")}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Sim</SelectItem>
+                  <SelectItem value="false">Não</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Indicada compra compartilhada?</Label>
+              <Select
+                value={formData.isSharedAcquisition === true ? "true" : formData.isSharedAcquisition === false ? "false" : undefined}
+                onValueChange={(v) => handleChange("isSharedAcquisition", v === "true")}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Sim</SelectItem>
+                  <SelectItem value="false">Não</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Quantidade</Label>
+            <Input
+              placeholder="ex.: 10 licenças"
+              value={formData.quantity || ""}
+              onChange={(e) => handleChange("quantity", e.target.value)}
             />
           </div>
 
