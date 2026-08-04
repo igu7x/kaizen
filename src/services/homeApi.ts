@@ -6,6 +6,10 @@ export interface HomePendencia {
   count: number;
   link: string;
   color?: string;
+  /** Grupo de exibição (ex.: "Pessoas", "Projetos", "Processos"). Campos novos, opcionais. */
+  categoria?: string;
+  /** Urgência (menor = mais urgente). Usada para ordenar dentro de cada categoria. */
+  prioridade?: number;
 }
 
 export interface HomeResumo {

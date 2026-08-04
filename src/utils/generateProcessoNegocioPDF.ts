@@ -6,6 +6,8 @@ import {
   getFluxograma,
   COMITES_APROVACAO,
   isK1,
+  isVigente,
+  dataVigencia,
   temDocumentoPrimario,
   aprovacaoDoComite,
 } from "../services/processosNegocioApi";
@@ -526,9 +528,11 @@ function drawCabecalhoInstitucional(
     { fontSize: 9 },
   );
 
-  // Linha 3: Data — rótulo muda conforme o estado (Proposta enquanto não homologado; Vigência
-  // quando vigente). Valor preenchido só após homologação (validado_final).
-  const emProposta = processo.status !== "validado_final";
+  // Linha 3: Data — rótulo muda conforme o estado (Proposta enquanto não vigente; Vigência quando
+  // vigente). "Vigente" = isVigente (K1 com TODOS os comitês aprovados, ou documento primário),
+  // NÃO apenas validado_final: a validação do Compliance Officer sozinha, antes da aprovação do
+  // comitê, não torna o documento vigente. Valor da data só aparece quando vigente.
+  const emProposta = !isVigente(processo);
   const yData = yMacro + rowH;
   drawTextCell(
     doc,
@@ -545,9 +549,11 @@ function drawCabecalhoInstitucional(
       align: "center",
     },
   );
-  const dataVersao = processo.validado_final_em
-    ? formatDate(processo.periodo) || formatDate(processo.validado_final_em)
-    : "Pendente de aprovação";
+  // Vigente: a Data da Vigência é a DATA DE APROVAÇÃO (comitê p/ TI, Compliance p/ judiciário),
+  // que substitui a Data da Versão. Em proposta: pendente.
+  const dataVersao = emProposta
+    ? "Pendente de aprovação"
+    : formatDate(dataVigencia(processo)) || "—";
   drawTextCell(
     doc,
     dataVersao,
@@ -635,21 +641,18 @@ function drawRodapeInstitucional(
   // 4 campos inline ("LABEL: valor") distribuídos com espaçamento uniforme ao longo da
   // largura útil. Label em cinza, valor em negrito escuro, com um respiro entre eles.
 
-  // Fase de proposta = enquanto não finalizado (status ≠ validado_final). Neste PDF o
-  // formulário já corresponde ao Modelo K1, então:
-  //  - MODELO: sempre "K1" (mesmo antes da aprovação);
+  // Fase de proposta = enquanto NÃO vigente. "Vigente" = isVigente (K1 com todos os comitês
+  // aprovados, ou documento primário) — a validação do Compliance Officer isolada, antes da
+  // aprovação do comitê, ainda é proposta. Neste PDF o formulário já corresponde ao Modelo K1:
+  //  - MODELO: "K1" enquanto proposta ou K1 completo; "Doc. Primário" só num vigente por anexo PRI;
   //  - VERSÃO/REVISÃO: MESMA regra do cabeçalho — o número atual (3 dígitos) com sufixo
-  //    "(Proposta)" enquanto não homologado. Rodapé e cabeçalho exibem valores idênticos.
-  const isProposta = processo.status !== "validado_final";
+  //    "(Proposta)" enquanto não vigente. Rodapé e cabeçalho exibem valores idênticos.
+  const isProposta = !isVigente(processo);
   const sufixoProposta = isProposta ? " (Proposta)" : "";
   const versaoValue = pad3(processo.versao ?? "1") + sufixoProposta;
   const revisaoValue = pad3(processo.revisao ?? "0") + sufixoProposta;
-  const modeloLabel =
-    isProposta || isK1(processo)
-      ? "K1"
-      : temDocumentoPrimario(processo)
-        ? "Doc. Primário"
-        : "—";
+  // MODELO nunca exibe "K1" (regra institucional): só "Doc. Primário" quando há anexo primário.
+  const modeloLabel = temDocumentoPrimario(processo) ? "Doc. Primário" : "—";
 
   const GAP_LABEL_VALUE = 1.6; // respiro entre o label e o valor
   const footerFields = [
@@ -662,11 +665,10 @@ function drawRodapeInstitucional(
     { label: "REVISÃO:", value: revisaoValue },
     {
       label: isProposta ? "DATA DA PROPOSTA:" : "DATA DA VIGÊNCIA:",
-      // Mesma informação do cabeçalho: em proposta, "Pendente de aprovação"; vigente, a data da
-      // última aprovação (Data da Vigência).
+      // Vigente: a data de aprovação (comitê/Compliance) que substitui a Data da Versão.
       value: isProposta
         ? "Pendente de aprovação"
-        : formatDate(processo.periodo) || formatDate(processo.validado_final_em),
+        : formatDate(dataVigencia(processo)) || "—",
     },
   ].map((f) => {
     doc.setFontSize(8);
@@ -978,12 +980,11 @@ export function generateProcessoNegocioPDF(
   );
   y += revHeaderH;
 
-  // Enquanto em proposta (não homologado), a Próxima Revisão fica VAZIA; só aparece no documento
-  // vigente (após a validação final), calculada a partir da Data da Versão/Vigência.
-  const proximaRevisao =
-    processo.status === "validado_final" && processo.periodo
-      ? addOneYearToDate(processo.periodo)
-      : "";
+  // Enquanto em proposta (não vigente), a Próxima Revisão fica VAZIA; só aparece no documento
+  // vigente, calculada como 1 ano após a DATA DE APROVAÇÃO (comitê p/ TI, Compliance p/ judiciário).
+  const proximaRevisao = isVigente(processo)
+    ? addOneYearToDate(dataVigencia(processo))
+    : "";
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   const periodicidadeLines = doc.splitTextToSize(

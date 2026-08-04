@@ -763,7 +763,8 @@ export function EscritorioProjetos() {
     const projetoIdRaw = params.get("projetoId");
     const openTap = params.get("openTap") === "true";
     const openTep = params.get("openTep") === "true";
-    if (!projetoIdRaw || (!openTap && !openTep)) return;
+    const openDetalhes = params.get("detalhes") === "true";
+    if (!projetoIdRaw || (!openTap && !openTep && !openDetalhes)) return;
     const projetoId = Number(projetoIdRaw);
     if (!Number.isFinite(projetoId)) return;
 
@@ -778,10 +779,13 @@ export function EscritorioProjetos() {
         } else if (openTep) {
           setTepDialogProjeto(projeto);
           setTepDialogOpen(true);
+        } else if (openDetalhes) {
+          // Pendência "projeto atrasado": abre o detalhe do projeto (gerenciar entregas/prazos).
+          setProjetoDetalhes(projeto);
         }
         // Limpa os params da URL pra não re-disparar em re-renders/navegação interna
         const url = new URL(window.location.href);
-        ["projetoId", "openTap", "openTep"].forEach((p) =>
+        ["projetoId", "openTap", "openTep", "detalhes"].forEach((p) =>
           url.searchParams.delete(p),
         );
         window.history.replaceState({}, "", url.toString());

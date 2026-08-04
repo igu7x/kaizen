@@ -33,9 +33,9 @@ import {
   normalizeResponsavel,
   aprovacaoDoComite,
   isVigente,
-  isK1,
   temDocumentoPrimario,
   proximaRevisao,
+  dataVigencia,
 } from "@/services/processosNegocioApi";
 import { areasApi } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -282,12 +282,10 @@ export default function ProcessoDetalhe() {
     className: "bg-slate-100 text-slate-700 ring-slate-200",
   };
   const vigente = isVigente(processo);
-  const modelo = isK1(processo)
-    ? "Modelo K1"
-    : temDocumentoPrimario(processo)
-      ? "Doc. Primário"
-      : "Em construção";
+  // MODELO não exibe mais "K1" (regra institucional).
+  const modelo = temDocumentoPrimario(processo) ? "Doc. Primário" : "Documento";
   const revisao = proximaRevisao(processo);
+  const vigenciaData = dataVigencia(processo);
 
   return (
     <Layout>
@@ -340,8 +338,12 @@ export default function ProcessoDetalhe() {
             <MiniStat label="Área" value={processo.diretoria || "—"} />
             <MiniStat label="Versão" value={processo.versao || "—"} />
             <MiniStat
-              label="Data da versão"
-              value={formatData(processo.periodo || processo.updated_at)}
+              label={vigente ? "Data da vigência" : "Data da versão"}
+              value={
+                vigente
+                  ? formatData(vigenciaData || processo.periodo)
+                  : formatData(processo.periodo)
+              }
             />
             <MiniStat
               label="Próxima revisão"
