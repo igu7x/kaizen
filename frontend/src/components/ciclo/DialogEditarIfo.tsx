@@ -25,6 +25,28 @@ import { toast } from "sonner";
 import { ifoApi, type Ifo, type AtualizarIfoRequest } from "@/services/dfdApi";
 import { areasApi, type Area, type Unidade } from "@/services/areasApi";
 
+const MESES_ORDENADOS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+const getIsoDateFromMes = (mes: string, ano: number): string => {
+  const index = MESES_ORDENADOS.indexOf(mes);
+  if (index === -1) return "";
+  const monthStr = String(index + 1).padStart(2, "0");
+  return `${ano}-${monthStr}-01`;
+};
+
+const getMesFromIsoDate = (isoDate: string | null | undefined): string => {
+  if (!isoDate) return "";
+  const parts = isoDate.split("-");
+  if (parts.length >= 2) {
+    const month = parseInt(parts[1], 10);
+    return MESES_ORDENADOS[month - 1] || "";
+  }
+  return "";
+};
+
 interface DialogEditarIfoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,6 +92,10 @@ export function DialogEditarIfo({
 
         priority: ifo.priority,
         estimatedDate: ifo.estimatedDate,
+        strategicObjective: ifo.strategicObjective,
+        isSustainable: ifo.isSustainable,
+        isSharedAcquisition: ifo.isSharedAcquisition,
+        quantity: ifo.quantity,
       });
 
       const numValue = ifo.valorEstimado || 0;
@@ -106,6 +132,18 @@ export function DialogEditarIfo({
     }).format(numValue));
     
     handleChange("valorEstimado", numValue);
+  };
+
+  const formatValueBRL = (cents: number | null | undefined) => {
+    if (cents == null) return "R$ 0,00";
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+  };
+
+  const handleCurrencyChangeFormalized = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value.replace(/\D/g, "");
+    if (!raw) raw = "0";
+    const numValue = parseInt(raw, 10);
+    handleChange("formalizedValueCents", numValue);
   };
 
   const handleSave = async () => {
@@ -147,12 +185,52 @@ export function DialogEditarIfo({
           <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mx-2 flex gap-2 items-start text-amber-800 text-sm">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <p>
-              Para IFOs do bloco <strong>{ifo.bloco}</strong>, apenas o <strong>Valor Estimado</strong> pode ser modificado.
+              Para IFOs do bloco <strong>{ifo.bloco}</strong>, apenas <strong>Valor Estimado, Tipo de Recurso, Grau de Prioridade, Sustentabilidade, Compra Compartilhada e Quantidade</strong> podem ser modificados.
             </p>
           </div>
         )}
 
         <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto px-2">
+          {/* Linha 1 - Tipo e Data Estimada */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Tipo de Contrato</Label>
+              <Select
+                value={formData.contractType || undefined}
+                disabled={isRestrictedBlock}
+                onValueChange={(v) => handleChange("contractType", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NOVA_CONTRATACAO">Nova Contratação</SelectItem>
+                  <SelectItem value="RENOVACAO">Renovação</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Data Estimada</Label>
+              <Select
+                value={getMesFromIsoDate(formData.estimatedDate) || undefined}
+                disabled={isRestrictedBlock}
+                onValueChange={(v) => handleChange("estimatedDate", getIsoDateFromMes(v, ifo.ano))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MESES_ORDENADOS.map((mes) => (
+                    <SelectItem key={mes} value={mes}>
+                      {mes}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Linha 2 - Diretoria e Área Demandante */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Diretoria</Label>
@@ -198,6 +276,7 @@ export function DialogEditarIfo({
             </div>
           </div>
 
+          {/* Linha 3 - Objeto */}
           <div className="space-y-2">
             <Label>Objeto da Contratação <span className="text-red-500">*</span></Label>
             <Textarea
@@ -209,15 +288,111 @@ export function DialogEditarIfo({
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>Indicação do Objetivo Estratégico TJGO</Label>
+            <Textarea
+              placeholder="Descreva o objetivo estratégico"
+              rows={2}
+              value={formData.strategicObjective || ""}
+              onChange={(e) => handleChange("strategicObjective", e.target.value)}
+              disabled={isRestrictedBlock}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Valor Estimado {ifo.contratos && ifo.contratos.length > 0 && <span className="text-xs text-slate-400 font-normal ml-1">(Derivado dos contratos)</span>}</Label>
-              <Input
-                placeholder="R$ 0,00"
-                value={displayValue}
-                onChange={handleCurrencyChange}
-                disabled={ifo.contratos && ifo.contratos.length > 0}
-              />
+              <Label className="text-xs">Alinhado às diretrizes de sustentabilidade (PLS)?</Label>
+              <Select
+                value={formData.isSustainable === true ? "true" : formData.isSustainable === false ? "false" : undefined}
+                onValueChange={(v) => handleChange("isSustainable", v === "true")}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Sim</SelectItem>
+                  <SelectItem value="false">Não</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Indicada compra compartilhada?</Label>
+              <Select
+                value={formData.isSharedAcquisition === true ? "true" : formData.isSharedAcquisition === false ? "false" : undefined}
+                onValueChange={(v) => handleChange("isSharedAcquisition", v === "true")}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Sim</SelectItem>
+                  <SelectItem value="false">Não</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Quantidade</Label>
+            <Input
+              placeholder="ex.: 10 licenças"
+              value={formData.quantity || ""}
+              onChange={(e) => handleChange("quantity", e.target.value)}
+            />
+          </div>
+
+          {/* Linha 4 - Demanda da Unidade */}
+          <div className="space-y-2">
+            <Label>Demanda da Unidade</Label>
+            <Textarea
+              placeholder="Descrição da demanda da unidade"
+              value={formData.description || ""}
+              onChange={(e) => handleChange("description", e.target.value)}
+              disabled={isRestrictedBlock}
+              className="resize-none h-20"
+            />
+          </div>
+
+          {/* Linha 5 - Justificativa */}
+          <div className="space-y-2">
+            <Label>Justificativa</Label>
+            <Textarea
+              placeholder="Descreva a justificativa..."
+              value={formData.justification || ""}
+              disabled={isRestrictedBlock}
+              onChange={(e) => handleChange("justification", e.target.value)}
+              className="resize-none h-20"
+            />
+          </div>
+
+          {/* Linha 6 - 3 colunas */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Tipo de Recurso</Label>
+              <Select
+                value={formData.financialResourceType || undefined}
+                onValueChange={(v) => handleChange("financialResourceType", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Investimento">Investimento</SelectItem>
+                  <SelectItem value="Custeio">Custeio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Grau de Prioridade</Label>
+              <Select
+                value={formData.priority || undefined}
+                onValueChange={(v) => handleChange("priority", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Alto">Alto</SelectItem>
+                  <SelectItem value="Médio">Médio</SelectItem>
+                  <SelectItem value="Baixo">Baixo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Natureza</Label>
@@ -236,7 +411,38 @@ export function DialogEditarIfo({
               </Select>
             </div>
           </div>
+
+          {/* Linha 7 - 2 colunas */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Valor Estimado (R$) {ifo.contratos && ifo.contratos.length > 0 && <span className="text-xs text-slate-400 font-normal ml-1">(Derivado dos contratos)</span>}</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                <Input
+                  className="pl-9"
+                  placeholder="0,00"
+                  value={displayValue ? displayValue.replace("R$", "").trim() : ""}
+                  onChange={handleCurrencyChange}
+                  disabled={ifo.contratos && ifo.contratos.length > 0}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor {ifo.ano} (R$)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                <Input
+                  className="pl-9"
+                  placeholder="0,00"
+                  value={formData.formalizedValueCents ? formatValueBRL(formData.formalizedValueCents).replace("R$", "").trim() : ""}
+                  onChange={handleCurrencyChangeFormalized}
+                  disabled={isRestrictedBlock}
+                />
+              </div>
+            </div>
+          </div>
           
+          {/* Linha 8 - PROAD */}
           <div className="space-y-2">
             <Label>Processo Administrativo (PROAD)</Label>
             <Input
@@ -244,17 +450,6 @@ export function DialogEditarIfo({
               value={formData.process || ""}
               disabled={isRestrictedBlock}
               onChange={(e) => handleChange("process", e.target.value)}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Justificativa</Label>
-            <Textarea
-              placeholder="Descreva a justificativa..."
-              value={formData.justification || ""}
-              disabled={isRestrictedBlock}
-              onChange={(e) => handleChange("justification", e.target.value)}
-              className="resize-none h-20"
             />
           </div>
 
