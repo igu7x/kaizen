@@ -122,6 +122,69 @@ public class AvaliacoesNotificacoes {
         }
     }
 
+    /** Integrada validada pelo colaborador (camada 2, final) → avisa o avaliador que foi concluída. */
+    public void aoIntegradaConcluida(Map<String, Object> integrada) {
+        try {
+            long id = idDe(integrada);
+            Long avaliador = asLong(integrada.get("avaliador_user_id"));
+            if (avaliador != null) {
+                notificador.notificar(avaliador, "integrada_concluida", id,
+                        integrada.get("validado_colaborador_em"),
+                        "Avaliação integrada concluída",
+                        "A avaliação integrada foi validada pelo colaborador e está concluída.",
+                        build(LINK, params("integradaId", id, "tipo", tipo(integrada))));
+            }
+        } catch (Exception e) {
+            log.warn("[notif-avaliacao] integrada concluida: {}", e.getMessage());
+        }
+    }
+
+    // ── Cascatas de catálogo (propagação técnica / publicação do padrão): cada form devolvido
+    //    para "atualização requisitada" avisa o seu dono. Recebem a linha do próprio form afetado
+    //    (id + coluna do dono + updated_at), obtida via RETURNING no UPDATE da cascata. ──
+
+    public void atualizacaoAutoavaliacao(Map<String, Object> r) {
+        try {
+            Long uid = asLong(r.get("user_id"));
+            if (uid != null) {
+                notificador.notificar(uid, "autoavaliacao_atualizacao", asLong(r.get("id")), r.get("updated_at"),
+                        "Autoavaliação precisa ser atualizada",
+                        "Sua autoavaliação precisa ser atualizada e reenviada — o catálogo de competências foi atualizado.",
+                        build(LINK, params("autoavaliacaoId", r.get("id"))));
+            }
+        } catch (Exception e) {
+            log.warn("[notif-avaliacao] atualizacao autoavaliacao: {}", e.getMessage());
+        }
+    }
+
+    public void atualizacaoAvaliacaoGestor(Map<String, Object> r) {
+        try {
+            Long uid = asLong(r.get("avaliador_user_id"));
+            if (uid != null) {
+                notificador.notificar(uid, "avaliacao_gestor_atualizacao", asLong(r.get("id")), r.get("updated_at"),
+                        "Avaliação do gestor precisa ser atualizada",
+                        "Sua avaliação do gestor precisa ser atualizada e reenviada — o catálogo de competências foi atualizado.",
+                        build(LINK, params("avgestorId", r.get("id"))));
+            }
+        } catch (Exception e) {
+            log.warn("[notif-avaliacao] atualizacao avaliacao gestor: {}", e.getMessage());
+        }
+    }
+
+    public void atualizacaoIntegrada(Map<String, Object> r) {
+        try {
+            Long uid = asLong(r.get("avaliador_user_id"));
+            if (uid != null) {
+                notificador.notificar(uid, "integrada_atualizacao", asLong(r.get("id")), r.get("updated_at"),
+                        "Avaliação integrada precisa ser atualizada",
+                        "A avaliação integrada precisa ser atualizada e reenviada — o catálogo de competências foi atualizado.",
+                        build(LINK, params("integradaId", r.get("id"), "tipo", tipo(r))));
+            }
+        } catch (Exception e) {
+            log.warn("[notif-avaliacao] atualizacao integrada: {}", e.getMessage());
+        }
+    }
+
     // ── helpers ──
 
     private static String tipo(Map<String, Object> integrada) {

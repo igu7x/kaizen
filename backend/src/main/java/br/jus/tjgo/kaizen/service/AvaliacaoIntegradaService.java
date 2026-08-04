@@ -436,6 +436,9 @@ public class AvaliacaoIntegradaService {
             }
         }
 
+        if (formularioCompleto != null) {
+            avaliacoesNotificacoes.aoIntegradaConcluida(formularioCompleto);
+        }
         return formularioCompleto;
     }
 

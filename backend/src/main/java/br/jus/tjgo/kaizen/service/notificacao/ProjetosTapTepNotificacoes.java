@@ -66,6 +66,14 @@ public class ProjetosTapTepNotificacoes {
                             "O TAP do projeto \"" + nome(p) + "\" foi validado pelo diretor e aguarda sua validação como patrocinador.",
                             linkTap(projetoId));
                 }
+            } else if (camada == 3) {
+                Long gestor = asLong(p.get("gestor_id"));
+                if (gestor != null) {
+                    notificar(gestor, "tap_aprovado", projetoId, p.get("tap_validado_patrocinador_em"),
+                            "TAP aprovado — vigente",
+                            "O TAP do projeto \"" + nome(p) + "\" foi validado em todas as camadas e está vigente.",
+                            linkTap(projetoId));
+                }
             }
         } catch (Exception e) {
             log.warn("[notif-tap] validar camada {}: {}", camada, e.getMessage());
@@ -129,6 +137,14 @@ public class ProjetosTapTepNotificacoes {
                             "O TEP do projeto \"" + nome(t) + "\" foi validado pelo diretor e aguarda sua validação como patrocinador.",
                             linkTep(projetoId));
                 }
+            } else if (camada == 3) {
+                Long gestor = asLong(t.get("gestor_id"));
+                if (gestor != null) {
+                    notificar(gestor, "tep_aprovado", projetoId, t.get("tep_validado_patrocinador_em"),
+                            "TEP aprovado — vigente",
+                            "O TEP do projeto \"" + nome(t) + "\" foi validado em todas as camadas e está vigente.",
+                            linkTep(projetoId));
+                }
             }
         } catch (Exception e) {
             log.warn("[notif-tep] validar camada {}: {}", camada, e.getMessage());
@@ -162,8 +178,8 @@ public class ProjetosTapTepNotificacoes {
     private Map<String, Object> projeto(long projetoId) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT id, nome, diretoria, gestor_id, patrocinador_id, tap_gerado_em, " +
-                        "tap_validado_gestor_em, tap_validado_diretor_em, tap_recusado_em, " +
-                        "tap_recusado_comentario, tap_recusado_camada " +
+                        "tap_validado_gestor_em, tap_validado_diretor_em, tap_validado_patrocinador_em, " +
+                        "tap_recusado_em, tap_recusado_comentario, tap_recusado_camada " +
                         "FROM cadastros_projetos WHERE id = ?", projetoId);
         return rows.isEmpty() ? null : rows.get(0);
     }
@@ -172,7 +188,7 @@ public class ProjetosTapTepNotificacoes {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT p.id, p.nome, p.diretoria, p.gestor_id, p.patrocinador_id, " +
                         "t.finalizado_em, t.tep_validado_gestor_em, t.tep_validado_diretor_em, " +
-                        "t.tep_recusado_em, t.tep_recusado_comentario, t.tep_recusado_camada " +
+                        "t.tep_validado_patrocinador_em, t.tep_recusado_em, t.tep_recusado_comentario, t.tep_recusado_camada " +
                         "FROM cadastros_projetos p JOIN tep_termos_encerramento t ON t.projeto_id = p.id " +
                         "WHERE p.id = ?", projetoId);
         return rows.isEmpty() ? null : rows.get(0);

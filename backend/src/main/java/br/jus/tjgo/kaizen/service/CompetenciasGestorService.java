@@ -331,6 +331,8 @@ public class CompetenciasGestorService {
                             "  status = 'validado_autor', validado_por_autor_id = ?, validado_por_autor_nome = ?, validado_por_autor_em = NOW() " +
                             "WHERE id = ?",
                     userId, nomeGestor, id);
+            // Auto-validou a camada 1 (gestor editou form do subdiretor) → avisa a diretoria, igual validarAutor.
+            matrizNotificacoes.aoValidarAutor(findById(id));
         }
 
         List<Map<String, Object>> oldItens = jdbc.queryForList(
@@ -764,6 +766,9 @@ public class CompetenciasGestorService {
             log.error("[validarFinal] Erro ao limpar flag de padrões: {}", err.getMessage());
         }
 
+        if (formularioCompleto != null) {
+            matrizNotificacoes.aoValidarFinal(formularioCompleto);
+        }
         return formularioCompleto;
     }
 

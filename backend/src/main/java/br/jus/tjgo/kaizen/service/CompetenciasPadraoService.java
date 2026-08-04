@@ -27,6 +27,7 @@ public class CompetenciasPadraoService {
     private static final List<String> TIPOS = List.of("comportamental", "estrategica", "gerencial");
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.AvaliacoesNotificacoes avaliacoesNotificacoes;
     private final ObjectMapper objectMapper;
 
     /** Buscar todas as competências padrão ativas, agrupadas por tipo. */
@@ -250,8 +251,8 @@ public class CompetenciasPadraoService {
         if (!tiposAfetados.isEmpty()) {
             String tiposArr = textArray(tiposAfetados);
 
-            // 1) Autoavaliação do colaborador é marcada primeiro.
-            formulariosAfetados += jdbc.update(
+            // 1) Autoavaliação do colaborador é marcada primeiro. RETURNING para notificar cada dono.
+            List<Map<String, Object>> auto = jdbc.queryForList(
                     "UPDATE autoavaliacao_formularios f " +
                             "SET status = 'atualizacao_requisitada', updated_at = NOW() " +
                             "WHERE f.is_deleted = FALSE " +
@@ -260,11 +261,12 @@ public class CompetenciasPadraoService {
                             "  AND EXISTS ( " +
                             "    SELECT 1 FROM autoavaliacao_respostas r " +
                             "    WHERE r.formulario_id = f.id AND r.tipo = ANY(?::text[]) " +
-                            "  )",
+                            "  ) " +
+                            "RETURNING f.id, f.user_id, f.updated_at",
                     newVersion, tiposArr);
 
             // 2) Avaliação do gestor — só marca se NÃO houver autoavaliação vinculada que ainda precisa atualizar.
-            formulariosAfetados += jdbc.update(
+            List<Map<String, Object>> gestor = jdbc.queryForList(
                     "UPDATE avaliacao_gestor_formularios g " +
                             "SET status = 'atualizacao_requisitada', updated_at = NOW() " +
                             "WHERE g.is_deleted = FALSE " +
@@ -279,11 +281,12 @@ public class CompetenciasPadraoService {
                             "    WHERE a.id = g.pessoa_id " +
                             "      AND a.is_deleted = FALSE " +
                             "      AND COALESCE(a.competencias_versao, 1) < ? " +
-                            "  )",
+                            "  ) " +
+                            "RETURNING g.id, g.avaliador_user_id, g.updated_at",
                     newVersion, tiposArr, newVersion);
 
             // 3) Avaliação integrada — só marca se NÃO houver avaliação_gestor vinculada que ainda precisa atualizar.
-            formulariosAfetados += jdbc.update(
+            List<Map<String, Object>> integrada = jdbc.queryForList(
                     "UPDATE avaliacao_integrada_formularios i " +
                             "SET status = 'atualizacao_requisitada', updated_at = NOW() " +
                             "WHERE i.is_deleted = FALSE " +
@@ -298,8 +301,14 @@ public class CompetenciasPadraoService {
                             "    WHERE g.id = i.avaliacao_gestor_id " +
                             "      AND g.is_deleted = FALSE " +
                             "      AND COALESCE(g.competencias_versao, 1) < ? " +
-                            "  )",
+                            "  ) " +
+                            "RETURNING i.id, i.avaliador_user_id, i.tipo_inventario, i.updated_at",
                     newVersion, tiposArr, newVersion);
+
+            formulariosAfetados += auto.size() + gestor.size() + integrada.size();
+            auto.forEach(avaliacoesNotificacoes::atualizacaoAutoavaliacao);
+            gestor.forEach(avaliacoesNotificacoes::atualizacaoAvaliacaoGestor);
+            integrada.forEach(avaliacoesNotificacoes::atualizacaoIntegrada);
         }
 
         Map<String, Object> out = new LinkedHashMap<>();

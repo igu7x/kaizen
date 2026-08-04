@@ -57,6 +57,21 @@ public class CompetenciasMatrizNotificacoes {
         }
     }
 
+    /** Validação final concluída → avisa o autor que a matriz foi aprovada (confirmação). */
+    public void aoValidarFinal(Map<String, Object> f) {
+        try {
+            Long autor = asLong(f.get("user_id"));
+            if (autor != null) {
+                notificador.notificar(autor, "matriz_aprovada", idDe(f), f.get("validado_final_em"),
+                        "Matriz de competências aprovada",
+                        "Sua matriz de competências foi validada em todas as camadas e está aprovada.",
+                        link(f));
+            }
+        } catch (Exception e) {
+            log.warn("[notif-matriz] validar-final: {}", e.getMessage());
+        }
+    }
+
     /** Recusada (diretoria ou final) → devolve ao autor para ajuste. */
     public void aoRecusar(Map<String, Object> f) {
         try {
