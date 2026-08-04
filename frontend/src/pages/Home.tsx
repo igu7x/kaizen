@@ -19,7 +19,7 @@ import {
   FilePlus,
   BookOpen,
 } from "lucide-react";
-import { homeApi, HomeResumo } from "@/services/homeApi";
+import { homeApi, HomeResumo, HomePendencia } from "@/services/homeApi";
 import { usePermissoes } from "@/hooks/usePermissoes";
 
 const SIMBOLO = "/logo%20kaizen%20desenho.png";
@@ -135,6 +135,45 @@ const MODULOS: Modulo[] = [
   { key: "pca", label: "Plano de Contratações", desc: "PCA 2026 e as contratações do ciclo.", link: "/pca", permissaoCodigo: "contratacoes_novas", icon: FilePlus },
   { key: "competencias", label: "Gestão por Competências", desc: "Matriz, autoavaliação e avaliação.", link: "/pessoas/competencias", permissaoCodigo: "pessoas_competencias", icon: BookOpen },
 ];
+
+// Ordem preferida das categorias na fila; categorias novas (desconhecidas) caem no fim,
+// automaticamente — a fila acompanha novos domínios sem alteração aqui.
+const CATEGORIA_ORDER = ["Pessoas", "Projetos", "Processos"];
+
+// Cor do marcador por severidade (espelha as cores emitidas pelo backend).
+const COLOR_DOT: Record<string, string> = {
+  red: "#DC2626",
+  orange: "#C2410C",
+  amber: "#D9840D",
+  blue: "#1478B4",
+  emerald: "#0E9F6E",
+  slate: "#64748B",
+};
+const dotColor = (c?: string) => COLOR_DOT[c || "slate"] || COLOR_DOT.slate;
+
+interface GrupoPendencias {
+  categoria: string;
+  itens: HomePendencia[];
+}
+function agruparPendencias(pendencias: HomePendencia[]): GrupoPendencias[] {
+  const mapa = new Map<string, HomePendencia[]>();
+  for (const p of pendencias) {
+    const cat = p.categoria || "Geral";
+    const arr = mapa.get(cat) ?? [];
+    arr.push(p);
+    mapa.set(cat, arr);
+  }
+  for (const itens of mapa.values()) {
+    itens.sort((a, b) => (a.prioridade ?? 999) - (b.prioridade ?? 999));
+  }
+  const ordemCat = (c: string) => {
+    const i = CATEGORIA_ORDER.indexOf(c);
+    return i === -1 ? 999 : i;
+  };
+  return Array.from(mapa.keys())
+    .sort((a, b) => ordemCat(a) - ordemCat(b) || a.localeCompare(b))
+    .map((categoria) => ({ categoria, itens: mapa.get(categoria)! }));
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -310,6 +349,7 @@ export default function Home() {
   const pendencias = resumo ? resumo.pendencias.filter((p) => p.count > 0) : [];
   const emDia = pendencias.length === 0;
   const totalPend = pendencias.reduce((s, p) => s + p.count, 0);
+  const grupos = agruparPendencias(pendencias);
   const proj = resumo?.projetos ?? { total: 0, no_prazo: 0, em_atraso: 0 };
   const visiveis = MODULOS.filter((m) => podeAcessar(m.permissaoCodigo));
 
@@ -420,24 +460,38 @@ export default function Home() {
                 </p>
               </div>
             ) : (
-              <ul className="mx-auto mb-20 max-w-lg border-t border-[var(--line)] text-left">
-                {pendencias.map((p, i) => (
-                  <li key={i}>
-                    <button
-                      onClick={() => navigate(p.link)}
-                      className="kz-row group flex w-full items-center gap-4 border-b border-[var(--line)] px-3 py-4 text-left"
-                    >
-                      <span className="kz-word w-9 shrink-0 text-xl font-bold tabular-nums text-[var(--navy)]">
-                        {p.count}
-                      </span>
-                      <span className="kz-rl flex-1 text-[15px] text-[var(--ink)]">
-                        {p.label}
-                      </span>
-                      <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
-                    </button>
-                  </li>
+              <div className="mx-auto mb-20 max-w-lg text-left">
+                {grupos.map((g) => (
+                  <div key={g.categoria} className="mb-9 last:mb-0">
+                    <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--g3)]">
+                      {g.categoria}
+                    </p>
+                    <ul className="border-t border-[var(--line)]">
+                      {g.itens.map((p) => (
+                        <li key={p.tipo}>
+                          <button
+                            onClick={() => navigate(p.link)}
+                            className="kz-row group flex w-full items-center gap-3.5 border-b border-[var(--line)] px-3 py-4 text-left"
+                          >
+                            <span className="kz-word w-9 shrink-0 text-xl font-bold tabular-nums text-[var(--navy)]">
+                              {p.count}
+                            </span>
+                            <span className="kz-rl flex-1 text-[15px] leading-snug text-[var(--ink)]">
+                              {p.label}
+                            </span>
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ background: dotColor(p.color) }}
+                              aria-hidden
+                            />
+                            <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
 
             {/* Módulos — lista editorial centralizada, sem cards */}
