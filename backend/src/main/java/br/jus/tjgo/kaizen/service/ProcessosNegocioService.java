@@ -37,6 +37,7 @@ public class ProcessosNegocioService {
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final br.jus.tjgo.kaizen.service.notificacao.ProcessosNegocioNotificacoes notificacoes;
 
     /**
      * Listagem para o Escritório de Processos. A tela só precisa dos metadados (nome, status,
@@ -543,7 +544,11 @@ public class ProcessosNegocioService {
                         "WHERE id = ? AND is_deleted = FALSE AND status IN ('em_elaboracao', 'recusado', 'validado_final') " +
                         "RETURNING *",
                 userId, userId, userName, id);
-        return rows.isEmpty() ? null : rows.get(0);
+        Map<String, Object> proc = rows.isEmpty() ? null : rows.get(0);
+        if (proc != null) {
+            notificacoes.aoEnviarParaValidacao(proc);
+        }
+        return proc;
     }
 
     /**
@@ -580,7 +585,11 @@ public class ProcessosNegocioService {
                         "WHERE id = ? AND is_deleted = FALSE AND status IN ('em_elaboracao', 'recusado') " +
                         "RETURNING *",
                 userId, userName, userId, id);
-        return rows.isEmpty() ? null : rows.get(0);
+        Map<String, Object> proc = rows.isEmpty() ? null : rows.get(0);
+        if (proc != null) {
+            notificacoes.aoConcluirEdicao(proc);
+        }
+        return proc;
     }
 
     /**
@@ -598,7 +607,7 @@ public class ProcessosNegocioService {
         editor.put("user_id", editorUserId);
         editor.put("nome", u.get("name"));
         editor.put("email", u.get("email"));
-        jdbc.update(
+        int n = jdbc.update(
                 "UPDATE processos_negocio " +
                         "SET editores = COALESCE(editores, '[]'::jsonb) || ?::jsonb, " +
                         "    updated_at = CURRENT_TIMESTAMP, updated_by = ? " +
@@ -606,7 +615,11 @@ public class ProcessosNegocioService {
                         "AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(editores, '[]'::jsonb)) e " +
                         "  WHERE (e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?)",
                 toJson(editor), byUserId, id, editorUserId);
-        return findById(id);
+        Map<String, Object> proc = findById(id);
+        if (n > 0 && proc != null) {
+            notificacoes.aoAtribuirEditor(proc, editorUserId);
+        }
+        return proc;
     }
 
     /** Remove um editor do processo. */
@@ -640,7 +653,11 @@ public class ProcessosNegocioService {
                         "WHERE id = ? AND is_deleted = FALSE AND status = 'validado_autor' " +
                         "RETURNING *",
                 userId, userName, userId, id);
-        return rows.isEmpty() ? null : rows.get(0);
+        Map<String, Object> proc = rows.isEmpty() ? null : rows.get(0);
+        if (proc != null) {
+            notificacoes.aoValidarDiretoria(proc);
+        }
+        return proc;
     }
 
     @Transactional
@@ -708,7 +725,9 @@ public class ProcessosNegocioService {
             log.warn("[processosNegocio] falha ao gravar snapshot histórico: {}", err.getMessage());
         }
 
-        return homologado != null ? homologado : processo;
+        Map<String, Object> resultado = homologado != null ? homologado : processo;
+        notificacoes.aoValidarFinal(resultado);
+        return resultado;
     }
 
     public List<Map<String, Object>> listVersoes(long id) {
@@ -765,7 +784,11 @@ public class ProcessosNegocioService {
                         "WHERE id = ? AND is_deleted = FALSE " +
                         "RETURNING *",
                 userId, userName, camada, motivo, userId, id);
-        return rows.isEmpty() ? null : rows.get(0);
+        Map<String, Object> proc = rows.isEmpty() ? null : rows.get(0);
+        if (proc != null) {
+            notificacoes.aoRecusar(proc, camada, motivo);
+        }
+        return proc;
     }
 
     public boolean delete(long id, long userId) {
