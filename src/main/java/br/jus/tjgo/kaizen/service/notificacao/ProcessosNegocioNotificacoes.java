@@ -70,12 +70,18 @@ public class ProcessosNegocioNotificacoes {
                             "WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(aprovacoes,'[]'::jsonb)) a " +
                             "WHERE a->>'comite' = req)) FROM processos_negocio WHERE id = ?",
                     Boolean.class, id);
-            if (Boolean.TRUE.equals(faltaAta)) {
-                for (Long uid : responsaveis(id)) {
+            for (Long uid : responsaveis(id)) {
+                if (Boolean.TRUE.equals(faltaAta)) {
                     notificador.notificar(uid, "processo_comite_ata", id,
                             proc.get("validado_final_em"),
                             "Processo homologado — anexe a ata do comitê",
                             "O processo \"" + nome + "\" foi homologado, mas ainda falta anexar a ata de um comitê exigido.",
+                            LINK + id);
+                } else {
+                    notificador.notificar(uid, "processo_homologado", id,
+                            proc.get("validado_final_em"),
+                            "Processo de negócio homologado",
+                            "O processo \"" + nome + "\" foi validado em todas as camadas e está homologado.",
                             LINK + id);
                 }
             }

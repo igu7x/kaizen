@@ -25,6 +25,7 @@ import java.util.Map;
 public class CompetenciasTecnicasAdminService {
 
     private final JdbcTemplate jdbc;
+    private final br.jus.tjgo.kaizen.service.notificacao.AvaliacoesNotificacoes avaliacoesNotificacoes;
     private final ObjectMapper objectMapper;
 
     public List<Map<String, Object>> findUnidadesGerenciaveis(long userId) {
@@ -327,18 +328,19 @@ public class CompetenciasTecnicasAdminService {
         Integer novaVersao = form.get("tecnicas_versao") != null ? ((Number) form.get("tecnicas_versao")).intValue() : null;
 
         if (unidadeId != null) {
-            // 1) Autoavaliação do colaborador é marcada primeiro.
-            formulariosAfetados += jdbc.update(
+            // 1) Autoavaliação do colaborador é marcada primeiro. RETURNING para notificar cada dono.
+            List<Map<String, Object>> auto = jdbc.queryForList(
                     "UPDATE autoavaliacao_formularios f " +
                             "SET status = 'atualizacao_requisitada', updated_at = NOW() " +
                             "WHERE f.is_deleted = FALSE " +
                             "  AND f.unidade_id = ? " +
                             "  AND f.status IN ('enviado', 'validado') " +
-                            "  AND COALESCE(f.tecnicas_versao, 1) < ?",
+                            "  AND COALESCE(f.tecnicas_versao, 1) < ? " +
+                            "RETURNING f.id, f.user_id, f.updated_at",
                     unidadeId, novaVersao);
 
             // 2) Avaliação do gestor — só marca se NÃO houver autoavaliação vinculada que ainda precisa atualizar.
-            formulariosAfetados += jdbc.update(
+            List<Map<String, Object>> gestor = jdbc.queryForList(
                     "UPDATE avaliacao_gestor_formularios g " +
                             "SET status = 'atualizacao_requisitada', updated_at = NOW() " +
                             "WHERE g.is_deleted = FALSE " +
@@ -350,11 +352,12 @@ public class CompetenciasTecnicasAdminService {
                             "    WHERE a.id = g.pessoa_id " +
                             "      AND a.is_deleted = FALSE " +
                             "      AND COALESCE(a.tecnicas_versao, 1) < ? " +
-                            "  )",
+                            "  ) " +
+                            "RETURNING g.id, g.avaliador_user_id, g.updated_at",
                     unidadeId, novaVersao, novaVersao);
 
             // 3) Avaliação integrada — só marca se NÃO houver avaliação_gestor vinculada que ainda precisa atualizar.
-            formulariosAfetados += jdbc.update(
+            List<Map<String, Object>> integrada = jdbc.queryForList(
                     "UPDATE avaliacao_integrada_formularios i " +
                             "SET status = 'atualizacao_requisitada', updated_at = NOW() " +
                             "WHERE i.is_deleted = FALSE " +
@@ -366,8 +369,14 @@ public class CompetenciasTecnicasAdminService {
                             "    WHERE g.id = i.avaliacao_gestor_id " +
                             "      AND g.is_deleted = FALSE " +
                             "      AND COALESCE(g.tecnicas_versao, 1) < ? " +
-                            "  )",
+                            "  ) " +
+                            "RETURNING i.id, i.avaliador_user_id, i.tipo_inventario, i.updated_at",
                     unidadeId, novaVersao, novaVersao);
+
+            formulariosAfetados += auto.size() + gestor.size() + integrada.size();
+            auto.forEach(avaliacoesNotificacoes::atualizacaoAutoavaliacao);
+            gestor.forEach(avaliacoesNotificacoes::atualizacaoAvaliacaoGestor);
+            integrada.forEach(avaliacoesNotificacoes::atualizacaoIntegrada);
         }
 
         jdbc.update(
