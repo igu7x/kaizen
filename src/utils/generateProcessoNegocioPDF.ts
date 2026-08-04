@@ -651,8 +651,9 @@ function drawRodapeInstitucional(
   const sufixoProposta = isProposta ? " (Proposta)" : "";
   const versaoValue = pad3(processo.versao ?? "1") + sufixoProposta;
   const revisaoValue = pad3(processo.revisao ?? "0") + sufixoProposta;
-  // MODELO nunca exibe "K1" (regra institucional): só "Doc. Primário" quando há anexo primário.
-  const modeloLabel = temDocumentoPrimario(processo) ? "Doc. Primário" : "—";
+  // MODELO fixo "K1" (independe de proposta/vigente, regra institucional); "Doc. Primário" só
+  // quando há anexo primário.
+  const modeloLabel = temDocumentoPrimario(processo) ? "Doc. Primário" : "K1";
 
   const GAP_LABEL_VALUE = 1.6; // respiro entre o label e o valor
   const footerFields = [

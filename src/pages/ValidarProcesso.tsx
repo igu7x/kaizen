@@ -13,6 +13,7 @@ import {
 import {
   processosNegocioApi,
   ProcessoNegocio,
+  dataVigencia,
 } from "@/services/processosNegocioApi";
 import { areasApi } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -159,7 +160,9 @@ export default function ValidarProcesso() {
               <Info rot="Versão" val={processo.versao || "—"} />
               <Info
                 rot="Data da versão"
-                val={formatData(processo.periodo || processo.updated_at)}
+                val={formatData(
+                  dataVigencia(processo) || processo.periodo || processo.updated_at,
+                )}
               />
             </dl>
           </div>

@@ -282,8 +282,7 @@ export default function ProcessoDetalhe() {
     className: "bg-slate-100 text-slate-700 ring-slate-200",
   };
   const vigente = isVigente(processo);
-  // MODELO não exibe mais "K1" (regra institucional).
-  const modelo = temDocumentoPrimario(processo) ? "Doc. Primário" : "Documento";
+  const modelo = temDocumentoPrimario(processo) ? "Doc. Primário" : "Modelo K1";
   const revisao = proximaRevisao(processo);
   const vigenciaData = dataVigencia(processo);
 
