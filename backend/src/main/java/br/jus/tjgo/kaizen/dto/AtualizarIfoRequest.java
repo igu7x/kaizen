@@ -11,6 +11,11 @@ public record AtualizarIfoRequest(
         Double valorEstimado,
         Boolean interesseRenovacao,
         
+        String strategicObjective,
+        Boolean isSustainable,
+        Boolean isSharedAcquisition,
+        String quantity,
+        
         String description,
         String justification,
         String process,
