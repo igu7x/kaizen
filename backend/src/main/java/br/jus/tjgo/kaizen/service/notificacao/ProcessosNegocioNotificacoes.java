@@ -20,7 +20,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ProcessosNegocioNotificacoes {
 
-    private static final String LINK = "/gestao-estrategica/processos/";
+    // Deep-link ?abrir=<id>: a lista abre o modal de visualização (com Validar/Enviar).
+    private static final String LINK = "/gestao-estrategica/processos?abrir=";
     private final JdbcTemplate jdbc;
     private final Notificador notificador;
 

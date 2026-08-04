@@ -47,7 +47,7 @@ public class ProjetosPendenciaProvider implements PendenciaProvider {
                 out.add(new Pendencia("projeto_atrasado",
                         n == 1 ? "1 projeto seu está com o prazo vencido"
                                 : n + " projetos seus estão com o prazo vencido",
-                        n, build(LINK_BASE, params("projetoId", rows.get(0).get("id"))), "red",
+                        n, build(LINK_BASE, params("projetoId", rows.get(0).get("id"), "detalhes", "true")), "red",
                         Pendencia.CAT_PROJETOS, Pendencia.PRIO_VENCIDO));
             }
         } catch (Exception e) {

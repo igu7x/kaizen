@@ -74,11 +74,14 @@ public class ProcessosNegocioPendenciaProvider implements PendenciaProvider {
                 new Object[]{uid});
 
         // 2) Editor CONCLUIU — devolvido ao Responsável para enviar à validação (o handoff que o
-        //    usuário descreveu: "editor terminou as alterações").
+        //    usuário descreveu: "editor terminou as alterações"). Exige editor ATRIBUÍDO — sem isso,
+        //    "edição concluída pelo editor" não faz sentido (e o edicao_concluida_em é sticky, sobra
+        //    de ciclos antigos em processos reabertos sem editor).
         add(out, "processo_responsavel_apos_edicao", Pendencia.PRIO_HANDOFF, "amber",
                 "1 processo com edição concluída aguardando seu envio à validação",
                 " processos com edição concluída aguardando seu envio à validação",
-                "pn.status = 'em_elaboracao' AND pn.edicao_concluida_em IS NOT NULL AND " + RESP,
+                "pn.status = 'em_elaboracao' AND pn.edicao_concluida_em IS NOT NULL " +
+                        "AND jsonb_array_length(COALESCE(pn.editores,'[]'::jsonb)) > 0 AND " + RESP,
                 new Object[]{uid, uid});
 
         // 3) Processo RECUSADO — devolvido ao Responsável para ajuste.
@@ -138,7 +141,9 @@ public class ProcessosNegocioPendenciaProvider implements PendenciaProvider {
             }
             int n = rows.size();
             String label = n == 1 ? singular : n + pluralSuffix;
-            String link = "/gestao-estrategica/processos/" + rows.get(0).get("id");
+            // Deep-link ?abrir=<id>: a lista abre o modal de visualização (com Validar/Enviar),
+            // não a tela de detalhe só-leitura.
+            String link = "/gestao-estrategica/processos?abrir=" + rows.get(0).get("id");
             out.add(new Pendencia(tipo, label, n, link, color, Pendencia.CAT_PROCESSOS, prioridade));
         } catch (Exception e) {
             log.warn("[home] {}: {}", tipo, e.getMessage());
