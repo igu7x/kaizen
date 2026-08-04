@@ -36,6 +36,8 @@ public class NotificacaoPendenciaListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void aoOcorrer(PendenciaNotificacaoEvent ev) {
         try {
+            log.info("[notif] evento recebido: tipo={} userId={} enabled={}",
+                    ev.tipo(), ev.userId(), emailService.isEnabled());
             // Desabilitado: não envia nem registra (assim, ao ligar, o histórico não é "reenviado").
             if (!emailService.isEnabled()) {
                 return;
@@ -44,10 +46,12 @@ public class NotificacaoPendenciaListener {
             List<Map<String, Object>> users = jdbc.queryForList(
                     "SELECT name, email FROM users WHERE id = ? AND is_deleted = FALSE", ev.userId());
             if (users.isEmpty()) {
+                log.info("[notif] destinatário userId={} não encontrado — ignorado", ev.userId());
                 return;
             }
             String email = str(users.get(0).get("email"));
             if (email == null || email.isBlank()) {
+                log.info("[notif] userId={} sem e-mail cadastrado — ignorado", ev.userId());
                 return;
             }
             String nome = str(users.get(0).get("name"));
@@ -66,8 +70,11 @@ public class NotificacaoPendenciaListener {
             String link = montarLink(ev.linkRelativo());
             String html = montarHtml(nome, ev.assunto(), ev.linhaPrincipal(), link);
             boolean ok = emailService.enviarHtml(email, ev.assunto(), html);
-            if (!ok) {
+            if (ok) {
+                log.info("[notif] e-mail ENVIADO: tipo={} -> {}", ev.tipo(), email);
+            } else {
                 // Falhou o envio: libera a assinatura para um retry futuro.
+                log.warn("[notif] envio FALHOU: tipo={} -> {} (veja o log [email] acima)", ev.tipo(), email);
                 jdbc.update("DELETE FROM notificacoes_pendencia WHERE user_id = ? AND assinatura = ?",
                         ev.userId(), assinatura);
             }

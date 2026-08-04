@@ -36,6 +36,14 @@ public class EmailService {
 
     /** Envia um e-mail HTML. Retorna true se realmente enviado. */
     public boolean enviarHtml(String para, String assunto, String html) {
+        return enviar(para, assunto, html, htmlParaTexto(html));
+    }
+
+    /**
+     * Envia e-mail multipart/alternative (texto puro + HTML). Ter a parte texto melhora a entrega
+     * (filtros de spam penalizam mensagens só-HTML). Retorna true se realmente enviado.
+     */
+    public boolean enviar(String para, String assunto, String html, String texto) {
         if (!enabled) {
             return false;
         }
@@ -50,18 +58,40 @@ public class EmailService {
         String from = (remetente != null && !remetente.isBlank()) ? remetente : smtpUser;
         try {
             MimeMessage msg = sender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(msg, false, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    msg, MimeMessageHelper.MULTIPART_MODE_MIXED, "UTF-8");
             if (from != null && !from.isBlank()) {
                 helper.setFrom(from);
+                helper.setReplyTo(from);
             }
             helper.setTo(para);
             helper.setSubject(assunto);
-            helper.setText(html, true);
+            // (texto, html) => cria multipart/alternative com as duas versões.
+            helper.setText(texto != null ? texto : htmlParaTexto(html), html);
             sender.send(msg);
             return true;
         } catch (Exception e) {
             log.warn("[email] falha ao enviar para {}: {}", para, e.getMessage());
             return false;
         }
+    }
+
+    /** Fallback simples: remove tags do HTML pra gerar uma versão texto legível. */
+    private static String htmlParaTexto(String html) {
+        if (html == null) {
+            return "";
+        }
+        return html
+                .replaceAll("(?is)<style.*?</style>", " ")
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</p>|</div>|</h[1-6]>", "\n")
+                .replaceAll("<[^>]+>", " ")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replaceAll("[ \\t]+", " ")
+                .replaceAll("\\n{3,}", "\n\n")
+                .trim();
     }
 }
