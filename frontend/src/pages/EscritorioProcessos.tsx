@@ -1795,10 +1795,10 @@ export default function EscritorioProcessos() {
                               <button
                                 type="button"
                                 onClick={(e) => handleAbrirModeloK1(e, p)}
-                                title="Abrir PDF da versão vigente"
+                                title="Abrir PDF do processo (Modelo K1)"
                                 className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors"
                               >
-                                Vigente
+                                Modelo K1
                               </button>
                             ) : docPri ? (
                               <button
