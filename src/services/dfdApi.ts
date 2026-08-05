@@ -97,6 +97,7 @@ export interface Ifo {
   process?: string | null;
   financialResourceType?: string | null;
   contractType?: string | null;
+  expenseNature?: string | null;
   formalizedValueCents?: number | null;
 
   priority?: string | null;
@@ -130,6 +131,7 @@ export interface CriarIfoRequest {
   process?: string | null;
   financialResourceType?: string | null;
   contractType?: string | null;
+  expenseNature?: string | null;
   formalizedValueCents?: number | null;
 
   priority?: string | null;
@@ -154,6 +156,7 @@ export interface AtualizarIfoRequest {
   process?: string | null;
   financialResourceType?: string | null;
   contractType?: string | null;
+  expenseNature?: string | null;
   formalizedValueCents?: number | null;
   idCadastrosAreas?: number | null;
   priority?: string | null;
