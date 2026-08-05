@@ -30,12 +30,7 @@ import {
 import { competenciasPadraoApi } from "@/services/competenciasPadraoApi";
 import { areasApi, Area } from "@/services/areasApi";
 
-const VALIDADORES_FINAIS = [
-  "gmpdmaciel@tjgo.jus.br",
-  "dcamaral@tjgo.jus.br",
-  "ifccupertino@tjgo.jus.br",
-  "jdnascimento@tjgo.jus.br",
-];
+const VALIDADORES_FINAIS = ["gmpdmaciel@tjgo.jus.br"];
 const isValidadorFinal = (email: string) =>
   VALIDADORES_FINAIS.some(
     (v) => v.toLowerCase() === email.toLowerCase().trim(),
