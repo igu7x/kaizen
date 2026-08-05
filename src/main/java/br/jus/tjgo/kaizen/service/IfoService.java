@@ -84,14 +84,14 @@ public class IfoService {
                 "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, objeto, " +
                         "cadastros_unidades_id, cadastros_areas_id, estado, valor_estimado_cents, interesse_renovacao, " +
                         "strategic_objective, is_sustainable, is_shared_acquisition, quantity, " +
-                        "description, justification, process, financial_resource_type, contract_type, " +
+                        "description, justification, process, financial_resource_type, contract_type, expense_nature, " +
                         "formalized_value_cents, priority, estimated_date, " +
                         "created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 codigo, req.ano(), req.cicloId(), req.bloco(), req.natureza(), req.objeto(),
                 req.cadastrosUnidadesId(), req.cadastrosAreasId(), cents, req.interesseRenovacao(),
                 req.strategicObjective(), req.isSustainable(), req.isSharedAcquisition(), req.quantity(),
-                req.description(), req.justification(), req.process(), req.financialResourceType(), req.contractType(),
+                req.description(), req.justification(), req.process(), req.financialResourceType(), req.contractType(), req.expenseNature(),
                 req.formalizedValueCents(), req.priority(), req.estimatedDate(),
                 userId, userId);
 
@@ -195,12 +195,12 @@ public class IfoService {
                 "UPDATE ifo SET bloco=?, natureza=?, objeto=?, cadastros_unidades_id=?, cadastros_areas_id=?, " +
                 "valor_estimado_cents=?, interesse_renovacao=?, strategic_objective=?, is_sustainable=?, is_shared_acquisition=?, quantity=?, " +
                 "description=?, justification=?, process=?, " +
-                "financial_resource_type=?, contract_type=?, formalized_value_cents=?, " +
+                "financial_resource_type=?, contract_type=?, expense_nature=?, formalized_value_cents=?, " +
                 "priority=?, estimated_date=?, updated_at=NOW(), updated_by=? WHERE id=?",
                 req.bloco(), req.natureza(), req.objeto(), req.cadastrosUnidadesId(), req.cadastrosAreasId(),
                 cents, req.interesseRenovacao(), req.strategicObjective(), req.isSustainable(), req.isSharedAcquisition(), req.quantity(),
                 req.description(), req.justification(), req.process(),
-                req.financialResourceType(), req.contractType(), req.formalizedValueCents(),
+                req.financialResourceType(), req.contractType(), req.expenseNature(), req.formalizedValueCents(),
                 req.priority(), req.estimatedDate(), userId, id
             );
         }
@@ -731,6 +731,7 @@ public class IfoService {
                 str(r.get("process")),
                 str(r.get("financial_resource_type")),
                 str(r.get("contract_type")),
+                str(r.get("expense_nature")),
                 asLong(r.get("formalized_value_cents")),
                 str(r.get("priority")),
                 r.get("estimated_date") != null ? ((java.sql.Date) r.get("estimated_date")).toLocalDate() : null,

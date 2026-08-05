@@ -19,5 +19,6 @@ public record CicloDto(
         String proadAtaComites,
         String proadProdutoFinal,
         String proadPublicacao,
-        String linkDou
+        String linkDou,
+        String arquivoPcaKey
 ) {}

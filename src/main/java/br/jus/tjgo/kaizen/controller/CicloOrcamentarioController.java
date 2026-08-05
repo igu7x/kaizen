@@ -64,6 +64,18 @@ public class CicloOrcamentarioController {
                 .body(pdfBytes);
     }
 
+    // GET /api/ciclo-orcamentario/formacao/{ano}/xlsx — gera planilha xlsx da proposta dfd
+    @GetMapping("/formacao/{ano:\\d+}/xlsx")
+    public ResponseEntity<byte[]> gerarXlsxPropostaDfd(@PathVariable int ano) {
+        byte[] xlsxBytes = service.gerarXlsxPropostaDfd(ano);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.valueOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "Proposta_DFD_TIC_" + ano + ".xlsx");
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(xlsxBytes);
+    }
+
     // POST /api/ciclo-orcamentario/revisao { ano } — obtém/abre a revisão ordinária vigente (RF-60)
     @PostMapping("/revisao")
     public CicloDto revisao(@RequestBody Map<String, Object> body,
@@ -145,12 +157,30 @@ public class CicloOrcamentarioController {
     }
 
     // POST /api/ciclo-orcamentario/:id/publicar — publicação pela DG (RF-41/75)
+    @PostMapping(value = "/{id:\\d+}/publicar", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @TagAcao("PCA_FOR_REMETER_DG")
+    public CicloDto publicarMultipart(@PathVariable long id,
+                             @RequestPart(value = "importacoes", required = false) String importacoesJson,
+                             @RequestPart(value = "arquivoPca", required = false) org.springframework.web.multipart.MultipartFile arquivoPca,
+                             @RequestHeader(value = "x-user-id", required = false) Long userId) {
+        java.util.List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes = null;
+        if (importacoesJson != null && !importacoesJson.isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                importacoes = mapper.readValue(importacoesJson, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            } catch (Exception e) {
+                throw new ApiException(400, "Formato inválido para importacoes");
+            }
+        }
+        return service.publicar(id, resolveUserId(userId), importacoes, arquivoPca);
+    }
+
     @PostMapping("/{id:\\d+}/publicar")
     @TagAcao("PCA_FOR_REMETER_DG")
     public CicloDto publicar(@PathVariable long id,
                              @RequestBody(required = false) java.util.List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes,
                              @RequestHeader(value = "x-user-id", required = false) Long userId) {
-        return service.publicar(id, resolveUserId(userId), importacoes);
+        return service.publicar(id, resolveUserId(userId), importacoes, null);
     }
 
     // PATCH /api/ciclo-orcamentario/:id/link { campo, valor }
