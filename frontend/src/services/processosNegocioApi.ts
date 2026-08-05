@@ -242,9 +242,10 @@ export function dataVigencia(p: ProcessoNegocio): string | null {
   return p.periodo ? p.periodo.substring(0, 10) : null;
 }
 
-/** Próxima revisão = data de aprovação (Data da Vigência) + 1 ano. Null se não vigente/ inválida. */
+/** Próxima revisão = "Data da Versão" + 1 ano. A Data da Versão é a data de vigência (aprovação)
+ * quando o processo é vigente; senão, o período informado. Null se não houver data-base válida. */
 export function proximaRevisao(p: ProcessoNegocio): Date | null {
-  const base = dataVigencia(p);
+  const base = dataVigencia(p) || p.periodo;
   if (!base) return null;
   const m = base.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return null;
