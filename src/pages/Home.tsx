@@ -386,19 +386,19 @@ export default function Home() {
             />
           </div>
 
-          {/* Saudação em destaque */}
-          <p className="kz-in-1 kz-word text-[clamp(1.4rem,3.6vw,2.15rem)] font-semibold tracking-tight text-[var(--ink)]">
+          {/* Wordmark — mesma fonte do header (em destaque, no topo) */}
+          <h1 className="kz-in-1 kz-word text-[clamp(2.8rem,8vw,6rem)] font-extrabold uppercase leading-[0.9] tracking-[0.01em] text-[var(--navy)]">
+            Kaizen
+          </h1>
+
+          {/* Saudação */}
+          <p className="kz-in-2 kz-word mt-3 text-[clamp(1.4rem,3.6vw,2.15rem)] font-semibold tracking-tight text-[var(--ink)]">
             {saudacao()},{" "}
             <span className="text-[var(--azure)]">{nome}</span>
           </p>
 
-          {/* Wordmark — mesma fonte do header */}
-          <h1 className="kz-in-2 kz-word mt-2 text-[clamp(2.8rem,8vw,6rem)] font-extrabold uppercase leading-[0.9] tracking-[0.01em] text-[var(--navy)]">
-            Kaizen
-          </h1>
-
-          <p className="kz-in-3 mt-4 max-w-lg text-balance text-base text-[var(--g2)] sm:text-lg">
-            Melhoria contínua da governança judiciária e tecnológica.
+          <p className="kz-in-3 mt-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-[var(--g2)] sm:text-sm">
+            Governança Judiciária e Tecnológica
           </p>
 
           {/* CTA em destaque + estado */}

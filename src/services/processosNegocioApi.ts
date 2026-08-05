@@ -326,12 +326,7 @@ export function isResponsavel(
 }
 
 /** E-mails autorizados à validação final (camada 3 / Compliance Officer). */
-export const COMPLIANCE_OFFICER_EMAILS = [
-  "gmpdmaciel@tjgo.jus.br",
-  "dcamaral@tjgo.jus.br",
-  "ifccupertino@tjgo.jus.br",
-  "jdnascimento@tjgo.jus.br",
-];
+export const COMPLIANCE_OFFICER_EMAILS = ["gmpdmaciel@tjgo.jus.br"];
 
 /** True quando o e-mail é de um Compliance Officer (validador final / camada 3). */
 export function isComplianceOfficerEmail(email?: string | null): boolean {

@@ -56,13 +56,8 @@ import {
 import { areasApi, Area } from "@/services/areasApi";
 import { generateCompetenciasPDF } from "@/utils/generateCompetenciasPDF";
 
-// Validadores finais (Camada 3) — apenas estes 2 são finais
-const VALIDADORES_FINAIS = [
-  "gmpdmaciel@tjgo.jus.br",
-  "dcamaral@tjgo.jus.br",
-  "ifccupertino@tjgo.jus.br",
-  "jdnascimento@tjgo.jus.br",
-];
+// Validador final (Camada 3 / Compliance Officer) — apenas gmpdmaciel.
+const VALIDADORES_FINAIS = ["gmpdmaciel@tjgo.jus.br"];
 const isValidadorFinal = (email: string) =>
   VALIDADORES_FINAIS.some(
     (v) => v.toLowerCase() === email.toLowerCase().trim(),
