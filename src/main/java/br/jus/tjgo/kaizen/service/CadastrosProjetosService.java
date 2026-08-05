@@ -52,7 +52,7 @@ public class CadastrosProjetosService {
      * e o Postgres recusa a atribuicao. Precisam passar por numOrNull(), como ja faz o INSERT.
      */
     private static final Set<String> COLUNAS_NUMERICAS = Set.of(
-            "patrocinador_id", "gestor_id", "valor_estimado_contratacao", "pca_item_id");
+            "patrocinador_id", "gestor_id", "valor_estimado_contratacao", "pcas_id");
 
     // Códigos de diretoria/macro área centralizados em OrgCodigos (compartilhado com processos).
 
@@ -170,15 +170,15 @@ public class CadastrosProjetosService {
         // adicionadas depois. Lê direto da tabela (+ join no PCA) e injeta no retorno: o "Cargo"
         // da Governança e o item do PCA vinculado à contratação (id + rótulo para o TAP).
         var extra = jdbc.queryForList(
-                "SELECT p.patrocinador_cargo, p.gestor_cargo, p.pca_item_id, " +
+                "SELECT p.patrocinador_cargo, p.gestor_cargo, p.pcas_id, " +
                         "pca.code AS pca_item_code, COALESCE(pca.description, pca.object_name) AS pca_item_objeto " +
-                        "FROM cadastros_projetos p LEFT JOIN pcas pca ON pca.id = p.pca_item_id " +
+                        "FROM cadastros_projetos p LEFT JOIN pcas pca ON pca.id = p.pcas_id " +
                         "WHERE p.id = ?", id);
         if (!extra.isEmpty()) {
             Map<String, Object> e = extra.get(0);
             projeto.put("patrocinador_cargo", e.get("patrocinador_cargo"));
             projeto.put("gestor_cargo", e.get("gestor_cargo"));
-            projeto.put("pca_item_id", e.get("pca_item_id"));
+            projeto.put("pcas_id", e.get("pcas_id"));
             Object code = e.get("pca_item_code");
             if (code != null) {
                 String codeStr = String.valueOf(code).replaceFirst("^0+", "");
@@ -261,7 +261,7 @@ public class CadastrosProjetosService {
                         "ancoragem_estrategica_plano_gestao, ancoragem_estrategica_pep, ancoragem_estrategica_programa_x, " +
                         "escopo_sintetico, fora_do_escopo, data_prevista_inicio, data_prevista_conclusao, " +
                         "status, prioridade, complexidade, abrangencia, " +
-                        "havera_contratacao, valor_estimado_contratacao, pca_item_id, " +
+                        "havera_contratacao, valor_estimado_contratacao, pcas_id, " +
                         "saude, saude_justificativa, saude_ultima_revisao, " +
                         "tap_vinculado, observacoes_gerais, diretoria, areas_vinculadas_ids, " +
                         "created_by, updated_by) VALUES (" +
@@ -289,7 +289,7 @@ public class CadastrosProjetosService {
                 orDefault(str(data.get("abrangencia")), "uma_unidade"),
                 boolOrFalse(data.get("havera_contratacao")),
                 numOrNull(data.get("valor_estimado_contratacao")),
-                numOrNull(data.get("pca_item_id")),
+                numOrNull(data.get("pcas_id")),
                 orDefault(str(data.get("saude")), "verde"),
                 emptyToNull(str(data.get("saude_justificativa"))),
                 emptyToNull(str(data.get("tap_vinculado"))),
@@ -350,7 +350,7 @@ public class CadastrosProjetosService {
                 "ancoragem_estrategica_plano_gestao", "ancoragem_estrategica_pep",
                 "ancoragem_estrategica_programa_x", "escopo_sintetico", "fora_do_escopo", "data_prevista_inicio",
                 "data_prevista_conclusao", "status", "prioridade", "complexidade", "abrangencia",
-                "havera_contratacao", "valor_estimado_contratacao", "pca_item_id", "saude", "saude_justificativa",
+                "havera_contratacao", "valor_estimado_contratacao", "pcas_id", "saude", "saude_justificativa",
                 "tap_vinculado", "observacoes_gerais", "diretoria", "areas_vinculadas_ids");
 
         List<String> fields = new ArrayList<>();
