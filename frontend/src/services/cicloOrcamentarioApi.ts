@@ -237,7 +237,16 @@ export const cicloOrcamentarioApi = {
   },
 
   /** RF-41/75 — publicação pela DG: grava a próxima versão no PCA-TIC e converte IFO→código oficial. */
-  publicar(cicloId: number, importacoes?: { ifoId: number; codigoPca: string }[]): Promise<Ciclo> {
+  publicar(cicloId: number, importacoes?: { ifoId: number; codigoPca: string }[], arquivoPca?: File): Promise<Ciclo> {
+    if (arquivoPca) {
+      const formData = new FormData();
+      if (importacoes && importacoes.length > 0) {
+        formData.append("importacoes", JSON.stringify(importacoes));
+      }
+      formData.append("arquivoPca", arquivoPca);
+      return apiClient.post<Ciclo>(`${BASE}/${cicloId}/publicar`, formData);
+    }
+
     if (importacoes && importacoes.length > 0) {
       return apiClient.post<Ciclo>(`${BASE}/${cicloId}/publicar`, importacoes);
     }

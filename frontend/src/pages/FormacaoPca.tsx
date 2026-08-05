@@ -25,6 +25,7 @@ import { FaseBanner } from "@/components/ciclo/FaseBanner";
 import { CampoLinkProad } from "@/components/ciclo/CampoLinkProad";
 import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { delegacaoApi, type MinhaDelegacaoResponse } from "@/services/delegacaoApi";
 import { PainelDelegacaoEdicao } from "@/components/ciclo/PainelDelegacaoEdicao";
@@ -179,7 +180,9 @@ export default function FormacaoPca() {
 
   // Remessa DG — novo fluxo
   const [validacaoDg, setValidacaoDg] = useState<"V" | "X" | null>(null);
-  const [dfdBaixado, setDfdBaixado] = useState(false);
+  const [dfdBaixado, setDfdBaixado] = useState<boolean>(() => {
+    return localStorage.getItem(`dfdBaixado_${anoFormacao}`) === "true";
+  });
 
   // Reinício do ciclo
   const [isReiniciarOpen, setIsReiniciarOpen] = useState(false);
@@ -591,10 +594,22 @@ export default function FormacaoPca() {
                           </span>
                           <div className="ml-auto flex gap-2">
                             {validacaoDfd === 'V' && (
-                              <Button variant="outline" size="sm" onClick={() => window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank")}>
-                                <FileText className="h-4 w-4 mr-1.5" />
-                                Gerar Proposta DFD-TIC
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <FileText className="h-4 w-4 mr-1.5" />
+                                    Baixar DFD TIC
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank")}>
+                                    PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank")}>
+                                    Planilha (xlsx)
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
 
                             {validacaoDfd === 'X' && (
@@ -655,18 +670,32 @@ export default function FormacaoPca() {
                           {/* Botão "Baixar DFD TIC" — visível até validação = 'V' */}
                           {validacaoDg !== 'V' && (
                             <div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank");
-                                  setDfdBaixado(true);
-                                  setValidacaoDg(null);
-                                }}
-                              >
-                                <FileText className="h-4 w-4 mr-1.5" />
-                                Baixar DFD TIC
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <FileText className="h-4 w-4 mr-1.5" />
+                                    Baixar DFD TIC
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                  <DropdownMenuItem onClick={() => {
+                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank");
+                                    setDfdBaixado(true);
+                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                                    setValidacaoDg(null);
+                                  }}>
+                                    PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank");
+                                    setDfdBaixado(true);
+                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                                    setValidacaoDg(null);
+                                  }}>
+                                    Planilha (xlsx)
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           )}
 
@@ -1045,16 +1074,17 @@ export default function FormacaoPca() {
           ifos={[...ifosEncerramento, ...ifosRenovacao, ...ifosPlurianual, ...ifos]}
           anoFormacao={anoFormacao}
           onEditIfo={setIfoEditing}
-          onConfirm={async (importacoes) => {
+          onConfirm={async (importacoes, arquivoPca) => {
             setAcaoEmCurso(true);
             try {
-              const c = await cicloOrcamentarioApi.publicar(ciclo.id, importacoes);
+              const c = await cicloOrcamentarioApi.publicar(ciclo.id, importacoes, arquivoPca);
               setCiclo(c);
               toast.success("Ciclo publicado e itens de PCA gerados com sucesso!");
               loadBlocos();
             } catch (err) {
               console.error(err);
               toast.error("Não foi possível importar os PCAs.");
+              throw err;
             } finally {
               setAcaoEmCurso(false);
             }

@@ -11,13 +11,15 @@ interface DialogImportarPcaProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   ifos: Ifo[]; // All IFOs that need conversion
-  onConfirm: (importacoes: { ifoId: number; codigoPca: string }[]) => Promise<void>;
+  onConfirm: (importacoes: { ifoId: number; codigoPca: string }[], arquivoPca: File) => Promise<void>;
   onEditIfo: (ifo: Ifo) => void;
   anoFormacao: number;
 }
 
 export function DialogImportarPca({ open, onOpenChange, ifos, onConfirm, onEditIfo, anoFormacao }: DialogImportarPcaProps) {
   const [codigos, setCodigos] = useState<Record<number, string>>({});
+  const [arquivoPca, setArquivoPca] = useState<File | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -26,25 +28,32 @@ export function DialogImportarPca({ open, onOpenChange, ifos, onConfirm, onEditI
        const initial: Record<number, string> = {};
        ifos.forEach(ifo => initial[ifo.id] = "");
        setCodigos(initial);
+       setArquivoPca(null);
+       setErrorMsg(null);
     }
   }, [open, ifos]);
 
   const handleConfirmAction = async () => {
+    if (!arquivoPca) return;
     setIsSubmitting(true);
+    setErrorMsg(null);
     try {
       const importacoes = Object.entries(codigos).map(([id, code]) => ({
         ifoId: Number(id),
         codigoPca: code.trim()
       }));
-      await onConfirm(importacoes);
+      await onConfirm(importacoes, arquivoPca);
       onOpenChange(false);
+      setIsAlertOpen(false);
+    } catch (err: any) {
+      setErrorMsg("Ocorreu um erro ao importar o PCA. Verifique se os dados estão corretos e tente novamente.");
+      setIsAlertOpen(false);
     } finally {
       setIsSubmitting(false);
-      setIsAlertOpen(false);
     }
   };
 
-  const isAllFilled = ifos.length > 0 && ifos.every(ifo => !!codigos[ifo.id]?.trim());
+  const isAllFilled = ifos.length > 0 && ifos.every(ifo => !!codigos[ifo.id]?.trim()) && arquivoPca !== null;
 
   return (
     <>
@@ -53,9 +62,34 @@ export function DialogImportarPca({ open, onOpenChange, ifos, onConfirm, onEditI
           <DialogHeader>
             <DialogTitle>Importar PCA - Formação {anoFormacao}</DialogTitle>
             <DialogDescription>
-              Insira os códigos para os PCAs correspondentes a cada demanda estruturada.
+              Insira os códigos para os PCAs correspondentes a cada demanda estruturada e anexe o arquivo PDF do PCA.
             </DialogDescription>
           </DialogHeader>
+
+          {errorMsg && (
+            <div className="bg-red-50 text-red-700 p-3 rounded-md text-sm mt-4 border border-red-200">
+              {errorMsg}
+            </div>
+          )}
+
+          <div className="bg-yellow-50 text-yellow-800 p-3 rounded-md text-sm mt-4 border border-yellow-200">
+            <strong>Dica:</strong> O arquivo selecionado deve ser um PDF e será anexado oficialmente à formação do Ciclo Orçamentário.
+          </div>
+
+          <div className="mt-6 mb-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Arquivo PCA (PDF)</label>
+            <input 
+              type="file" 
+              accept=".pdf"
+              className="block w-full text-sm text-slate-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100 cursor-pointer"
+              onChange={(e) => setArquivoPca(e.target.files?.[0] || null)}
+            />
+          </div>
 
           <div className="space-y-4 my-4">
             <table className="w-full text-sm text-left">
