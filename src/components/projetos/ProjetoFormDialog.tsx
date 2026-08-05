@@ -95,12 +95,13 @@ const formatDatePtBr = (dateString: string | null | undefined): string => {
   return date.toLocaleDateString("pt-BR");
 };
 
-/** Rótulo amigável de um item do PCA: "PCA {numero} — {objeto}" (sem zeros à esquerda). */
+/** Rótulo amigável de um item do PCA: "ano - código - object_name" */
 const labelPcaItem = (item: PcaItem): string => {
-  const raw = String(item.item_pca ?? "");
-  const num = raw.replace(/^0+/, "") || raw;
-  const desc = item.description || item.objeto || "";
-  return `PCA ${num}${desc ? " — " + desc : ""}`;
+  const ano = item.ano || item.year || "-";
+  let num = String(item.item_pca || item.code || "");
+  num = num.padStart(3, "0");
+  const desc = item.object_name || item.objeto || item.description || "";
+  return `${ano} - PCA ${num} - ${desc}`;
 };
 
 const tapFieldMap: Record<string, string> = {
@@ -246,7 +247,7 @@ export function ProjetoFormDialog({
     abrangencia: "uma_unidade",
     havera_contratacao: false,
     valor_estimado_contratacao: undefined,
-    pca_item_id: undefined,
+    pcas_id: undefined,
     saude: "verde",
     saude_justificativa: "",
     tap_vinculado: "",
@@ -382,7 +383,7 @@ export function ProjetoFormDialog({
             havera_contratacao: projetoCompleto.havera_contratacao,
             valor_estimado_contratacao:
               projetoCompleto.valor_estimado_contratacao || undefined,
-            pca_item_id: projetoCompleto.pca_item_id ?? undefined,
+            pcas_id: projetoCompleto.pcas_id ?? undefined,
             saude: projetoCompleto.saude,
             saude_justificativa: projetoCompleto.saude_justificativa || "",
             tap_vinculado: projetoCompleto.tap_vinculado || "",
@@ -2110,7 +2111,7 @@ export function ProjetoFormDialog({
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
+                        <div className="col-span-1 md:col-span-2 lg:col-span-4">
                           <Label>Haverá Contratação?</Label>
                           <div className="flex items-center gap-4 mt-2">
                             <label className="flex items-center gap-2 cursor-pointer">
@@ -2123,7 +2124,7 @@ export function ProjetoFormDialog({
                                     // Ao desmarcar, limpa o item do PCA vinculado.
                                     ...(checked
                                       ? {}
-                                      : { pca_item_id: undefined }),
+                                      : { pcas_id: undefined }),
                                   })
                                 }
                                 disabled={mode === "view"}
@@ -2133,30 +2134,28 @@ export function ProjetoFormDialog({
                             {formData.havera_contratacao &&
                               (() => {
                                 const pcaSelecionado = pcaItens.find(
-                                  (p) => p.id === formData.pca_item_id,
+                                  (p) => p.id === formData.pcas_id,
                                 );
                                 const pcaLabel = pcaSelecionado
                                   ? labelPcaItem(pcaSelecionado)
                                   : selectedProjeto?.pca_item_label ||
-                                    (formData.pca_item_id
-                                      ? `Item PCA #${formData.pca_item_id}`
+                                    (formData.pcas_id
+                                      ? `Item PCA #${formData.pcas_id}`
                                       : "");
                                 const q = buscaPca.trim().toLowerCase();
                                 const pcaFiltrados = pcaItens
                                   .filter(
-                                    (item) =>
-                                      !q ||
-                                      labelPcaItem(item)
+                                    (item) => {
+                                      if (!q) return true;
+                                      return labelPcaItem(item)
                                         .toLowerCase()
-                                        .includes(q) ||
-                                      String(item.item_pca ?? "")
-                                        .toLowerCase()
-                                        .includes(q),
+                                        .includes(q);
+                                    }
                                   )
                                   .slice(0, 50);
                                 return (
                                   <div className="relative flex-1 min-w-[220px]">
-                                    {formData.pca_item_id ? (
+                                    {formData.pcas_id ? (
                                       <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-sm">
                                         <Info className="h-4 w-4 flex-shrink-0 text-blue-600" />
                                         <span
@@ -2171,7 +2170,7 @@ export function ProjetoFormDialog({
                                             onClick={() =>
                                               setFormData({
                                                 ...formData,
-                                                pca_item_id: undefined,
+                                                pcas_id: undefined,
                                               })
                                             }
                                             className="text-blue-500 hover:text-red-600 transition-colors"
@@ -2196,6 +2195,7 @@ export function ProjetoFormDialog({
                                       >
                                         <PopoverAnchor asChild>
                                           <Input
+                                            className="pca-picker-input-inline"
                                             placeholder="Adicionar o item do PCA..."
                                             value={buscaPca}
                                             onChange={(e) => {
@@ -2208,7 +2208,13 @@ export function ProjetoFormDialog({
                                         <PopoverContent
                                           align="start"
                                           sideOffset={4}
-                                          className="w-[340px] max-w-[80vw] max-h-60 overflow-y-auto p-0"
+                                          className="w-[var(--radix-popover-trigger-width)] max-w-[80vw] max-h-60 overflow-y-auto p-0 z-[80]"
+                                          onInteractOutside={(e) => {
+                                            const target = e.target as Element;
+                                            if (target && target.closest(".pca-picker-input-inline")) {
+                                              e.preventDefault();
+                                            }
+                                          }}
                                           // Mantém o cursor no input enquanto a lista está aberta.
                                           onOpenAutoFocus={(e) =>
                                             e.preventDefault()
@@ -2233,7 +2239,7 @@ export function ProjetoFormDialog({
                                                 onMouseDown={() => {
                                                   setFormData({
                                                     ...formData,
-                                                    pca_item_id: item.id,
+                                                    pcas_id: item.id,
                                                   });
                                                   setBuscaPca("");
                                                   setShowPcaList(false);
