@@ -43,6 +43,7 @@ public class CicloOrcamentarioService {
     private final OrcamentoPapelService papelService;
     private final PermissoesAcoesService permissoesAcoesService;
     private final DelegacaoEdicaoService delegacaoEdicaoService;
+    private final StorageService storageService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aguardando_proad";
     private static final String ESTADO_REVISAO_INICIAL = "em_consulta_1";
@@ -298,7 +299,7 @@ public class CicloOrcamentarioService {
         String proximo = esteira.get(idx + 1);
 
         if (ESTADO_PUBLICADO.equals(proximo)) {
-            return publicar(id, userId, null);
+            return publicar(id, userId, null, null);
         }
 
         CicloDto atualizado = atualizarEstado(id, proximo, userId);
@@ -601,14 +602,34 @@ public class CicloOrcamentarioService {
     }
 
     @Transactional
-    public CicloDto publicar(long id, Long userId, List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes) {
+    public CicloDto publicar(long id, Long userId, List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes, org.springframework.web.multipart.MultipartFile arquivoPca) {
         // RN-GERAL-01/04 — registrar a publicação é ato de Autoridade (Gestor CCA no estado remessa_dg).
         CicloDto cicloAtual = getCiclo(id);
         exigirTagAcao(userId, cicloAtual.estado(), cicloAtual.finalidade(), id);
-        var rows = jdbc.queryForList(
-                "UPDATE ciclo_orcamentario SET estado = 'publicado', publicado_em = NOW(), updated_at = NOW(), updated_by = ? " +
-                        "WHERE id = ? AND estado <> 'publicado' RETURNING *",
-                userId, id);
+        
+        String fileKey = null;
+        if (arquivoPca != null && !arquivoPca.isEmpty()) {
+            storageService.validarArquivo(arquivoPca.getOriginalFilename(), arquivoPca.getSize());
+            try {
+                fileKey = storageService.uploadPca(id, arquivoPca.getOriginalFilename(), arquivoPca.getContentType(), arquivoPca.getSize(), arquivoPca.getInputStream());
+            } catch (java.io.IOException e) {
+                throw new ApiException(500, "Erro ao ler arquivo do PCA");
+            }
+        }
+
+        String sqlUpdate = "UPDATE ciclo_orcamentario SET estado = 'publicado', publicado_em = NOW(), updated_at = NOW(), updated_by = ?";
+        if (fileKey != null) {
+            sqlUpdate += ", arquivo_pca_key = ?";
+        }
+        sqlUpdate += " WHERE id = ? AND estado <> 'publicado' RETURNING *";
+
+        List<Map<String, Object>> rows;
+        if (fileKey != null) {
+            rows = jdbc.queryForList(sqlUpdate, userId, fileKey, id);
+        } else {
+            rows = jdbc.queryForList(sqlUpdate, userId, id);
+        }
+        
         if (rows.isEmpty()) {
             throw new ApiException(400, "Ciclo não encontrado ou já publicado");
         }
@@ -702,43 +723,85 @@ public class CicloOrcamentarioService {
                 str(r.get("proad_ata_comites")),
                 str(r.get("proad_produto_final")),
                 str(r.get("proad_publicacao")),
-                str(r.get("link_dou")));
+                str(r.get("link_dou")),
+                str(r.get("arquivo_pca_key")));
     }
 
     private static Long asLong(Object v) {
         return v == null ? null : ((Number) v).longValue();
     }
 
-    public byte[] gerarPdfPropostaDfd(int anoFormacao) {
-        CicloDto ciclo = findCicloMaisRecente(anoFormacao, "formacao");
-        if (ciclo == null) {
-            throw new ApiException(404, "Ciclo de formação não encontrado para o ano " + anoFormacao);
-        }
 
-        // Busca todos os IFOs ordenados por bloco e código
-        var ifos = jdbc.queryForList("SELECT i.id, i.codigo, i.bloco, i.objeto, i.valor_estimado_cents, ca.sigla as area_demandante " + 
-                                     "FROM ifo i LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
-                                     "WHERE i.ciclo_id = ? AND i.is_deleted = FALSE ORDER BY i.bloco, i.codigo", ciclo.id());
+    private List<Map<String, Object>> getDadosParaRelatorios(long cicloId) {
+        return jdbc.queryForList("SELECT i.id, i.codigo, i.bloco, i.objeto as description, i.justification, i.quantity, i.valor_estimado_cents, " +
+                                 "i.priority, i.estimated_date, i.process, i.natureza, i.financial_resource_type, i.is_sustainable, " +
+                                 "i.strategic_objective, i.is_shared_acquisition, " +
+                                 "cu.nome as unidade_requisitante " +
+                                 "FROM ifo i " +
+                                 "LEFT JOIN cadastros_unidades cu ON i.cadastros_unidades_id = cu.id " +
+                                 "WHERE i.ciclo_id = ? AND i.is_deleted = FALSE " +
+                                 "ORDER BY cu.nome, i.codigo", cicloId);
+    }
 
-        var contratos = jdbc.queryForList(
-            "SELECT ic.ifo_id, c.id, c.notice_number, c.situation, c.expense_nature, c.year_value, c.end_date " +
+    private List<Map<String, Object>> getContratosParaRelatorios(long cicloId) {
+        return jdbc.queryForList(
+            "SELECT ic.ifo_id, c.expense_nature, c.start_date, c.end_date " +
             "FROM ifo_contratos ic " +
             "JOIN contracts c ON ic.contract_id = c.id " +
             "JOIN ifo i ON ic.ifo_id = i.id " +
-            "WHERE i.ciclo_id = ? AND i.is_deleted = FALSE", ciclo.id());
-            
+            "WHERE i.ciclo_id = ? AND i.is_deleted = FALSE", cicloId);
+    }
+
+    private String calcularVigenciaMeses(List<Map<String, Object>> contratosIfo) {
+        if (contratosIfo == null || contratosIfo.isEmpty()) return "";
+        for (Map<String, Object> c : contratosIfo) {
+            if (c.get("start_date") != null && c.get("end_date") != null) {
+                LocalDate start = ((java.sql.Date) c.get("start_date")).toLocalDate();
+                LocalDate end = ((java.sql.Date) c.get("end_date")).toLocalDate();
+                long meses = java.time.temporal.ChronoUnit.MONTHS.between(start, end);
+                return String.valueOf(meses);
+            }
+        }
+        return "";
+    }
+
+    private String obterNaturezaDespesa(List<Map<String, Object>> contratosIfo) {
+        if (contratosIfo == null || contratosIfo.isEmpty()) return "";
+        for (Map<String, Object> c : contratosIfo) {
+            if (c.get("expense_nature") != null) {
+                return str(c.get("expense_nature"));
+            }
+        }
+        return "";
+    }
+
+    private String mapearBlocoParaMatriz(String bloco) {
+        if (bloco == null) return "";
+        return switch (bloco) {
+            case "renovacao" -> "Renovação";
+            case "encerramento" -> "Encerramento";
+            case "plurianual" -> "Contrato Plurianual";
+            case "nova_contratacao" -> "Nova Contratação";
+            default -> bloco;
+        };
+    }
+
+    public byte[] gerarPdfPropostaDfd(int anoFormacao) {
+        CicloDto ciclo = findCicloMaisRecente(anoFormacao, "formacao");
+        if (ciclo == null) throw new ApiException(404, "Ciclo de formação não encontrado para o ano " + anoFormacao);
+
+        var ifos = getDadosParaRelatorios(ciclo.id());
+        var contratos = getContratosParaRelatorios(ciclo.id());
         Map<Long, List<Map<String, Object>>> contratosPorIfo = contratos.stream()
-                .collect(Collectors.groupingBy(row -> ((Number) row.get("ifo_id")).longValue()));
-                
-        Map<String, List<Map<String, Object>>> ifosPorBloco = ifos.stream()
-                .collect(Collectors.groupingBy(row -> (String) row.get("bloco")));
+                .collect(Collectors.groupingBy(row -> asLong(row.get("ifo_id"))));
+
+        Map<String, List<Map<String, Object>>> ifosPorUnidade = ifos.stream()
+                .collect(Collectors.groupingBy(row -> str(row.get("unidade_requisitante")) == null ? "Sem Unidade" : str(row.get("unidade_requisitante"))));
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            // Documento paisagem, margens com espaço para rodapé
-            Document document = new Document(new Rectangle(842, 595), 24, 24, 24, 40);
+            Document document = new Document(new com.lowagie.text.Rectangle(1400, 700), 10, 10, 10, 20); // Custom Landscape
             PdfWriter writer = PdfWriter.getInstance(document, baos);
 
-            // Rodapé com paginação via page events
             writer.setPageEvent(new com.lowagie.text.pdf.PdfPageEventHelper() {
                 @Override
                 public void onEndPage(PdfWriter w, Document doc) {
@@ -747,292 +810,137 @@ public class CicloOrcamentarioService {
                         Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 7, new Color(140, 140, 140));
                         float pageW = doc.getPageSize().getWidth();
                         int pageNum = w.getPageNumber();
-                        String footerText = "Kaizen · Orçamento de TIC · DFD-TIC " + anoFormacao + " — página " + pageNum;
+                        String footerText = "DFD-TIC " + anoFormacao + " — página " + pageNum;
                         com.lowagie.text.pdf.ColumnText.showTextAligned(
                             cb, Element.ALIGN_CENTER,
                             new com.lowagie.text.Phrase(footerText, footerFont),
-                            pageW / 2, 18, 0);
+                            pageW / 2, 10, 0);
                     } catch (Exception ignored) {}
                 }
             });
 
             document.open();
-            
-            // ── Paleta de cores ──
-            Color bgNavy = new Color(15, 38, 80);
-            Color bgBloco = new Color(241, 245, 249);       // slate-100
-            Color bgTableHead = new Color(248, 250, 252);    // slate-50
-            Color accentBlue = new Color(30, 58, 138);       // blue-900
-            Color subtotalBg = new Color(239, 246, 255);     // blue-50
-            Color borderSlate = new Color(226, 232, 240);    // slate-200
 
-            // ── Fontes ──
-            Font fontHeaderTitle = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, Color.WHITE);
-            Font fontHeaderSub = FontFactory.getFont(FontFactory.HELVETICA, 10, Color.WHITE);
-            Font fontDocTitle = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, accentBlue);
-            Font fontDocSubtitle = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(100, 116, 139)); // slate-500
-            Font fontMetaLabel = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, new Color(100, 116, 139));
-            Font fontMetaValue = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(30, 41, 59));       // slate-800
-            Font fontBlocoTitle = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, accentBlue);
-            Font fontBlocoCount = FontFactory.getFont(FontFactory.HELVETICA, 9, Color.DARK_GRAY);
-            Font fontIfoTitle = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.BLACK);
-            Font fontIfoText = FontFactory.getFont(FontFactory.HELVETICA, 9, Color.DARK_GRAY);
-            Font fontIfoValue = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.DARK_GRAY);
-            Font fontTableHead = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.GRAY);
-            Font fontTableBody = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(50, 50, 50));
-            Font fontLink = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(59, 130, 246));
-            Font fontSubtotal = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, accentBlue);
-            Font fontTotalGeral = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, Color.WHITE);
-
-            // ══════════════════════════════════════════
-            // 1. CABEÇALHO INSTITUCIONAL
-            // ══════════════════════════════════════════
-            PdfPTable headerTable = new PdfPTable(1);
-            headerTable.setWidthPercentage(100);
-            PdfPCell headerCell = new PdfPCell();
-            headerCell.setBackgroundColor(bgNavy);
-            headerCell.setPadding(15);
-            headerCell.setBorder(Rectangle.NO_BORDER);
-            headerCell.addElement(new Paragraph("KAIZEN | Plataforma de Governança Judiciária e Tecnológica", fontHeaderTitle));
-            headerCell.addElement(new Paragraph("Tribunal de Justiça do Estado de Goiás", fontHeaderSub));
-            headerTable.addCell(headerCell);
-            document.add(headerTable);
-
-            // ══════════════════════════════════════════
-            // 2. TÍTULO DO DOCUMENTO
-            // ══════════════════════════════════════════
-            String docTitleText = "DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA (DFD)";
-            if (!"remessa_dg".equals(ciclo.estado()) && !"publicado".equals(ciclo.estado())) {
-                docTitleText = "PROPOSTA DE DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA";
+            try {
+                com.lowagie.text.Image logo = com.lowagie.text.Image.getInstance(new java.net.URL("https://www.tjgo.jus.br/images/brasao_poder_Judiciario_Horizontal.png"));
+                logo.setAlignment(Element.ALIGN_CENTER);
+                logo.scaleToFit(200, 100);
+                document.add(logo);
+            } catch (Exception e) {
+                // Ignore e prossegue sem logo se der erro
             }
-            Paragraph docTitle = new Paragraph(docTitleText, fontDocTitle);
-            docTitle.setSpacingBefore(12);
+
+            Font fontAnexo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, Color.BLACK);
+            Paragraph anexoTitle = new Paragraph("Anexo I", fontAnexo);
+            anexoTitle.setAlignment(Element.ALIGN_CENTER);
+            anexoTitle.setSpacingBefore(10);
+            anexoTitle.setSpacingAfter(5);
+            document.add(anexoTitle);
+
+            Font fontDocTitle = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Color.BLACK);
+            Paragraph docTitle = new Paragraph("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDAS - DFD", fontDocTitle);
             docTitle.setAlignment(Element.ALIGN_CENTER);
+            docTitle.setSpacingAfter(10);
             document.add(docTitle);
 
-            Paragraph docSubtitle = new Paragraph("Plano de Contratações Anuais de TIC — PCA-TIC " + anoFormacao, fontDocSubtitle);
-            docSubtitle.setAlignment(Element.ALIGN_CENTER);
-            docSubtitle.setSpacingAfter(10);
-            document.add(docSubtitle);
+            Font fontTableHead = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 6, Color.BLACK);
+            Font fontTableBody = FontFactory.getFont(FontFactory.HELVETICA, 6, Color.BLACK);
+            Font fontUnidade = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.BLACK);
 
-            // ══════════════════════════════════════════
-            // 3. METADADOS DO CICLO
-            // ══════════════════════════════════════════
-            PdfPTable metaTable = new PdfPTable(4);
-            metaTable.setWidthPercentage(100);
-            metaTable.setWidths(new float[]{25f, 25f, 25f, 25f});
-            metaTable.setSpacingAfter(14);
-
-            String[][] metaDados = {
-                {"PROAD de Instrução", ciclo.proad() != null ? ciclo.proad() : "—"},
-                {"Versão", String.valueOf(ciclo.versaoGerada() != null ? ciclo.versaoGerada() : 1)},
-                {"Emitido em", LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))},
-                {"Total de IFOs", String.valueOf(ifos.size())}
+            String[] headers = {
+                "Código", "Descrição Sucinta do objeto", "Justificativa da necessidade", "Quantidade", 
+                "Estimativa Preliminar Do Valor Global (R$)", "Vigência (em meses)", "Nova Licitação ou demanda à Própria ARP?", 
+                "Grau de prioridade", "Renovação, Nova contratação, Encerramento de contrato no exercício ou Contrato plurianual?", 
+                "Data Estimada da Nova Contratação ou Renovação", "Proad Renovação", "Natureza continuada (sim ou não?)", 
+                "Investimento ou custeio?", "A demanda está alinhada às diretrizes de sustentabilidade e às metas do PLS do TJGO (sim ou não)", 
+                "Indicação do objetivo estratégico TJGO", "Identificação da natureza da despesa", 
+                "A demanda é indicada para eventual compra compartilhada com outros órgãos da adm. pública (sim ou não). Qual(is)"
             };
-            for (String[] meta : metaDados) {
-                PdfPCell metaCell = new PdfPCell();
-                metaCell.setBorder(Rectangle.BOTTOM);
-                metaCell.setBorderColor(borderSlate);
-                metaCell.setPaddingBottom(6);
-                metaCell.setPaddingTop(4);
-                metaCell.addElement(new Paragraph(meta[0], fontMetaLabel));
-                metaCell.addElement(new Paragraph(meta[1], fontMetaValue));
-                metaTable.addCell(metaCell);
-            }
-            document.add(metaTable);
 
-            // ══════════════════════════════════════════
-            // 4. BLOCOS DE IFOs
-            // ══════════════════════════════════════════
-            List<String> blocosOrder = List.of("encerramento", "renovacao", "plurianual", "nova_contratacao");
-            Map<String, String> blocosNomes = Map.of(
-                "encerramento", "Bloco 1 — Encerramento",
-                "renovacao", "Bloco 2 — Renovação",
-                "plurianual", "Bloco 3 — Plurianual",
-                "nova_contratacao", "Bloco 4 — Nova Contratação"
-            );
+            for (Map.Entry<String, List<Map<String, Object>>> entry : ifosPorUnidade.entrySet()) {
+                String unidade = entry.getKey();
+                List<Map<String, Object>> ifosUnidade = entry.getValue();
 
-            long totalGeral = 0;
+                Paragraph pUnidade = new Paragraph("UNIDADE REQUISITANTE: " + unidade, fontUnidade);
+                pUnidade.setSpacingBefore(10);
+                pUnidade.setSpacingAfter(5);
+                document.add(pUnidade);
 
-            for (String blocoKey : blocosOrder) {
-                List<Map<String, Object>> ifosDoBloco = ifosPorBloco.getOrDefault(blocoKey, Collections.emptyList());
-                
-                // Subtotal do bloco
-                long subtotalBloco = ifosDoBloco.stream()
-                    .mapToLong(i -> i.get("valor_estimado_cents") != null ? ((Number) i.get("valor_estimado_cents")).longValue() : 0L)
-                    .sum();
-                totalGeral += subtotalBloco;
-                
-                // Título do Bloco
-                PdfPTable blocoHeader = new PdfPTable(2);
-                blocoHeader.setWidthPercentage(100);
-                blocoHeader.setWidths(new float[]{70f, 30f});
-                blocoHeader.setSpacingBefore(6);
-                
-                PdfPCell cellTitle = new PdfPCell(new Paragraph(blocosNomes.get(blocoKey), fontBlocoTitle));
-                cellTitle.setBackgroundColor(bgBloco);
-                cellTitle.setPadding(8);
-                cellTitle.setBorder(Rectangle.NO_BORDER);
-                blocoHeader.addCell(cellTitle);
-                
-                String countAndTotal = ifosDoBloco.size() + " IFOs · " + String.format("R$ %,.2f", subtotalBloco / 100.0);
-                PdfPCell cellCount = new PdfPCell(new Paragraph(countAndTotal, fontBlocoCount));
-                cellCount.setBackgroundColor(bgBloco);
-                cellCount.setPadding(8);
-                cellCount.setBorder(Rectangle.NO_BORDER);
-                cellCount.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                blocoHeader.addCell(cellCount);
-                
-                document.add(blocoHeader);
-                document.add(new Paragraph(" ", FontFactory.getFont(FontFactory.HELVETICA, 4)));
-                
-                if (ifosDoBloco.isEmpty()) {
-                    Paragraph empty = new Paragraph("Nenhum IFO cadastrado.", fontIfoText);
-                    empty.setAlignment(Element.ALIGN_CENTER);
-                    empty.setSpacingAfter(14);
-                    document.add(empty);
-                    continue;
+                PdfPTable table = new PdfPTable(17);
+                table.setWidthPercentage(100);
+                table.setWidths(new float[]{4, 10, 10, 4, 6, 4, 5, 4, 6, 6, 5, 4, 5, 5, 5, 5, 5});
+
+                for (String h : headers) {
+                    PdfPCell cell = new PdfPCell(new Paragraph(h, fontTableHead));
+                    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                    cell.setPadding(3);
+                    table.addCell(cell);
                 }
-                
-                // Lista de IFOs no bloco
-                for (Map<String, Object> ifo : ifosDoBloco) {
-                    Long ifoId = ((Number) ifo.get("id")).longValue();
-                    String codigo = (String) ifo.get("codigo");
-                    String objeto = (String) ifo.get("objeto");
-                    String area = (String) ifo.get("area_demandante");
+
+                for (Map<String, Object> ifo : ifosUnidade) {
+                    Long ifoId = asLong(ifo.get("id"));
+                    List<Map<String, Object>> ctrs = contratosPorIfo.getOrDefault(ifoId, Collections.emptyList());
+                    
+                    String codigo = str(ifo.get("codigo"));
+                    String obj = str(ifo.get("description"));
+                    String just = str(ifo.get("justification"));
+                    String qt = str(ifo.get("quantity"));
+                    
                     Long valCents = ifo.get("valor_estimado_cents") != null ? ((Number)ifo.get("valor_estimado_cents")).longValue() : 0L;
-                    String valorFormatado = String.format("R$ %,.2f", valCents / 100.0);
+                    String valFormatado = String.format("R$ %,.2f", valCents / 100.0);
                     
-                    // Card do IFO
-                    PdfPTable ifoTable = new PdfPTable(2);
-                    ifoTable.setWidthPercentage(100);
-                    ifoTable.setWidths(new float[]{75f, 25f});
-                    ifoTable.setSpacingAfter(10);
+                    String vigencia = calcularVigenciaMeses(ctrs);
+                    String novaLicit = "Nova Licitação";
                     
-                    PdfPCell cellCod = new PdfPCell(new Paragraph(codigo, fontIfoTitle));
-                    cellCod.setBorder(Rectangle.NO_BORDER);
-                    ifoTable.addCell(cellCod);
+                    String prioridade = str(ifo.get("priority"));
+                    String bloco = mapearBlocoParaMatriz(str(ifo.get("bloco")));
                     
-                    PdfPCell cellAreaVal = new PdfPCell(new Paragraph((area != null ? area : "—") + "   " + valorFormatado, fontIfoValue));
-                    cellAreaVal.setBorder(Rectangle.NO_BORDER);
-                    cellAreaVal.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                    ifoTable.addCell(cellAreaVal);
-                    
-                    PdfPCell cellObj = new PdfPCell(new Paragraph(objeto != null ? objeto : "", fontIfoText));
-                    cellObj.setColspan(2);
-                    cellObj.setBorder(Rectangle.NO_BORDER);
-                    cellObj.setPaddingBottom(6);
-                    ifoTable.addCell(cellObj);
-                    
-                    // Contratos Aninhados
-                    List<Map<String, Object>> contrList = contratosPorIfo.getOrDefault(ifoId, Collections.emptyList());
-                    if (!contrList.isEmpty()) {
-                        PdfPTable ctTable = new PdfPTable(5);
-                        ctTable.setWidthPercentage(100);
-                        ctTable.setWidths(new float[]{20f, 20f, 15f, 25f, 20f});
-                        
-                        String[] ctHeaders = {"Contrato", "Natureza", "Nat. despesa", "Valor anual", "Vigência"};
-                        for (String h : ctHeaders) {
-                            PdfPCell cHead = new PdfPCell(new Paragraph(h, fontTableHead));
-                            cHead.setBackgroundColor(bgTableHead);
-                            cHead.setBorderColor(Color.LIGHT_GRAY);
-                            cHead.setPadding(5);
-                            ctTable.addCell(cHead);
-                        }
-                        
-                        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                        for (Map<String, Object> ct : contrList) {
-                            String ctNum = ct.get("notice_number") != null ? "CT " + ct.get("notice_number") : "CT —";
-                            String ctNat = ct.get("situation") != null ? String.valueOf(ct.get("situation")) : "—";
-                            String ctNatDesp = ct.get("expense_nature") != null ? String.valueOf(ct.get("expense_nature")) : "—";
-                            
-                            Long ctValCents = ct.get("year_value") != null ? ((Number) ct.get("year_value")).longValue() : 0L;
-                            String ctVal = String.format("R$ %,.2f", ctValCents / 100.0);
-                            
-                            String ctVig = "—";
-                            if (ct.get("end_date") != null) {
-                                LocalDate dt = ((java.sql.Date) ct.get("end_date")).toLocalDate();
-                                ctVig = "até " + dt.format(dtf);
-                            }
-                            
-                            PdfPCell[] cells = {
-                                new PdfPCell(new Paragraph(ctNum, fontLink)),
-                                new PdfPCell(new Paragraph(ctNat, fontTableBody)),
-                                new PdfPCell(new Paragraph(ctNatDesp, fontTableBody)),
-                                new PdfPCell(new Paragraph(ctVal, fontTableBody)),
-                                new PdfPCell(new Paragraph(ctVig, fontTableBody))
-                            };
-                            
-                            for (PdfPCell c : cells) {
-                                c.setBorderColor(Color.LIGHT_GRAY);
-                                c.setPadding(5);
-                                ctTable.addCell(c);
-                            }
-                        }
-                        
-                        PdfPCell ctContainer = new PdfPCell(ctTable);
-                        ctContainer.setColspan(2);
-                        ctContainer.setBorder(Rectangle.NO_BORDER);
-                        ifoTable.addCell(ctContainer);
+                    String dtEst = "";
+                    if (ifo.get("estimated_date") != null) {
+                        LocalDate dt = ((java.sql.Date) ifo.get("estimated_date")).toLocalDate();
+                        dtEst = dt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
                     }
                     
-                    // Separador de IFO
-                    PdfPCell separator = new PdfPCell();
-                    separator.setColspan(2);
-                    separator.setBorder(Rectangle.BOTTOM);
-                    separator.setBorderColor(borderSlate);
-                    separator.setPaddingTop(6);
-                    ifoTable.addCell(separator);
+                    String proad = str(ifo.get("process"));
+                    String continuada = "continuada".equals(ifo.get("natureza")) ? "Sim" : "Não";
+                    String finance = str(ifo.get("financial_resource_type"));
+                    
+                    String sustentavel = Boolean.TRUE.equals(ifo.get("is_sustainable")) ? "Sim" : "Não";
+                    String objEstrat = str(ifo.get("strategic_objective"));
+                    String natDesp = obterNaturezaDespesa(ctrs);
+                    String comp = Boolean.TRUE.equals(ifo.get("is_shared_acquisition")) ? "Sim" : "Não";
 
-                    document.add(ifoTable);
+                    String[] row = {
+                        codigo == null ? "" : codigo,
+                        obj == null ? "" : obj,
+                        just == null ? "" : just,
+                        qt == null ? "" : qt,
+                        valFormatado,
+                        vigencia,
+                        novaLicit,
+                        prioridade == null ? "" : prioridade,
+                        bloco,
+                        dtEst,
+                        proad == null ? "" : proad,
+                        continuada,
+                        finance == null ? "" : finance,
+                        sustentavel,
+                        objEstrat == null ? "" : objEstrat,
+                        natDesp,
+                        comp
+                    };
+
+                    for (String text : row) {
+                        PdfPCell cell = new PdfPCell(new Paragraph(text, fontTableBody));
+                        cell.setPadding(2);
+                        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                        table.addCell(cell);
+                    }
                 }
-
-                // Subtotal por bloco
-                if (!ifosDoBloco.isEmpty()) {
-                    PdfPTable subtotalTable = new PdfPTable(2);
-                    subtotalTable.setWidthPercentage(100);
-                    subtotalTable.setWidths(new float[]{75f, 25f});
-                    subtotalTable.setSpacingAfter(10);
-
-                    PdfPCell stLabel = new PdfPCell(new Paragraph("Subtotal — " + blocosNomes.get(blocoKey), fontSubtotal));
-                    stLabel.setBackgroundColor(subtotalBg);
-                    stLabel.setPadding(6);
-                    stLabel.setBorder(Rectangle.NO_BORDER);
-                    subtotalTable.addCell(stLabel);
-
-                    PdfPCell stValue = new PdfPCell(new Paragraph(String.format("R$ %,.2f", subtotalBloco / 100.0), fontSubtotal));
-                    stValue.setBackgroundColor(subtotalBg);
-                    stValue.setPadding(6);
-                    stValue.setBorder(Rectangle.NO_BORDER);
-                    stValue.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                    subtotalTable.addCell(stValue);
-
-                    document.add(subtotalTable);
-                }
+                document.add(table);
             }
-
-            // ══════════════════════════════════════════
-            // 5. TOTAL GERAL
-            // ══════════════════════════════════════════
-            PdfPTable totalTable = new PdfPTable(2);
-            totalTable.setWidthPercentage(100);
-            totalTable.setWidths(new float[]{75f, 25f});
-            totalTable.setSpacingBefore(8);
-
-            PdfPCell tgLabel = new PdfPCell(new Paragraph("TOTAL GERAL", fontTotalGeral));
-            tgLabel.setBackgroundColor(bgNavy);
-            tgLabel.setPadding(10);
-            tgLabel.setBorder(Rectangle.NO_BORDER);
-            totalTable.addCell(tgLabel);
-
-            PdfPCell tgValue = new PdfPCell(new Paragraph(String.format("R$ %,.2f", totalGeral / 100.0), fontTotalGeral));
-            tgValue.setBackgroundColor(bgNavy);
-            tgValue.setPadding(10);
-            tgValue.setBorder(Rectangle.NO_BORDER);
-            tgValue.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            totalTable.addCell(tgValue);
-
-            document.add(totalTable);
 
             document.close();
             return baos.toByteArray();
@@ -1041,7 +949,287 @@ public class CicloOrcamentarioService {
         }
     }
 
+    public byte[] gerarXlsxPropostaDfd(int anoFormacao) {
+        CicloDto ciclo = findCicloMaisRecente(anoFormacao, "formacao");
+        if (ciclo == null) throw new ApiException(404, "Ciclo de formação não encontrado para o ano " + anoFormacao);
 
+        var ifos = getDadosParaRelatorios(ciclo.id());
+        var contratos = getContratosParaRelatorios(ciclo.id());
+        Map<Long, List<Map<String, Object>>> contratosPorIfo = contratos.stream()
+                .collect(Collectors.groupingBy(row -> asLong(row.get("ifo_id"))));
+
+        Map<String, List<Map<String, Object>>> ifosPorUnidade = ifos.stream()
+                .collect(Collectors.groupingBy(row -> str(row.get("unidade_requisitante")) == null ? "Sem Unidade" : str(row.get("unidade_requisitante"))));
+
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            org.apache.poi.ss.usermodel.Sheet sheet = workbook.createSheet("DFD-TIC " + anoFormacao);
+            sheet.setDisplayGridlines(false);
+            sheet.setPrintGridlines(false);
+
+            // ── Larguras de coluna proporcionais ao PDF (em 1/256 de caractere) ──
+            int[] colWidths = {3000, 9000, 9000, 3000, 5000, 3000, 4500, 3000, 5500, 5000, 4500, 3500, 4500, 4500, 4500, 4500, 4500};
+            for (int i = 0; i < colWidths.length; i++) sheet.setColumnWidth(i, colWidths[i]);
+
+            // ── Bordas finas helper ──
+            org.apache.poi.ss.usermodel.BorderStyle thin = org.apache.poi.ss.usermodel.BorderStyle.THIN;
+            short borderColor = org.apache.poi.ss.usermodel.IndexedColors.GREY_50_PERCENT.getIndex();
+
+            // ── Fontes ──
+            org.apache.poi.ss.usermodel.Font fontAnexo = workbook.createFont();
+            fontAnexo.setBold(true);
+            fontAnexo.setFontHeightInPoints((short) 14);
+
+            org.apache.poi.ss.usermodel.Font fontTitle = workbook.createFont();
+            fontTitle.setBold(true);
+            fontTitle.setFontHeightInPoints((short) 12);
+
+            org.apache.poi.ss.usermodel.Font fontHeader = workbook.createFont();
+            fontHeader.setBold(true);
+            fontHeader.setFontHeightInPoints((short) 8);
+
+            org.apache.poi.ss.usermodel.Font fontBody = workbook.createFont();
+            fontBody.setFontHeightInPoints((short) 8);
+
+            org.apache.poi.ss.usermodel.Font fontUnidade = workbook.createFont();
+            fontUnidade.setBold(true);
+            fontUnidade.setFontHeightInPoints((short) 9);
+
+            // ── Estilos ──
+            // Anexo I
+            org.apache.poi.ss.usermodel.CellStyle styleAnexo = workbook.createCellStyle();
+            styleAnexo.setFont(fontAnexo);
+            styleAnexo.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+            styleAnexo.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
+
+            // Titulo DFD
+            org.apache.poi.ss.usermodel.CellStyle styleTitle = workbook.createCellStyle();
+            styleTitle.setFont(fontTitle);
+            styleTitle.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+            styleTitle.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
+
+            // Cabeçalho de coluna (bordas, negrito, wrap — sem fundo)
+            org.apache.poi.ss.usermodel.CellStyle styleColHeader = workbook.createCellStyle();
+            styleColHeader.setFont(fontHeader);
+            styleColHeader.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+            styleColHeader.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
+            styleColHeader.setWrapText(true);
+            styleColHeader.setBorderTop(thin);
+            styleColHeader.setBorderBottom(thin);
+            styleColHeader.setBorderLeft(thin);
+            styleColHeader.setBorderRight(thin);
+            styleColHeader.setTopBorderColor(borderColor);
+            styleColHeader.setBottomBorderColor(borderColor);
+            styleColHeader.setLeftBorderColor(borderColor);
+            styleColHeader.setRightBorderColor(borderColor);
+
+            // Unidade requisitante (fundo cinza escuro, negrito)
+            org.apache.poi.ss.usermodel.CellStyle styleUnidade = workbook.createCellStyle();
+            styleUnidade.setFont(fontUnidade);
+            styleUnidade.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.LEFT);
+            styleUnidade.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
+            styleUnidade.setFillForegroundColor(org.apache.poi.ss.usermodel.IndexedColors.GREY_40_PERCENT.getIndex());
+            styleUnidade.setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND);
+            styleUnidade.setBorderTop(thin);
+            styleUnidade.setBorderBottom(thin);
+            styleUnidade.setBorderLeft(thin);
+            styleUnidade.setBorderRight(thin);
+
+            // Célula de dados (bordas, centralizado, wrap)
+            org.apache.poi.ss.usermodel.CellStyle styleData = workbook.createCellStyle();
+            styleData.setFont(fontBody);
+            styleData.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+            styleData.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
+            styleData.setWrapText(true);
+            styleData.setBorderTop(thin);
+            styleData.setBorderBottom(thin);
+            styleData.setBorderLeft(thin);
+            styleData.setBorderRight(thin);
+            styleData.setTopBorderColor(borderColor);
+            styleData.setBottomBorderColor(borderColor);
+            styleData.setLeftBorderColor(borderColor);
+            styleData.setRightBorderColor(borderColor);
+
+            // Célula de dados alinhada à esquerda (descrição, justificativa)
+            org.apache.poi.ss.usermodel.CellStyle styleDataLeft = workbook.createCellStyle();
+            styleDataLeft.setFont(fontBody);
+            styleDataLeft.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.LEFT);
+            styleDataLeft.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
+            styleDataLeft.setWrapText(true);
+            styleDataLeft.setBorderTop(thin);
+            styleDataLeft.setBorderBottom(thin);
+            styleDataLeft.setBorderLeft(thin);
+            styleDataLeft.setBorderRight(thin);
+            styleDataLeft.setTopBorderColor(borderColor);
+            styleDataLeft.setBottomBorderColor(borderColor);
+            styleDataLeft.setLeftBorderColor(borderColor);
+            styleDataLeft.setRightBorderColor(borderColor);
+
+            String[] headers = {
+                "Código", "Descrição Sucinta do objeto", "Justificativa da necessidade", "Quantidade", 
+                "Estimativa Preliminar Do Valor Global (R$)", "Vigência (em meses)", "Nova Licitação ou demanda à Própria ARP?", 
+                "Grau de prioridade", "Renovação, Nova contratação, Encerramento de contrato no exercício ou Contrato plurianual?", 
+                "Data Estimada da Nova Contratação ou Renovação", "Proad Renovação", "Natureza continuada (sim ou não?)", 
+                "Investimento ou custeio?", "A demanda está alinhada às diretrizes de sustentabilidade e às metas do PLS do TJGO (sim ou não)", 
+                "Indicação do objetivo estratégico TJGO", "Identificação da natureza da despesa", 
+                "A demanda é indicada para eventual compra compartilhada com outros órgãos da adm. pública (sim ou não). Qual(is)"
+            };
+
+            // Colunas que ficam alinhadas à esquerda (descrição e justificativa)
+            java.util.Set<Integer> leftAlignedCols = java.util.Set.of(1, 2);
+
+            int rowNum = 0;
+
+            // ── Logo ──
+            try {
+                java.net.URL url = new java.net.URL("https://www.tjgo.jus.br/images/brasao_poder_Judiciario_Horizontal.png");
+                byte[] imageBytes;
+                try (java.io.InputStream is = url.openStream()) {
+                    imageBytes = is.readAllBytes();
+                }
+                // Criar linhas placeholder para a imagem
+                for (int r = rowNum; r < rowNum + 4; r++) {
+                    sheet.createRow(r).setHeightInPoints(20);
+                }
+                int pictureIdx = workbook.addPicture(imageBytes, org.apache.poi.ss.usermodel.Workbook.PICTURE_TYPE_PNG);
+                org.apache.poi.ss.usermodel.CreationHelper helper = workbook.getCreationHelper();
+                org.apache.poi.ss.usermodel.Drawing<?> drawing = sheet.createDrawingPatriarch();
+                org.apache.poi.ss.usermodel.ClientAnchor anchor = helper.createClientAnchor();
+                anchor.setCol1(6);
+                anchor.setRow1(rowNum);
+                anchor.setAnchorType(org.apache.poi.ss.usermodel.ClientAnchor.AnchorType.MOVE_DONT_RESIZE);
+                org.apache.poi.ss.usermodel.Picture pic = drawing.createPicture(anchor, pictureIdx);
+                pic.resize(0.4);
+                rowNum += 4;
+            } catch (Exception e) {
+                // Ignore
+            }
+
+            // ── Anexo I ──
+            org.apache.poi.ss.usermodel.Row anexoRow = sheet.createRow(rowNum);
+            anexoRow.setHeightInPoints(22);
+            org.apache.poi.ss.usermodel.Cell anexoCell = anexoRow.createCell(0);
+            anexoCell.setCellValue("Anexo I");
+            anexoCell.setCellStyle(styleAnexo);
+            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum, rowNum, 0, headers.length - 1));
+            rowNum++;
+
+            // ── Título DFD ──
+            org.apache.poi.ss.usermodel.Row titleRow = sheet.createRow(rowNum);
+            titleRow.setHeightInPoints(20);
+            org.apache.poi.ss.usermodel.Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDAS - DFD");
+            titleCell.setCellStyle(styleTitle);
+            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum, rowNum, 0, headers.length - 1));
+            rowNum++;
+            rowNum++; // linha em branco
+
+            // ── Blocos por unidade ──
+            for (Map.Entry<String, List<Map<String, Object>>> entry : ifosPorUnidade.entrySet()) {
+                String unidade = entry.getKey();
+                List<Map<String, Object>> ifosUnidade = entry.getValue();
+
+                // Linha da unidade
+                org.apache.poi.ss.usermodel.Row rowUnid = sheet.createRow(rowNum);
+                rowUnid.setHeightInPoints(18);
+                org.apache.poi.ss.usermodel.Cell cellUnid = rowUnid.createCell(0);
+                cellUnid.setCellValue("UNIDADE REQUISITANTE: " + unidade);
+                cellUnid.setCellStyle(styleUnidade);
+                // Preencher células mescladas com o mesmo estilo para bordas contínuas
+                for (int i = 1; i < headers.length; i++) {
+                    rowUnid.createCell(i).setCellStyle(styleUnidade);
+                }
+                sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum, rowNum, 0, headers.length - 1));
+                rowNum++;
+
+                // Cabeçalho de colunas
+                org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(rowNum);
+                headerRow.setHeightInPoints(45);
+                for (int i = 0; i < headers.length; i++) {
+                    org.apache.poi.ss.usermodel.Cell c = headerRow.createCell(i);
+                    c.setCellValue(headers[i]);
+                    c.setCellStyle(styleColHeader);
+                }
+                rowNum++;
+
+                // Linhas de dados
+                for (Map<String, Object> ifo : ifosUnidade) {
+                    Long ifoId = asLong(ifo.get("id"));
+                    List<Map<String, Object>> ctrs = contratosPorIfo.getOrDefault(ifoId, Collections.emptyList());
+
+                    String codigo = str(ifo.get("codigo"));
+                    String obj = str(ifo.get("description"));
+                    String just = str(ifo.get("justification"));
+                    String qt = str(ifo.get("quantity"));
+
+                    Long valCents = ifo.get("valor_estimado_cents") != null ? ((Number) ifo.get("valor_estimado_cents")).longValue() : 0L;
+                    String valFormatado = String.format("R$ %,.2f", valCents / 100.0);
+
+                    String vigencia = calcularVigenciaMeses(ctrs);
+                    String novaLicit = "Nova Licitação";
+
+                    String prioridade = str(ifo.get("priority"));
+                    String bloco = mapearBlocoParaMatriz(str(ifo.get("bloco")));
+
+                    String dtEst = "";
+                    if (ifo.get("estimated_date") != null) {
+                        LocalDate dt = ((java.sql.Date) ifo.get("estimated_date")).toLocalDate();
+                        dtEst = dt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                    }
+
+                    String proad = str(ifo.get("process"));
+                    String continuada = "continuada".equals(ifo.get("natureza")) ? "Sim" : "Não";
+                    String finance = str(ifo.get("financial_resource_type"));
+
+                    String sustentavel = Boolean.TRUE.equals(ifo.get("is_sustainable")) ? "Sim" : "Não";
+                    String objEstrat = str(ifo.get("strategic_objective"));
+                    String natDesp = obterNaturezaDespesa(ctrs);
+                    String comp = Boolean.TRUE.equals(ifo.get("is_shared_acquisition")) ? "Sim" : "Não";
+
+                    String[] rowData = {
+                        codigo == null ? "" : codigo,
+                        obj == null ? "" : obj,
+                        just == null ? "" : just,
+                        qt == null ? "" : qt,
+                        valFormatado,
+                        vigencia,
+                        novaLicit,
+                        prioridade == null ? "" : prioridade,
+                        bloco,
+                        dtEst,
+                        proad == null ? "" : proad,
+                        continuada,
+                        finance == null ? "" : finance,
+                        sustentavel,
+                        objEstrat == null ? "" : objEstrat,
+                        natDesp,
+                        comp
+                    };
+
+                    org.apache.poi.ss.usermodel.Row dataRow = sheet.createRow(rowNum++);
+                    for (int i = 0; i < rowData.length; i++) {
+                        org.apache.poi.ss.usermodel.Cell c = dataRow.createCell(i);
+                        c.setCellValue(rowData[i]);
+                        c.setCellStyle(leftAlignedCols.contains(i) ? styleDataLeft : styleData);
+                    }
+                }
+                rowNum++; // espaço entre unidades
+            }
+
+            // ── Configurar impressão paisagem ──
+            sheet.getPrintSetup().setLandscape(true);
+            sheet.getPrintSetup().setPaperSize(org.apache.poi.ss.usermodel.PrintSetup.A3_PAPERSIZE);
+            sheet.setFitToPage(true);
+            sheet.getPrintSetup().setFitWidth((short) 1);
+            sheet.getPrintSetup().setFitHeight((short) 0);
+
+            workbook.write(baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new ApiException(500, "Erro ao gerar XLSX da Proposta DFD: " + e.getMessage());
+        }
+    }
     private static Integer asInt(Object v) {
         return v == null ? null : ((Number) v).intValue();
     }

@@ -29,6 +29,7 @@ public record CriarIfoRequest(
         String process,
         String financialResourceType,
         String contractType,
+        String expenseNature,
         Long formalizedValueCents,
         String priority,
         LocalDate estimatedDate,
