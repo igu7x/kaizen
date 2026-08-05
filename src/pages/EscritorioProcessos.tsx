@@ -1851,19 +1851,23 @@ export default function EscritorioProcessos() {
                                         Descrição do Processo
                                       </span>
                                     </div>
-                                    <Button
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(
-                                          `/gestao-estrategica/processos/${p.id}`,
-                                        );
-                                      }}
-                                      className="h-8 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
-                                    >
-                                      Ver detalhes
-                                      <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-                                    </Button>
+                                    {/* "Ver detalhes" só para Modelo K1 (abre a última versão
+                                        validada). Documento primário não tem essa visão. */}
+                                    {isK1(p) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(
+                                            `/gestao-estrategica/processos/${p.id}`,
+                                          );
+                                        }}
+                                        className="h-8 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+                                      >
+                                        Ver detalhes
+                                        <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                                      </Button>
+                                    )}
                                   </div>
                                   {p.descricao?.trim() ? (
                                     <p className="text-sm text-slate-700 whitespace-pre-line [overflow-wrap:anywhere] text-justify">
