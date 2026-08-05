@@ -108,7 +108,18 @@ export default function ProcessoDetalhe() {
     setLoading(true);
     setErro(false);
     try {
-      const p = await processosNegocioApi.getById(Number(id));
+      const pid = Number(id);
+      // Exibe a ÚLTIMA VERSÃO VALIDADA (snapshot congelado), NÃO os dados ao vivo — que podem ter
+      // edições de uma revisão em curso ainda não validadas. Fallback ao vivo se não há versão homologada.
+      let p: ProcessoNegocio;
+      try {
+        const versoes = await processosNegocioApi.listVersoes(pid);
+        p = versoes.length
+          ? await processosNegocioApi.getVersaoSnapshot(pid, versoes[0].id)
+          : await processosNegocioApi.getById(pid);
+      } catch {
+        p = await processosNegocioApi.getById(pid);
+      }
       setProcesso(p);
       // Nome amigável da diretoria (a partir da sigla), para cabeçalho e PDF.
       try {
