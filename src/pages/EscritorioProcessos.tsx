@@ -743,7 +743,12 @@ export default function EscritorioProcessos() {
   // ============================================================
   const filteredBase = useMemo(() => {
     return processos.filter((p) => {
-      const naAba = aba === "vigentes" ? isVigente(p) : isRevisaoOuNovo(p);
+      // Exibição da aba "Vigentes": inclui os vigentes de verdade E os que têm documento
+      // primário anexado (só visual — o documento primário não altera o andamento/isVigente).
+      const naAba =
+        aba === "vigentes"
+          ? isVigente(p) || temDocumentoPrimario(p)
+          : isRevisaoOuNovo(p);
       if (!naAba) return false;
       if (
         filtroArea !== "all" &&
