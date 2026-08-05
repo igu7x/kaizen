@@ -206,11 +206,10 @@ export function isK1(p: ProcessoNegocio): boolean {
  *    anexada + a data de aprovação preenchida, para TODOS os comitês exigidos.
  *  - Áreas judiciárias (DIJUD/DPE) e demais sem comitê: vigente após a validação do Compliance
  *    Officer (validado_final).
- *  - Documento primário: vigente pelo próprio anexo.
+ * O documento primário é APENAS um anexo — NÃO altera o andamento do processo (proposta→vigente).
  * Em qualquer caso, só é vigente quando possui ID ({@code codigo}) e os campos obrigatórios.
  */
 export function isVigente(p: ProcessoNegocio): boolean {
-  if (temDocumentoPrimario(p)) return true;
   if (!p.codigo) return false; // regra: só é vigente quando possui um ID
   if (camposObrigatoriosFaltantes(p).length > 0) return false;
   if (exigeComiteAprovacao(p.diretoria)) {
@@ -226,8 +225,7 @@ export function isVigente(p: ProcessoNegocio): boolean {
 /**
  * Data de aprovação que SUBSTITUI a "Data da Versão" e é a referência da Próxima Revisão:
  *  - TI (comitê): a data de aprovação do comitê (a mais recente entre os comitês exigidos);
- *  - Judiciário: a data de aprovação do Compliance Officer (validado_final);
- *  - Documento primário: o período informado.
+ *  - Judiciário: a data de aprovação do Compliance Officer (validado_final).
  * Null quando o processo ainda não é vigente.
  */
 export function dataVigencia(p: ProcessoNegocio): string | null {
