@@ -958,36 +958,41 @@ export function generateProcessoNegocioPDF(
   y = drawMultilineContent(doc, processo.indicadores || "", y, 18);
   y += 6;
 
-  // 7. Modelagem / Fluxograma
-  y = checkPageBreak(doc, y, 30);
-  y = drawNumberedSectionHeader(doc, 7, "Modelagem / Fluxograma", y);
+  // 7. Modelagem / Fluxograma — o cabeçalho e o fluxograma NÃO podem se separar entre páginas.
+  // Reservamos a altura do conteúdo junto do cabeçalho: se não couber tudo na página atual,
+  // o título inteiro desce para a próxima (via minContentH do próprio header).
   const flux = getFluxograma(processo);
-  if (flux.data && flux.mime?.startsWith("image/")) {
+  const isFluxImg = !!(flux.data && flux.mime?.startsWith("image/"));
+  const fluxImgW = CONTENT_WIDTH;
+  const fluxImgH = fluxImgW * 0.5; // proporção segura pra diagrama
+  y = drawNumberedSectionHeader(
+    doc,
+    7,
+    "Modelagem / Fluxograma",
+    y,
+    isFluxImg ? fluxImgH + 8 : 20,
+  );
+  if (isFluxImg) {
     // Embedar imagem mantendo proporção
     try {
-      const fmt = flux.mime.includes("png")
+      const fmt = flux.mime!.includes("png")
         ? "PNG"
-        : flux.mime.includes("webp")
+        : flux.mime!.includes("webp")
           ? "WEBP"
           : "JPEG";
-      // Estimar altura via tag <img> dinâmica não é trivial em jsPDF; assumimos largura full
-      // e altura proporcional a uma proporção média 16:9 — se preferir, pode ser ajustado depois.
-      const imgW = CONTENT_WIDTH;
-      const imgH = imgW * 0.5; // proporção segura pra diagrama
-      y = checkPageBreak(doc, y, imgH + 4);
       doc.addImage(
-        flux.data,
+        flux.data!,
         fmt,
         MARGIN_LEFT,
         y + 2,
-        imgW,
-        imgH,
+        fluxImgW,
+        fluxImgH,
         undefined,
         "FAST",
       );
       doc.setDrawColor(...BORDER_GRAY);
-      doc.rect(MARGIN_LEFT, y + 2, imgW, imgH, "S");
-      y += imgH + 6;
+      doc.rect(MARGIN_LEFT, y + 2, fluxImgW, fluxImgH, "S");
+      y += fluxImgH + 6;
     } catch (e) {
       y = drawMultilineContent(
         doc,
