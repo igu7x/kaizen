@@ -130,6 +130,10 @@ public class IfoService {
         var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
         if (optUser.isPresent() && optUser.get().isSuperadmin()) return;
 
+        if (List.of("apreciacao_sgjt", "em_comites", "remessa_dg").contains(cicloEstado)) {
+            throw new ApiException(403, "Nestas etapas a edição é permitida apenas para superadmin.");
+        }
+
         List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
 
         // Caminho 1: permissão de modificação especial (tag direta)
