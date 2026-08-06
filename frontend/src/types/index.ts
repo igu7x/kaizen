@@ -387,7 +387,7 @@ export type TarefaStatus = "Não iniciada" | "Em andamento" | "Concluída";
 
 export interface PcaItemDetails {
   id: number;
-  pca_item_id: number;
+  pcas_id: number;
   validacao_dg_tipo: ValidacaoDgTipo;
   validacao_dg_data: string | null;
   fase_atual: string | null;
@@ -398,7 +398,7 @@ export interface PcaItemDetails {
 
 export interface PcaChecklistItem {
   id: number;
-  pca_item_id: number;
+  pcas_id: number;
   item_nome: string;
   item_ordem: number;
   status: ChecklistStatus;
@@ -420,7 +420,7 @@ export interface PcaChecklistResponse {
 
 export interface PcaPontoControle {
   id: number;
-  pca_item_id: number;
+  pcas_id: number;
   ponto_controle: string;
   data: string;
   proxima_reuniao: string;
@@ -432,7 +432,7 @@ export interface PcaPontoControle {
 
 export interface PcaTarefa {
   id: number;
-  pca_item_id: number;
+  pcas_id: number;
   ponto_controle_id: number | null;
   tarefa: string;
   responsavel: string;

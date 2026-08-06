@@ -349,6 +349,10 @@ export default function FormacaoPca() {
     if (formacaoEstado === "publicado") return false;
     if ((user as any)?.is_superadmin) return true;
     
+    if (formacaoEstado === "apreciacao_sgjt" || formacaoEstado === "em_comites" || formacaoEstado === "remessa_dg") {
+      return false;
+    }
+
     // Caminho 1: Herança por tag de transição
     if (minhaDelegacao?.tem_tag_transicao) return true;
     
@@ -365,9 +369,11 @@ export default function FormacaoPca() {
   };
 
   const temModificacaoEspecial = 
-    user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") || 
-    user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_CCA") ||
-    minhaDelegacao?.tipo === "especial";
+    (formacaoEstado !== "apreciacao_sgjt" && formacaoEstado !== "em_comites" && formacaoEstado !== "remessa_dg") && (
+      user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") || 
+      user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_CCA") ||
+      minhaDelegacao?.tipo === "especial"
+    );
 
   const podeEditarIfo = hasEditTag("MODIFICAR_IFO") || temModificacaoEspecial;
   const podeVincularContratos = hasEditTag("VINCULAR_CONTRATOS");
@@ -760,15 +766,22 @@ export default function FormacaoPca() {
                     )}
                     
                     {/* Painel de Delegação de Edição para quem pode transitar (ou superadmin) */}
-                    {(((user as any)?.is_superadmin) || minhaDelegacao?.tem_tag_transicao) && (
-                      <div className="mt-4 flex justify-end">
-                        <PainelDelegacaoEdicao
-                          cicloId={ciclo.id}
-                          estado={ciclo.estado}
-                          onDelegacaoChanged={loadBlocos}
-                        />
-                      </div>
-                    )}
+                    {(() => {
+                      const isSuper = (user as any)?.is_superadmin;
+                      const isFaseBloqueada = ciclo.estado === "apreciacao_sgjt" || ciclo.estado === "em_comites" || ciclo.estado === "remessa_dg";
+                      const podeDelegar = isSuper || (!isFaseBloqueada && minhaDelegacao?.tem_tag_transicao);
+                      
+                      if (!podeDelegar) return null;
+                      return (
+                        <div className="mt-4 flex justify-end">
+                          <PainelDelegacaoEdicao
+                            cicloId={ciclo.id}
+                            estado={ciclo.estado}
+                            onDelegacaoChanged={loadBlocos}
+                          />
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </>

@@ -131,7 +131,7 @@ export interface Projeto {
   havera_contratacao: boolean;
   valor_estimado_contratacao: number | null;
   /** Item do PCA vinculado à contratação (quando havera_contratacao). */
-  pca_item_id?: number | null;
+  pcas_id?: number | null;
   /** Rótulo do item do PCA vinculado (montado no backend) — usado no TAP. */
   pca_item_label?: string | null;
   progresso_percentual: number;
@@ -343,7 +343,7 @@ export interface CreateProjetoDto {
   abrangencia?: string;
   havera_contratacao?: boolean;
   valor_estimado_contratacao?: number;
-  pca_item_id?: number | null;
+  pcas_id?: number | null;
   saude?: string;
   saude_justificativa?: string;
   tap_vinculado?: string;

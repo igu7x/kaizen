@@ -9,12 +9,13 @@ import { Info, XCircle } from "lucide-react";
 import { pcaApi } from "@/services/pcaApi";
 import type { PcaItem } from "@/types";
 
-/** Rótulo amigável de um item do PCA: "PCA {numero} — {objeto}" (sem zeros à esquerda). */
-export const labelPcaItem = (item: PcaItem): string => {
-  const raw = String(item.item_pca ?? "");
-  const num = raw.replace(/^0+/, "") || raw;
-  const desc = item.description || item.objeto || "";
-  return `PCA ${num}${desc ? " — " + desc : ""}`;
+/** Rótulo amigável de um item do PCA: "ano - código - object_name" */
+const labelPcaItem = (item: PcaItem): string => {
+  const ano = item.ano || item.year || "-";
+  let num = String(item.item_pca || item.code || "");
+  num = num.padStart(3, "0");
+  const desc = item.object_name || item.objeto || item.description || "";
+  return `${ano} - PCA ${num} - ${desc}`;
 };
 
 interface PcaItemPickerProps {
@@ -65,14 +66,10 @@ export function PcaItemPicker({
 
   const q = busca.trim().toLowerCase();
   const filtrados = pcaItens
-    .filter(
-      (item) =>
-        !q ||
-        labelPcaItem(item).toLowerCase().includes(q) ||
-        String(item.item_pca ?? "")
-          .toLowerCase()
-          .includes(q),
-    )
+    .filter((item) => {
+      if (!q) return true;
+      return labelPcaItem(item).toLowerCase().includes(q);
+    })
     .slice(0, 50);
 
   return (
@@ -105,6 +102,7 @@ export function PcaItemPicker({
         <Popover open={showList} onOpenChange={setShowList}>
           <PopoverAnchor asChild>
             <Input
+              className="pca-picker-input"
               placeholder="Adicionar o item do PCA..."
               value={busca}
               onChange={(e) => {
@@ -117,7 +115,13 @@ export function PcaItemPicker({
           <PopoverContent
             align="start"
             sideOffset={4}
-            className="w-[340px] max-w-[80vw] max-h-60 overflow-y-auto p-0"
+            className="w-[var(--radix-popover-trigger-width)] max-w-[80vw] max-h-60 overflow-y-auto p-0 z-[80]"
+            onInteractOutside={(e) => {
+              const target = e.target as Element;
+              if (target && target.closest(".pca-picker-input")) {
+                e.preventDefault();
+              }
+            }}
             onOpenAutoFocus={(e) => e.preventDefault()}
             onCloseAutoFocus={(e) => e.preventDefault()}
           >

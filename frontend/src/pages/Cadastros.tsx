@@ -349,7 +349,7 @@ export default function Cadastros() {
     abrangencia: "uma_unidade",
     havera_contratacao: false,
     valor_estimado_contratacao: undefined,
-    pca_item_id: undefined,
+    pcas_id: undefined,
     saude: "verde",
     saude_justificativa: "",
     tap_vinculado: "",
@@ -769,7 +769,7 @@ export default function Cadastros() {
           havera_contratacao: projetoCompleto.havera_contratacao,
           valor_estimado_contratacao:
             projetoCompleto.valor_estimado_contratacao || undefined,
-          pca_item_id: projetoCompleto.pca_item_id ?? undefined,
+          pcas_id: projetoCompleto.pcas_id ?? undefined,
           saude: projetoCompleto.saude,
           saude_justificativa: projetoCompleto.saude_justificativa || "",
           tap_vinculado: projetoCompleto.tap_vinculado || "",
@@ -864,7 +864,7 @@ export default function Cadastros() {
         abrangencia: "uma_unidade",
         havera_contratacao: false,
         valor_estimado_contratacao: undefined,
-        pca_item_id: undefined,
+        pcas_id: undefined,
         saude: "verde",
         saude_justificativa: "",
         tap_vinculado: "",
@@ -4217,7 +4217,7 @@ export default function Cadastros() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
+                      <div className="col-span-1 md:col-span-2 lg:col-span-4">
                         <Label>Haverá Contratação?</Label>
                         <div className="flex items-center gap-4 mt-2">
                           <label className="flex items-center gap-2 cursor-pointer">
@@ -4228,7 +4228,7 @@ export default function Cadastros() {
                                   ...formData,
                                   havera_contratacao: !!checked,
                                   // Ao desmarcar, limpa o item do PCA vinculado.
-                                  ...(checked ? {} : { pca_item_id: undefined }),
+                                  ...(checked ? {} : { pcas_id: undefined }),
                                 })
                               }
                               disabled={modalMode === "view"}
@@ -4237,9 +4237,9 @@ export default function Cadastros() {
                           </label>
                           {formData.havera_contratacao && (
                             <PcaItemPicker
-                              value={formData.pca_item_id}
+                              value={formData.pcas_id}
                               onChange={(id) =>
-                                setFormData({ ...formData, pca_item_id: id })
+                                setFormData({ ...formData, pcas_id: id })
                               }
                               disabled={modalMode === "view"}
                               fallbackLabel={selectedProjeto?.pca_item_label}
