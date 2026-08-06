@@ -438,14 +438,6 @@ export function DialogNovoIfo({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>PROAD</Label>
-            <Input
-              placeholder="202xxxx"
-              value={formData.process || ""}
-              onChange={(e) => handleChange("process", e.target.value)}
-            />
-          </div>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">

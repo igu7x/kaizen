@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,27 @@ export function DialogVincularContratos({
 }: DialogVincularContratosProps) {
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const filteredContracts = useMemo(() => {
+    if (!ifo) return [];
+    
+    return allContracts.filter((c) => {
+      let blocoContrato = "plurianual"; // Default se não tiver endDate
+
+      if (c.endDate) {
+        const fimAno = new Date(c.endDate).getFullYear();
+        if (fimAno > ifo.ano) {
+          blocoContrato = "plurianual";
+        } else if (c.limitDate && new Date(c.limitDate) > new Date(c.endDate)) {
+          blocoContrato = "renovacao";
+        } else {
+          blocoContrato = "encerramento";
+        }
+      }
+      
+      return blocoContrato === ifo.bloco;
+    });
+  }, [allContracts, ifo]);
 
   useEffect(() => {
     if (open && ifo) {
@@ -80,39 +101,56 @@ export function DialogVincularContratos({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto py-4 px-2 space-y-2">
-          {allContracts.length === 0 ? (
+          {filteredContracts.length === 0 ? (
             <p className="text-sm text-slate-500 text-center py-8">
-              Nenhum contrato continuado disponível para vínculo.
+              Nenhum contrato continuado disponível para vínculo neste bloco.
             </p>
           ) : (
-            allContracts.map((c) => {
+            filteredContracts.map((c) => {
               const isSelected = selectedIds.has(c.id);
+              const isLinkedToAnother = !!c.linkedIfoCodigo && c.linkedIfoCodigo !== ifo?.codigo && !isSelected;
+              
               return (
                 <div
                   key={c.id}
-                  onClick={() => toggleContract(c.id)}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    isSelected
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-slate-200 hover:bg-slate-50"
+                  onClick={() => {
+                    if (!isLinkedToAnother || isSelected) {
+                      toggleContract(c.id);
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    isLinkedToAnother
+                      ? "opacity-60 bg-slate-50 border-slate-200 cursor-not-allowed"
+                      : isSelected
+                        ? "border-blue-500 bg-blue-50 cursor-pointer"
+                        : "border-slate-200 hover:bg-slate-50 cursor-pointer"
                   }`}
                 >
-                  <div
-                    className={`h-5 w-5 rounded flex items-center justify-center border shrink-0 ${
-                      isSelected
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "bg-white border-slate-300"
-                    }`}
-                  >
-                    {isSelected && <Check className="h-3.5 w-3.5" />}
+                  <div className="flex-shrink-0">
+                    <div
+                      className={`w-5 h-5 rounded border flex items-center justify-center ${
+                        isSelected
+                          ? "bg-blue-500 border-blue-500 text-white"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </div>
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <div className="flex justify-between items-start">
-                      <span className="font-semibold text-slate-800 font-mono text-sm">
-                        CT {c.noticeNumber || c.id}
-                      </span>
+                  <div className="flex-grow min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-medium text-sm text-slate-900 break-words line-clamp-2">
+                          {c.objectName || "Sem Objeto"}
+                        </span>
+                        {isLinkedToAnother && (
+                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
+                            Vinculado ao {c.linkedIfoCodigo}
+                          </span>
+                        )}
+                      </div>
                       <span className="font-medium text-slate-700 text-sm">
-                        {formatCurrency(c.totalValueCents || 0)}
+                        {formatCurrency((c.totalValueCents || 0) / 100)}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 truncate mt-1">
