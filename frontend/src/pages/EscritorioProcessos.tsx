@@ -60,6 +60,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
 import { ProcessoDetalhe } from "@/components/processos/ProcessoDetalhe";
+import { RichText } from "@/components/ui/RichText";
 import { PopsTable } from "@/components/processos/PopsTable";
 import { popsCriadosApi, PopCriado } from "@/services/popsCriadosApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
@@ -1879,7 +1880,7 @@ export default function EscritorioProcessos() {
                                   </div>
                                   {p.descricao?.trim() ? (
                                     <p className="text-sm text-slate-700 whitespace-pre-line [overflow-wrap:anywhere] text-justify">
-                                      {p.descricao}
+                                      <RichText text={p.descricao} />
                                     </p>
                                   ) : (
                                     <p className="text-sm text-slate-400">
