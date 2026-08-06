@@ -1,18 +1,29 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2, Shield, Lock } from "lucide-react";
+
+/** Animações/tipografia do login — mesma linguagem da Home (balança + anel de ciano, wordmark). */
+const LOGIN_CSS = `
+  .lk-word { font-family: "Montserrat", Inter, ui-sans-serif, system-ui, sans-serif; }
+  @keyframes lk-spin { to { transform: rotate(360deg); } }
+  @keyframes lk-card-in { from { opacity: 0; transform: translateY(16px) scale(0.985); } to { opacity: 1; transform: none; } }
+  @keyframes lk-sym-in { from { opacity: 0; transform: scale(0.6) rotate(-40deg); } to { opacity: 1; transform: none; } }
+  @keyframes lk-fade { from { opacity: 0; } to { opacity: 1; } }
+  .lk-card { animation: lk-card-in 0.6s cubic-bezier(0.16,0.84,0.3,1) both; }
+  .lk-sym { animation: lk-sym-in 1s cubic-bezier(0.16,0.84,0.3,1) both; }
+  .lk-halo { animation: lk-fade 1.4s ease both; }
+  .lk-ring { transform-origin: center; animation: lk-spin 34s linear infinite; }
+  .lk-cta { transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease; }
+  .lk-cta:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 14px 30px -12px rgba(20,120,180,0.65); }
+  .lk-cta:focus-visible { outline: 2px solid #1E9BD7; outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    .lk-card, .lk-sym, .lk-halo, .lk-ring { animation: none !important; opacity: 1; transform: none; }
+  }
+`;
 import { apiClient, API_BASE_URL } from "@/services/apiClient";
 import { isLocalLoginEnabled } from "@/utils/environment";
 import Storage from "@/utils/storage";
@@ -162,197 +173,234 @@ export function LoginForm() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
+      className="lk relative flex min-h-screen w-full items-center justify-center overflow-hidden p-4"
       style={{
-        background: "linear-gradient(135deg, #0A2547 0%, #1565C0 100%)",
+        background:
+          "radial-gradient(1100px 620px at 50% -12%, #16558f 0%, #0E3D73 34%, #0B2547 72%, #0A1E38 100%)",
       }}
     >
-      <Card className="w-full max-w-md shadow-2xl border-0">
-        <CardHeader className="space-y-6 text-center pb-2">
-          {/* Header Institucional */}
-          <div className="flex items-start gap-4 pb-4 border-b border-gray-200">
-            <img
-              src="/brasao-goias.png"
-              alt="Brasão de Goiás"
-              className="h-20 w-auto object-contain"
+      <style>{LOGIN_CSS}</style>
+
+      {/* Textura pontilhada sutil no fundo */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at center, #ffffff 0 1px, transparent 1.4px)",
+          backgroundSize: "28px 28px",
+        }}
+      />
+
+      <div className="lk-card relative w-full max-w-[420px] rounded-[26px] bg-white px-8 pb-7 pt-9 shadow-[0_40px_90px_-24px_rgba(4,18,42,0.7)]">
+        {/* Emblema — balança da justiça com o anel de ciano (mesma da Home) */}
+        <div className="flex flex-col items-center text-center">
+          <div className="lk-sym relative mb-5 h-[128px] w-[128px]">
+            <div
+              className="lk-halo absolute inset-[8%] rounded-full blur-xl"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(30,155,215,0.22), transparent 62%)",
+              }}
             />
-            <div className="text-left flex-1">
-              <p className="text-xs text-gray-700 leading-relaxed">
-                <strong className="text-gray-900">PODER JUDICIÁRIO</strong>
-                <br />
-                Tribunal de Justiça do Estado de Goiás
-                <br />
-                <span className="text-gray-500 text-[10px]">
-                  Diretoria de Soluções em Tecnologia da Informação
-                  <br />
-                  Coordenadoria de Transformação Digital
-                </span>
-              </p>
-              <p className="text-sm font-semibold text-blue-700 mt-2 leading-tight">
-                Secretaria de Governança
-                <br />
-                Judiciária e Tecnológica
-              </p>
-            </div>
+            <svg
+              viewBox="0 0 400 400"
+              className="absolute inset-0 h-full w-full"
+              aria-hidden
+            >
+              <circle
+                className="lk-ring"
+                cx="200"
+                cy="200"
+                r="192"
+                fill="none"
+                stroke="#1E9BD7"
+                strokeWidth="3"
+                strokeDasharray="5 13"
+                strokeLinecap="round"
+              />
+            </svg>
+            <img
+              src="/logo%20kaizen%20desenho.png"
+              alt="Kaizen — balança da justiça no ciclo de melhoria contínua"
+              className="absolute inset-[16%] h-[68%] w-[68%] object-contain"
+              style={{ transform: "translate(1.6%, 4.9%)" }}
+            />
           </div>
 
-          {/* Título Kaizen */}
-          <div className="pt-2">
-            <CardTitle
-              className="text-4xl font-bold tracking-wide"
+          <h1
+            className="lk-word text-[2.7rem] font-extrabold uppercase leading-none tracking-[0.02em]"
+            style={{ color: "#0E3D73" }}
+          >
+            Kaizen
+          </h1>
+          <p className="mt-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#5A6B84]">
+            Governança Judiciária e Tecnológica
+          </p>
+        </div>
+
+        <div className="my-6 h-px w-full bg-slate-100" />
+
+        {error && (
+          <Alert
+            variant="destructive"
+            className="mb-4 animate-in fade-in-50 duration-300"
+          >
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Toggle SSO / Login Local (só quando ambos disponíveis) */}
+        {localLoginAvailable && ssoEnabled && (
+          <div className="mb-4 flex items-center gap-1.5 rounded-xl bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setUseLocalLogin(false)}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                !useLocalLogin
+                  ? "bg-white text-[#0E3D73] shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Shield className="mr-1 inline-block h-4 w-4" />
+              SSO
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseLocalLogin(true)}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                useLocalLogin
+                  ? "bg-white text-[#0E3D73] shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Lock className="mr-1 inline-block h-4 w-4" />
+              Login Local
+            </button>
+          </div>
+        )}
+
+        {/* Login SSO */}
+        {ssoEnabled && (!useLocalLogin || !localLoginAvailable) && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={handleSSOLogin}
+              disabled={ssoLoading}
+              className="lk-cta flex h-14 w-full items-center justify-center gap-2.5 rounded-xl text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
               style={{
-                color: "#0A2547",
-                fontFamily: "'Segoe UI', 'Roboto', sans-serif",
+                background: "linear-gradient(90deg, #0E3D73 0%, #1478B4 100%)",
               }}
             >
-              Kaizen
-            </CardTitle>
-            <CardDescription className="text-base text-gray-600 mt-1">
-              Plataforma de Governança Judiciária e Tecnológica
-            </CardDescription>
+              {ssoLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Redirecionando...
+                </>
+              ) : (
+                <>
+                  <Shield className="h-5 w-5" />
+                  Entrar com Conta Institucional (SSO)
+                </>
+              )}
+            </button>
+            <p className="text-center text-xs text-slate-500">
+              Use suas credenciais do TJGO
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert
-              variant="destructive"
-              className="animate-in fade-in-50 duration-300 mb-4"
-            >
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        )}
 
-          {/* Toggle entre SSO e Login Local (apenas quando ambos disponíveis) */}
-          {localLoginAvailable && ssoEnabled && (
-            <div className="mb-4 flex items-center justify-center gap-2 p-2 bg-gray-50 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setUseLocalLogin(false)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  !useLocalLogin
-                    ? "bg-white text-blue-700 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Shield className="inline-block w-4 h-4 mr-1" />
-                SSO
-              </button>
-              <button
-                type="button"
-                onClick={() => setUseLocalLogin(true)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  useLocalLogin
-                    ? "bg-white text-blue-700 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Lock className="inline-block w-4 h-4 mr-1" />
-                Login Local
-              </button>
-            </div>
-          )}
-
-          {/* Login SSO (mostra se SSO habilitado E (não usa local OU local não disponível)) */}
-          {ssoEnabled && (!useLocalLogin || !localLoginAvailable) && (
-            <div className="space-y-3">
-              <Button
-                type="button"
-                onClick={handleSSOLogin}
-                className="w-full h-14 text-base font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-                disabled={ssoLoading}
-              >
-                {ssoLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Redirecionando...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="mr-2 h-5 w-5" />
-                    Entrar com Conta Institucional (SSO)
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-center text-gray-500">
-                Use suas credenciais do TJGO
-              </p>
-            </div>
-          )}
-
-          {/* Login Local (dev/staging) - mostra se local disponível E (usa local OU SSO não disponível) */}
-          {localLoginAvailable && (useLocalLogin || !ssoEnabled) && (
-            <form onSubmit={handleLocalLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">
-                  E-mail
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu.email@tjgo.jus.br"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                  autoComplete="email"
-                  autoFocus
-                  disabled={localLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">
-                  Senha
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                  autoComplete="current-password"
-                  disabled={localLoading}
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full h-12 text-base font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+        {/* Login Local (dev/staging) */}
+        {localLoginAvailable && (useLocalLogin || !ssoEnabled) && (
+          <form onSubmit={handleLocalLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-slate-700">
+                E-mail
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu.email@tjgo.jus.br"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-[#1478B4]"
+                autoComplete="email"
+                autoFocus
                 disabled={localLoading}
-              >
-                {localLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="mr-2 h-5 w-5" />
-                    Entrar
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-center text-amber-600">
-                Login local disponível apenas em desenvolvimento
-              </p>
-            </form>
-          )}
-
-          {/* SSO não disponível */}
-          {!ssoEnabled && !localLoginAvailable && (
-            <div className="space-y-4">
-              <Alert
-                variant="destructive"
-                className="animate-in fade-in-50 duration-300"
-              >
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Nenhum método de autenticação está disponível no momento.
-                </AlertDescription>
-              </Alert>
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-slate-700">
+                Senha
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-[#1478B4]"
+                autoComplete="current-password"
+                disabled={localLoading}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={localLoading}
+              className="lk-cta flex h-12 w-full items-center justify-center gap-2 rounded-xl text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              style={{
+                background: "linear-gradient(90deg, #0E3D73 0%, #1478B4 100%)",
+              }}
+            >
+              {localLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                <>
+                  <Lock className="h-5 w-5" />
+                  Entrar
+                </>
+              )}
+            </button>
+            <p className="text-center text-xs text-amber-600">
+              Login local disponível apenas em desenvolvimento
+            </p>
+          </form>
+        )}
+
+        {/* Nenhum método disponível */}
+        {!ssoEnabled && !localLoginAvailable && (
+          <Alert
+            variant="destructive"
+            className="animate-in fade-in-50 duration-300"
+          >
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Nenhum método de autenticação está disponível no momento.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Rodapé institucional sutil */}
+        <div className="mt-7 flex items-center justify-center gap-2.5 border-t border-slate-100 pt-5">
+          <img
+            src="/brasao-goias.png"
+            alt="Brasão de Goiás"
+            className="h-9 w-auto object-contain"
+          />
+          <div className="text-left leading-tight">
+            <p className="text-[11px] font-semibold text-slate-600">
+              PODER JUDICIÁRIO · TJGO
+            </p>
+            <p className="text-[10px] text-slate-400">
+              Secretaria de Governança Judiciária e Tecnológica
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
