@@ -12,6 +12,7 @@ import {
 } from "../services/processosNegocioApi";
 import { BRASAO_GOIAS_BASE64 } from "./brasaoBase64";
 import { API_BASE_URL } from "../services/apiClient";
+import { splitBoldRuns } from "./markdownBold";
 
 // ============================================================
 // Paleta institucional revisada (mockup TJGO / Secretaria de
@@ -263,8 +264,87 @@ function drawNumberedSectionHeader(
   return y + h;
 }
 
-// Texto livre dentro de uma box (com page-break + justify + centro vertical).
-// Renderiza parágrafo a parágrafo pra que a última linha de cada um fique sem justify.
+// Uma palavra da caixa de texto, com a fonte (negrito ou não) e a largura já medida.
+type RichWord = { text: string; bold: boolean; w: number };
+// Uma linha já quebrada: lista de palavras + se é a última linha do parágrafo (não justifica).
+type RichLine = { words: RichWord[]; lastOfPara: boolean };
+
+// Quebra o texto (com marcação `**negrito**`) em linhas que cabem em maxW, medindo cada
+// palavra com a fonte certa. Preserva \n (parágrafos) e negrito que atravessa quebras de linha.
+function layoutRichLines(doc: jsPDF, text: string, maxW: number): RichLine[] {
+  const measure = (t: string, bold: boolean) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    return doc.getTextWidth(t);
+  };
+  const spaceW = measure(" ", false);
+
+  // splitBoldRuns no texto INTEIRO (captura negrito multi-linha), depois quebra por \n em parágrafos.
+  const paras: Array<Array<{ text: string; bold: boolean }>> = [[]];
+  splitBoldRuns(text).forEach((run) => {
+    const parts = run.text.split("\n");
+    parts.forEach((part, i) => {
+      if (i > 0) paras.push([]);
+      if (part) paras[paras.length - 1].push({ text: part, bold: run.bold });
+    });
+  });
+
+  const lines: RichLine[] = [];
+  paras.forEach((para) => {
+    // Tokeniza o parágrafo em palavras (colapsa espaços), preservando o negrito de cada run.
+    const words: RichWord[] = [];
+    para.forEach((run) => {
+      run.text.split(/\s+/).forEach((tok) => {
+        if (tok) words.push({ text: tok, bold: run.bold, w: measure(tok, run.bold) });
+      });
+    });
+    if (words.length === 0) {
+      lines.push({ words: [], lastOfPara: true }); // linha em branco
+      return;
+    }
+    let cur: RichWord[] = [];
+    let curW = 0;
+    words.forEach((word) => {
+      const add = cur.length ? spaceW + word.w : word.w;
+      if (cur.length && curW + add > maxW) {
+        lines.push({ words: cur, lastOfPara: false });
+        cur = [word];
+        curW = word.w;
+      } else {
+        cur.push(word);
+        curW += add;
+      }
+    });
+    lines.push({ words: cur, lastOfPara: true });
+  });
+  return lines;
+}
+
+// Desenha uma linha palavra a palavra, trocando a fonte por run. Justifica (distribui o espaço
+// extra) quando não for a última linha do parágrafo e houver mais de uma palavra.
+function drawRichLine(
+  doc: jsPDF,
+  line: RichLine,
+  x: number,
+  baseY: number,
+  maxW: number,
+): void {
+  if (line.words.length === 0) return;
+  doc.setFont("helvetica", "normal");
+  const spaceW = doc.getTextWidth(" ");
+  const natural = line.words.reduce((s, w, i) => s + w.w + (i ? spaceW : 0), 0);
+  const gaps = line.words.length - 1;
+  const justify = !line.lastOfPara && gaps > 0 && natural < maxW;
+  const extra = justify ? (maxW - natural) / gaps : 0;
+  let cx = x;
+  line.words.forEach((word, i) => {
+    if (i) cx += spaceW + extra;
+    doc.setFont("helvetica", word.bold ? "bold" : "normal");
+    doc.text(word.text, cx, baseY);
+    cx += word.w;
+  });
+}
+
+// Texto livre dentro de uma box (com page-break + justify + centro vertical + negrito inline).
 function drawMultilineContent(
   doc: jsPDF,
   text: string,
@@ -281,15 +361,7 @@ function drawMultilineContent(
   const paddingBottom = 3;
   const bottomLimit = FOOTER_Y - 5;
 
-  const wrapped = splitParagraphs(doc, text, maxW);
-  const flat: Array<{ text: string; paraIdx: number }> = [];
-  wrapped.forEach((paraLines, paraIdx) => {
-    if (paraLines.length === 0) {
-      flat.push({ text: "", paraIdx: -1 });
-    } else {
-      paraLines.forEach((l) => flat.push({ text: l, paraIdx }));
-    }
-  });
+  const flat = layoutRichLines(doc, text || "", maxW);
 
   if (flat.length === 0) {
     if (y + minHeight > bottomLimit) {
@@ -334,23 +406,9 @@ function drawMultilineContent(
     const yFirstBaseline =
       y + Math.max(paddingTop, (chunkHeight - textBlockH) / 2) + lineHeight - 1;
 
-    let subStart = lineIndex;
-    while (subStart < chunkEnd) {
-      const paraIdx = flat[subStart].paraIdx;
-      if (paraIdx === -1) {
-        subStart++;
-        continue;
-      }
-      let subEnd = subStart + 1;
-      while (subEnd < chunkEnd && flat[subEnd].paraIdx === paraIdx) subEnd++;
-      const subLines = flat.slice(subStart, subEnd).map((it) => it.text);
-      const yLine = yFirstBaseline + (subStart - lineIndex) * lineHeight;
-      doc.text(subLines, MARGIN_LEFT + 4, yLine, {
-        align: "justify",
-        maxWidth: maxW,
-        lineHeightFactor: 1.4,
-      });
-      subStart = subEnd;
+    for (let li = lineIndex; li < chunkEnd; li++) {
+      const yLine = yFirstBaseline + (li - lineIndex) * lineHeight;
+      drawRichLine(doc, flat[li], MARGIN_LEFT + 4, yLine, maxW);
     }
 
     y += chunkHeight;
@@ -360,6 +418,7 @@ function drawMultilineContent(
       y = 15;
     }
   }
+  doc.setFont("helvetica", "normal");
   return y;
 }
 

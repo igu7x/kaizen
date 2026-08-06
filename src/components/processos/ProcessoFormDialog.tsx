@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -609,12 +609,13 @@ export function ProcessoFormDialog({
             icon={<FileText className="h-4 w-4" />}
             title="Descrição do Processo"
           >
-            <Textarea
+            <RichTextarea
               value={form.descricao || ""}
-              onChange={(e) => update("descricao", e.target.value)}
+              onChange={(v) => update("descricao", v)}
               placeholder="Descreva brevemente o objetivo deste processo..."
-              rows={4}
-              className="bg-white resize-none"
+              disabled={!editando}
+              minHeight={104}
+              className="bg-white"
             />
           </Section>
 
@@ -696,12 +697,13 @@ export function ProcessoFormDialog({
             icon={<FileText className="h-4 w-4" />}
             title="Estrutura do Processo"
           >
-            <Textarea
+            <RichTextarea
               value={form.detalhamento || ""}
-              onChange={(e) => update("detalhamento", e.target.value)}
+              onChange={(v) => update("detalhamento", v)}
               placeholder="Descreva a estrutura do processo de forma macro, apresentando suas etapas e seu fluxo de execução do início ao fim."
-              rows={10}
-              className="bg-white resize-y"
+              disabled={!editando}
+              minHeight={240}
+              className="bg-white"
             />
             <p className="text-xs text-slate-500 mt-1">
               Use quebras de linha pra separar parágrafos e numerar etapas (1.,
@@ -748,12 +750,13 @@ export function ProcessoFormDialog({
 
           {/* Indicadores */}
           <Section icon={<BarChart3 className="h-4 w-4" />} title="Indicadores">
-            <Textarea
+            <RichTextarea
               value={form.indicadores || ""}
-              onChange={(e) => update("indicadores", e.target.value)}
+              onChange={(v) => update("indicadores", v)}
               placeholder="Informe os indicadores utilizados para acompanhar o desempenho e os resultados do processo."
-              rows={4}
-              className="bg-white resize-y"
+              disabled={!editando}
+              minHeight={104}
+              className="bg-white"
             />
             <p className="text-xs text-slate-500 mt-1">
               <span className="font-semibold">Exemplos:</span> volume de
@@ -870,13 +873,14 @@ export function ProcessoFormDialog({
                 >
                   Observações Gerais
                 </Label>
-                <Textarea
+                <RichTextarea
                   id="observacoes_gerais"
                   value={form.observacoes_gerais || ""}
-                  onChange={(e) => update("observacoes_gerais", e.target.value)}
+                  onChange={(v) => update("observacoes_gerais", v)}
                   placeholder="Observações adicionais sobre o processo"
-                  rows={3}
-                  className="mt-1 bg-white resize-y"
+                  disabled={!editando}
+                  minHeight={80}
+                  className="mt-1 bg-white"
                 />
               </div>
             </div>

@@ -39,6 +39,7 @@ import {
 } from "@/services/processosNegocioApi";
 import { areasApi } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
+import { RichText } from "@/components/ui/RichText";
 
 function formatData(v: string | null | undefined): string {
   if (!v) return "—";
@@ -613,7 +614,7 @@ function Texto({ valor }: { valor: string | null | undefined }) {
   }
   return (
     <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line [overflow-wrap:anywhere] text-justify">
-      {valor}
+      <RichText text={valor} />
     </p>
   );
 }

@@ -58,6 +58,7 @@ import {
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
+import { RichText } from "@/components/ui/RichText";
 
 interface ProcessoDetalheProps {
   open: boolean;
@@ -295,14 +296,14 @@ function MultiParagraph({ text }: { text: string | null }) {
             <div key={idx} className="flex items-start gap-2">
               <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-slate-700" />
               <span className="flex-1 break-words">
-                {line.replace(/^\s*[-•*\d\.\)]+\s*/, "")}
+                <RichText text={line.replace(/^\s*[-•*\d\.\)]+\s*/, "")} />
               </span>
             </div>
           );
         }
         return (
           <p key={idx} className="leading-relaxed">
-            {line}
+            <RichText text={line} />
           </p>
         );
       })}
