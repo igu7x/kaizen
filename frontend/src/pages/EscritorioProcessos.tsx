@@ -1766,16 +1766,23 @@ export default function EscritorioProcessos() {
                       const docs = p.documentos_anexados || [];
                       const expandido =
                         aba === "vigentes" && linhaExpandida === p.id;
+                      // Doc. Primário na aba Vigentes: não expande nem é clicável.
+                      const bloqueado = aba === "vigentes" && docPri;
                       return (
                         <Fragment key={p.id}>
                         <tr
-                          onClick={() =>
-                            aba === "vigentes"
-                              ? setLinhaExpandida(expandido ? null : p.id)
-                              : handleAbrirDetalhe(p)
-                          }
-                          className={`transition-colors cursor-pointer ${
-                            expandido ? "bg-slate-50" : "hover:bg-blue-50/50"
+                          onClick={() => {
+                            if (bloqueado) return;
+                            if (aba === "vigentes") {
+                              setLinhaExpandida(expandido ? null : p.id);
+                            } else {
+                              handleAbrirDetalhe(p);
+                            }
+                          }}
+                          className={`transition-colors ${
+                            bloqueado
+                              ? "cursor-default"
+                              : `cursor-pointer ${expandido ? "bg-slate-50" : "hover:bg-blue-50/50"}`
                           }`}
                         >
                           <td className="relative p-0">
@@ -1829,7 +1836,7 @@ export default function EscritorioProcessos() {
                             {nextRev ? formatDateShort(nextRev) : "—"}
                           </td>
                           <td className="px-2 py-3 text-slate-400">
-                            {aba === "vigentes" ? (
+                            {bloqueado ? null : aba === "vigentes" ? (
                               <ChevronDown
                                 className={`h-4 w-4 transition-transform ${expandido ? "rotate-180" : ""}`}
                               />
