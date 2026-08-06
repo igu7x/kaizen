@@ -1766,8 +1766,9 @@ export default function EscritorioProcessos() {
                       const docs = p.documentos_anexados || [];
                       const expandido =
                         aba === "vigentes" && linhaExpandida === p.id;
-                      // Doc. Primário na aba Vigentes: não expande nem é clicável.
-                      const bloqueado = aba === "vigentes" && docPri;
+                      // Só quando o MODELO exibido é Doc. Primário (não K1), na aba Vigentes:
+                      // não expande nem é clicável. Modelo K1 segue clicável como antes.
+                      const bloqueado = aba === "vigentes" && docPri && !k1;
                       return (
                         <Fragment key={p.id}>
                         <tr
