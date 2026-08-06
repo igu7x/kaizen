@@ -45,7 +45,8 @@ public class ContractsController {
                 contract.getDescription(),
                 contract.getYearValue(),
                 contract.getSituation(),
-                contract.getYearDurationStandard()
+                contract.getYearDurationStandard(),
+                contract.getLinkedIfoCodigo()
         );
     }
 
