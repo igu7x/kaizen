@@ -52,7 +52,7 @@ export default function ValidarProcesso() {
       /* mantém a sigla */
     }
     if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
-    const url = generateProcessoNegocioPDF(p, diretoriaNome, null, {
+    const url = await generateProcessoNegocioPDF(p, diretoriaNome, null, {
       suppressOpen: true,
     });
     pdfUrlRef.current = url;

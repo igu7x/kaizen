@@ -769,14 +769,22 @@ function drawRodapeInstitucional(
 // ============================================================
 // PDF MAIN
 // ============================================================
-export function generateProcessoNegocioPDF(
+export async function generateProcessoNegocioPDF(
   processo: ProcessoNegocio,
   diretoriaNome?: string,
   // Aba pré-aberta no gesto do clique (evita bloqueio de popup quando há await antes).
   targetWindow?: Window | null,
   // Só constrói e retorna a URL do blob, sem abrir aba (para preview embutido em iframe).
   options?: { suppressOpen?: boolean },
-): string {
+): Promise<string> {
+  // A função é assíncrona (rasteriza fluxograma-PDF). Para não ser bloqueada por popup blocker,
+  // se ninguém passou uma aba e vamos abrir, abrimos AGORA — antes de qualquer await — ainda
+  // dentro do gesto do clique. As chamadas que já passam `targetWindow` continuam usando a delas.
+  let win = targetWindow ?? null;
+  if (!win && !options?.suppressOpen && typeof window !== "undefined") {
+    win = window.open("", "_blank");
+  }
+
   const doc = new jsPDF("p", "mm", "a4");
   let y = 15;
 
@@ -961,9 +969,36 @@ export function generateProcessoNegocioPDF(
   // 7. Modelagem / Fluxograma — pode haver VÁRIOS fluxogramas anexados; renderiza todos em
   // sequência, um após o outro. O cabeçalho fica colado ao 1º fluxograma (não se separam entre
   // páginas, via minContentH do próprio header); os seguintes quebram de página conforme couberem.
-  const fluxogramas = getFluxogramas(processo);
-  const fluxPdfs = fluxogramas.filter((f) => f.mime === "application/pdf");
-  const fluxImagensRaw = fluxogramas.filter((f) => f.mime !== "application/pdf");
+  const fluxogramasRaw = getFluxogramas(processo);
+  // Rasteriza a 1ª página de fluxogramas anexados em PDF, para saírem como IMAGEM no documento
+  // (jsPDF não embute páginas de PDF). Se a rasterização falhar, cai na nota de texto de antes.
+  const fluxImagensRaw: Array<{
+    data: string;
+    filename: string | null;
+    mime: string | null;
+  }> = [];
+  const fluxPdfs: typeof fluxImagensRaw = [];
+  // pdf.js (~1MB) só é carregado sob demanda, quando existe fluxograma anexado em PDF.
+  const rasterize = fluxogramasRaw.some((f) => f.mime === "application/pdf")
+    ? (await import("./pdfRasterize")).rasterizePdfFirstPage
+    : null;
+  for (const f of fluxogramasRaw) {
+    if (f.mime === "application/pdf") {
+      const png = rasterize ? await rasterize(f.data) : null;
+      if (png) {
+        fluxImagensRaw.push({
+          data: png.dataUrl,
+          filename: f.filename,
+          mime: "image/png",
+        });
+      } else {
+        fluxPdfs.push(f);
+      }
+    } else {
+      fluxImagensRaw.push(f);
+    }
+  }
+  const fluxogramas = fluxogramasRaw;
   const maxImgW = CONTENT_WIDTH;
   const maxImgH = 165; // altura máxima de um fluxograma (cabe numa página com header/rodapé)
 
@@ -1294,11 +1329,11 @@ export function generateProcessoNegocioPDF(
 
   const blobUrl = doc.output("bloburl") as unknown as string;
   if (options?.suppressOpen) {
-    targetWindow?.close();
+    win?.close();
     return blobUrl;
   }
-  if (targetWindow) {
-    targetWindow.location.href = blobUrl;
+  if (win) {
+    win.location.href = blobUrl;
   } else {
     window.open(blobUrl, "_blank");
   }
