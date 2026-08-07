@@ -963,18 +963,42 @@ export function generateProcessoNegocioPDF(
   // páginas, via minContentH do próprio header); os seguintes quebram de página conforme couberem.
   const fluxogramas = getFluxogramas(processo);
   const fluxPdfs = fluxogramas.filter((f) => f.mime === "application/pdf");
-  const fluxImagens = fluxogramas.filter((f) => f.mime !== "application/pdf");
-  const fluxImgW = CONTENT_WIDTH;
-  const fluxImgH = fluxImgW * 0.5; // proporção segura pra diagrama
+  const fluxImagensRaw = fluxogramas.filter((f) => f.mime !== "application/pdf");
+  const maxImgW = CONTENT_WIDTH;
+  const maxImgH = 165; // altura máxima de um fluxograma (cabe numa página com header/rodapé)
+
+  // Calcula o tamanho de exibição preservando a PROPORÇÃO REAL de cada imagem (não achatar):
+  // ajusta à largura do conteúdo e, se ficar alto demais, limita pela altura mantendo a proporção.
+  const fluxImagens = fluxImagensRaw.map((img) => {
+    let w = maxImgW;
+    let h = maxImgW * 0.6; // fallback caso não seja possível medir as dimensões
+    try {
+      const p = doc.getImageProperties(img.data);
+      if (p.width > 0 && p.height > 0) {
+        const ratio = p.height / p.width;
+        w = maxImgW;
+        h = w * ratio;
+        if (h > maxImgH) {
+          h = maxImgH;
+          w = h / ratio;
+        }
+      }
+    } catch {
+      /* mantém o fallback */
+    }
+    return { ...img, w, h };
+  });
+
   const multiplos = fluxImagens.length > 1;
   const captionH = multiplos ? 5 : 0; // legenda (nome do arquivo) só quando há mais de um
+  const firstH = fluxImagens.length > 0 ? fluxImagens[0].h : 0;
 
   y = drawNumberedSectionHeader(
     doc,
     7,
     "Modelagem / Fluxograma",
     y,
-    fluxImagens.length > 0 ? fluxImgH + captionH + 8 : 20,
+    fluxImagens.length > 0 ? firstH + captionH + 8 : 20,
   );
 
   if (fluxogramas.length === 0) {
@@ -987,7 +1011,7 @@ export function generateProcessoNegocioPDF(
           ? "WEBP"
           : "JPEG";
       // O 1º já foi reservado junto do cabeçalho; a partir do 2º, checa quebra de página.
-      if (idx > 0) y = checkPageBreak(doc, y, fluxImgH + captionH + 8);
+      if (idx > 0) y = checkPageBreak(doc, y, img.h + captionH + 8);
       if (multiplos) {
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
@@ -996,19 +1020,12 @@ export function generateProcessoNegocioPDF(
         y += captionH;
       }
       try {
-        doc.addImage(
-          img.data,
-          fmt,
-          MARGIN_LEFT,
-          y + 2,
-          fluxImgW,
-          fluxImgH,
-          undefined,
-          "FAST",
-        );
+        // Centraliza horizontalmente quando a imagem é mais estreita que a área de conteúdo.
+        const x = MARGIN_LEFT + (CONTENT_WIDTH - img.w) / 2;
+        doc.addImage(img.data, fmt, x, y + 2, img.w, img.h, undefined, "FAST");
         doc.setDrawColor(...BORDER_GRAY);
-        doc.rect(MARGIN_LEFT, y + 2, fluxImgW, fluxImgH, "S");
-        y += fluxImgH + 6;
+        doc.rect(x, y + 2, img.w, img.h, "S");
+        y += img.h + 6;
       } catch (e) {
         y = drawMultilineContent(
           doc,
