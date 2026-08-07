@@ -648,13 +648,60 @@ public class IfoService {
     }
 
     private void vincularContratos(Long ifoId, List<Long> contratos, Long userId) {
-        if (contratos == null) return;
+        if (contratos == null || contratos.isEmpty()) return;
+        
+        Map<String, Object> ifoData = jdbc.queryForMap("SELECT ano, bloco FROM ifo WHERE id = ?", ifoId);
+        Integer ifoAno = (Integer) ifoData.get("ano");
+        String ifoBloco = (String) ifoData.get("bloco");
+        
         for (Long contractId : contratos) {
             if (contractId == null) continue;
-            Long contractValue = null;
+            
+            Map<String, Object> contractData = null;
             try {
-                contractValue = jdbc.queryForObject("SELECT total_value_cents FROM contracts WHERE id = ?", Long.class, contractId);
+                contractData = jdbc.queryForMap("SELECT end_date, limit_date, total_value_cents FROM contracts WHERE id = ?", contractId);
             } catch (Exception e) {}
+            
+            Long contractValue = null;
+            if (contractData != null) {
+                if (contractData.get("total_value_cents") != null) {
+                    contractValue = ((Number) contractData.get("total_value_cents")).longValue();
+                }
+                
+                java.sql.Date endDateSql = (java.sql.Date) contractData.get("end_date");
+                java.sql.Date limitDateSql = (java.sql.Date) contractData.get("limit_date");
+                
+                String contractBloco = "plurianual";
+                if (endDateSql != null) {
+                    java.time.LocalDate endDate = endDateSql.toLocalDate();
+                    if (endDate.getYear() > ifoAno) {
+                        contractBloco = "plurianual";
+                    } else if (limitDateSql != null) {
+                        java.time.LocalDate limitDate = limitDateSql.toLocalDate();
+                        if (limitDate.isAfter(endDate)) {
+                            contractBloco = "renovacao";
+                        } else {
+                            contractBloco = "encerramento";
+                        }
+                    } else {
+                        contractBloco = "encerramento";
+                    }
+                }
+                
+                String linkedIfoCodigo = null;
+                try {
+                    linkedIfoCodigo = jdbc.queryForObject("SELECT i.codigo FROM ifo_contratos ic JOIN ifo i ON i.id = ic.ifo_id WHERE ic.contract_id = ? AND i.id != ? AND i.is_deleted = FALSE LIMIT 1", String.class, contractId, ifoId);
+                } catch (Exception e) {}
+                
+                if (linkedIfoCodigo != null) {
+                    throw new ApiException(400, "O contrato ID " + contractId + " não pode ser vinculado pois já pertence ao IFO " + linkedIfoCodigo + ".");
+                }
+                
+                if (!"nova_contratacao".equals(ifoBloco) && !ifoBloco.equals(contractBloco)) {
+                    throw new ApiException(400, "Contrato não pode ser vinculado a este IFO devido à incompatibilidade de bloco (" + contractBloco + " vs " + ifoBloco + ").");
+                }
+            }
+
             jdbc.update(
                     "INSERT INTO ifo_contratos (ifo_id, contract_id, valor_contrato_cents) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
                     ifoId, contractId, contractValue);

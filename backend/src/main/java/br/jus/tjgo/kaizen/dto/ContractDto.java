@@ -28,5 +28,6 @@ public record ContractDto(
         String description,
         Long yearValue,
         String situation,
-        BigDecimal yearDurationStandard
+        BigDecimal yearDurationStandard,
+        String linkedIfoCodigo
 ) {}

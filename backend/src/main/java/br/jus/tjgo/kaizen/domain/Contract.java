@@ -151,6 +151,9 @@ public class Contract {
     @Transient
     private String unidadeSigla;
 
+    @Transient
+    private String linkedIfoCodigo;
+
 
 
     @Column(name = "contract_members_id")

@@ -78,6 +78,7 @@ public class ContractService {
         }
         
         populateAreaAndUnidadeSiglas(contracts);
+        populateLinkedIfos(contracts);
         return contracts;
     }
 
@@ -102,6 +103,25 @@ public class ContractService {
             if (c.getCadastroUnidadeId() != null) {
                 c.setUnidadeSigla(unidadeSiglas.get(c.getCadastroUnidadeId()));
             }
+        }
+    }
+
+    private void populateLinkedIfos(List<Contract> contracts) {
+        if (contracts.isEmpty()) return;
+        
+        var rows = jdbcTemplate.queryForList(
+                "SELECT ic.contract_id, i.codigo FROM ifo_contratos ic JOIN ifo i ON i.id = ic.ifo_id WHERE i.is_deleted = FALSE");
+        
+        java.util.Map<Long, String> contractIfoMap = rows.stream()
+                .filter(r -> r.get("contract_id") != null && r.get("codigo") != null)
+                .collect(Collectors.toMap(
+                        r -> ((Number) r.get("contract_id")).longValue(),
+                        r -> r.get("codigo").toString(),
+                        (c1, c2) -> c1 // Se houver múltiplos (dirty data), mantém o primeiro
+                ));
+                
+        for (Contract c : contracts) {
+            c.setLinkedIfoCodigo(contractIfoMap.get(c.getId()));
         }
     }
 
