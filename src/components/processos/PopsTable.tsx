@@ -59,6 +59,22 @@ function formatData(v: string | null | undefined): string {
  * "Origem" distingue as duas, e as ações disponíveis dependem dela (anexado só baixa;
  * criado gera PDF, edita e exclui).
  */
+/** Rótulo e cor do badge de status do fluxo de validação do POP (seção 10). */
+function statusPopLabel(status: string): string {
+  return status === "aprovado"
+    ? "Aprovado"
+    : status === "analisado"
+      ? "Em aprovação"
+      : "Proposto";
+}
+function statusPopClasse(status: string): string {
+  return status === "aprovado"
+    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    : status === "analisado"
+      ? "bg-amber-50 text-amber-700 ring-amber-200"
+      : "bg-slate-100 text-slate-600 ring-slate-200";
+}
+
 export function PopsTable({
   linhasAnexadas,
   criados,
@@ -231,6 +247,13 @@ export function PopsTable({
                       >
                         {l.tipo === "criado" ? "Criado no Kaizen" : "Anexado"}
                       </span>
+                      {l.tipo === "criado" && l.pop?.status && (
+                        <span
+                          className={`ml-1 mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ring-1 ring-inset ${statusPopClasse(l.pop.status)}`}
+                        >
+                          {statusPopLabel(l.pop.status)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </td>

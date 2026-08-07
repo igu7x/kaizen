@@ -666,7 +666,7 @@ export function generateTAPPdf(projeto: Projeto) {
   validationItems.push({
     label: "Validação da Diretoria",
     value: projeto.tap_validado_diretor_em
-      ? `${projeto.diretoria || "Diretoria"} — ${formatDateTime(projeto.tap_validado_diretor_em)}`
+      ? `${projeto.diretor_nome || projeto.diretoria || "Diretoria"} — ${formatDateTime(projeto.tap_validado_diretor_em)}`
       : "Pendente",
   });
   validationItems.push({

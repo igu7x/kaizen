@@ -26,6 +26,14 @@ export interface PopCriado {
   proposto_por: string | null;
   analisado_por: string | null;
   aprovado_por: string | null;
+  /** Fluxo de validação (seção 10): proposto → analisado → aprovado. */
+  status?: string | null;
+  proposto_por_id?: number | null;
+  proposto_em?: string | null;
+  analisado_por_id?: number | null;
+  analisado_em?: string | null;
+  aprovado_por_id?: number | null;
+  aprovado_em?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -60,5 +68,22 @@ export const popsCriadosApi = {
 
   remove(id: number): Promise<{ message: string }> {
     return apiClient.delete<{ message: string }>(`${BASE_URL}/${id}`);
+  },
+
+  // Fluxo de validação (seção 10).
+  async analisar(id: number): Promise<PopCriado> {
+    return normalizar(
+      await apiClient.post<PopCriado>(`${BASE_URL}/${id}/analisar`, {}),
+    );
+  },
+  async aprovar(id: number): Promise<PopCriado> {
+    return normalizar(
+      await apiClient.post<PopCriado>(`${BASE_URL}/${id}/aprovar`, {}),
+    );
+  },
+  async recusar(id: number): Promise<PopCriado> {
+    return normalizar(
+      await apiClient.post<PopCriado>(`${BASE_URL}/${id}/recusar`, {}),
+    );
   },
 };

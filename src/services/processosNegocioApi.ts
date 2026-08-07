@@ -91,6 +91,34 @@ export function getFluxograma(p: {
 }
 
 /**
+ * Resolve TODOS os fluxogramas anexados (tipo "FLUXOGRAMA"), na ordem em que aparecem. Faz
+ * fallback para o campo legado fluxograma_* apenas quando não houver nenhum anexo FLUXOGRAMA.
+ */
+export function getFluxogramas(p: {
+  documentos_anexados?: DocumentoAnexado[] | null;
+  fluxograma_data?: string | null;
+  fluxograma_filename?: string | null;
+  fluxograma_mime?: string | null;
+}): Array<{ data: string; filename: string | null; mime: string | null }> {
+  const docs = (p.documentos_anexados || []).filter(
+    (d) => d.tipo === "FLUXOGRAMA" && !!d.data,
+  );
+  if (docs.length > 0) {
+    return docs.map((d) => ({ data: d.data, filename: d.nome, mime: d.mime }));
+  }
+  if (p.fluxograma_data) {
+    return [
+      {
+        data: p.fluxograma_data,
+        filename: p.fluxograma_filename ?? null,
+        mime: p.fluxograma_mime ?? null,
+      },
+    ];
+  }
+  return [];
+}
+
+/**
  * Indica se o processo tem fluxograma. Prefere o flag `tem_fluxograma` do payload enxuto da
  * listagem (sem base64); cai para a checagem dos dados completos quando o flag não vier
  * (objeto vindo de getById/create/update).

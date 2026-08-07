@@ -725,13 +725,23 @@ export default function EscritorioProcessos() {
   // OPÇÕES DOS FILTROS
   // ============================================================
 
+  // Só as áreas vinculadas à Diretoria selecionada (co-ocorrência real nos processos).
+  // Com "Todas as diretorias", lista todas as áreas.
   const areasOptions = useMemo(() => {
     const set = new Set<string>();
-    processos.forEach((p) =>
-      (p.areas_responsaveis || []).forEach((a) => set.add(a)),
-    );
+    processos.forEach((p) => {
+      if (filtroDiretoria !== "all" && p.diretoria !== filtroDiretoria) return;
+      (p.areas_responsaveis || []).forEach((a) => set.add(a));
+    });
     return Array.from(set).sort();
-  }, [processos]);
+  }, [processos, filtroDiretoria]);
+
+  // Se a área selecionada não pertence mais à diretoria escolhida, volta para "Todas as áreas".
+  useEffect(() => {
+    if (filtroArea !== "all" && !areasOptions.includes(filtroArea)) {
+      setFiltroArea("all");
+    }
+  }, [areasOptions, filtroArea]);
 
   const diretoriasOptions = useMemo(() => {
     const set = new Set<string>();
