@@ -10,8 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, FileText, ListChecks, ImagePlus, X } from "lucide-react";
+import {
+  Loader2,
+  FileText,
+  ListChecks,
+  ImagePlus,
+  X,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   popsCriadosApi,
   PopCriado,
@@ -64,8 +74,12 @@ export function PopCriadoDialog({
   areaPadrao,
 }: Props) {
   const editId = pop?.id ?? null;
+  const { user } = useAuth();
   const [form, setForm] = useState<PopCriadoInput>(VAZIO);
   const [salvando, setSalvando] = useState(false);
+  const [validando, setValidando] = useState<null | "analisar" | "aprovar" | "recusar">(
+    null,
+  );
 
   // Opções puxadas do que já existe no sistema.
   const [areas, setAreas] = useState<Area[]>([]);
@@ -177,6 +191,64 @@ export function PopCriadoDialog({
       /* erro tratado no apiClient */
     } finally {
       setSalvando(false);
+    }
+  };
+
+  // ── Fluxo de validação (seção 10): proposto → analisado → aprovado ──────────
+  const status = form.status || "proposto";
+  const areaDoPop = areas.find(
+    (a) =>
+      a.sigla?.trim().toUpperCase() === (form.area || "").trim().toUpperCase(),
+  );
+  const uid = Number(user?.id);
+  const isAdmin = user?.role === "ADMIN";
+  // Modelo dos Processos: diretor = area.gestor_user_id; sub-diretor = area.subdiretor_user_id.
+  const ehDiretor =
+    isAdmin ||
+    (areaDoPop?.gestor_user_id != null &&
+      Number(areaDoPop.gestor_user_id) === uid);
+  const ehSubdiretor =
+    areaDoPop?.subdiretor_user_id != null &&
+    Number(areaDoPop.subdiretor_user_id) === uid;
+  const podeAnalisar = isAdmin || ehDiretor || ehSubdiretor;
+  const podeAprovar = ehDiretor; // ehDiretor já inclui admin
+
+  const executarValidacao = async (
+    acao: "analisar" | "aprovar" | "recusar",
+  ) => {
+    if (!editId) return;
+    setValidando(acao);
+    try {
+      const fn =
+        acao === "analisar"
+          ? popsCriadosApi.analisar
+          : acao === "aprovar"
+            ? popsCriadosApi.aprovar
+            : popsCriadosApi.recusar;
+      const upd = await fn(editId);
+      setForm((f) => ({
+        ...f,
+        status: upd.status,
+        data_versao: upd.data_versao,
+        proposto_por: upd.proposto_por,
+        proposto_em: upd.proposto_em,
+        analisado_por: upd.analisado_por,
+        analisado_em: upd.analisado_em,
+        aprovado_por: upd.aprovado_por,
+        aprovado_em: upd.aprovado_em,
+      }));
+      toast.success(
+        acao === "analisar"
+          ? "POP analisado."
+          : acao === "aprovar"
+            ? "POP aprovado."
+            : "POP recusado — voltou para proposto.",
+      );
+      onSaved();
+    } catch {
+      /* erro tratado no apiClient */
+    } finally {
+      setValidando(null);
     }
   };
 
@@ -405,6 +477,109 @@ export function PopCriadoDialog({
             </div>
           </Secao>
 
+          {/* Validação — fluxo em 3 etapas (o POP não passa por Compliance) */}
+          <Secao
+            icone={<ShieldCheck className="h-4 w-4" />}
+            titulo="10. Validação"
+          >
+            {!editId ? (
+              <p className="text-xs leading-snug text-slate-500">
+                O fluxo de validação (Analisar → Aprovar) fica disponível depois
+                que o POP for criado. Ao criar, você fica registrado como{" "}
+                <span className="font-medium text-slate-700">Proposto por</span>.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <EtapaCard
+                    titulo="Proposto por"
+                    nome={form.proposto_por}
+                    data={form.proposto_em}
+                    estado="ok"
+                  />
+                  <EtapaCard
+                    titulo="Analisado por"
+                    nome={form.analisado_por}
+                    data={form.analisado_em}
+                    estado={status === "proposto" ? "pendente" : "ok"}
+                  />
+                  <EtapaCard
+                    titulo="Aprovado por"
+                    nome={form.aprovado_por}
+                    data={form.aprovado_em}
+                    estado={
+                      status === "aprovado"
+                        ? "ok"
+                        : status === "analisado"
+                          ? "pendente"
+                          : "bloqueado"
+                    }
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {status === "proposto" && podeAnalisar && (
+                    <Button
+                      onClick={() => executarValidacao("analisar")}
+                      disabled={!!validando}
+                      className="bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      {validando === "analisar" ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      )}
+                      Analisar
+                    </Button>
+                  )}
+                  {status === "analisado" && podeAprovar && (
+                    <Button
+                      onClick={() => executarValidacao("aprovar")}
+                      disabled={!!validando}
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    >
+                      {validando === "aprovar" ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      )}
+                      Aprovar
+                    </Button>
+                  )}
+                  {(status === "analisado" || status === "aprovado") &&
+                    podeAnalisar && (
+                      <Button
+                        variant="outline"
+                        onClick={() => executarValidacao("recusar")}
+                        disabled={!!validando}
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                      >
+                        {validando === "recusar" ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="mr-1.5 h-4 w-4" />
+                        )}
+                        Recusar
+                      </Button>
+                    )}
+                  {status === "proposto" && !podeAnalisar && (
+                    <span className="text-xs text-slate-500">
+                      Aguardando análise do gestor/sub-diretor da área.
+                    </span>
+                  )}
+                  {status === "analisado" && !podeAprovar && (
+                    <span className="text-xs text-slate-500">
+                      Aguardando aprovação do diretor da área.
+                    </span>
+                  )}
+                  {status === "aprovado" && (
+                    <span className="text-xs font-medium text-emerald-700">
+                      POP aprovado — Data da Versão carimbada na aprovação.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </Secao>
         </div>
 
         <DialogFooter>
@@ -588,6 +763,44 @@ function CampoSomenteLeitura({ children }: { children: React.ReactNode }) {
 function formatarDataBR(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+/** Cartão de uma etapa do fluxo de validação (Proposto / Analisado / Aprovado). */
+function EtapaCard({
+  titulo,
+  nome,
+  data,
+  estado,
+}: {
+  titulo: string;
+  nome?: string | null;
+  data?: string | null;
+  estado: "ok" | "pendente" | "bloqueado";
+}) {
+  const cor =
+    estado === "ok"
+      ? "border-emerald-200 bg-emerald-50"
+      : estado === "pendente"
+        ? "border-slate-200 bg-slate-50"
+        : "border-slate-200 bg-slate-100 opacity-60";
+  return (
+    <div className={`rounded-lg border p-3 text-center ${cor}`}>
+      <p className="text-[11px] font-medium text-slate-500">{titulo}</p>
+      <p
+        className="mt-0.5 truncate text-sm font-semibold text-slate-800"
+        title={nome || ""}
+      >
+        {nome?.trim() || "—"}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-500">
+        {estado === "ok" && data
+          ? formatarDataBR(data)
+          : estado === "bloqueado"
+            ? "Bloqueado"
+            : "Pendente"}
+      </p>
+    </div>
+  );
 }
 
 function Campo({
