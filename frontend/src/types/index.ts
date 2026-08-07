@@ -990,6 +990,7 @@ export interface Contract {
   effectiveDate?: string;
   limitDate?: string;
   yearDurationStandard?: number;
+  linkedIfoCodigo?: string;
   contractType?: string;
   situation?: string;
   additiveTermType?: number;

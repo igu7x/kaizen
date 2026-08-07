@@ -39,7 +39,7 @@ function fmtData(d: string | null): string {
 
 export function AtasComitesPanel({ cicloId, readOnly = false }: AtasComitesPanelProps) {
   const [atas, setAtas] = useState<AtaComite[]>([]);
-  const [comite, setComite] = useState<ComiteOrcamento>("cgtic");
+  const [comite, setComite] = useState<ComiteOrcamento>("cgovtic");
   const [numero, setNumero] = useState("");
   const [dataAta, setDataAta] = useState("");
   const [decisao, setDecisao] = useState("");
@@ -184,15 +184,12 @@ export function AtasComitesPanel({ cicloId, readOnly = false }: AtasComitesPanel
       {!readOnly && (
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <select
-              value={comite}
-              onChange={(e) => setComite(e.target.value as ComiteOrcamento)}
-              className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm"
+            <div
+              className="h-9 rounded-md border border-slate-200 bg-slate-50 flex items-center px-3 text-sm text-slate-500 font-medium select-none"
               aria-label="Comitê"
             >
-              <option value="cgtic">CGTIC (gestão)</option>
-              <option value="cgovtic">CGOVTIC (governança)</option>
-            </select>
+              CGOVTIC
+            </div>
             <Input placeholder="Nº da ata" value={numero} onChange={(e) => setNumero(e.target.value)} />
             <Input type="date" value={dataAta} onChange={(e) => setDataAta(e.target.value)} aria-label="Data da ata" />
             <Input placeholder="URL do anexo (opcional)" value={anexoUrl} onChange={(e) => setAnexoUrl(e.target.value)} />

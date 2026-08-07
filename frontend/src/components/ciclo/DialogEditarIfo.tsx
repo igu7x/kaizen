@@ -441,18 +441,6 @@ export function DialogEditarIfo({
               </div>
             </div>
           </div>
-          
-          {/* Linha 8 - PROAD */}
-          <div className="space-y-2">
-            <Label>Processo Administrativo (PROAD)</Label>
-            <Input
-              placeholder="Número do PROAD"
-              value={formData.process || ""}
-              disabled={isRestrictedBlock}
-              onChange={(e) => handleChange("process", e.target.value)}
-            />
-          </div>
-
         </div>
 
         <DialogFooter className="mt-2">
