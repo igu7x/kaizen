@@ -48,6 +48,15 @@ public class PopsCriadosService {
 
     @Transactional
     public Map<String, Object> create(Map<String, Object> body) {
+        body = new java.util.HashMap<>(body);
+        // Código é gerado pelo sistema: POP_<SIGLA DA DIRETORIA>_<nº sequencial na diretoria>.
+        if (blankToNull(str(body.get("codigo"))) == null) {
+            body.put("codigo", gerarCodigo(str(body.get("area"))));
+        }
+        // Revisão inicia em 000 (não editável no formulário).
+        if (blankToNull(str(body.get("revisao"))) == null) {
+            body.put("revisao", "000");
+        }
         StringBuilder cols = new StringBuilder();
         StringBuilder ph = new StringBuilder();
         List<Object> params = new ArrayList<>();
@@ -90,6 +99,21 @@ public class PopsCriadosService {
                 "UPDATE pops_criados SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP " +
                         "WHERE id = ? AND is_deleted = FALSE", id);
         return n > 0;
+    }
+
+    /**
+     * Gera o código do POP no padrão POP_<SIGLA>_<NNN>, com a contagem sequencial reiniciando por
+     * diretoria (sigla da área). Usa o MAIOR número já usado na área + 1 (conta inclusive os
+     * excluídos, pra nunca reaproveitar número). Sem área definida, cai para "GERAL".
+     */
+    private String gerarCodigo(String area) {
+        String sigla = blankToNull(area);
+        sigla = (sigla == null ? "GERAL" : sigla.toUpperCase());
+        Integer prox = jdbc.queryForObject(
+                "SELECT COALESCE(MAX(CAST(regexp_replace(codigo, '^.*_', '') AS INTEGER)), 0) + 1 " +
+                        "FROM pops_criados WHERE UPPER(area) = ? AND codigo ~ '_[0-9]+$'",
+                Integer.class, sigla);
+        return String.format("POP_%s_%03d", sigla, prox == null ? 1 : prox);
     }
 
     private String blankToNull(String s) {

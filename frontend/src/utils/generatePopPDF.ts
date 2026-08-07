@@ -110,17 +110,30 @@ function drawHeader(doc: jsPDF, pop: PopCriado, logoSgq: string | null): number 
     align: "center",
   });
   ly += 3;
-  doc.setFontSize(6);
   doc.setFont("helvetica", "bold");
   const orgLines = [pop.diretoria_orgao, pop.unidade_orgao].filter(
     Boolean,
   ) as string[];
-  for (const line of orgLines) {
-    const wrapped = doc.splitTextToSize(line, leftW - 3) as string[];
-    for (const w of wrapped) {
-      doc.text(w, MARGIN + leftW / 2, ly, { align: "center" });
-      ly += 2.5;
-    }
+  // Ajusta a fonte quando o texto do órgão é extenso, para caber na altura da caixa (não estourar).
+  const orgBottom = y + h - 1; // limite inferior da caixa esquerda
+  let orgFs = 6;
+  let orgWrapped: string[] = [];
+  let orgLh = 2.5;
+  for (const cand of [6, 5.5, 5, 4.5, 4, 3.6]) {
+    doc.setFontSize(cand);
+    const wl = orgLines.flatMap(
+      (l) => doc.splitTextToSize(l, leftW - 2.5) as string[],
+    );
+    const lh = cand * 0.42;
+    orgFs = cand;
+    orgWrapped = wl;
+    orgLh = lh;
+    if (ly + wl.length * lh <= orgBottom) break; // coube: usa este tamanho
+  }
+  doc.setFontSize(orgFs);
+  for (const w of orgWrapped) {
+    doc.text(w, MARGIN + leftW / 2, ly, { align: "center" });
+    ly += orgLh;
   }
 
   // ── Centro: 3 linhas (nome do processo / POP / macroprocesso) ──
@@ -379,9 +392,9 @@ function drawFooter(
   const widths = [CONTENT_W * 0.34, CONTENT_W * 0.24, CONTENT_W * 0.21];
   widths.push(CONTENT_W - widths[0] - widths[1] - widths[2]);
   const cells = [
-    { label: `POP-${pop.codigo || "—"}`, value: pop.nome_processo || "" },
+    { label: pop.codigo || "POP", value: pop.nome_processo || "" },
     { label: "Data:", value: formatData(pop.data_versao) },
-    { label: "Revisão:", value: pop.revisao || "00" },
+    { label: "Revisão:", value: pop.revisao || "000" },
     { label: "Página", value: `${pageNum} de ${totalPages}` },
   ];
   let x = MARGIN;
@@ -465,6 +478,31 @@ export async function generatePopPDF(pop: PopCriado): Promise<void> {
 
     if (sec.tipo === "validacao") {
       y = drawValidacao(doc, pop, y);
+    } else if (sec.num === 9) {
+      // Anexos: apenas a imagem do fluxograma (sem lista de texto).
+      if (pop.fluxograma_data) {
+        try {
+          y = drawFluxograma(doc, pop, logoSgq, pop.fluxograma_data, y);
+        } catch {
+          y = drawLinhasComQuebra(
+            doc,
+            pop,
+            logoSgq,
+            linhasDeTexto(doc, "—"),
+            y,
+            sec.minH || 9,
+          );
+        }
+      } else {
+        y = drawLinhasComQuebra(
+          doc,
+          pop,
+          logoSgq,
+          linhasDeTexto(doc, "—"),
+          y,
+          sec.minH || 9,
+        );
+      }
     } else if (sec.tipo === "lista") {
       y = drawLinhasComQuebra(
         doc,
@@ -483,15 +521,6 @@ export async function generatePopPDF(pop: PopCriado): Promise<void> {
         y,
         sec.minH || 9,
       );
-    }
-
-    // O fluxograma é parte do item 9 (Anexos), logo abaixo da lista.
-    if (sec.num === 9 && pop.fluxograma_data) {
-      try {
-        y = drawFluxograma(doc, pop, logoSgq, pop.fluxograma_data, y);
-      } catch {
-        /* imagem inválida: o PDF sai sem o fluxograma */
-      }
     }
     y += 1.5;
   }

@@ -39,7 +39,7 @@ const VAZIO: PopCriadoInput = {
   unidade_orgao: "",
   area: "",
   data_versao: "",
-  revisao: "00",
+  revisao: "000",
   servico: "",
   objetivo: "",
   unidade_responsavel: "",
@@ -194,12 +194,22 @@ export function PopCriadoDialog({
           {/* Identificação / Cabeçalho */}
           <Secao icone={<FileText className="h-4 w-4" />} titulo="Identificação">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Campo label="Código" hint="Ex.: SGQ-003">
-                <Input
-                  value={form.codigo ?? ""}
-                  onChange={(e) => set("codigo", e.target.value)}
-                  placeholder="SGQ-003"
-                />
+              <Campo label="Código" hint="não editável — gerado pelo sistema">
+                <CampoSomenteLeitura>
+                  {form.codigo?.trim() ? (
+                    <span className="font-medium text-slate-800">
+                      {form.codigo}
+                    </span>
+                  ) : (
+                    <span className="text-xs leading-snug text-slate-500">
+                      Gerado pelo sistema ao salvar:{" "}
+                      <span className="font-medium text-slate-700">
+                        POP_&lt;Sigla da Diretoria&gt;_&lt;nº sequencial&gt;
+                      </span>{" "}
+                      (ex.: POP_GEJUT_001).
+                    </span>
+                  )}
+                </CampoSomenteLeitura>
               </Campo>
               <Campo label="Nome do Processo" required hint="processo cadastrado">
                 <ProcessoPicker
@@ -215,7 +225,6 @@ export function PopCriadoDialog({
                   value={form.macroprocesso ?? ""}
                   onChange={(v) => set("macroprocesso", v)}
                   options={macroprocessos}
-                  placeholder="Ex.: Governança"
                 />
               </Campo>
               <Campo label="Área (sigla)" hint="preenchida pelo processo">
@@ -242,7 +251,6 @@ export function PopCriadoDialog({
                   value={form.diretoria_orgao ?? ""}
                   onChange={(v) => set("diretoria_orgao", v)}
                   options={nomesAreas}
-                  placeholder="Ex.: Diretoria Administrativa"
                 />
               </Campo>
               <Campo label="Unidade (cabeçalho)" hint="das unidades cadastradas">
@@ -250,22 +258,30 @@ export function PopCriadoDialog({
                   value={form.unidade_orgao ?? ""}
                   onChange={(v) => set("unidade_orgao", v)}
                   options={unidades}
-                  placeholder="Ex.: Divisão de Material e Patrimônio"
                 />
               </Campo>
-              <Campo label="Data da Versão">
-                <Input
-                  type="date"
-                  value={form.data_versao ?? ""}
-                  onChange={(e) => set("data_versao", e.target.value)}
-                />
+              <Campo
+                label="Data da Versão"
+                hint="não editável — gerado pelo sistema"
+              >
+                <CampoSomenteLeitura>
+                  {form.data_versao?.trim() ? (
+                    <span className="font-medium text-slate-800">
+                      {formatarDataBR(form.data_versao)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">
+                      Pendente de aprovação
+                    </span>
+                  )}
+                </CampoSomenteLeitura>
               </Campo>
-              <Campo label="Revisão">
-                <Input
-                  value={form.revisao ?? ""}
-                  onChange={(e) => set("revisao", e.target.value)}
-                  placeholder="00"
-                />
+              <Campo label="Revisão" hint="não editável — gerado pelo sistema">
+                <CampoSomenteLeitura>
+                  <span className="font-medium text-slate-800">
+                    {form.revisao?.trim() || "000"}
+                  </span>
+                </CampoSomenteLeitura>
               </Campo>
             </div>
           </Secao>
@@ -340,18 +356,10 @@ export function PopCriadoDialog({
                   placeholder={"PROAD"}
                 />
               </Campo>
-              <Campo label="9. Anexos" hint="Um por linha">
-                <Textarea
-                  value={form.anexos ?? ""}
-                  onChange={(e) => set("anexos", e.target.value)}
-                  rows={2}
-                  placeholder={'Fluxo "Gerenciamento de Informação Documentada – SGQ"'}
-                />
-              </Campo>
               <div className="md:col-span-2">
                 <Campo
-                  label="Fluxograma (imagem)"
-                  hint="PNG ou JPG, até 4 MB — sai dentro do item 9 do PDF"
+                  label="9. Anexos"
+                  hint="imagem do fluxograma — PNG ou JPG, até 4 MB"
                 >
                   {form.fluxograma_data ? (
                     <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 min-w-0">
@@ -565,6 +573,21 @@ function Secao({
       {children}
     </div>
   );
+}
+
+/** Caixa somente-leitura, no estilo de um input desabilitado (campos gerados pelo sistema). */
+function CampoSomenteLeitura({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-[2.5rem] items-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+      {children}
+    </div>
+  );
+}
+
+/** Converte YYYY-MM-DD (ou ISO) para DD/MM/AAAA sem depender de timezone. */
+function formatarDataBR(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 }
 
 function Campo({
