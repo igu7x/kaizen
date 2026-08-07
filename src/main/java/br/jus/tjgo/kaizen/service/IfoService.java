@@ -701,7 +701,7 @@ public class IfoService {
                     throw new ApiException(400, "Contrato não pode ser vinculado a este IFO devido à incompatibilidade de bloco (" + contractBloco + " vs " + ifoBloco + ").");
                 }
             }
-            
+
             jdbc.update(
                     "INSERT INTO ifo_contratos (ifo_id, contract_id, valor_contrato_cents) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
                     ifoId, contractId, contractValue);

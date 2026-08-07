@@ -197,6 +197,36 @@ public class CadastrosProjetosService {
                         "FROM cadastros_instrumentos_projetos ip " +
                         "JOIN cadastros_instrumentos_planejamento i ON i.id = ip.instrumento_id " +
                         "WHERE ip.projeto_id = ? ORDER BY i.nome", id));
+
+        // A view legada resolve patrocinador_nome mas não o gestor_nome (gestor_id referencia
+        // cadastros_pessoas). Resolve aqui os nomes das 3 camadas do TAP e injeta: Gestor e
+        // Patrocinador pela cadastros_pessoas; Diretor = gestor da 1ª diretoria da Governança
+        // (mesma regra da validação de camada 2), pelo users. Só sobrescreve quando resolvido.
+        try {
+            var nomes = jdbc.queryForList(
+                    "SELECT gp.nome AS gestor_nome, pp.nome AS patrocinador_nome, " +
+                            "du.name AS diretor_nome, area.sigla AS diretor_diretoria_sigla " +
+                            "FROM cadastros_projetos p " +
+                            "LEFT JOIN cadastros_pessoas gp ON gp.id = p.gestor_id " +
+                            "LEFT JOIN cadastros_pessoas pp ON pp.id = p.patrocinador_id " +
+                            "LEFT JOIN cadastros_areas area ON area.ativo = TRUE AND (" +
+                            "  (array_length(p.areas_vinculadas_ids, 1) >= 1 AND area.id = p.areas_vinculadas_ids[1]) " +
+                            "  OR ((p.areas_vinculadas_ids IS NULL OR array_length(p.areas_vinculadas_ids, 1) IS NULL) " +
+                            "      AND area.id = p.cadastros_areas_id)" +
+                            ") " +
+                            "LEFT JOIN users du ON du.id = area.gestor_user_id " +
+                            "WHERE p.id = ?", id);
+            if (!nomes.isEmpty()) {
+                Map<String, Object> n = nomes.get(0);
+                if (n.get("gestor_nome") != null) projeto.put("gestor_nome", n.get("gestor_nome"));
+                if (n.get("patrocinador_nome") != null) projeto.put("patrocinador_nome", n.get("patrocinador_nome"));
+                if (n.get("diretor_nome") != null) projeto.put("diretor_nome", n.get("diretor_nome"));
+                if (n.get("diretor_diretoria_sigla") != null)
+                    projeto.put("diretor_diretoria_sigla", n.get("diretor_diretoria_sigla"));
+            }
+        } catch (Exception ignored) {
+            // Se o schema não tiver alguma coluna esperada, mantém os valores da view.
+        }
         return projeto;
     }
 
