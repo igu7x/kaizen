@@ -117,6 +117,10 @@ export interface Projeto {
   gestor_id: number | null;
   gestor_nome?: string;
   gestor_cargo?: string | null;
+  /** Nome do diretor (gestor da 1ª diretoria da Governança) — camada 2 do TAP. */
+  diretor_nome?: string;
+  /** Sigla da diretoria resolvida para a camada 2 (ex.: "DITI"). */
+  diretor_diretoria_sigla?: string;
   ancoragem_estrategica_plano_gestao: boolean;
   ancoragem_estrategica_pep: boolean;
   ancoragem_estrategica_programa_x: boolean;

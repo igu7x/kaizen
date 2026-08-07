@@ -1075,7 +1075,9 @@ export function ProjetoFormDialog({
                       Camada 2 — Diretor
                     </p>
                     <p className="text-xs font-medium truncate">
-                      {camada2DiretoriaLabel}
+                      {selectedProjeto.diretor_nome ||
+                        camada2Area?.gestor ||
+                        camada2DiretoriaLabel}
                     </p>
                     {selectedProjeto.tap_validado_diretor_em ? (
                       <div className="mt-1">
