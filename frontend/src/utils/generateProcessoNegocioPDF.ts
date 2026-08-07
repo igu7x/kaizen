@@ -3,7 +3,7 @@ import type { ProcessoNegocio } from "../services/processosNegocioApi";
 import {
   normalizeResponsavel,
   REVISAO_POLITICA_TEXTO,
-  getFluxograma,
+  getFluxogramas,
   COMITES_APROVACAO,
   isK1,
   isVigente,
@@ -958,58 +958,74 @@ export function generateProcessoNegocioPDF(
   y = drawMultilineContent(doc, processo.indicadores || "", y, 18);
   y += 6;
 
-  // 7. Modelagem / Fluxograma — o cabeçalho e o fluxograma NÃO podem se separar entre páginas.
-  // Reservamos a altura do conteúdo junto do cabeçalho: se não couber tudo na página atual,
-  // o título inteiro desce para a próxima (via minContentH do próprio header).
-  const flux = getFluxograma(processo);
-  const isFluxImg = !!(flux.data && flux.mime?.startsWith("image/"));
+  // 7. Modelagem / Fluxograma — pode haver VÁRIOS fluxogramas anexados; renderiza todos em
+  // sequência, um após o outro. O cabeçalho fica colado ao 1º fluxograma (não se separam entre
+  // páginas, via minContentH do próprio header); os seguintes quebram de página conforme couberem.
+  const fluxogramas = getFluxogramas(processo);
+  const fluxPdfs = fluxogramas.filter((f) => f.mime === "application/pdf");
+  const fluxImagens = fluxogramas.filter((f) => f.mime !== "application/pdf");
   const fluxImgW = CONTENT_WIDTH;
   const fluxImgH = fluxImgW * 0.5; // proporção segura pra diagrama
+  const multiplos = fluxImagens.length > 1;
+  const captionH = multiplos ? 5 : 0; // legenda (nome do arquivo) só quando há mais de um
+
   y = drawNumberedSectionHeader(
     doc,
     7,
     "Modelagem / Fluxograma",
     y,
-    isFluxImg ? fluxImgH + 8 : 20,
+    fluxImagens.length > 0 ? fluxImgH + captionH + 8 : 20,
   );
-  if (isFluxImg) {
-    // Embedar imagem mantendo proporção
-    try {
-      const fmt = flux.mime!.includes("png")
+
+  if (fluxogramas.length === 0) {
+    y = drawMultilineContent(doc, "Nenhum fluxograma anexado.", y, 16);
+  } else {
+    fluxImagens.forEach((img, idx) => {
+      const fmt = img.mime?.includes("png")
         ? "PNG"
-        : flux.mime!.includes("webp")
+        : img.mime?.includes("webp")
           ? "WEBP"
           : "JPEG";
-      doc.addImage(
-        flux.data!,
-        fmt,
-        MARGIN_LEFT,
-        y + 2,
-        fluxImgW,
-        fluxImgH,
-        undefined,
-        "FAST",
-      );
-      doc.setDrawColor(...BORDER_GRAY);
-      doc.rect(MARGIN_LEFT, y + 2, fluxImgW, fluxImgH, "S");
-      y += fluxImgH + 6;
-    } catch (e) {
+      // O 1º já foi reservado junto do cabeçalho; a partir do 2º, checa quebra de página.
+      if (idx > 0) y = checkPageBreak(doc, y, fluxImgH + captionH + 8);
+      if (multiplos) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(...TEXT_GRAY);
+        doc.text(`${idx + 1}. ${img.filename || "fluxograma"}`, MARGIN_LEFT, y + 4);
+        y += captionH;
+      }
+      try {
+        doc.addImage(
+          img.data,
+          fmt,
+          MARGIN_LEFT,
+          y + 2,
+          fluxImgW,
+          fluxImgH,
+          undefined,
+          "FAST",
+        );
+        doc.setDrawColor(...BORDER_GRAY);
+        doc.rect(MARGIN_LEFT, y + 2, fluxImgW, fluxImgH, "S");
+        y += fluxImgH + 6;
+      } catch (e) {
+        y = drawMultilineContent(
+          doc,
+          `Fluxograma anexado: ${img.filename || ""} (não foi possível incorporar a imagem no PDF)`,
+          y,
+          16,
+        );
+      }
+    });
+    fluxPdfs.forEach((pdf) => {
       y = drawMultilineContent(
         doc,
-        `Fluxograma anexado: ${flux.filename || ""} (não foi possível incorporar a imagem no PDF)`,
+        `Fluxograma em PDF anexado: ${pdf.filename || ""}`,
         y,
         16,
       );
-    }
-  } else if (flux.data && flux.mime === "application/pdf") {
-    y = drawMultilineContent(
-      doc,
-      `Fluxograma em PDF anexado: ${flux.filename || ""}`,
-      y,
-      16,
-    );
-  } else {
-    y = drawMultilineContent(doc, "Nenhum fluxograma anexado.", y, 16);
+    });
   }
   y += 4;
 
