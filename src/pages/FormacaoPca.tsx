@@ -424,11 +424,6 @@ export default function FormacaoPca() {
               Documento de Formalização da Demanda · gera Versão 1 do PCA-TIC {anoFormacao}
             </p>
           </div>
-          {ciclo && (
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {ciclo.estado.replace(/_/g, " ")}
-            </span>
-          )}
         </div>
 
         {ciclo && (
@@ -451,7 +446,7 @@ export default function FormacaoPca() {
             ) : (
               <>
                 {/* Banner contextual da fase atual */}
-                {formacaoEstado && !["aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "remessa_dg"].includes(formacaoEstado) && (
+                {formacaoEstado && formacaoEstado !== "em_comites" && (
                   <FaseBanner estado={formacaoEstado} ano={anoFormacao} />
                 )}
 
@@ -503,16 +498,15 @@ export default function FormacaoPca() {
                     {/* Fase: Apreciação SGJT */}
                     {formacaoEstado === "apreciacao_sgjt" && ciclo.proad && (
                       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-4">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="text-sm font-semibold text-slate-800">
                             Proposta DFD
                           </h3>
-                        </div>
-                        <div className="flex flex-col gap-4">
                           <div className="flex gap-2">
                             <Button
                               onClick={() => setValidacaoDfd('V')}
                               variant={validacaoDfd === 'V' ? 'default' : 'outline'}
+                              size="sm"
                               className={validacaoDfd === 'V' ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600' : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'}
                             >
                               <Check className="h-4 w-4 mr-2" /> Aprovar
@@ -520,11 +514,27 @@ export default function FormacaoPca() {
                             <Button
                               onClick={() => setValidacaoDfd('X')}
                               variant={validacaoDfd === 'X' ? 'default' : 'outline'}
+                              size="sm"
                               className={validacaoDfd === 'X' ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600' : 'text-rose-700 border-rose-200 hover:bg-rose-50'}
                             >
                               <X className="h-4 w-4 mr-2" /> Rejeitar
                             </Button>
                           </div>
+                          {/* Delegar Edição — alinhado à direita */}
+                          {(() => {
+                            const isSuper = (user as any)?.is_superadmin;
+                            const podeDelegar = isSuper || minhaDelegacao?.tem_tag_transicao;
+                            if (!podeDelegar) return null;
+                            return (
+                              <div className="ml-auto">
+                                <PainelDelegacaoEdicao
+                                  cicloId={ciclo.id}
+                                  estado={ciclo.estado}
+                                  onDelegacaoChanged={loadBlocos}
+                                />
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
@@ -532,16 +542,15 @@ export default function FormacaoPca() {
                     {/* Fase: Comitês e Autorização (CGTIC · CGovTIC · SGJT) */}
                     {formacaoEstado === "em_comites" && ciclo.proad && (
                       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="text-sm font-semibold text-slate-800">
                             Proposta DFD
                           </h3>
-                        </div>
-                        <div className="flex flex-col gap-4">
                           <div className="flex gap-2">
                             <Button
                               onClick={() => setValidacaoComites('V')}
                               variant={validacaoComites === 'V' ? 'default' : 'outline'}
+                              size="sm"
                               className={validacaoComites === 'V' ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600' : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'}
                             >
                               <Check className="h-4 w-4 mr-2" /> Aprovar
@@ -549,31 +558,32 @@ export default function FormacaoPca() {
                             <Button
                               onClick={() => setValidacaoComites('X')}
                               variant={validacaoComites === 'X' ? 'default' : 'outline'}
+                              size="sm"
                               className={validacaoComites === 'X' ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600' : 'text-rose-700 border-rose-200 hover:bg-rose-50'}
                             >
                               <X className="h-4 w-4 mr-2" /> Rejeitar
                             </Button>
                           </div>
-
-                          {validacaoComites === 'V' && (
-                            <div className="mt-2 p-4 border rounded-lg bg-slate-50">
-                              <h4 className="text-sm font-semibold text-slate-800 mb-3">Inserir Ata</h4>
-                              <div className="flex flex-col gap-3">
-                                <CampoLinkProad
-                                  cicloId={ciclo.id}
-                                  campo="proad_ata_comites"
-                                  valorOriginal={ciclo.proadAtaComites}
-                                  estadoAtual={formacaoEstado}
-                                  estadoEditavel="em_comites"
-                                  label="PROAD da Ata dos Comitês (Link)"
-                                  onSaved={(c) => setCiclo(c)}
-                                />
-
-                                <AtasComitesPanel cicloId={ciclo.id} />
-                              </div>
-                            </div>
-                          )}
                         </div>
+
+                        {validacaoComites === 'V' && (
+                          <div className="mt-4 p-4 border rounded-lg bg-slate-50">
+                            <h4 className="text-sm font-semibold text-slate-800 mb-3">Inserir Ata</h4>
+                            <div className="flex flex-col gap-3">
+                              <CampoLinkProad
+                                cicloId={ciclo.id}
+                                campo="proad_ata_comites"
+                                valorOriginal={ciclo.proadAtaComites}
+                                estadoAtual={formacaoEstado}
+                                estadoEditavel="em_comites"
+                                label="PROAD da Ata dos Comitês (Link)"
+                                onSaved={(c) => setCiclo(c)}
+                              />
+
+                              <AtasComitesPanel cicloId={ciclo.id} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -604,14 +614,22 @@ export default function FormacaoPca() {
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="outline" size="sm">
                                     <FileText className="h-4 w-4 mr-1.5" />
-                                    Baixar DFD TIC
+                                    Baixar Proposta de DFD TIC
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank")}>
+                                  <DropdownMenuItem onClick={() => {
+                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank");
+                                    setDfdBaixado(true);
+                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                                  }}>
                                     PDF
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank")}>
+                                  <DropdownMenuItem onClick={() => {
+                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank");
+                                    setDfdBaixado(true);
+                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                                  }}>
                                     Planilha (xlsx)
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -626,15 +644,28 @@ export default function FormacaoPca() {
                             )}
 
                             {validacaoDfd === 'V' && (
-                              <Button
-                                size="sm"
-                                onClick={avancarEsteira}
-                                disabled={acaoEmCurso}
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                              >
-                                <ArrowRight className="h-4 w-4 mr-1.5" />
-                                Encaminhar aos comitês
-                              </Button>
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span tabIndex={!dfdBaixado ? 0 : undefined}>
+                                      <Button
+                                        size="sm"
+                                        onClick={avancarEsteira}
+                                        disabled={acaoEmCurso || !dfdBaixado}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                      >
+                                        <ArrowRight className="h-4 w-4 mr-1.5" />
+                                        Encaminhar aos Comitês
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {!dfdBaixado && (
+                                    <TooltipContent>
+                                      Baixe a Proposta de DFD TIC antes de encaminhar
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
                           </div>
                         </div>
@@ -668,19 +699,19 @@ export default function FormacaoPca() {
                         </div>
                       )
                     ) : formacaoEstado === "remessa_dg" ? (
-                      <div className="py-2 border-t mt-4 space-y-4">
-                        <span className="text-sm font-medium text-slate-700">
-                          Próxima ação:
-                        </span>
-                        <div className="flex flex-col gap-4">
-                          {/* Botão "Baixar DFD TIC" — visível até validação = 'V' */}
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mt-4">
+                        <h3 className="text-sm font-semibold text-slate-800 mb-4">
+                          Validação da Diretoria-Geral
+                        </h3>
+                        <div className="space-y-4">
+                          {/* Baixar Proposta de DFD TIC — visível até validação = 'V' */}
                           {validacaoDg !== 'V' && (
                             <div>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="outline" size="sm">
                                     <FileText className="h-4 w-4 mr-1.5" />
-                                    Baixar DFD TIC
+                                    Baixar Proposta de DFD TIC
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start">
@@ -707,7 +738,7 @@ export default function FormacaoPca() {
 
                           {/* Validação DG — aparece após download */}
                           {dfdBaixado && (
-                            <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-3 flex-wrap">
                               <span className="text-sm font-medium text-slate-700">Validado pela DG?</span>
                               <div className="flex gap-2">
                                 <Button
@@ -727,29 +758,27 @@ export default function FormacaoPca() {
                                   <X className="h-4 w-4 mr-1.5" /> Não
                                 </Button>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Se NÃO validado → retornar aos Comitês */}
-                          {validacaoDg === 'X' && (
-                            <div>
-                              <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
-                                <ArrowLeft className="h-4 w-4 mr-1.5" />
-                                Retornar aos Comitês
-                              </Button>
-                            </div>
-                          )}
-
-                          {/* Se SIM validado → Importar PCA */}
-                          {validacaoDg === 'V' && (
-                            <div>
-                              <div
-                                onClick={() => setIsImportarPcaOpen(true)}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
-                              >
-                                <Upload className="h-4 w-4" />
-                                Importar PCA
-                              </div>
+                              {/* Ações pós-validação na mesma linha */}
+                              {validacaoDg === 'X' && (
+                                <div className="ml-auto">
+                                  <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
+                                    <ArrowLeft className="h-4 w-4 mr-1.5" />
+                                    Retornar aos Comitês
+                                  </Button>
+                                </div>
+                              )}
+                              {validacaoDg === 'V' && (
+                                <div className="ml-auto">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => setIsImportarPcaOpen(true)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  >
+                                    <Upload className="h-4 w-4 mr-1.5" />
+                                    Importar PCA
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -765,10 +794,10 @@ export default function FormacaoPca() {
                       />
                     )}
                     
-                    {/* Painel de Delegação de Edição para quem pode transitar (ou superadmin) */}
-                    {(() => {
+                    {/* Painel de Delegação de Edição — exibido fora da Apreciação SGJT (que já contém o botão inline) */}
+                    {formacaoEstado !== "apreciacao_sgjt" && (() => {
                       const isSuper = (user as any)?.is_superadmin;
-                      const isFaseBloqueada = ciclo.estado === "apreciacao_sgjt" || ciclo.estado === "em_comites" || ciclo.estado === "remessa_dg";
+                      const isFaseBloqueada = ciclo.estado === "em_comites" || ciclo.estado === "remessa_dg";
                       const podeDelegar = isSuper || (!isFaseBloqueada && minhaDelegacao?.tem_tag_transicao);
                       
                       if (!podeDelegar) return null;

@@ -49,9 +49,9 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
   },
   aberto: {
     icon: Send,
-    titulo: "DFD-Consulta pronto para envio",
+    titulo: "DFD-Consulta",
     descricao:
-      "O Documento de Formalização da Demanda está pronto. Revise os blocos abaixo e, quando satisfeito, encaminhe o DFD-Consulta para apreciação das áreas demandantes.",
+      "Revise os blocos abaixo e, quando satisfeito, encaminhe o DFD-Consulta para a avaliação das áreas demandantes.",
     atorLabel: "CCA",
     color: {
       border: "border-blue-200",
@@ -66,7 +66,7 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
     icon: Users,
     titulo: "Consulta (1ª Validação)",
     descricao:
-      "As áreas demandantes estão analisando e validando os IFOs (Itens de Formação do Orçamento) do DFD. A Validação 1 deve ser realizada pelas Unidades Descentralizadas.",
+      "As áreas demandantes estão analisando e validando os IFOs (Itens de Formação do Orçamento) do DFD.",
     atorLabel: "Demandantes",
     color: {
       border: "border-emerald-200",
@@ -96,7 +96,7 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
     icon: FileText,
     titulo: "Consolidação do DFD — CCA",
     descricao:
-      "A CCA está consolidando as propostas recebidas das áreas demandantes. Os IFOs são organizados e preparados para encaminhamento à GEJUT para análise de conformidade.",
+      "O CCA está consolidando as propostas recebidas das áreas demandantes. Os IFOs são organizados e preparados para encaminhamento à GEJUT para análise de conformidade.",
     atorLabel: "CCA",
     color: {
       border: "border-blue-200",
@@ -109,9 +109,9 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
   },
   validacao_gejut: {
     icon: Scale,
-    titulo: "Validação jurídica — GEJUT",
+    titulo: "Validação - GEJUT",
     descricao:
-      "A Gerência Jurídica de TIC (GEJUT) analisa a conformidade jurídica do DFD consolidado. Após validação, o documento será encaminhado à SGJT para apreciação.",
+      "A Gerência de Estratégia Judiciária e Tecnológica (GEJUT) analisa a conformidade do DFD consolidado. Após validação, o documento será encaminhado à SGJT para apreciação.",
     atorLabel: "GEJUT",
     color: {
       border: "border-violet-200",
@@ -126,7 +126,7 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
     icon: Gavel,
     titulo: "Apreciação — SGJT",
     descricao:
-      "A Secretaria-Geral da Junta de Trabalho (SGJT) aprecia o DFD e encaminha para deliberação nos comitês CGTIC e CGovTIC.",
+      "A Secretaria de Governança Judiciária e Tecnológica (SGJT) aprecia o DFD e encaminha para deliberação nos comitês CGovTIC.",
     atorLabel: "SGJT",
     color: {
       border: "border-amber-200",
@@ -142,7 +142,7 @@ const FASE_CONFIG: Record<string, FaseConfig> = {
     icon: Truck,
     titulo: "Remessa à Diretoria-Geral",
     descricao:
-      "O DFD foi remetido à Diretoria-Geral. A CCA pode publicar o PCA-TIC quando autorizada.",
+      "O DFD foi remetido à Diretoria-Geral. O CCA poderá publicar o PCA-TIC quando autorizada.",
     atorLabel: "CCA",
     color: {
       border: "border-slate-300",
