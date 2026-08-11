@@ -270,11 +270,7 @@ export default function Pdtic() {
               icon={<CheckCircle2 className="h-6 w-6" />}
               cor="green"
               active={filtroStatus === "concluidas"}
-              onClick={() =>
-                setFiltroStatus((s) =>
-                  s === "concluidas" ? "todas" : "concluidas",
-                )
-              }
+              onClick={() => setFiltroStatus("concluidas")}
             />
             <StatCard
               titulo="Pendentes"
@@ -282,11 +278,7 @@ export default function Pdtic() {
               icon={<AlertTriangle className="h-6 w-6" />}
               cor="red"
               active={filtroStatus === "pendentes"}
-              onClick={() =>
-                setFiltroStatus((s) =>
-                  s === "pendentes" ? "todas" : "pendentes",
-                )
-              }
+              onClick={() => setFiltroStatus("pendentes")}
             />
             <ProgressoCard progresso={stats.progresso} />
           </div>
