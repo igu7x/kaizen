@@ -7,7 +7,15 @@ export interface PdticAcao {
   id_pdtic: string | null;
   diretoria: string | null;
   area_responsavel: string | null;
-  conclusao: string | null; // YYYY-MM-DD
+  conclusao: string | null; // "Concluída" ou "Mmm/AAAA" (texto livre)
+  // Campos de detalhe do quadro de ações do PDTIC (opcionais, só no cadastro).
+  necessidade_identificada?: string | null;
+  resultado?: string | null;
+  reagendada?: string | null;
+  classe?: string | null;
+  indicador?: string | null;
+  objetivos_enticjud?: string | null;
+  macrodesafios_tjgo?: string | null;
   /** Evidência (documento) anexada. Com evidência, o Status é "Concluído". */
   evidencia_nome?: string | null;
   evidencia_mime?: string | null;

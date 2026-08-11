@@ -5,6 +5,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -44,6 +45,13 @@ const VAZIO: PdticAcaoInput = {
   diretoria: "",
   area_responsavel: "",
   conclusao: "",
+  necessidade_identificada: "",
+  resultado: "",
+  reagendada: "",
+  classe: "",
+  indicador: "",
+  objetivos_enticjud: "",
+  macrodesafios_tjgo: "",
 };
 
 function formatarDataBR(iso?: string | null): string {
@@ -123,6 +131,13 @@ export default function PdticAcoes() {
       diretoria: a.diretoria ?? "",
       area_responsavel: a.area_responsavel ?? "",
       conclusao: a.conclusao ?? "",
+      necessidade_identificada: a.necessidade_identificada ?? "",
+      resultado: a.resultado ?? "",
+      reagendada: a.reagendada ?? "",
+      classe: a.classe ?? "",
+      indicador: a.indicador ?? "",
+      objetivos_enticjud: a.objetivos_enticjud ?? "",
+      macrodesafios_tjgo: a.macrodesafios_tjgo ?? "",
     });
     setDialogOpen(true);
   };
@@ -289,7 +304,7 @@ export default function PdticAcoes() {
 
       {/* Dialog de cadastro/edição */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editando ? "Editar Ação do PDTIC" : "Nova Ação do PDTIC"}
@@ -320,9 +335,9 @@ export default function PdticAcoes() {
               <div>
                 <Label className="mb-1.5 block">Conclusão</Label>
                 <Input
-                  type="date"
                   value={form.conclusao ?? ""}
                   onChange={(e) => set("conclusao", e.target.value)}
+                  placeholder="Ex.: Concluída ou Out/2026"
                 />
               </div>
               <div>
@@ -352,6 +367,81 @@ export default function PdticAcoes() {
                     <option key={n} value={n} />
                   ))}
                 </datalist>
+              </div>
+            </div>
+
+            {/* Detalhes do quadro de ações do PDTIC (todos opcionais) */}
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+                Detalhes do quadro de ações (opcional)
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <Label className="mb-1.5 block">Necessidade identificada</Label>
+                  <Textarea
+                    rows={3}
+                    value={form.necessidade_identificada ?? ""}
+                    onChange={(e) =>
+                      set("necessidade_identificada", e.target.value)
+                    }
+                    placeholder="Situação que deve ser solucionada com a conclusão da ação."
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1.5 block">Resultado</Label>
+                  <Textarea
+                    rows={3}
+                    value={form.resultado ?? ""}
+                    onChange={(e) => set("resultado", e.target.value)}
+                    placeholder="Produto ou serviço que será entregue."
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="mb-1.5 block">Reagendada</Label>
+                    <Input
+                      value={form.reagendada ?? ""}
+                      onChange={(e) => set("reagendada", e.target.value)}
+                      placeholder="Ex.: Não / AG052 2023/25"
+                    />
+                  </div>
+                  <div>
+                    <Label className="mb-1.5 block">Classe</Label>
+                    <Input
+                      value={form.classe ?? ""}
+                      onChange={(e) => set("classe", e.target.value)}
+                      placeholder="Ex.: PRIN, SIS, INFRA, SUP"
+                    />
+                  </div>
+                  <div>
+                    <Label className="mb-1.5 block">Indicador</Label>
+                    <Input
+                      value={form.indicador ?? ""}
+                      onChange={(e) => set("indicador", e.target.value)}
+                      placeholder="Ex.: KR1, KR2"
+                    />
+                  </div>
+                  <div>
+                    <Label className="mb-1.5 block">Objetivos ENTIC-JUD</Label>
+                    <Input
+                      value={form.objetivos_enticjud ?? ""}
+                      onChange={(e) =>
+                        set("objetivos_enticjud", e.target.value)
+                      }
+                      placeholder="Ex.: ON01, ON05"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="mb-1.5 block">Macrodesafios TJGO</Label>
+                    <Input
+                      value={form.macrodesafios_tjgo ?? ""}
+                      onChange={(e) =>
+                        set("macrodesafios_tjgo", e.target.value)
+                      }
+                      placeholder="Ex.: MACRO12 e MACRO18"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
