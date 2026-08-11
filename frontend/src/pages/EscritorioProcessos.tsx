@@ -37,6 +37,8 @@ import {
   FileDown,
   ArrowUpRight,
   AlertTriangle,
+  Cpu,
+  Gavel,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -1358,6 +1360,12 @@ export default function EscritorioProcessos({
   // ============================================================
   // RENDER
   // ============================================================
+  const grupoLabel =
+    grupo === "apoio_judiciario"
+      ? "Apoio Judiciário"
+      : "Tecnologia da Informação";
+  const GrupoIcon = grupo === "apoio_judiciario" ? Gavel : Cpu;
+
   return (
     <Layout>
       <div className="space-y-5 page-transition-enter">
@@ -1365,6 +1373,7 @@ export default function EscritorioProcessos({
           items={[
             { label: "Gestão Estratégica", to: "/gestao-estrategica" },
             { label: "Escritório de Processos" },
+            { label: grupoLabel },
           ]}
         />
 
@@ -1381,8 +1390,9 @@ export default function EscritorioProcessos({
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 Gestão Estratégica
               </p>
-              <h1 className="text-2xl font-bold text-slate-800">
-                Escritório de Processos
+              <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800">
+                <GrupoIcon className="h-6 w-6 text-blue-600" />
+                Escritório de Processos — {grupoLabel}
               </h1>
             </div>
           </div>
