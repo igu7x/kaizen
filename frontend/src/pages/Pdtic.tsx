@@ -182,27 +182,34 @@ export default function Pdtic() {
 
   return (
     <Layout>
-      <div className="page-transition-enter min-h-full">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <Breadcrumbs
-            items={[
-              { label: "Gestão Estratégica", to: "/gestao-estrategica" },
-              { label: "PDTIC" },
-            ]}
-          />
+      <div className="space-y-5 page-transition-enter">
+        <Breadcrumbs
+          items={[
+            { label: "Gestão Estratégica", to: "/gestao-estrategica" },
+            { label: "PDTIC" },
+          ]}
+        />
 
-          {/* Header */}
-          <div className="mt-4 mb-6">
-            <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
+        {/* HEADER */}
+        <div className="flex items-center gap-4">
+          <div
+            className="w-1.5 h-12 rounded-full"
+            style={{
+              background: "linear-gradient(180deg, #0A2547 0%, #1565C0 100%)",
+            }}
+          />
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
               Gestão Estratégica
             </p>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-slate-800">
               Plano Diretor de TIC - PDTIC
             </h1>
           </div>
+        </div>
 
-          {/* Filtros */}
-          <div className="mb-5 flex flex-wrap gap-4">
+        {/* Filtros */}
+        <div className="flex flex-wrap gap-4">
             <div className="flex flex-col min-w-[220px] flex-1">
               <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                 Diretoria
@@ -248,7 +255,7 @@ export default function Pdtic() {
           </div>
 
           {/* Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               titulo="Ações"
               valor={stats.total}
@@ -388,7 +395,7 @@ export default function Pdtic() {
             )}
           </div>
 
-          <p className="mt-3 text-xs text-slate-400">
+          <p className="text-xs text-slate-400">
             {stats.total} açã{stats.total === 1 ? "o" : "es"} ·{" "}
             {stats.concluidas} concluída{stats.concluidas === 1 ? "" : "s"} ·{" "}
             {stats.pendentes} pendente{stats.pendentes === 1 ? "" : "s"}
@@ -399,7 +406,6 @@ export default function Pdtic() {
               </span>
             )}
           </p>
-        </div>
       </div>
 
       {/* Input de upload oculto (reusado por todas as linhas) */}
