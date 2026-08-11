@@ -9,6 +9,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import {
@@ -36,6 +37,9 @@ export default function Pdtic() {
   const [loading, setLoading] = useState(true);
   const [filtroDiretoria, setFiltroDiretoria] = useState(TODAS);
   const [filtroArea, setFiltroArea] = useState(TODAS);
+  const [filtroStatus, setFiltroStatus] = useState<
+    "todas" | "concluidas" | "pendentes"
+  >("todas");
   const [busy, setBusy] = useState<number | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const uploadAcaoId = useRef<number | null>(null);
@@ -97,6 +101,14 @@ export default function Pdtic() {
     const progresso = total === 0 ? 0 : Math.round((concluidas / total) * 100);
     return { total, concluidas, pendentes, progresso };
   }, [filtradas]);
+
+  // Os cards funcionam como filtro: a tabela respeita o status escolhido (os cards seguem
+  // mostrando os totais reais, independentemente do filtro ativo).
+  const tabelaFiltradas = useMemo(() => {
+    if (filtroStatus === "todas") return filtradas;
+    const querConcluida = filtroStatus === "concluidas";
+    return filtradas.filter((a) => concluida(a) === querConcluida);
+  }, [filtradas, filtroStatus]);
 
   // ── Evidência ───────────────────────────────────────────────────────────
   const escolherArquivo = (acaoId: number) => {
@@ -242,18 +254,32 @@ export default function Pdtic() {
               valor={stats.total}
               icon={<FileText className="h-6 w-6" />}
               cor="blue"
+              active={filtroStatus === "todas"}
+              onClick={() => setFiltroStatus("todas")}
             />
             <StatCard
               titulo="Concluídas"
               valor={stats.concluidas}
               icon={<CheckCircle2 className="h-6 w-6" />}
               cor="green"
+              active={filtroStatus === "concluidas"}
+              onClick={() =>
+                setFiltroStatus((s) =>
+                  s === "concluidas" ? "todas" : "concluidas",
+                )
+              }
             />
             <StatCard
               titulo="Pendentes"
               valor={stats.pendentes}
               icon={<AlertTriangle className="h-6 w-6" />}
               cor="red"
+              active={filtroStatus === "pendentes"}
+              onClick={() =>
+                setFiltroStatus((s) =>
+                  s === "pendentes" ? "todas" : "pendentes",
+                )
+              }
             />
             <ProgressoCard progresso={stats.progresso} />
           </div>
@@ -272,11 +298,15 @@ export default function Pdtic() {
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 Carregando ações…
               </div>
-            ) : filtradas.length === 0 ? (
+            ) : tabelaFiltradas.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
                 <FileText className="h-8 w-8 text-slate-300 mb-2" />
                 <p className="text-sm">
-                  Nenhuma ação do PDTIC para os filtros selecionados.
+                  {filtroStatus === "concluidas"
+                    ? "Nenhuma ação concluída para os filtros selecionados."
+                    : filtroStatus === "pendentes"
+                      ? "Nenhuma ação pendente para os filtros selecionados."
+                      : "Nenhuma ação do PDTIC para os filtros selecionados."}
                 </p>
                 <p className="text-xs mt-1 text-slate-400">
                   Cadastre ações em Cadastros → Ações do PDTIC.
@@ -284,7 +314,7 @@ export default function Pdtic() {
               </div>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {filtradas.map((a) => {
+                {tabelaFiltradas.map((a) => {
                   const ok = concluida(a);
                   const carregando = busy === a.id;
                   return (
@@ -359,9 +389,15 @@ export default function Pdtic() {
           </div>
 
           <p className="mt-3 text-xs text-slate-400">
-            {filtradas.length} açã{filtradas.length === 1 ? "o" : "es"} ·{" "}
+            {stats.total} açã{stats.total === 1 ? "o" : "es"} ·{" "}
             {stats.concluidas} concluída{stats.concluidas === 1 ? "" : "s"} ·{" "}
             {stats.pendentes} pendente{stats.pendentes === 1 ? "" : "s"}
+            {filtroStatus !== "todas" && (
+              <span className="ml-1 text-slate-500">
+                · filtrando:{" "}
+                {filtroStatus === "concluidas" ? "Concluídas" : "Pendentes"}
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -386,25 +422,41 @@ function StatCard({
   valor,
   icon,
   cor,
+  active,
+  onClick,
 }: {
   titulo: string;
   valor: number;
   icon: React.ReactNode;
   cor: "blue" | "green" | "red";
+  active?: boolean;
+  onClick?: () => void;
 }) {
-  const paleta = {
-    blue: "border-blue-200 text-blue-600 bg-blue-50",
-    green: "border-emerald-200 text-emerald-600 bg-emerald-50",
-    red: "border-red-200 text-red-600 bg-red-50",
+  const fundo = {
+    blue: "bg-gradient-to-br from-blue-50 to-white",
+    green: "bg-gradient-to-br from-emerald-50 to-white",
+    red: "bg-gradient-to-br from-red-50 to-white",
   }[cor];
-  const borda = {
-    blue: "border-l-blue-500",
-    green: "border-l-emerald-500",
-    red: "border-l-red-500",
+  const iconeCls = {
+    blue: "bg-blue-100 text-blue-600",
+    green: "bg-emerald-100 text-emerald-600",
+    red: "bg-red-100 text-red-600",
+  }[cor];
+  const anel = {
+    blue: "ring-blue-400 border-blue-300",
+    green: "ring-emerald-400 border-emerald-300",
+    red: "ring-red-400 border-red-300",
   }[cor];
   return (
-    <div
-      className={`flex items-center justify-between rounded-xl border border-l-4 bg-white p-5 ${borda}`}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex items-center justify-between rounded-xl border border-slate-200 p-5 text-left transition-all hover:shadow-sm",
+        fundo,
+        active ? `ring-2 ${anel}` : "hover:border-slate-300",
+      )}
     >
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -413,24 +465,27 @@ function StatCard({
         <p className="mt-1 text-3xl font-bold text-slate-900">{valor}</p>
       </div>
       <div
-        className={`flex h-12 w-12 items-center justify-center rounded-xl border ${paleta}`}
+        className={cn(
+          "flex h-12 w-12 items-center justify-center rounded-xl",
+          iconeCls,
+        )}
       >
         {icon}
       </div>
-    </div>
+    </button>
   );
 }
 
 function ProgressoCard({ progresso }: { progresso: number }) {
   return (
-    <div className="rounded-xl border border-l-4 border-l-violet-500 bg-white p-5">
+    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-violet-50 to-white p-5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Progresso
         </p>
         <p className="text-2xl font-bold text-violet-600">{progresso}%</p>
       </div>
-      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-violet-100">
         <div
           className="h-full rounded-full bg-violet-500 transition-all"
           style={{ width: `${progresso}%` }}
