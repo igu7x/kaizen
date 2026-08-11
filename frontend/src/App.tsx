@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import Home from "./pages/Home";
 import GestaoEstrategica from "./pages/GestaoEstrategica";
+import Pdtic from "./pages/Pdtic";
 import Contratacoes from "./pages/Contratacoes";
 import Cadastros from "./pages/Cadastros";
 import PlanosProgramas from "./pages/PlanosProgramas";
@@ -109,6 +110,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <EscritorioProcessos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/gestao-estrategica/pdtic"
+                    element={
+                      <ProtectedRoute>
+                        <Pdtic />
                       </ProtectedRoute>
                     }
                   />

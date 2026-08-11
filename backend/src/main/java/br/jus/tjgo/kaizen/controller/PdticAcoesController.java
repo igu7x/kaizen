@@ -56,4 +56,41 @@ public class PdticAcoesController {
         }
         return ResponseEntity.ok(Map.of("message", "Ação excluída com sucesso"));
     }
+
+    /** Anexa a evidência (documento) da ação — corpo { nome, mime, data (base64) }. */
+    @PutMapping("/{id:\\d+}/evidencia")
+    public ResponseEntity<?> setEvidencia(@PathVariable long id, @RequestBody Map<String, Object> body) {
+        Object data = body.get("data");
+        if (data == null || String.valueOf(data).isBlank()) {
+            return ResponseEntity.status(400).body(Map.of("error", "Envie o arquivo da evidência."));
+        }
+        Map<String, Object> upd = service.setEvidencia(
+                id, str(body.get("nome")), str(body.get("mime")), str(data));
+        if (upd == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Ação não encontrada"));
+        }
+        return ResponseEntity.ok(upd);
+    }
+
+    @DeleteMapping("/{id:\\d+}/evidencia")
+    public ResponseEntity<?> removerEvidencia(@PathVariable long id) {
+        Map<String, Object> upd = service.removerEvidencia(id);
+        if (upd == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Ação não encontrada"));
+        }
+        return ResponseEntity.ok(upd);
+    }
+
+    @GetMapping("/{id:\\d+}/evidencia")
+    public ResponseEntity<?> getEvidencia(@PathVariable long id) {
+        Map<String, Object> ev = service.getEvidencia(id);
+        if (ev == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Sem evidência para esta ação"));
+        }
+        return ResponseEntity.ok(ev);
+    }
+
+    private String str(Object v) {
+        return v == null ? null : String.valueOf(v);
+    }
 }

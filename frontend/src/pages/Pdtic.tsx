@@ -1,0 +1,441 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  Download,
+  X,
+  Eye,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Layout } from "@/components/layout/Layout";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { pdticAcoesApi, PdticAcao } from "@/services/pdticAcoesApi";
+
+const TODAS = "__todas__";
+
+/** Prazo no formato MM/AAAA a partir de YYYY-MM-DD. */
+function prazoMesAno(iso?: string | null): string {
+  if (!iso) return "—";
+  const m = iso.match(/^(\d{4})-(\d{2})/);
+  return m ? `${m[2]}/${m[1]}` : iso;
+}
+
+const concluida = (a: PdticAcao) => !!a.evidencia_nome?.trim();
+
+export default function Pdtic() {
+  const [acoes, setAcoes] = useState<PdticAcao[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filtroDiretoria, setFiltroDiretoria] = useState(TODAS);
+  const [filtroArea, setFiltroArea] = useState(TODAS);
+  const [busy, setBusy] = useState<number | null>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const uploadAcaoId = useRef<number | null>(null);
+
+  const carregar = async () => {
+    setLoading(true);
+    try {
+      setAcoes(await pdticAcoesApi.list());
+    } catch {
+      /* erro tratado no apiClient */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  const diretorias = useMemo(
+    () =>
+      Array.from(
+        new Set(acoes.map((a) => a.diretoria).filter(Boolean) as string[]),
+      ).sort((a, b) => a.localeCompare(b)),
+    [acoes],
+  );
+  const areas = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          acoes
+            .filter(
+              (a) =>
+                filtroDiretoria === TODAS || a.diretoria === filtroDiretoria,
+            )
+            .map((a) => a.area_responsavel)
+            .filter(Boolean) as string[],
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [acoes, filtroDiretoria],
+  );
+
+  const filtradas = useMemo(
+    () =>
+      acoes.filter((a) => {
+        if (filtroDiretoria !== TODAS && a.diretoria !== filtroDiretoria)
+          return false;
+        if (filtroArea !== TODAS && a.area_responsavel !== filtroArea)
+          return false;
+        return true;
+      }),
+    [acoes, filtroDiretoria, filtroArea],
+  );
+
+  const stats = useMemo(() => {
+    const total = filtradas.length;
+    const concluidas = filtradas.filter(concluida).length;
+    const pendentes = total - concluidas;
+    const progresso = total === 0 ? 0 : Math.round((concluidas / total) * 100);
+    return { total, concluidas, pendentes, progresso };
+  }, [filtradas]);
+
+  // ── Evidência ───────────────────────────────────────────────────────────
+  const escolherArquivo = (acaoId: number) => {
+    uploadAcaoId.current = acaoId;
+    uploadRef.current?.click();
+  };
+
+  const onArquivoSelecionado = (file?: File) => {
+    const acaoId = uploadAcaoId.current;
+    if (!file || acaoId == null) return;
+    if (file.type !== "application/pdf") {
+      toast.error("A evidência deve ser um PDF.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("A evidência deve ter até 10 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      setBusy(acaoId);
+      try {
+        const upd = await pdticAcoesApi.setEvidencia(acaoId, {
+          nome: file.name,
+          mime: file.type,
+          data: String(reader.result),
+        });
+        setAcoes((prev) => prev.map((a) => (a.id === acaoId ? upd : a)));
+        toast.success("Evidência anexada. Ação concluída.");
+      } catch {
+        /* erro tratado no apiClient */
+      } finally {
+        setBusy(null);
+      }
+    };
+    reader.onerror = () => toast.error("Não foi possível ler o arquivo.");
+    reader.readAsDataURL(file);
+  };
+
+  const abrirEvidencia = async (acaoId: number) => {
+    setBusy(acaoId);
+    try {
+      const ev = await pdticAcoesApi.getEvidencia(acaoId);
+      if (!ev.evidencia_data) {
+        toast.error("Evidência indisponível.");
+        return;
+      }
+      // Converte o data URL em blob para abrir de forma confiável (PDFs grandes).
+      const resp = await fetch(ev.evidencia_data);
+      const blob = await resp.blob();
+      window.open(URL.createObjectURL(blob), "_blank");
+    } catch {
+      toast.error("Não foi possível abrir a evidência.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const removerEvidencia = async (acaoId: number) => {
+    setBusy(acaoId);
+    try {
+      const upd = await pdticAcoesApi.removerEvidencia(acaoId);
+      setAcoes((prev) => prev.map((a) => (a.id === acaoId ? upd : a)));
+      toast.success("Evidência removida. Ação voltou a pendente.");
+    } catch {
+      /* erro tratado no apiClient */
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Layout>
+      <div className="page-transition-enter min-h-full">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <Breadcrumbs
+            items={[
+              { label: "Gestão Estratégica", to: "/gestao-estrategica" },
+              { label: "PDTIC" },
+            ]}
+          />
+
+          {/* Header */}
+          <div className="mt-4 mb-6">
+            <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
+              Gestão Estratégica
+            </p>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Plano Diretor de TIC - PDTIC
+            </h1>
+          </div>
+
+          {/* Filtros */}
+          <div className="mb-5 flex flex-wrap gap-4">
+            <div className="flex flex-col min-w-[220px] flex-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                Diretoria
+              </label>
+              <Select
+                value={filtroDiretoria}
+                onValueChange={(v) => {
+                  setFiltroDiretoria(v);
+                  setFiltroArea(TODAS);
+                }}
+              >
+                <SelectTrigger className="h-10 bg-white">
+                  <SelectValue placeholder="Todas as Diretorias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TODAS}>Todas as Diretorias</SelectItem>
+                  {diretorias.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col min-w-[220px] flex-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                Área
+              </label>
+              <Select value={filtroArea} onValueChange={setFiltroArea}>
+                <SelectTrigger className="h-10 bg-white">
+                  <SelectValue placeholder="Todas as Áreas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TODAS}>Todas as Áreas</SelectItem>
+                  {areas.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard
+              titulo="Ações"
+              valor={stats.total}
+              icon={<FileText className="h-6 w-6" />}
+              cor="blue"
+            />
+            <StatCard
+              titulo="Concluídas"
+              valor={stats.concluidas}
+              icon={<CheckCircle2 className="h-6 w-6" />}
+              cor="green"
+            />
+            <StatCard
+              titulo="Pendentes"
+              valor={stats.pendentes}
+              icon={<AlertTriangle className="h-6 w-6" />}
+              cor="red"
+            />
+            <ProgressoCard progresso={stats.progresso} />
+          </div>
+
+          {/* Tabela */}
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span>Ações</span>
+              <span className="text-center">Prazo</span>
+              <span className="text-center">Status</span>
+              <span className="text-center">Evidência</span>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Carregando ações…
+              </div>
+            ) : filtradas.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
+                <FileText className="h-8 w-8 text-slate-300 mb-2" />
+                <p className="text-sm">
+                  Nenhuma ação do PDTIC para os filtros selecionados.
+                </p>
+                <p className="text-xs mt-1 text-slate-400">
+                  Cadastre ações em Cadastros → Ações do PDTIC.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {filtradas.map((a) => {
+                  const ok = concluida(a);
+                  const carregando = busy === a.id;
+                  return (
+                    <li
+                      key={a.id}
+                      className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <FileText className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-500" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-slate-800">{a.nome}</p>
+                          {a.id_pdtic && (
+                            <p className="text-[11px] font-medium uppercase text-slate-400">
+                              {a.id_pdtic}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-center text-sm tabular-nums text-slate-600 whitespace-nowrap">
+                        {prazoMesAno(a.conclusao)}
+                      </div>
+                      <div className="flex justify-center">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                            ok
+                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                              : "bg-red-50 text-red-600 ring-red-200"
+                          }`}
+                        >
+                          {ok ? "Concluído" : "Pendente"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1">
+                        {carregando ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        ) : ok ? (
+                          <>
+                            <button
+                              type="button"
+                              title="Ver evidência"
+                              onClick={() => abrirEvidencia(a.id)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Remover evidência"
+                              onClick={() => removerEvidencia(a.id)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => escolherArquivo(a.id)}
+                            title="Anexar evidência (PDF)"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            PDF
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <p className="mt-3 text-xs text-slate-400">
+            {filtradas.length} açã{filtradas.length === 1 ? "o" : "es"} ·{" "}
+            {stats.concluidas} concluída{stats.concluidas === 1 ? "" : "s"} ·{" "}
+            {stats.pendentes} pendente{stats.pendentes === 1 ? "" : "s"}
+          </p>
+        </div>
+      </div>
+
+      {/* Input de upload oculto (reusado por todas as linhas) */}
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          onArquivoSelecionado(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+    </Layout>
+  );
+}
+
+function StatCard({
+  titulo,
+  valor,
+  icon,
+  cor,
+}: {
+  titulo: string;
+  valor: number;
+  icon: React.ReactNode;
+  cor: "blue" | "green" | "red";
+}) {
+  const paleta = {
+    blue: "border-blue-200 text-blue-600 bg-blue-50",
+    green: "border-emerald-200 text-emerald-600 bg-emerald-50",
+    red: "border-red-200 text-red-600 bg-red-50",
+  }[cor];
+  const borda = {
+    blue: "border-l-blue-500",
+    green: "border-l-emerald-500",
+    red: "border-l-red-500",
+  }[cor];
+  return (
+    <div
+      className={`flex items-center justify-between rounded-xl border border-l-4 bg-white p-5 ${borda}`}
+    >
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {titulo}
+        </p>
+        <p className="mt-1 text-3xl font-bold text-slate-900">{valor}</p>
+      </div>
+      <div
+        className={`flex h-12 w-12 items-center justify-center rounded-xl border ${paleta}`}
+      >
+        {icon}
+      </div>
+    </div>
+  );
+}
+
+function ProgressoCard({ progresso }: { progresso: number }) {
+  return (
+    <div className="rounded-xl border border-l-4 border-l-violet-500 bg-white p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Progresso
+        </p>
+        <p className="text-2xl font-bold text-violet-600">{progresso}%</p>
+      </div>
+      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-violet-500 transition-all"
+          style={{ width: `${progresso}%` }}
+        />
+      </div>
+    </div>
+  );
+}

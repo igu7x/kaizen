@@ -102,6 +102,11 @@ const menuItemsCompleto: MenuItem[] = [
         permissaoCodigo: "gestao_processos",
       },
       {
+        title: "PDTIC",
+        icon: LayoutDashboard,
+        path: "/gestao-estrategica/pdtic",
+      },
+      {
         title: "Controle de Execução",
         icon: RefreshCw,
         path: "/gestao-estrategica/sprints",

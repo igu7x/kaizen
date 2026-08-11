@@ -23,8 +23,11 @@ public class PdticAcoesService {
             "nome", "id_pdtic", "diretoria", "area_responsavel", "conclusao");
 
     public List<Map<String, Object>> list() {
+        // Não traz evidencia_data (base64, pesado): a listagem só precisa saber se HÁ evidência,
+        // pelo nome. O conteúdo vem via getEvidencia quando o usuário abre o documento.
         return jdbc.queryForList(
-                "SELECT id, " + String.join(", ", CAMPOS) + ", created_at, updated_at " +
+                "SELECT id, " + String.join(", ", CAMPOS) + ", evidencia_nome, evidencia_mime, " +
+                        "created_at, updated_at " +
                         "FROM pdtic_acoes WHERE is_deleted = FALSE ORDER BY id_pdtic NULLS LAST, id");
     }
 
@@ -70,6 +73,38 @@ public class PdticAcoesService {
         jdbc.update("UPDATE pdtic_acoes SET " + set + " WHERE id = ? AND is_deleted = FALSE",
                 params.toArray());
         return getById(id);
+    }
+
+    /** Anexa (ou substitui) a evidência da ação. Com evidência, o Status vira "Concluído". */
+    @Transactional
+    public Map<String, Object> setEvidencia(long id, String nome, String mime, String data) {
+        int n = jdbc.update(
+                "UPDATE pdtic_acoes SET evidencia_nome = ?, evidencia_mime = ?, evidencia_data = ?, " +
+                        "updated_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE",
+                blankToNull(nome), blankToNull(mime), blankToNull(data), id);
+        return n > 0 ? getById(id) : null;
+    }
+
+    /** Remove a evidência da ação (volta para "Pendente"). */
+    @Transactional
+    public Map<String, Object> removerEvidencia(long id) {
+        int n = jdbc.update(
+                "UPDATE pdtic_acoes SET evidencia_nome = NULL, evidencia_mime = NULL, " +
+                        "evidencia_data = NULL, updated_at = CURRENT_TIMESTAMP " +
+                        "WHERE id = ? AND is_deleted = FALSE",
+                id);
+        return n > 0 ? getById(id) : null;
+    }
+
+    /** Conteúdo da evidência (nome, mime e base64) para abrir/baixar. Null se não houver. */
+    public Map<String, Object> getEvidencia(long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT evidencia_nome, evidencia_mime, evidencia_data FROM pdtic_acoes " +
+                        "WHERE id = ? AND is_deleted = FALSE", id);
+        if (rows.isEmpty() || rows.get(0).get("evidencia_data") == null) {
+            return null;
+        }
+        return rows.get(0);
     }
 
     @Transactional
