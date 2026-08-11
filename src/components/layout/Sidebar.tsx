@@ -28,6 +28,8 @@ import {
   Key,
   Workflow,
   BarChart3,
+  Cpu,
+  Gavel,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +48,7 @@ import { useEstrategiaModelo } from "@/contexts/EstrategiaModeloContext";
 interface SubSubMenuItem {
   title: string;
   path: string;
+  icon?: LucideIcon;
   permissaoCodigo?: string;
   stagingOnly?: boolean;
 }
@@ -98,8 +101,19 @@ const menuItemsCompleto: MenuItem[] = [
       {
         title: "Escritório de Processos",
         icon: Workflow,
-        path: "/gestao-estrategica/processos",
         permissaoCodigo: "gestao_processos",
+        children: [
+          {
+            title: "Tecnologia da Informação",
+            icon: Cpu,
+            path: "/gestao-estrategica/processos",
+          },
+          {
+            title: "Apoio Judiciário",
+            icon: Gavel,
+            path: "/gestao-estrategica/processos-apoio",
+          },
+        ],
       },
       {
         title: "PDTIC",
@@ -180,10 +194,12 @@ const menuItemsCompleto: MenuItem[] = [
         children: [
           {
             title: "Tecnologia da Informação",
+            icon: Cpu,
             path: "/pessoas/pac/tecnologia-da-informacao",
           },
           {
             title: "Apoio Judiciário",
+            icon: Gavel,
             path: "/pessoas/pac/apoio-judiciario",
           },
         ],
@@ -393,6 +409,9 @@ function MenuItemComponent({
                               isSubSubActive && "text-white font-medium",
                             )}
                           >
+                            {subChild.icon && (
+                              <subChild.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                            )}
                             <span>{subChild.title}</span>
                           </Link>
                         );

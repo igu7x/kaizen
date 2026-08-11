@@ -109,7 +109,15 @@ function App() {
                     path="/gestao-estrategica/processos"
                     element={
                       <ProtectedRoute>
-                        <EscritorioProcessos />
+                        <EscritorioProcessos grupo="ti" />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/gestao-estrategica/processos-apoio"
+                    element={
+                      <ProtectedRoute>
+                        <EscritorioProcessos grupo="apoio_judiciario" />
                       </ProtectedRoute>
                     }
                   />
