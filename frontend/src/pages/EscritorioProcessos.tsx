@@ -1365,6 +1365,20 @@ export default function EscritorioProcessos({
       ? "Apoio Judiciário"
       : "Tecnologia da Informação";
   const GrupoIcon = grupo === "apoio_judiciario" ? Gavel : Cpu;
+  // Cor de destaque por grupo (faixa lateral + ícone + selo), pra diferenciar
+  // as duas páginas de relance: TI = azul, Apoio Judiciário = âmbar.
+  const tema =
+    grupo === "apoio_judiciario"
+      ? {
+          barra: "linear-gradient(180deg, #78350F 0%, #D97706 100%)",
+          icone: "text-amber-600",
+          selo: "bg-amber-50 text-amber-700 border-amber-200",
+        }
+      : {
+          barra: "linear-gradient(180deg, #0A2547 0%, #1565C0 100%)",
+          icone: "text-blue-600",
+          selo: "bg-blue-50 text-blue-700 border-blue-200",
+        };
 
   return (
     <Layout>
@@ -1382,17 +1396,20 @@ export default function EscritorioProcessos({
           <div className="flex items-center gap-4">
             <div
               className="w-1.5 h-12 rounded-full"
-              style={{
-                background: "linear-gradient(180deg, #0A2547 0%, #1565C0 100%)",
-              }}
+              style={{ background: tema.barra }}
             />
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 Gestão Estratégica
               </p>
-              <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800">
-                <GrupoIcon className="h-6 w-6 text-blue-600" />
-                Escritório de Processos — {grupoLabel}
+              <h1 className="flex flex-wrap items-center gap-2.5 text-2xl font-bold text-slate-800">
+                <GrupoIcon className={`h-6 w-6 ${tema.icone}`} />
+                Escritório de Processos
+                <span
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${tema.selo}`}
+                >
+                  {grupoLabel}
+                </span>
               </h1>
             </div>
           </div>
