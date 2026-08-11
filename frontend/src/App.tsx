@@ -33,6 +33,7 @@ import ValidarProcesso from "./pages/ValidarProcesso";
 import PainelIndicadores from "./pages/PainelIndicadores";
 import OkrsMetas from "./pages/OkrsMetas";
 import CadastroHub from "./pages/CadastroHub";
+import PdticAcoes from "./pages/PdticAcoes";
 import PermissoesTap from "./pages/PermissoesTap";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
@@ -413,6 +414,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <OkrsMetas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/cadastros/pdtic-acoes"
+                    element={
+                      <ProtectedRoute>
+                        <PdticAcoes />
                       </ProtectedRoute>
                     }
                   />
