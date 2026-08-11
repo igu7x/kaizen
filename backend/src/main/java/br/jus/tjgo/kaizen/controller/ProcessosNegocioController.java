@@ -43,9 +43,11 @@ public class ProcessosNegocioController {
         return AuthContext.getCurrentUser().map(AuthenticatedUser::id).orElse(null);
     }
 
-    // GET /api/processos-negocio?diretoria=XYZ — lista com escopo por papel
+    // GET /api/processos-negocio?diretoria=XYZ&grupo=ti — lista com escopo por papel e grupo
     @GetMapping
-    public List<Map<String, Object>> list(@RequestParam(value = "diretoria", required = false) String diretoria) {
+    public List<Map<String, Object>> list(
+            @RequestParam(value = "diretoria", required = false) String diretoria,
+            @RequestParam(value = "grupo", required = false) String grupo) {
         var opt = AuthContext.getCurrentUser();
         if (opt.isEmpty()) {
             return List.of();
@@ -55,11 +57,11 @@ public class ProcessosNegocioController {
         // Visualizador (role VIEWER) não privilegiado: só enxerga os processos vigentes,
         // independente da diretoria.
         if ("VIEWER".equals(u.role()) && !privilegiado) {
-            return service.findAll(diretoria, null, true);
+            return service.findAll(diretoria, null, true, grupo);
         }
         // Regra (jul/2026): todos os demais usuários enxergam TODOS os processos, de todas as
         // diretorias (a restrição por papel/diretoria foi removida da listagem do Escritório).
-        return service.findAll(diretoria, null, false);
+        return service.findAll(diretoria, null, false, grupo);
     }
 
     // GET /api/processos-negocio/:id

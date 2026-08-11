@@ -98,8 +98,17 @@ const menuItemsCompleto: MenuItem[] = [
       {
         title: "Escritório de Processos",
         icon: Workflow,
-        path: "/gestao-estrategica/processos",
         permissaoCodigo: "gestao_processos",
+        children: [
+          {
+            title: "Tecnologia da Informação",
+            path: "/gestao-estrategica/processos",
+          },
+          {
+            title: "Apoio Judiciário",
+            path: "/gestao-estrategica/processos-apoio",
+          },
+        ],
       },
       {
         title: "PDTIC",

@@ -615,7 +615,11 @@ function ColumnChartCard({ title, data }: ColumnChartCardProps) {
 // PÁGINA PRINCIPAL
 // ============================================================
 
-export default function EscritorioProcessos() {
+export default function EscritorioProcessos({
+  grupo = "ti",
+}: {
+  grupo?: string;
+}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
@@ -671,7 +675,7 @@ export default function EscritorioProcessos() {
   const carregar = async () => {
     setLoading(true);
     try {
-      const procs = await processosNegocioApi.getAll();
+      const procs = await processosNegocioApi.getAll(undefined, grupo);
       setProcessos(procs);
     } catch (err) {
       /* erro já tratado pelo apiClient ou ignorado intencionalmente */
@@ -694,7 +698,8 @@ export default function EscritorioProcessos() {
       .catch(() => {
         /* sem unidades, o responsável cai só no snapshot do processo */
       });
-  }, []);
+    // Recarrega ao trocar de grupo (TI ↔ Apoio Judiciário) sem desmontar o componente.
+  }, [grupo]);
 
   // Deep-link vindo da Home / do e-mail de pendência (?abrir=<id>): abre o processo direto no modal
   // de visualização (onde ficam as ações Validar/Enviar), em vez da tela de detalhe só-leitura.
@@ -2174,6 +2179,7 @@ export default function EscritorioProcessos() {
         onOpenChange={setFormOpen}
         processo={editing}
         diretoriaPadrao={user?.diretoria || undefined}
+        grupo={grupo}
         modoInicial={formModo}
         onSaved={handleSaved}
         onProcessoChanged={handleProcessoChangedNoForm}

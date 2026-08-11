@@ -56,6 +56,8 @@ interface ProcessoFormDialogProps {
   processo?: ProcessoNegocio | null;
   /** Diretoria padrão pra novos processos (do usuário logado) */
   diretoriaPadrao?: string;
+  /** Grupo do Escritório de Processos ("ti" | "apoio_judiciario") — carimbado em novos processos. */
+  grupo?: string;
   /** "visualizar" abre o form travado (somente leitura) com um botão "Editar" que destrava. */
   modoInicial?: "editar" | "visualizar";
   /** Callback após salvar com sucesso */
@@ -210,6 +212,7 @@ export function ProcessoFormDialog({
   onOpenChange,
   processo,
   diretoriaPadrao,
+  grupo,
   modoInicial = "editar",
   onSaved,
   onProcessoChanged,
@@ -383,7 +386,7 @@ export function ProcessoFormDialog({
       if (currentId != null) {
         saved = await processosNegocioApi.update(currentId, payload);
       } else {
-        saved = await processosNegocioApi.create(payload);
+        saved = await processosNegocioApi.create({ ...payload, grupo });
         setCurrentId(saved.id);
       }
       if (validarApos && validacao) {

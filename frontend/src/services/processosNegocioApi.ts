@@ -491,6 +491,8 @@ export interface ProcessoNegocio {
 }
 
 export interface CreateProcessoNegocioDto {
+  /** Grupo do Escritório de Processos: "ti" (padrão) ou "apoio_judiciario". */
+  grupo?: string;
   macroprocesso: string;
   diretoria: string;
   periodo?: string | null;
@@ -533,11 +535,12 @@ const BASE = "/api/processos-negocio";
 // ============================================================
 
 export const processosNegocioApi = {
-  getAll(diretoria?: string): Promise<ProcessoNegocio[]> {
-    const url = diretoria
-      ? `${BASE}?diretoria=${encodeURIComponent(diretoria)}`
-      : BASE;
-    return apiClient.request<ProcessoNegocio[]>(url);
+  getAll(diretoria?: string, grupo?: string): Promise<ProcessoNegocio[]> {
+    const qs = new URLSearchParams();
+    if (diretoria) qs.set("diretoria", diretoria);
+    if (grupo) qs.set("grupo", grupo);
+    const s = qs.toString();
+    return apiClient.request<ProcessoNegocio[]>(s ? `${BASE}?${s}` : BASE);
   },
 
   getById(id: number): Promise<ProcessoNegocio> {
