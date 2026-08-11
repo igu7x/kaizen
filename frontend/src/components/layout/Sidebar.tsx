@@ -194,10 +194,12 @@ const menuItemsCompleto: MenuItem[] = [
         children: [
           {
             title: "Tecnologia da Informação",
+            icon: Cpu,
             path: "/pessoas/pac/tecnologia-da-informacao",
           },
           {
             title: "Apoio Judiciário",
+            icon: Gavel,
             path: "/pessoas/pac/apoio-judiciario",
           },
         ],
