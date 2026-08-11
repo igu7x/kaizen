@@ -26,6 +26,7 @@ export function Layout({ children }: LayoutProps) {
   const isProcessosPage =
     location.pathname.startsWith("/gestao-estrategica/processos") ||
     location.pathname.startsWith("/validar-processo");
+  const isPdticPage = location.pathname === "/gestao-estrategica/pdtic";
   const isPainelIndicadoresPage = location.pathname === "/painel-indicadores";
   const isComitesPage = location.pathname === "/comites";
   const isComiteDetalhe = location.pathname.startsWith("/comites/");
@@ -57,6 +58,7 @@ export function Layout({ children }: LayoutProps) {
     isExecucaoPage ||
     isSprintsPage ||
     isProcessosPage ||
+    isPdticPage ||
     isPainelIndicadoresPage ||
     isComitesPage ||
     isComiteDetalhe ||

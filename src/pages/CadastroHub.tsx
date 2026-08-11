@@ -6,6 +6,7 @@ import {
   Users,
   Target,
   ShieldCheck,
+  ClipboardList,
   ChevronRight,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
@@ -41,6 +42,13 @@ const cadastroItems = [
     description: "Objetivos e resultados-chave institucionais.",
     icon: Target,
     path: "/cadastros/okrs-metas",
+  },
+  {
+    title: "Ações do PDTIC",
+    description:
+      "Ações do Plano Diretor de TIC que alimentam a tela do PDTIC.",
+    icon: ClipboardList,
+    path: "/cadastros/pdtic-acoes",
   },
   {
     title: "Permissões do TAP",

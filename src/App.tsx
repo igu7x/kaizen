@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import Home from "./pages/Home";
 import GestaoEstrategica from "./pages/GestaoEstrategica";
+import Pdtic from "./pages/Pdtic";
 import Contratacoes from "./pages/Contratacoes";
 import Cadastros from "./pages/Cadastros";
 import PlanosProgramas from "./pages/PlanosProgramas";
@@ -33,6 +34,7 @@ import ValidarProcesso from "./pages/ValidarProcesso";
 import PainelIndicadores from "./pages/PainelIndicadores";
 import OkrsMetas from "./pages/OkrsMetas";
 import CadastroHub from "./pages/CadastroHub";
+import PdticAcoes from "./pages/PdticAcoes";
 import PermissoesTap from "./pages/PermissoesTap";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
@@ -108,6 +110,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <EscritorioProcessos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/gestao-estrategica/pdtic"
+                    element={
+                      <ProtectedRoute>
+                        <Pdtic />
                       </ProtectedRoute>
                     }
                   />
@@ -413,6 +423,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <OkrsMetas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/cadastros/pdtic-acoes"
+                    element={
+                      <ProtectedRoute>
+                        <PdticAcoes />
                       </ProtectedRoute>
                     }
                   />
