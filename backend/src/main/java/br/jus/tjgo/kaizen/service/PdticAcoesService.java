@@ -20,7 +20,9 @@ public class PdticAcoesService {
     private final JdbcTemplate jdbc;
 
     private static final List<String> CAMPOS = List.of(
-            "nome", "id_pdtic", "diretoria", "area_responsavel", "conclusao");
+            "nome", "id_pdtic", "diretoria", "area_responsavel", "conclusao",
+            "necessidade_identificada", "resultado", "reagendada", "classe",
+            "indicador", "objetivos_enticjud", "macrodesafios_tjgo");
 
     public List<Map<String, Object>> list() {
         // Não traz evidencia_data (base64, pesado): a listagem só precisa saber se HÁ evidência,
