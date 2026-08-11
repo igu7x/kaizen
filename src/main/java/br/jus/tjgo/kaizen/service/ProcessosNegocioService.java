@@ -64,11 +64,21 @@ public class ProcessosNegocioService {
      *    quando {@code incluirVigentes} (papel Visualizador).
      */
     public List<Map<String, Object>> findAll(String diretoria, Long scopeUserId, boolean incluirVigentes) {
+        return findAll(diretoria, scopeUserId, incluirVigentes, null);
+    }
+
+    public List<Map<String, Object>> findAll(String diretoria, Long scopeUserId, boolean incluirVigentes,
+                                             String grupo) {
         List<Object> params = new ArrayList<>();
         StringBuilder where = new StringBuilder("is_deleted = FALSE");
         if (diretoria != null) {
             params.add(diretoria);
             where.append(" AND diretoria = ?");
+        }
+        // Escritório de Processos desdobrado: filtra pelo grupo (ti / apoio_judiciario).
+        if (grupo != null && !grupo.isBlank()) {
+            params.add(grupo.trim());
+            where.append(" AND COALESCE(grupo, 'ti') = ?");
         }
         List<String> orClauses = new ArrayList<>();
         if (scopeUserId != null) {
@@ -396,7 +406,7 @@ public class ProcessosNegocioService {
                         "  documentos_anexados, apreciacao, " +
                         "  periodicidade_revisao, " +
                         "  numero_proad, observacoes_gerais, indicadores, versao, " +
-                        "  status, created_by, updated_by " +
+                        "  status, created_by, updated_by, grupo " +
                         ") VALUES ( " +
                         "  ?, ?, ?, ?, ?, ?, " +
                         "  ?, ?, " +
@@ -407,7 +417,7 @@ public class ProcessosNegocioService {
                         "  ?::jsonb, ?::jsonb, " +
                         "  ?, " +
                         "  ?, ?, ?, ?, " +
-                        "  'em_elaboracao', ?, ? " +
+                        "  'em_elaboracao', ?, ?, ? " +
                         ") RETURNING *",
                 str(data.get("macroprocesso")), str(data.get("diretoria")), orNull(data.get("periodo")),
                 orNull(data.get("revisao")), orNull(data.get("codigo_versao")), str(data.get("nome_processo")),
@@ -419,7 +429,13 @@ public class ProcessosNegocioService {
                 toJsonArray(data.get("documentos_anexados")), toJsonArray(data.get("apreciacao")),
                 orNull(data.get("periodicidade_revisao")),
                 orNull(data.get("numero_proad")), orNull(data.get("observacoes_gerais")), orNull(data.get("indicadores")), versaoInicial,
-                userId, userId);
+                userId, userId, grupoOuTi(data.get("grupo")));
+    }
+
+    /** Grupo do Escritório de Processos: "ti" (padrão) ou "apoio_judiciario". */
+    private String grupoOuTi(Object grupo) {
+        String g = str(grupo);
+        return (g == null || g.isBlank()) ? "ti" : g.trim();
     }
 
     public Map<String, Object> update(long id, Map<String, Object> data, long userId,
