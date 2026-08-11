@@ -173,7 +173,7 @@ export default function RevisaoPca() {
   const temModificacaoEspecial = tags.includes("PCA_RN_MODIFICACAO_ESPECIAL") || tags.includes("PCA_RN_MODIFICACAO_CCA");
   
   const podeEditarItem = isSuperadmin || tags.includes("PCA_RN_MODIFICAR_ITEM") || temModificacaoEspecial;
-  const podeAdicionar = (ciclo?.estado === "em_consulta_1" || ciclo?.estado === "em_consulta_2") && podeEditarItem;
+  const podeAdicionar = isSuperadmin || ((ciclo?.estado === "em_consulta_1" || ciclo?.estado === "em_consulta_2") && podeEditarItem);
 
   const temAcessoFaseAtual = useMemo(() => {
     if (!ciclo?.estado) return false;
@@ -331,16 +331,15 @@ export default function RevisaoPca() {
                     <>
                       {ciclo.estado === "em_comites" ? (
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mt-4">
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <h3 className="text-sm font-semibold text-slate-800">
                               Proposta de Revisão
                             </h3>
-                          </div>
-                          <div className="flex flex-col gap-4">
                             <div className="flex gap-2">
                               <Button
                                 onClick={() => setValidacaoComites('V')}
                                 variant={validacaoComites === 'V' ? 'default' : 'outline'}
+                                size="sm"
                                 className={validacaoComites === 'V' ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600' : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'}
                               >
                                 <Check className="h-4 w-4 mr-2" /> Aprovar
@@ -348,6 +347,7 @@ export default function RevisaoPca() {
                               <Button
                                 onClick={() => setValidacaoComites('X')}
                                 variant={validacaoComites === 'X' ? 'default' : 'outline'}
+                                size="sm"
                                 className={validacaoComites === 'X' ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600' : 'text-rose-700 border-rose-200 hover:bg-rose-50'}
                               >
                                 <X className="h-4 w-4 mr-2" /> Rejeitar
@@ -355,7 +355,6 @@ export default function RevisaoPca() {
                             </div>
                           </div>
 
-                          {/* Atas dos Comitês */}
                           <AtasComitesPanel cicloId={ciclo.id} />
                           {validacaoComites && (
                             <div className="flex items-center gap-4 py-2 border-t mt-4">
@@ -390,7 +389,7 @@ export default function RevisaoPca() {
                           <h3 className="text-sm font-semibold text-slate-800 mb-4">
                             Validação da Diretoria-Geral
                           </h3>
-                          <div className="flex flex-col gap-4">
+                          <div className="space-y-4">
                             {validacaoDg !== 'V' && (
                               <div>
                                 <Button
@@ -409,7 +408,7 @@ export default function RevisaoPca() {
                             )}
 
                             {dfdBaixado && (
-                              <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-3 flex-wrap">
                                 <span className="text-sm font-medium text-slate-700">Validado pela DG?</span>
                                 <div className="flex gap-2">
                                   <Button
@@ -429,28 +428,26 @@ export default function RevisaoPca() {
                                     <X className="h-4 w-4 mr-1.5" /> Não
                                   </Button>
                                 </div>
-                              </div>
-                            )}
-
-                            {validacaoDg === 'X' && (
-                              <div>
-                                <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
-                                  <ArrowLeft className="h-4 w-4 mr-1.5" />
-                                  Retornar aos Comitês
-                                </Button>
-                              </div>
-                            )}
-
-                            {validacaoDg === 'V' && (
-                              <div className="flex items-center gap-3">
-                                <Button
-                                  size="sm"
-                                  onClick={avancarEsteira}
-                                  disabled={acaoEmCurso}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                                >
-                                  Gerar novo PCA
-                                </Button>
+                                {validacaoDg === 'X' && (
+                                  <div className="ml-auto">
+                                    <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
+                                      <ArrowLeft className="h-4 w-4 mr-1.5" />
+                                      Retornar aos Comitês
+                                    </Button>
+                                  </div>
+                                )}
+                                {validacaoDg === 'V' && (
+                                  <div className="ml-auto">
+                                    <Button
+                                      size="sm"
+                                      onClick={avancarEsteira}
+                                      disabled={acaoEmCurso}
+                                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                      Gerar novo PCA
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
