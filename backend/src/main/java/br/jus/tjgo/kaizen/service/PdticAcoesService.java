@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * CRUD das Ações do PDTIC (tabela pdtic_acoes). Cadastro simples que alimenta a tela do PDTIC
@@ -22,7 +23,11 @@ public class PdticAcoesService {
     private static final List<String> CAMPOS = List.of(
             "nome", "id_pdtic", "diretoria", "area_responsavel", "conclusao",
             "necessidade_identificada", "resultado", "reagendada", "classe",
-            "indicador", "objetivos_enticjud", "macrodesafios_tjgo");
+            "indicador", "objetivos_enticjud", "macrodesafios_tjgo",
+            "com_custo", "custo");
+
+    /** Campos booleanos: passados como Boolean (não coeridos a String, senão pgjdbc quebra em 42804). */
+    private static final Set<String> CAMPOS_BOOLEAN = Set.of("com_custo");
 
     public List<Map<String, Object>> list() {
         // Não traz evidencia_data (base64, pesado): a listagem só precisa saber se HÁ evidência,
@@ -51,7 +56,7 @@ public class PdticAcoesService {
             }
             cols.append(campo);
             ph.append("?");
-            params.add(blankToNull(str(body.get(campo))));
+            params.add(coerce(campo, body.get(campo)));
         }
         Long id = jdbc.queryForObject(
                 "INSERT INTO pdtic_acoes (" + cols + ") VALUES (" + ph + ") RETURNING id",
@@ -67,7 +72,7 @@ public class PdticAcoesService {
             if (!body.containsKey(campo)) continue;
             if (set.length() > 0) set.append(", ");
             set.append(campo).append(" = ?");
-            params.add(blankToNull(str(body.get(campo))));
+            params.add(coerce(campo, body.get(campo)));
         }
         if (set.length() == 0) return getById(id);
         set.append(", updated_at = CURRENT_TIMESTAMP");
@@ -115,6 +120,17 @@ public class PdticAcoesService {
                 "UPDATE pdtic_acoes SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP " +
                         "WHERE id = ? AND is_deleted = FALSE", id);
         return n > 0;
+    }
+
+    /** Booleanos viram Boolean; o resto vira texto (blank -> null). */
+    private Object coerce(String campo, Object v) {
+        if (CAMPOS_BOOLEAN.contains(campo)) return toBool(v);
+        return blankToNull(str(v));
+    }
+
+    private Boolean toBool(Object v) {
+        if (v instanceof Boolean b) return b;
+        return v != null && "true".equalsIgnoreCase(String.valueOf(v).trim());
     }
 
     private String blankToNull(String s) {

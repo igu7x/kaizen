@@ -16,6 +16,8 @@ export interface PdticAcao {
   indicador?: string | null;
   objetivos_enticjud?: string | null;
   macrodesafios_tjgo?: string | null;
+  com_custo?: boolean;
+  custo?: string | null;
   /** Evidência (documento) anexada. Com evidência, o Status é "Concluído". */
   evidencia_nome?: string | null;
   evidencia_mime?: string | null;

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,8 @@ const VAZIO: PdticAcaoInput = {
   indicador: "",
   objetivos_enticjud: "",
   macrodesafios_tjgo: "",
+  com_custo: false,
+  custo: "",
 };
 
 function formatarDataBR(iso?: string | null): string {
@@ -138,6 +141,8 @@ export default function PdticAcoes() {
       indicador: a.indicador ?? "",
       objetivos_enticjud: a.objetivos_enticjud ?? "",
       macrodesafios_tjgo: a.macrodesafios_tjgo ?? "",
+      com_custo: a.com_custo ?? false,
+      custo: a.custo ?? "",
     });
     setDialogOpen(true);
   };
@@ -368,6 +373,36 @@ export default function PdticAcoes() {
                   ))}
                 </datalist>
               </div>
+            </div>
+
+            {/* Ação com custo? */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Checkbox
+                  checked={!!form.com_custo}
+                  onCheckedChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      com_custo: v === true,
+                      custo: v === true ? f.custo : "",
+                    }))
+                  }
+                />
+                <span className="text-sm font-medium text-slate-700">
+                  Ação com custo?
+                </span>
+              </label>
+              {form.com_custo && (
+                <div className="mt-3">
+                  <Label className="mb-1.5 block">Valor / custo estimado</Label>
+                  <Input
+                    value={form.custo ?? ""}
+                    onChange={(e) => set("custo", e.target.value)}
+                    placeholder="Ex.: R$ 2.000.000,00"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
 
             {/* Detalhes do quadro de ações do PDTIC (todos opcionais) */}

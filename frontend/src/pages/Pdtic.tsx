@@ -7,6 +7,7 @@ import {
   Download,
   X,
   Eye,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,14 @@ export default function Pdtic() {
     "todas" | "concluidas" | "pendentes"
   >("todas");
   const [busy, setBusy] = useState<number | null>(null);
+  const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
+  const toggleExpandir = (id: number) =>
+    setExpandidos((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   const uploadRef = useRef<HTMLInputElement>(null);
   const uploadAcaoId = useRef<number | null>(null);
 
@@ -316,12 +325,29 @@ export default function Pdtic() {
                 {tabelaFiltradas.map((a) => {
                   const ok = concluida(a);
                   const carregando = busy === a.id;
+                  const aberto = expandidos.has(a.id);
                   return (
-                    <li
-                      key={a.id}
-                      className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60"
+                    <li key={a.id}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleExpandir(a.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleExpandir(a.id);
+                        }
+                      }}
+                      aria-expanded={aberto}
+                      className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60 cursor-pointer"
                     >
-                      <div className="flex items-start gap-3 min-w-0">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <ChevronRight
+                          className={cn(
+                            "h-4 w-4 mt-0.5 flex-shrink-0 text-slate-400 transition-transform",
+                            aberto && "rotate-90",
+                          )}
+                        />
                         <FileText className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-500" />
                         <div className="min-w-0">
                           <p className="text-sm text-slate-800">{a.nome}</p>
@@ -346,7 +372,10 @@ export default function Pdtic() {
                           {ok ? "Concluído" : "Pendente"}
                         </span>
                       </div>
-                      <div className="flex items-center justify-center gap-1">
+                      <div
+                        className="flex items-center justify-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {carregando ? (
                           <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                         ) : ok ? (
@@ -380,6 +409,8 @@ export default function Pdtic() {
                           </button>
                         )}
                       </div>
+                    </div>
+                    {aberto && <DetalhesAcao a={a} />}
                     </li>
                   );
                 })}
@@ -412,6 +443,62 @@ export default function Pdtic() {
         }}
       />
     </Layout>
+  );
+}
+
+/** Painel expansível com os campos não obrigatórios cadastrados da ação. */
+function DetalhesAcao({ a }: { a: PdticAcao }) {
+  const curtos: [string, string | null | undefined][] = [
+    ["Diretoria", a.diretoria],
+    ["Área responsável", a.area_responsavel],
+    ["Classe", a.classe],
+    ["Indicador", a.indicador],
+    ["Reagendada", a.reagendada],
+    ["Objetivos ENTIC-JUD", a.objetivos_enticjud],
+    ["Macrodesafios TJGO", a.macrodesafios_tjgo],
+    [
+      "Custo",
+      a.com_custo ? a.custo?.trim() || "Sim (valor não informado)" : null,
+    ],
+  ];
+  const preenchidos = curtos.filter(([, v]) => v && String(v).trim());
+  const necessidade = a.necessidade_identificada?.trim();
+  const resultado = a.resultado?.trim();
+  const vazio = preenchidos.length === 0 && !necessidade && !resultado;
+
+  return (
+    <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4 pl-11">
+      {vazio ? (
+        <p className="text-xs text-slate-400">
+          Sem informações adicionais cadastradas para esta ação.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {necessidade && (
+            <Campo titulo="Necessidade identificada" valor={necessidade} />
+          )}
+          {resultado && <Campo titulo="Resultado" valor={resultado} />}
+          {preenchidos.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+              {preenchidos.map(([titulo, valor]) => (
+                <Campo key={titulo} titulo={titulo} valor={String(valor)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Campo({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">
+        {titulo}
+      </p>
+      <p className="text-sm text-slate-700 whitespace-pre-wrap">{valor}</p>
+    </div>
   );
 }
 
