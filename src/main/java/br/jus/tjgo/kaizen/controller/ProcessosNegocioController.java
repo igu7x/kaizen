@@ -634,11 +634,16 @@ public class ProcessosNegocioController {
             return true;
         }
         Map<String, Object> processo = service.findById(id);
-        if (processo != null) {
-            Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
-            return gestorUserId != null && eqId(gestorUserId, userId);
+        if (processo == null) {
+            return false;
         }
-        return false;
+        // Permissão "Processos (TI)": também pode anexar/remover a aprovação do comitê
+        // (mesmo escopo da edição — grupo ti, novo ou em revisão).
+        if (temPermissaoProcessosTi(processo, userId)) {
+            return true;
+        }
+        Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
+        return gestorUserId != null && eqId(gestorUserId, userId);
     }
 
     private static Long parseLong(Object v) {
