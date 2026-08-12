@@ -21,6 +21,7 @@ import {
   COMITES_APROVACAO,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
+import { permissoesProcessosTiApi } from "@/services/permissoesProcessosTiApi";
 
 interface ProcessoAprovacaoK1Props {
   /** Processo PERSISTIDO — a aprovação opera sobre ele (aprovacoes/apreciacao), não sobre o form. */
@@ -53,6 +54,7 @@ export function ProcessoAprovacaoK1({
   const isSuperadmin =
     (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const [areas, setAreas] = useState<Area[]>([]);
+  const [temPermissaoProcessosTi, setTemPermissaoProcessosTi] = useState(false);
   useEffect(() => {
     let cancelled = false;
     areasApi
@@ -62,6 +64,14 @@ export function ProcessoAprovacaoK1({
       })
       .catch(() => {
         /* sem áreas, cai só nos demais papéis */
+      });
+    permissoesProcessosTiApi
+      .minha()
+      .then((r) => {
+        if (!cancelled) setTemPermissaoProcessosTi(!!r.temPermissao);
+      })
+      .catch(() => {
+        /* sem permissão / erro tratado no apiClient */
       });
     return () => {
       cancelled = true;
@@ -75,6 +85,11 @@ export function ProcessoAprovacaoK1({
     if (isSuperadmin) return true;
     if (isComplianceOfficerEmail(user?.email)) return true;
     if (isResponsavel(processo, user?.id)) return true;
+    // Permissão "Processos (TI)": mesmo escopo da edição (grupo ti, novo ou em revisão).
+    const ehGrupoTi = !processo.grupo || processo.grupo === "ti";
+    const emPreenchimento =
+      processo.status === "em_elaboracao" || processo.status === "recusado";
+    if (temPermissaoProcessosTi && ehGrupoTi && emPreenchimento) return true;
     const area = areas.find(
       (a) =>
         a.sigla?.trim().toUpperCase() ===
@@ -84,7 +99,14 @@ export function ProcessoAprovacaoK1({
       area?.gestor_user_id != null &&
       Number(area.gestor_user_id) === Number(user?.id)
     );
-  }, [isSuperadmin, user?.email, user?.id, processo, areas]);
+  }, [
+    isSuperadmin,
+    user?.email,
+    user?.id,
+    processo,
+    areas,
+    temPermissaoProcessosTi,
+  ]);
   // Comitê cuja aprovação está sendo anexada/removida no momento (sigla) ou null.
   const [aprovacaoBusyComite, setAprovacaoBusyComite] = useState<string | null>(
     null,
