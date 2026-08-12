@@ -58,6 +58,7 @@ import {
   dataVigencia,
   TIPO_DOCUMENTO_BADGE,
 } from "@/services/processosNegocioApi";
+import { permissoesProcessosTiApi } from "@/services/permissoesProcessosTiApi";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProcessoFormDialog } from "@/components/processos/ProcessoFormDialog";
@@ -662,6 +663,9 @@ export default function EscritorioProcessos({
   const [areas, setAreas] = useState<Area[]>([]);
   // Unidades do cadastro — usadas para resolver o responsável (responsavel_user_id) dinamicamente.
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  // Permissão nomeada "Processos (TI)": libera editar novos/em revisão só na página TI.
+  const [temPermissaoProcessosTi, setTemPermissaoProcessosTi] = useState(false);
+  const podeEditarProcessosTi = temPermissaoProcessosTi && grupo === "ti";
 
   const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
@@ -672,7 +676,10 @@ export default function EscritorioProcessos({
   // Visualizador (perfil VIEWER): só enxerga "Processos Vigentes", independente da diretoria.
   // Superadmin (Gestor do Escritório) e Compliance Officer não são restritos.
   const soVisualizador =
-    user?.role === "VIEWER" && !isSuperadmin && !isComplianceOfficer;
+    user?.role === "VIEWER" &&
+    !isSuperadmin &&
+    !isComplianceOfficer &&
+    !podeEditarProcessosTi;
 
   const carregar = async () => {
     setLoading(true);
@@ -702,6 +709,16 @@ export default function EscritorioProcessos({
       });
     // Recarrega ao trocar de grupo (TI ↔ Apoio Judiciário) sem desmontar o componente.
   }, [grupo]);
+
+  // Permissão "Processos (TI)" do usuário logado (uma vez).
+  useEffect(() => {
+    permissoesProcessosTiApi
+      .minha()
+      .then((r) => setTemPermissaoProcessosTi(!!r.temPermissao))
+      .catch(() => {
+        /* sem permissão / erro tratado no apiClient */
+      });
+  }, []);
 
   // Deep-link vindo da Home / do e-mail de pendência (?abrir=<id>): abre o processo direto no modal
   // de visualização (onde ficam as ações Validar/Enviar), em vez da tela de detalhe só-leitura.

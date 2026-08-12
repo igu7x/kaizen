@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   ClipboardList,
   ChevronRight,
+  Workflow,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -56,6 +57,13 @@ const cadastroItems = [
       "Conceder a usuários a edição dos campos do TAP em projetos da sua diretoria.",
     icon: ShieldCheck,
     path: "/cadastros/permissoes-tap",
+  },
+  {
+    title: "Permissões dos Processos (TI)",
+    description:
+      "Conceder a usuários a edição dos processos de Tecnologia da Informação (novos ou em revisão).",
+    icon: Workflow,
+    path: "/cadastros/permissoes-processos-ti",
   },
 ];
 

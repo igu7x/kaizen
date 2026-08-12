@@ -36,6 +36,7 @@ import {
   revisaoVencida,
 } from "@/services/processosNegocioApi";
 import { areasApi, Area } from "@/services/areasApi";
+import { permissoesProcessosTiApi } from "@/services/permissoesProcessosTiApi";
 import { generateProcessoNegocioPDF } from "@/utils/generateProcessoNegocioPDF";
 
 interface ProcessoAcoesFooterProps {
@@ -85,6 +86,9 @@ export function ProcessoAcoesFooter({
   const [loadingPdfVersao, setLoadingPdfVersao] = useState<number | null>(null);
   // Diálogo "Adicionar Editor"
   const [editoresOpen, setEditoresOpen] = useState(false);
+  // Permissão nomeada "Processos (TI)" (Cadastros): libera editar/salvar processos do grupo 'ti'
+  // novos ou em revisão. Buscada uma vez; o cruzamento com grupo/status é feito no podeEditar.
+  const [temPermissaoProcessosTi, setTemPermissaoProcessosTi] = useState(false);
   const [usuarios, setUsuarios] = useState<User[]>([]);
   const [buscaEditor, setBuscaEditor] = useState("");
   const [editorBusy, setEditorBusy] = useState(false);
@@ -104,6 +108,22 @@ export function ProcessoAcoesFooter({
       cancelled = true;
     };
   }, [editoresOpen]);
+
+  // Descobre se o usuário logado tem a permissão nomeada "Processos (TI)".
+  useEffect(() => {
+    let cancelled = false;
+    permissoesProcessosTiApi
+      .minha()
+      .then((r) => {
+        if (!cancelled) setTemPermissaoProcessosTi(!!r.temPermissao);
+      })
+      .catch(() => {
+        /* sem permissão / erro tratado no apiClient */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Carrega áreas uma vez ao montar — usado pra resolver sigla da diretoria → nome
   // completo (rodapé do PDF) e achar o gestor da área (Revisor).
@@ -383,12 +403,18 @@ export function ProcessoAcoesFooter({
     isK1(processo) &&
     revisaoVencida(processo) &&
     (isSuperadmin || isDiretorDaArea || ehResponsavel);
+  // Permissão "Processos (TI)": só grupo 'ti' (default), processo novo ou em revisão em
+  // preenchimento (em_elaboracao / recusado). Espelha o backend (podeEditarProcesso).
+  const ehGrupoTi = !processo.grupo || processo.grupo === "ti";
+  const podeEditarPorPermissaoTi =
+    temPermissaoProcessosTi && ehGrupoTi && statusEmPreenchimento;
   const podeEditar =
     (podePapelEditor &&
       (statusEmPreenchimento || processo.status === "validado_final")) ||
     (isEditorAtribuido && statusEmPreenchimento) ||
     (isDiretorDaArea && processo.status === "validado_autor") ||
-    (isComplianceOfficer && processo.status === "validado_diretoria");
+    (isComplianceOfficer && processo.status === "validado_diretoria") ||
+    podeEditarPorPermissaoTi;
   // Edição concluída (sinal do Editor atribuído). Enquanto houver editor e ele não concluir,
   // o Responsável fica bloqueado de validar a camada 1.
   const temEditoresAtribuidos = temEditores(processo);

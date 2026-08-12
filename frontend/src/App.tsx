@@ -36,6 +36,7 @@ import OkrsMetas from "./pages/OkrsMetas";
 import CadastroHub from "./pages/CadastroHub";
 import PdticAcoes from "./pages/PdticAcoes";
 import PermissoesTap from "./pages/PermissoesTap";
+import PermissoesProcessosTi from "./pages/PermissoesProcessosTi";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -447,6 +448,14 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["ADMIN"]}>
                         <PermissoesTap />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/cadastros/permissoes-processos-ti"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <PermissoesProcessosTi />
                       </ProtectedRoute>
                     }
                   />
