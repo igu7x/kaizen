@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.controller;
 
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
+import br.jus.tjgo.kaizen.service.PermissoesProcessosTiService;
 import br.jus.tjgo.kaizen.service.ProcessosNegocioService;
 import br.jus.tjgo.kaizen.util.CodigoValidacao;
 import br.jus.tjgo.kaizen.util.Validadores;
@@ -36,6 +37,7 @@ import java.util.Map;
 public class ProcessosNegocioController {
 
     private final ProcessosNegocioService service;
+    private final PermissoesProcessosTiService permissoesProcessosTi;
     private final JdbcTemplate jdbc;
 
     /** Espelha getUserId do Node: req.userId || req.user?.id || null (sem fallback 1). */
@@ -55,8 +57,11 @@ public class ProcessosNegocioController {
         AuthenticatedUser u = opt.get();
         boolean privilegiado = u.isSuperadmin() || isComplianceOfficer(u.email());
         // Visualizador (role VIEWER) não privilegiado: só enxerga os processos vigentes,
-        // independente da diretoria.
-        if ("VIEWER".equals(u.role()) && !privilegiado) {
+        // independente da diretoria. EXCEÇÃO: quem tem a permissão "Processos (TI)" precisa
+        // enxergar também os novos/em revisão do grupo 'ti' pra poder editá-los (apoio segue igual).
+        boolean ehGrupoTiReq = grupo == null || grupo.isBlank() || "ti".equalsIgnoreCase(grupo.trim());
+        boolean permissaoTiNesteGrupo = ehGrupoTiReq && permissoesProcessosTi.temPermissao(u.id());
+        if ("VIEWER".equals(u.role()) && !privilegiado && !permissaoTiNesteGrupo) {
             return service.findAll(diretoria, null, true, grupo);
         }
         // Regra (jul/2026): todos os demais usuários enxergam TODOS os processos, de todas as
@@ -558,8 +563,31 @@ public class ProcessosNegocioController {
         if (isResponsavelProcesso(id, userId) || isEditorProcesso(id, userId)) {
             return true;
         }
+        if (temPermissaoProcessosTi(processo, userId)) {
+            return true;
+        }
         Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));
         return gestorUserId != null && eqId(gestorUserId, userId);
+    }
+
+    /**
+     * Permissão nomeada "Processos (TI)" (Cadastros): edita/salva processos do grupo 'ti'
+     * (Tecnologia da Informação) que estejam NOVOS ou EM REVISÃO — em preenchimento
+     * (status 'em_elaboracao' ou 'recusado'). Não vale para vigentes nem para o grupo
+     * 'apoio_judiciario'.
+     */
+    private boolean temPermissaoProcessosTi(Map<String, Object> processo, long userId) {
+        String grupo = str(processo.get("grupo"));
+        boolean ehTi = grupo == null || grupo.isBlank() || "ti".equalsIgnoreCase(grupo.trim());
+        if (!ehTi) {
+            return false;
+        }
+        String status = str(processo.get("status"));
+        boolean emPreenchimento = "em_elaboracao".equals(status) || "recusado".equals(status);
+        if (!emPreenchimento) {
+            return false;
+        }
+        return permissoesProcessosTi.temPermissao(userId);
     }
 
     /** Compliance Officer (camada 3) = um dos validadores finais cadastrados em {@link Validadores}. */
