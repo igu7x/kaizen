@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.controller;
 
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
+import br.jus.tjgo.kaizen.service.SgsiAtaService;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiEmissaoService;
 import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
@@ -39,6 +40,7 @@ public class SgsiController {
     private final SgsiMatrizService matriz;
     private final SgsiEmissaoService emissoes;
     private final SgsiRelatorioService relatorios;
+    private final SgsiAtaService atas;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -211,6 +213,53 @@ public class SgsiController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(400).body(Map.of("error", ex.getMessage()));
         }
+    }
+
+    // GET /api/sgsi/atas
+    @GetMapping("/atas")
+    public ResponseEntity<?> listarAtas() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(atas.listar());
+    }
+
+    // POST /api/sgsi/atas
+    @PostMapping("/atas")
+    public ResponseEntity<?> criarAta(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(atas.criar(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PUT /api/sgsi/atas/{id}
+    @PutMapping("/atas/{id:\\d+}")
+    public ResponseEntity<?> atualizarAta(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> a = atas.atualizar(id, body == null ? Map.of() : body);
+            if (a == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Ata não encontrada"));
+            }
+            return ResponseEntity.ok(a);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // DELETE /api/sgsi/atas/{id}
+    @DeleteMapping("/atas/{id:\\d+}")
+    public ResponseEntity<?> deletarAta(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        if (!atas.deletar(id)) {
+            return ResponseEntity.status(404).body(Map.of("error", "Ata não encontrada"));
+        }
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     // GET /api/sgsi/relatorios/catalogo — modelos de relatório do SGSI

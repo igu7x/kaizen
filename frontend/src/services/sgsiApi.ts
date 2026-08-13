@@ -321,6 +321,21 @@ export interface SgsiRelatorioCatalogo {
   ordem: number;
 }
 
+/** Ata de reunião de comitê do SGSI. */
+export interface SgsiAta {
+  id: number;
+  data_reuniao: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  titulo: string;
+  participantes: string | null;
+  pauta: string | null;
+  deliberacoes: string | null;
+  encaminhamentos: string | null;
+  numero_emissao: string | null;
+  criado_em?: string;
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -575,6 +590,25 @@ export const sgsiApi = {
         motivo,
       }),
     );
+  },
+
+  async listarAtas(): Promise<SgsiAta[]> {
+    const data = await apiClient.get<SgsiAta[]>(`${BASE}/atas`);
+    return (data || []).map((a) => ({ ...a, id: Number(a.id) }));
+  },
+
+  async criarAta(input: Record<string, unknown>): Promise<SgsiAta> {
+    const a = await apiClient.post<SgsiAta>(`${BASE}/atas`, input);
+    return { ...a, id: Number(a.id) };
+  },
+
+  async atualizarAta(id: number, input: Record<string, unknown>): Promise<SgsiAta> {
+    const a = await apiClient.put<SgsiAta>(`${BASE}/atas/${id}`, input);
+    return { ...a, id: Number(a.id) };
+  },
+
+  removerAta(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(`${BASE}/atas/${id}`);
   },
 
   async getCatalogoRelatorios(): Promise<SgsiRelatorioCatalogo[]> {

@@ -260,6 +260,11 @@ const menuItemsCompleto: MenuItem[] = [
         path: "/seguranca-informacao/relatorios",
       },
       {
+        title: "Atas",
+        icon: ClipboardList,
+        path: "/seguranca-informacao/atas",
+      },
+      {
         title: "Matriz de Rastreabilidade",
         icon: Workflow,
         path: "/seguranca-informacao/matriz",
