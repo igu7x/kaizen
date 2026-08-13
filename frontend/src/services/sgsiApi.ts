@@ -51,6 +51,39 @@ export interface SgsiTarefa {
   atualizado_em?: string;
 }
 
+export type SgsiDocumentoStatus =
+  | "PENDENTE"
+  | "EM_ELABORACAO"
+  | "EM_REVISAO"
+  | "EM_ASSINATURA"
+  | "ASSINADO"
+  | "PUBLICADO"
+  | "CANCELADO";
+
+/** Obrigação documental exigida por um instrumento (286 no total). */
+export interface SgsiDocumento {
+  id: number;
+  seed_key: string | null;
+  nome: string;
+  tipo: string;
+  instrumento_codigo: string | null;
+  tarefa_id: number | null;
+  atividade: string | null;
+  referencia: string | null;
+  responsavel: string | null;
+  prazo_marco: number | null;
+  prazo_data: string | null;
+  status: SgsiDocumentoStatus;
+  origem: string;
+  numero_emissao: string | null;
+  atualizado_em?: string;
+  // Enriquecimento (join).
+  instrumento_sigla: string | null;
+  instrumento_numeral: string | null;
+  instrumento_ordem: number | null;
+  tarefa_numero: number | null;
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -62,6 +95,21 @@ function normInstrumento(i: SgsiInstrumento): SgsiInstrumento {
     tarefas_concluidas:
       i.tarefas_concluidas != null ? Number(i.tarefas_concluidas) : undefined,
     progresso: i.progresso != null ? Number(i.progresso) : undefined,
+  };
+}
+
+function num(v: unknown): number | null {
+  return v == null ? null : Number(v);
+}
+
+function normDocumento(d: SgsiDocumento): SgsiDocumento {
+  return {
+    ...d,
+    id: Number(d.id),
+    tarefa_id: num(d.tarefa_id),
+    prazo_marco: num(d.prazo_marco),
+    instrumento_ordem: num(d.instrumento_ordem),
+    tarefa_numero: num(d.tarefa_numero),
   };
 }
 
@@ -107,6 +155,33 @@ export const sgsiApi = {
   ): Promise<SgsiTarefa> {
     return normTarefa(
       await apiClient.patch<SgsiTarefa>(`${BASE}/tarefas/${id}`, dados),
+    );
+  },
+
+  async listarDocumentos(filtros?: {
+    instrumento?: string;
+    status?: string;
+    tipo?: string;
+  }): Promise<SgsiDocumento[]> {
+    const qs = new URLSearchParams();
+    if (filtros?.instrumento) qs.set("instrumento", filtros.instrumento);
+    if (filtros?.status) qs.set("status", filtros.status);
+    if (filtros?.tipo) qs.set("tipo", filtros.tipo);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const data = await apiClient.get<SgsiDocumento[]>(
+      `${BASE}/documentos${suffix}`,
+    );
+    return (data || []).map(normDocumento);
+  },
+
+  async atualizarStatusDocumento(
+    id: number,
+    status: SgsiDocumentoStatus,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.patch<SgsiDocumento>(`${BASE}/documentos/${id}`, {
+        status,
+      }),
     );
   },
 };

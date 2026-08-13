@@ -39,6 +39,7 @@ import PermissoesTap from "./pages/PermissoesTap";
 import PermissoesProcessosTi from "./pages/PermissoesProcessosTi";
 import SgsiInstrumentos from "./pages/SgsiInstrumentos";
 import SgsiInstrumentoDetalhe from "./pages/SgsiInstrumentoDetalhe";
+import SgsiDocumentos from "./pages/SgsiDocumentos";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -145,6 +146,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <SgsiInstrumentoDetalhe />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/documentos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiDocumentos />
                       </ProtectedRoute>
                     }
                   />

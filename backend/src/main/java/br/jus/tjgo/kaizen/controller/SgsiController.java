@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.controller;
 
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
+import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class SgsiController {
 
     private final SgsiInstrumentoService instrumentos;
     private final SgsiTarefaService tarefas;
+    private final SgsiDocumentoService documentos;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
     private ResponseEntity<?> guard() {
@@ -68,6 +70,46 @@ public class SgsiController {
         if (g != null) return g;
         List<Map<String, Object>> lista = tarefas.listarPorInstrumento(codigo);
         return ResponseEntity.ok(lista);
+    }
+
+    // GET /api/sgsi/documentos?instrumento=&status=&tipo=
+    @GetMapping("/documentos")
+    public ResponseEntity<?> listarDocumentos(
+            @RequestParam(value = "instrumento", required = false) String instrumento,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "tipo", required = false) String tipo) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(documentos.listar(instrumento, status, tipo));
+    }
+
+    // GET /api/sgsi/documentos/{id}
+    @GetMapping("/documentos/{id:\\d+}")
+    public ResponseEntity<?> buscarDocumento(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> doc = documentos.buscar(id);
+        if (doc == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Documento não encontrado"));
+        }
+        return ResponseEntity.ok(doc);
+    }
+
+    // PATCH /api/sgsi/documentos/{id} — { status }
+    @PatchMapping("/documentos/{id:\\d+}")
+    public ResponseEntity<?> atualizarDocumento(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        String status = body == null ? null : str(body.get("status"));
+        try {
+            Map<String, Object> atualizado = documentos.atualizarStatus(id, status);
+            if (atualizado == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Documento não encontrado"));
+            }
+            return ResponseEntity.ok(atualizado);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
     }
 
     // PATCH /api/sgsi/tarefas/{id} — { status, percentual (0..1), observacao }

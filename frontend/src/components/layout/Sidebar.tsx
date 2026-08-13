@@ -224,6 +224,11 @@ const menuItemsCompleto: MenuItem[] = [
         icon: BookOpen,
         path: "/seguranca-informacao/instrumentos",
       },
+      {
+        title: "Obrigações Documentais",
+        icon: FileText,
+        path: "/seguranca-informacao/documentos",
+      },
     ],
   },
   {
