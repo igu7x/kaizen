@@ -300,11 +300,11 @@ function LeituraDetalheDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 pr-6">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex min-w-0 items-center gap-2 pr-8">
             <BookCheck className="h-5 w-5 text-blue-600 shrink-0" />
-            <span className="truncate">
+            <span className="min-w-0 truncate">
               {item.sigla_oficial || item.codigo}
               {detalhe?.instrumento.nome_completo
                 ? ` — ${detalhe.instrumento.nome_completo}`
@@ -347,8 +347,8 @@ function LeituraDetalheDialog({
             </div>
 
             {/* minha leitura */}
-            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
-              <span className="text-sm text-slate-600">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
+              <span className="min-w-0 text-sm text-slate-600">
                 {item.eu_exigido
                   ? euConfirmei
                     ? "Você já confirmou a leitura deste instrumento."
@@ -356,7 +356,7 @@ function LeituraDetalheDialog({
                   : "Você não está entre os leitores exigidos."}
               </span>
               {item.eu_exigido && !euConfirmei && (
-                <Button size="sm" onClick={confirmar} disabled={confirmando}>
+                <Button size="sm" className="shrink-0" onClick={confirmar} disabled={confirmando}>
                   {confirmando ? (
                     <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                   ) : (
@@ -369,12 +369,17 @@ function LeituraDetalheDialog({
 
             {/* leitores + confirmações */}
             <div>
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Leitores ({detalhe.leitores.length})
                 </p>
                 {!editando && (
-                  <Button variant="outline" size="sm" onClick={abrirEdicao}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={abrirEdicao}
+                  >
                     Definir leitores exigidos
                   </Button>
                 )}

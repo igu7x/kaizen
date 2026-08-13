@@ -129,11 +129,11 @@ export function SgsiDocumentoWorkflowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 pr-6">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex min-w-0 items-center gap-2 pr-8">
             <FileClock className="h-5 w-5 text-blue-600 shrink-0" />
-            <span className="truncate">Elaboração — {doc.nome}</span>
+            <span className="min-w-0 truncate">Elaboração — {doc.nome}</span>
           </DialogTitle>
         </DialogHeader>
 
