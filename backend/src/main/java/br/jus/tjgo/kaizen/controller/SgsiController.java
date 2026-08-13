@@ -5,6 +5,7 @@ import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
+import br.jus.tjgo.kaizen.service.SgsiPainelService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,7 @@ public class SgsiController {
     private final SgsiTarefaService tarefas;
     private final SgsiDocumentoService documentos;
     private final SgsiIndicadorService indicadores;
+    private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
     private ResponseEntity<?> guard() {
@@ -43,6 +45,14 @@ public class SgsiController {
 
     private Long userId() {
         return AuthContext.getCurrentUser().map(AuthenticatedUser::id).orElse(null);
+    }
+
+    // GET /api/sgsi/painel — visão executiva agregada
+    @GetMapping("/painel")
+    public ResponseEntity<?> painel() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(painel.resumo());
     }
 
     // GET /api/sgsi/instrumentos

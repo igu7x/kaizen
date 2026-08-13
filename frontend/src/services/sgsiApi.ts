@@ -118,6 +118,43 @@ export interface SgsiMedicao {
   criado_em?: string;
 }
 
+/** Visão executiva agregada do módulo (Painel de Compliance). */
+export interface SgsiPainel {
+  tarefas: {
+    total: number;
+    concluidas: number;
+    em_andamento: number;
+    atrasadas: number;
+    bloqueadas: number;
+    nao_iniciadas: number;
+    progresso: number;
+  };
+  documentos: {
+    total: number;
+    pendentes: number;
+    publicados: number;
+    cancelados: number;
+  };
+  indicadores: {
+    total: number;
+    com_meta: number;
+    com_medicao: number;
+    dentro_meta: number;
+    fora_meta: number;
+  };
+  instrumentos: {
+    codigo: string;
+    sigla_oficial: string;
+    numeral_romano: string | null;
+    ordem: number;
+    cor_hex: string | null;
+    restrito: boolean;
+    total_tarefas: number;
+    tarefas_concluidas: number;
+    progresso: number;
+  }[];
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -179,7 +216,29 @@ function normTarefa(t: SgsiTarefa): SgsiTarefa {
   };
 }
 
+function nrec<T extends Record<string, unknown>>(o: T): T {
+  const r: Record<string, unknown> = { ...o };
+  for (const k of Object.keys(r)) r[k] = Number(r[k]);
+  return r as T;
+}
+
 export const sgsiApi = {
+  async getPainel(): Promise<SgsiPainel> {
+    const p = await apiClient.get<SgsiPainel>(`${BASE}/painel`);
+    return {
+      tarefas: nrec(p.tarefas),
+      documentos: nrec(p.documentos),
+      indicadores: nrec(p.indicadores),
+      instrumentos: (p.instrumentos || []).map((i) => ({
+        ...i,
+        ordem: Number(i.ordem),
+        total_tarefas: Number(i.total_tarefas),
+        tarefas_concluidas: Number(i.tarefas_concluidas),
+        progresso: Number(i.progresso),
+      })),
+    };
+  },
+
   async listarInstrumentos(): Promise<SgsiInstrumento[]> {
     const data = await apiClient.get<SgsiInstrumento[]>(`${BASE}/instrumentos`);
     return (data || []).map(normInstrumento);

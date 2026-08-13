@@ -220,6 +220,11 @@ const menuItemsCompleto: MenuItem[] = [
     superAdminOnly: true,
     children: [
       {
+        title: "Painel",
+        icon: LayoutDashboard,
+        path: "/seguranca-informacao/painel",
+      },
+      {
         title: "Instrumentos Normativos",
         icon: BookOpen,
         path: "/seguranca-informacao/instrumentos",

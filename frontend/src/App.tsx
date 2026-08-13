@@ -37,6 +37,7 @@ import CadastroHub from "./pages/CadastroHub";
 import PdticAcoes from "./pages/PdticAcoes";
 import PermissoesTap from "./pages/PermissoesTap";
 import PermissoesProcessosTi from "./pages/PermissoesProcessosTi";
+import SgsiPainel from "./pages/SgsiPainel";
 import SgsiInstrumentos from "./pages/SgsiInstrumentos";
 import SgsiInstrumentoDetalhe from "./pages/SgsiInstrumentoDetalhe";
 import SgsiDocumentos from "./pages/SgsiDocumentos";
@@ -131,6 +132,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Pdtic />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/painel"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiPainel />
                       </ProtectedRoute>
                     }
                   />
