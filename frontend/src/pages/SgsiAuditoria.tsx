@@ -38,6 +38,7 @@ const TABELA_LABEL: Record<string, string> = {
   sgsi_alerta: "Alertas",
   sgsi_api_chave: "Chaves de API",
   sgsi_webhook: "Webhooks",
+  sgsi_sbom_sistema: "SBOM",
 };
 
 const EVENTO_CLASSE: Record<string, string> = {

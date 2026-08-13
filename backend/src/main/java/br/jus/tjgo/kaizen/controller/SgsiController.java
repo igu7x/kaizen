@@ -19,6 +19,7 @@ import br.jus.tjgo.kaizen.service.SgsiPainelService;
 import br.jus.tjgo.kaizen.service.SgsiProcessoService;
 import br.jus.tjgo.kaizen.service.SgsiRelatorioService;
 import br.jus.tjgo.kaizen.service.SgsiRiscoService;
+import br.jus.tjgo.kaizen.service.SgsiSbomService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,7 @@ public class SgsiController {
     private final SgsiEventosService eventos;
     private final SgsiAlertaService alertas;
     private final SgsiApiService apiIntegracao;
+    private final SgsiSbomService sbom;
     private final SgsiAuditoriaService auditoria;
     private final SgsiPainelService painel;
 
@@ -446,6 +448,78 @@ public class SgsiController {
             return fwd.split(",")[0].trim();
         }
         return req.getRemoteAddr();
+    }
+
+    // ─── SBOM (inventário de componentes de software) ───────────────────────────────────────────
+
+    // GET /api/sgsi/sbom — sistemas inventariados
+    @GetMapping("/sbom")
+    public ResponseEntity<?> listarSbom() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(sbom.listarSistemas());
+    }
+
+    // GET /api/sgsi/sbom/{id} — sistema + componentes
+    @GetMapping("/sbom/{id}")
+    public ResponseEntity<?> buscarSbom(@PathVariable String id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> s = sbom.buscarSistema(id);
+        if (s == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Sistema não encontrado"));
+        }
+        return ResponseEntity.ok(s);
+    }
+
+    // POST /api/sgsi/sbom — cadastra um sistema
+    @PostMapping("/sbom")
+    public ResponseEntity<?> criarSbom(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(sbom.criarSistema(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // DELETE /api/sgsi/sbom/{id}
+    @DeleteMapping("/sbom/{id}")
+    public ResponseEntity<?> deletarSbom(@PathVariable String id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        if (!sbom.deletarSistema(id, userId())) {
+            return ResponseEntity.status(404).body(Map.of("error", "Sistema não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // POST /api/sgsi/sbom/{id}/componentes — adiciona um componente
+    @PostMapping("/sbom/{id}/componentes")
+    public ResponseEntity<?> adicionarComponente(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> s = sbom.adicionarComponente(id, body == null ? Map.of() : body, userId());
+            if (s == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Sistema não encontrado"));
+            }
+            return ResponseEntity.status(201).body(s);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // DELETE /api/sgsi/sbom/componentes/{compId}
+    @DeleteMapping("/sbom/componentes/{compId:\\d+}")
+    public ResponseEntity<?> removerComponente(@PathVariable long compId) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        if (!sbom.removerComponente(compId, userId())) {
+            return ResponseEntity.status(404).body(Map.of("error", "Componente não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     // ─── Integração: API e Webhooks ─────────────────────────────────────────────────────────────

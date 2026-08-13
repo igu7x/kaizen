@@ -55,6 +55,7 @@ import SgsiLeitura from "./pages/SgsiLeitura";
 import SgsiEventos from "./pages/SgsiEventos";
 import SgsiAlertas from "./pages/SgsiAlertas";
 import SgsiIntegracao from "./pages/SgsiIntegracao";
+import SgsiSbom from "./pages/SgsiSbom";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -289,6 +290,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <SgsiIntegracao />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/sbom"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiSbom />
                       </ProtectedRoute>
                     }
                   />

@@ -462,6 +462,54 @@ export interface SgsiProcessoDetalhe extends SgsiProcesso {
   flows: SgsiProcessoFlow[];
 }
 
+/** Sistema inventariado no SBOM (item da lista). */
+export interface SgsiSbomSistema {
+  id: string;
+  sistema: string;
+  versao: string | null;
+  fornecedor: string | null;
+  tipo: string | null;
+  criticidade: "ALTA" | "MEDIA" | "BAIXA" | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  formato: string | null;
+  data_referencia: string | null;
+  origem: "REAL" | "DEMONSTRACAO";
+  criado_em: string;
+  componentes: number;
+  eol_vencidos: number;
+}
+
+/** Componente de software de um SBOM. */
+export interface SgsiSbomComponente {
+  id: number;
+  nome: string;
+  versao: string | null;
+  fornecedor: string | null;
+  licenca: string | null;
+  tipo: string | null;
+  procedencia: string | null;
+  purl: string | null;
+  eol_data: string | null;
+}
+
+/** Sistema com seus componentes. */
+export interface SgsiSbomDetalhe {
+  id: string;
+  sistema: string;
+  versao: string | null;
+  fornecedor: string | null;
+  tipo: string | null;
+  criticidade: "ALTA" | "MEDIA" | "BAIXA" | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  formato: string | null;
+  data_referencia: string | null;
+  observacoes: string | null;
+  origem: "REAL" | "DEMONSTRACAO";
+  componentes: SgsiSbomComponente[];
+}
+
 /** Escopo de API (permissão granular de máquina). */
 export interface SgsiApiEscopo {
   codigo: string;
@@ -1139,6 +1187,61 @@ export const sgsiApi = {
       tarefa_numero: num(m.tarefa_numero),
       prazo_marco: num(m.prazo_marco),
     }));
+  },
+
+  async getSbomSistemas(): Promise<SgsiSbomSistema[]> {
+    const d = await apiClient.get<SgsiSbomSistema[]>(`${BASE}/sbom`);
+    return (d || []).map((s) => ({
+      ...s,
+      componentes: Number(s.componentes),
+      eol_vencidos: Number(s.eol_vencidos),
+    }));
+  },
+
+  async getSbomSistema(id: string): Promise<SgsiSbomDetalhe> {
+    const d = await apiClient.get<SgsiSbomDetalhe>(
+      `${BASE}/sbom/${encodeURIComponent(id)}`,
+    );
+    return {
+      ...d,
+      componentes: (d.componentes || []).map((c) => ({
+        ...c,
+        id: Number(c.id),
+      })),
+    };
+  },
+
+  criarSbomSistema(input: Record<string, unknown>): Promise<SgsiSbomDetalhe> {
+    return apiClient.post<SgsiSbomDetalhe>(`${BASE}/sbom`, input);
+  },
+
+  removerSbomSistema(id: string): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/sbom/${encodeURIComponent(id)}`,
+    );
+  },
+
+  async adicionarComponenteSbom(
+    id: string,
+    input: Record<string, unknown>,
+  ): Promise<SgsiSbomDetalhe> {
+    const d = await apiClient.post<SgsiSbomDetalhe>(
+      `${BASE}/sbom/${encodeURIComponent(id)}/componentes`,
+      input,
+    );
+    return {
+      ...d,
+      componentes: (d.componentes || []).map((c) => ({
+        ...c,
+        id: Number(c.id),
+      })),
+    };
+  },
+
+  removerComponenteSbom(compId: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/sbom/componentes/${compId}`,
+    );
   },
 
   getEscopos(): Promise<SgsiApiEscopo[]> {
