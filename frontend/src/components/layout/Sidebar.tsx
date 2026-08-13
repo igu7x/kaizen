@@ -35,6 +35,7 @@ import {
   History,
   BookCheck,
   ShieldAlert,
+  Bell,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -227,6 +228,11 @@ const menuItemsCompleto: MenuItem[] = [
         title: "Painel",
         icon: LayoutDashboard,
         path: "/seguranca-informacao/painel",
+      },
+      {
+        title: "Alertas",
+        icon: Bell,
+        path: "/seguranca-informacao/alertas",
       },
       {
         title: "Instrumentos Normativos",

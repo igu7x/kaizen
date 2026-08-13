@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.controller;
 
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
+import br.jus.tjgo.kaizen.service.SgsiAlertaService;
 import br.jus.tjgo.kaizen.service.SgsiAtaService;
 import br.jus.tjgo.kaizen.service.SgsiAuditoriaService;
 import br.jus.tjgo.kaizen.service.SgsiConfiguracaoService;
@@ -52,6 +53,7 @@ public class SgsiController {
     private final SgsiConfiguracaoService configuracoes;
     private final SgsiLeituraService leitura;
     private final SgsiEventosService eventos;
+    private final SgsiAlertaService alertas;
     private final SgsiAuditoriaService auditoria;
     private final SgsiPainelService painel;
 
@@ -442,6 +444,78 @@ public class SgsiController {
             return fwd.split(",")[0].trim();
         }
         return req.getRemoteAddr();
+    }
+
+    // ─── Alertas (RN-06/07/08/09) ───────────────────────────────────────────────────────────────
+
+    // GET /api/sgsi/alertas — painel: derivados (calculados) + registrados + contador do badge
+    @GetMapping("/alertas")
+    public ResponseEntity<?> alertas() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(alertas.painel(userId()));
+    }
+
+    // POST /api/sgsi/alertas — cria um alerta registrado (manual)
+    @PostMapping("/alertas")
+    public ResponseEntity<?> criarAlerta(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(alertas.criar(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PATCH /api/sgsi/alertas/{id} — { lido }
+    @PatchMapping("/alertas/{id:\\d+}")
+    public ResponseEntity<?> atualizarAlerta(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        boolean lido = body != null && Boolean.parseBoolean(String.valueOf(body.get("lido")));
+        Map<String, Object> a = alertas.marcarLido(id, lido, userId());
+        if (a == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Alerta não encontrado"));
+        }
+        return ResponseEntity.ok(a);
+    }
+
+    // DELETE /api/sgsi/alertas/{id}
+    @DeleteMapping("/alertas/{id:\\d+}")
+    public ResponseEntity<?> deletarAlerta(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        if (!alertas.deletar(id, userId())) {
+            return ResponseEntity.status(404).body(Map.of("error", "Alerta não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // POST /api/sgsi/alertas/dispensar — silencia um derivado para o usuário { chave }
+    @PostMapping("/alertas/dispensar")
+    public ResponseEntity<?> dispensarAlerta(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            alertas.dispensar(str(body == null ? null : body.get("chave")), userId());
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // POST /api/sgsi/alertas/reativar — desfaz a dispensa { chave }
+    @PostMapping("/alertas/reativar")
+    public ResponseEntity<?> reativarAlerta(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            alertas.reativar(str(body == null ? null : body.get("chave")), userId());
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
     }
 
     // ─── Eventos institucionais e SLA (RN-40/41) ────────────────────────────────────────────────

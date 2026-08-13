@@ -441,6 +441,37 @@ export interface SgsiProcessoDetalhe extends SgsiProcesso {
   flows: SgsiProcessoFlow[];
 }
 
+/** Alerta derivado (calculado de um prazo, não persistido) — RN-07. */
+export interface SgsiAlertaDerivado {
+  chave: string;
+  tipo: "DOCUMENTO" | "TAREFA";
+  ref_id: number;
+  titulo: string;
+  instrumento: string | null;
+  data_limite: string;
+  dias: number;
+  gravidade: "VENCIDO" | "PROXIMO";
+}
+
+/** Alerta registrado (persistido, criado por usuário/API) — RN-06. */
+export interface SgsiAlertaRegistrado {
+  id: number;
+  titulo: string;
+  descricao: string | null;
+  data_referencia: string | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  origem: "MANUAL" | "API";
+  lido: boolean;
+  criado_em: string;
+}
+
+export interface SgsiAlertasPainel {
+  derivados: SgsiAlertaDerivado[];
+  registrados: SgsiAlertaRegistrado[];
+  contador: number;
+}
+
 /** Evento de RH com prazo de ação derivado da norma (RN-40). */
 export interface SgsiEventoRh {
   id: number;
@@ -994,6 +1025,49 @@ export const sgsiApi = {
       tarefa_numero: num(m.tarefa_numero),
       prazo_marco: num(m.prazo_marco),
     }));
+  },
+
+  async getAlertas(): Promise<SgsiAlertasPainel> {
+    const d = await apiClient.get<SgsiAlertasPainel>(`${BASE}/alertas`);
+    return {
+      contador: Number(d?.contador ?? 0),
+      derivados: (d?.derivados || []).map((a) => ({
+        ...a,
+        ref_id: Number(a.ref_id),
+        dias: Number(a.dias),
+      })),
+      registrados: (d?.registrados || []).map((a) => ({
+        ...a,
+        id: Number(a.id),
+        lido: a.lido === true || String(a.lido) === "true",
+      })),
+    };
+  },
+
+  criarAlerta(input: Record<string, unknown>): Promise<SgsiAlertaRegistrado> {
+    return apiClient.post<SgsiAlertaRegistrado>(`${BASE}/alertas`, input);
+  },
+
+  marcarLidoAlerta(id: number, lido: boolean): Promise<SgsiAlertaRegistrado> {
+    return apiClient.patch<SgsiAlertaRegistrado>(`${BASE}/alertas/${id}`, {
+      lido,
+    });
+  },
+
+  removerAlerta(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(`${BASE}/alertas/${id}`);
+  },
+
+  dispensarAlerta(chave: string): Promise<{ success: boolean }> {
+    return apiClient.post<{ success: boolean }>(`${BASE}/alertas/dispensar`, {
+      chave,
+    });
+  },
+
+  reativarAlerta(chave: string): Promise<{ success: boolean }> {
+    return apiClient.post<{ success: boolean }>(`${BASE}/alertas/reativar`, {
+      chave,
+    });
   },
 
   async getEventosRh(situacao?: string): Promise<SgsiEventoRh[]> {

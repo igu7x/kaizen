@@ -35,6 +35,7 @@ const TABELA_LABEL: Record<string, string> = {
   sgsi_leitura_confirmacao: "Leitura — confirmação",
   sgsi_evento_rh: "Eventos de RH",
   sgsi_incidente: "Incidentes",
+  sgsi_alerta: "Alertas",
 };
 
 const EVENTO_CLASSE: Record<string, string> = {
