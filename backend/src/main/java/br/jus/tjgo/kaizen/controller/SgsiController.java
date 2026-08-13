@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
+import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
 import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
 import br.jus.tjgo.kaizen.service.SgsiPainelService;
@@ -29,6 +30,7 @@ public class SgsiController {
     private final SgsiTarefaService tarefas;
     private final SgsiDocumentoService documentos;
     private final SgsiIndicadorService indicadores;
+    private final SgsiFrameworkService frameworks;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -45,6 +47,40 @@ public class SgsiController {
 
     private Long userId() {
         return AuthContext.getCurrentUser().map(AuthenticatedUser::id).orElse(null);
+    }
+
+    // GET /api/sgsi/frameworks
+    @GetMapping("/frameworks")
+    public ResponseEntity<?> listarFrameworks() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(frameworks.listarFrameworks());
+    }
+
+    // GET /api/sgsi/frameworks/{codigo}/itens
+    @GetMapping("/frameworks/{codigo}/itens")
+    public ResponseEntity<?> listarItensFramework(@PathVariable String codigo) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(frameworks.listarItens(codigo));
+    }
+
+    // PUT /api/sgsi/frameworks/itens/{itemId}/avaliacao — { status, observacao }
+    @PutMapping("/frameworks/itens/{itemId:\\d+}/avaliacao")
+    public ResponseEntity<?> avaliarItemFramework(@PathVariable long itemId, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        String status = body == null ? null : str(body.get("status"));
+        String observacao = body == null ? null : str(body.get("observacao"));
+        try {
+            Map<String, Object> item = frameworks.avaliarItem(itemId, status, observacao, userId());
+            if (item == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Item não encontrado"));
+            }
+            return ResponseEntity.ok(item);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
     }
 
     // GET /api/sgsi/painel — visão executiva agregada

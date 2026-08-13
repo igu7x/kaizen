@@ -155,6 +155,37 @@ export interface SgsiPainel {
   }[];
 }
 
+/** Framework de governança (CIS, NIST, ISO 27001/27002, COBIT, LGPD). */
+export interface SgsiFramework {
+  codigo: string;
+  nome: string;
+  descricao: string | null;
+  ordem: number;
+  total_itens: number;
+  avaliados: number;
+  conformes: number;
+}
+
+export type SgsiAvaliacaoStatus =
+  | "NAO_AVALIADO"
+  | "CONFORME"
+  | "PARCIALMENTE_CONFORME"
+  | "NAO_CONFORME"
+  | "NAO_APLICAVEL";
+
+/** Item de um framework, com instrumentos vinculados e avaliação de conformidade. */
+export interface SgsiFrameworkItem {
+  id: number;
+  framework_codigo: string;
+  item_id: string;
+  nome: string;
+  ordem: number;
+  avaliacao_status: SgsiAvaliacaoStatus;
+  avaliacao_observacao: string | null;
+  avaliado_em?: string | null;
+  instrumentos: string | null; // siglas separadas por vírgula
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -321,5 +352,34 @@ export const sgsiApi = {
         dados,
       ),
     );
+  },
+
+  async listarFrameworks(): Promise<SgsiFramework[]> {
+    const data = await apiClient.get<SgsiFramework[]>(`${BASE}/frameworks`);
+    return (data || []).map((f) => ({
+      ...f,
+      ordem: Number(f.ordem),
+      total_itens: Number(f.total_itens),
+      avaliados: Number(f.avaliados),
+      conformes: Number(f.conformes),
+    }));
+  },
+
+  async listarItensFramework(codigo: string): Promise<SgsiFrameworkItem[]> {
+    const data = await apiClient.get<SgsiFrameworkItem[]>(
+      `${BASE}/frameworks/${encodeURIComponent(codigo)}/itens`,
+    );
+    return (data || []).map((i) => ({ ...i, id: Number(i.id), ordem: Number(i.ordem) }));
+  },
+
+  async avaliarItemFramework(
+    itemId: number,
+    dados: { status: SgsiAvaliacaoStatus; observacao?: string },
+  ): Promise<SgsiFrameworkItem> {
+    const i = await apiClient.put<SgsiFrameworkItem>(
+      `${BASE}/frameworks/itens/${itemId}/avaliacao`,
+      dados,
+    );
+    return { ...i, id: Number(i.id), ordem: Number(i.ordem) };
   },
 };

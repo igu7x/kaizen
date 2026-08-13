@@ -239,6 +239,11 @@ const menuItemsCompleto: MenuItem[] = [
         icon: BarChart3,
         path: "/seguranca-informacao/indicadores",
       },
+      {
+        title: "Frameworks",
+        icon: FolderKanban,
+        path: "/seguranca-informacao/frameworks",
+      },
     ],
   },
   {
