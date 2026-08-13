@@ -30,6 +30,7 @@ import {
   BarChart3,
   Cpu,
   Gavel,
+  Lock,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -213,6 +214,19 @@ const menuItemsCompleto: MenuItem[] = [
     permissaoCodigo: "painel_indicadores",
   },
   {
+    // Módulo em construção (porte do SGSI/TJGO). Restrito a superadmin por ora.
+    title: "Segurança da Informação",
+    icon: Lock,
+    superAdminOnly: true,
+    children: [
+      {
+        title: "Instrumentos Normativos",
+        icon: BookOpen,
+        path: "/seguranca-informacao/instrumentos",
+      },
+    ],
+  },
+  {
     title: "Administração",
     icon: Settings,
     adminOnly: true,
@@ -270,6 +284,14 @@ function MenuItemComponent({
   const { user } = useAuth();
 
   if (item.adminOnly && user?.role !== "ADMIN") {
+    return null;
+  }
+
+  // Itens superAdminOnly (no nível do módulo) só aparecem para superadmins
+  if (
+    item.superAdminOnly &&
+    (user as { is_superadmin?: boolean } | null)?.is_superadmin !== true
+  ) {
     return null;
   }
 

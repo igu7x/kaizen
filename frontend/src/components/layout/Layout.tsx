@@ -49,6 +49,9 @@ export function Layout({ children }: LayoutProps) {
   );
 
   const isPermissoesPage = location.pathname.startsWith("/permissoes");
+  const isSegurancaInfoPage = location.pathname.startsWith(
+    "/seguranca-informacao",
+  );
 
   // Páginas com fundo branco (Home, OKRs, Execução, Sprints, Comitês, Contratações, Competências,
   // Painel de Pessoas, Perfil e módulos de administração)
@@ -72,7 +75,8 @@ export function Layout({ children }: LayoutProps) {
     isContratosPage ||
     isGerenciamentoPage ||
     isCicloOrcamentarioPage ||
-    isPermissoesPage;
+    isPermissoesPage ||
+    isSegurancaInfoPage;
   // Páginas sem padding (comitês + Home, que usa hero full-bleed próprio)
   const isNoPaddingPage = isComitesPage || isComiteDetalhe || isHomePage;
 

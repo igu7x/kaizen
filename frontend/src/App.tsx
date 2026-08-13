@@ -37,6 +37,8 @@ import CadastroHub from "./pages/CadastroHub";
 import PdticAcoes from "./pages/PdticAcoes";
 import PermissoesTap from "./pages/PermissoesTap";
 import PermissoesProcessosTi from "./pages/PermissoesProcessosTi";
+import SgsiInstrumentos from "./pages/SgsiInstrumentos";
+import SgsiInstrumentoDetalhe from "./pages/SgsiInstrumentoDetalhe";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -127,6 +129,22 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Pdtic />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/instrumentos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiInstrumentos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/instrumentos/:codigo"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiInstrumentoDetalhe />
                       </ProtectedRoute>
                     }
                   />
