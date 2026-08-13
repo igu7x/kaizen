@@ -82,12 +82,33 @@ export interface SgsiDocumento {
   instrumento_numeral: string | null;
   instrumento_ordem: number | null;
   tarefa_numero: number | null;
-  // Workflow (checkout / versão / assinatura).
+  // Workflow (checkout / versão / assinatura / tramitação).
   checkout_id: number | null;
   checkout_em: string | null;
   checkout_nome: string | null;
+  titular_id: number | null;
+  titular_nome: string | null;
   versao_atual: number | null;
   assinaturas: number | null;
+}
+
+/** Colaborador (direito permanente de edição) de um documento. */
+export interface SgsiDocumentoColaborador {
+  usuario_id: number;
+  nome: string;
+  email: string | null;
+  incluido_em: string;
+}
+
+/** Item do histórico de tramitação de um documento. */
+export interface SgsiDocumentoTramitacao {
+  id: number;
+  de_usuario_id: number | null;
+  de_nome: string | null;
+  para_usuario_id: number;
+  para_nome: string | null;
+  despacho: string | null;
+  criado_em: string;
 }
 
 /** Item do histórico de versões de um documento (sem conteúdo). */
@@ -590,6 +611,7 @@ function normDocumento(d: SgsiDocumento): SgsiDocumento {
     instrumento_ordem: num(d.instrumento_ordem),
     tarefa_numero: num(d.tarefa_numero),
     checkout_id: num(d.checkout_id),
+    titular_id: num(d.titular_id),
     versao_atual: num(d.versao_atual),
     assinaturas: num(d.assinaturas),
   };
@@ -796,6 +818,63 @@ export const sgsiApi = {
     return normDocumento(
       await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/reabrir`, {
         motivo,
+      }),
+    );
+  },
+
+  async listarColaboradoresDocumento(
+    id: number,
+  ): Promise<SgsiDocumentoColaborador[]> {
+    const data = await apiClient.get<SgsiDocumentoColaborador[]>(
+      `${BASE}/documentos/${id}/colaboradores`,
+    );
+    return (data || []).map((c) => ({ ...c, usuario_id: Number(c.usuario_id) }));
+  },
+
+  async adicionarColaboradorDocumento(
+    id: number,
+    usuarioId: number,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(
+        `${BASE}/documentos/${id}/colaboradores`,
+        { usuario_id: usuarioId },
+      ),
+    );
+  },
+
+  removerColaboradorDocumento(
+    id: number,
+    usuarioId: number,
+  ): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/documentos/${id}/colaboradores/${usuarioId}`,
+    );
+  },
+
+  async listarTramitacoesDocumento(
+    id: number,
+  ): Promise<SgsiDocumentoTramitacao[]> {
+    const data = await apiClient.get<SgsiDocumentoTramitacao[]>(
+      `${BASE}/documentos/${id}/tramitacoes`,
+    );
+    return (data || []).map((t) => ({
+      ...t,
+      id: Number(t.id),
+      de_usuario_id: t.de_usuario_id == null ? null : Number(t.de_usuario_id),
+      para_usuario_id: Number(t.para_usuario_id),
+    }));
+  },
+
+  async tramitarDocumento(
+    id: number,
+    paraUsuarioId: number,
+    despacho: string | null,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/tramitar`, {
+        para_usuario_id: paraUsuarioId,
+        despacho,
       }),
     );
   },

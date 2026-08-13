@@ -38,6 +38,7 @@ public class SgsiDocumentoService {
             "       d.atividade, d.referencia, d.responsavel, d.prazo_marco, d.prazo_data, " +
             "       d.status, d.origem, d.numero_emissao, d.atualizado_em, " +
             "       d.checkout_id, d.checkout_em, cu.name AS checkout_nome, " +
+            "       d.titular_id, tu.name AS titular_nome, " +
             "       ( SELECT MAX(v.numero) FROM sgsi_documento_versao v WHERE v.documento_id = d.id ) AS versao_atual, " +
             "       ( SELECT COUNT(*) FROM sgsi_documento_assinatura a WHERE a.documento_id = d.id ) AS assinaturas, " +
             "       i.sigla_oficial AS instrumento_sigla, i.numeral_romano AS instrumento_numeral, " +
@@ -45,7 +46,8 @@ public class SgsiDocumentoService {
             "  FROM sgsi_documento d " +
             "  LEFT JOIN sgsi_instrumento i ON i.codigo = d.instrumento_codigo " +
             "  LEFT JOIN sgsi_tarefa t      ON t.id = d.tarefa_id " +
-            "  LEFT JOIN users cu           ON cu.id = d.checkout_id ";
+            "  LEFT JOIN users cu           ON cu.id = d.checkout_id " +
+            "  LEFT JOIN users tu           ON tu.id = d.titular_id ";
 
     public List<Map<String, Object>> listar(String instrumento, String status, String tipo) {
         StringBuilder sql = new StringBuilder(SELECT_BASE).append(" WHERE 1=1 ");
@@ -241,6 +243,78 @@ public class SgsiDocumentoService {
                 Map.of("evento", "DOC_REABERTO", "motivo", motivo.trim(),
                         "assinaturas_invalidadas", String.valueOf(invalidadas),
                         "signatarios", nomes == null ? "" : nomes), null, null);
+        return buscar(id);
+    }
+
+    // ─── Tramitação e colaboradores (RN-17) ────────────────────────────────────────────────────
+
+    public List<Map<String, Object>> listarColaboradores(long id) {
+        return jdbc.queryForList(
+                "SELECT c.usuario_id, u.name AS nome, u.email, c.incluido_em " +
+                "FROM sgsi_documento_colaborador c JOIN users u ON u.id = c.usuario_id " +
+                "WHERE c.documento_id = ? ORDER BY u.name", id);
+    }
+
+    @Transactional
+    public Map<String, Object> adicionarColaborador(long id, Long usuarioId, Long incluidoPor) {
+        if (usuarioId == null) {
+            throw new IllegalArgumentException("usuario_id é obrigatório");
+        }
+        if (estado(id) == null) {
+            return null;
+        }
+        jdbc.update(
+                "INSERT INTO sgsi_documento_colaborador (documento_id, usuario_id, incluido_por) " +
+                "VALUES (?, ?, ?) ON CONFLICT (documento_id, usuario_id) DO NOTHING",
+                id, usuarioId, incluidoPor);
+        audit.log("sgsi_documento", id, "UPDATE", incluidoPor,
+                Map.of("evento", "COLABORADOR_INCLUIDO", "usuario", String.valueOf(usuarioId)), null, null);
+        return buscar(id);
+    }
+
+    @Transactional
+    public boolean removerColaborador(long id, long usuarioId, Long userId) {
+        boolean ok = jdbc.update(
+                "DELETE FROM sgsi_documento_colaborador WHERE documento_id = ? AND usuario_id = ?",
+                id, usuarioId) > 0;
+        if (ok) {
+            audit.log("sgsi_documento", id, "UPDATE", userId,
+                    Map.of("evento", "COLABORADOR_REMOVIDO", "usuario", String.valueOf(usuarioId)), null, null);
+        }
+        return ok;
+    }
+
+    public List<Map<String, Object>> listarTramitacoes(long id) {
+        return jdbc.queryForList(
+                "SELECT tr.id, tr.de_usuario_id, du.name AS de_nome, tr.para_usuario_id, pu.name AS para_nome, " +
+                "  tr.despacho, tr.criado_em " +
+                "FROM sgsi_documento_tramitacao tr " +
+                "LEFT JOIN users du ON du.id = tr.de_usuario_id " +
+                "LEFT JOIN users pu ON pu.id = tr.para_usuario_id " +
+                "WHERE tr.documento_id = ? ORDER BY tr.criado_em DESC", id);
+    }
+
+    /** Tramita o documento: grava o despacho, transfere o titular e libera o checkout (RN-17). */
+    @Transactional
+    public Map<String, Object> tramitar(long id, Long paraUsuarioId, String despacho, Long deUsuarioId) {
+        if (paraUsuarioId == null) {
+            throw new IllegalArgumentException("destinatário é obrigatório");
+        }
+        Map<String, Object> d = estado(id);
+        if (d == null) {
+            return null;
+        }
+        exigirNaoTravado(d);
+        jdbc.update(
+                "INSERT INTO sgsi_documento_tramitacao (documento_id, de_usuario_id, para_usuario_id, despacho) " +
+                "VALUES (?, ?, ?, ?)",
+                id, deUsuarioId, paraUsuarioId,
+                (despacho == null || despacho.isBlank()) ? null : despacho.trim());
+        jdbc.update(
+                "UPDATE sgsi_documento SET titular_id = ?, checkout_id = NULL, checkout_em = NULL, " +
+                "  atualizado_em = now() WHERE id = ?", paraUsuarioId, id);
+        audit.log("sgsi_documento", id, "UPDATE", deUsuarioId,
+                Map.of("evento", "DOC_TRAMITADO", "para", String.valueOf(paraUsuarioId)), null, null);
         return buscar(id);
     }
 

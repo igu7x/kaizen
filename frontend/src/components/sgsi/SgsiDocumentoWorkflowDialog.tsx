@@ -9,6 +9,10 @@ import {
   RotateCcw,
   FileClock,
   ShieldCheck,
+  Send,
+  Users,
+  UserPlus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,10 +24,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getUsers } from "@/services/api";
+import type { User } from "@/types";
+import {
   sgsiApi,
   SgsiDocumento,
   SgsiDocumentoVersao,
   SgsiDocumentoAssinatura,
+  SgsiDocumentoColaborador,
+  SgsiDocumentoTramitacao,
 } from "@/services/sgsiApi";
 
 const TRAVADOS = ["EM_ASSINATURA", "ASSINADO", "PUBLICADO"];
@@ -53,6 +68,14 @@ export function SgsiDocumentoWorkflowDialog({
   const [conteudo, setConteudo] = useState("");
   const [versoes, setVersoes] = useState<SgsiDocumentoVersao[]>([]);
   const [assinaturas, setAssinaturas] = useState<SgsiDocumentoAssinatura[]>([]);
+  const [colaboradores, setColaboradores] = useState<SgsiDocumentoColaborador[]>(
+    [],
+  );
+  const [tramitacoes, setTramitacoes] = useState<SgsiDocumentoTramitacao[]>([]);
+  const [usuarios, setUsuarios] = useState<User[]>([]);
+  const [destino, setDestino] = useState("");
+  const [despacho, setDespacho] = useState("");
+  const [novoColab, setNovoColab] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [acao, setAcao] = useState<string | null>(null);
 
@@ -64,14 +87,18 @@ export function SgsiDocumentoWorkflowDialog({
   const recarregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const [vig, vs, ass] = await Promise.all([
+      const [vig, vs, ass, colab, tram] = await Promise.all([
         sgsiApi.getVersaoVigente(doc.id),
         sgsiApi.listarVersoesDocumento(doc.id),
         sgsiApi.listarAssinaturasDocumento(doc.id),
+        sgsiApi.listarColaboradoresDocumento(doc.id),
+        sgsiApi.listarTramitacoesDocumento(doc.id),
       ]);
       setConteudo(vig?.conteudo ?? "");
       setVersoes(vs);
       setAssinaturas(ass);
+      setColaboradores(colab);
+      setTramitacoes(tram);
     } catch {
       /* erro tratado no apiClient */
     } finally {
@@ -82,6 +109,14 @@ export function SgsiDocumentoWorkflowDialog({
   useEffect(() => {
     if (open) recarregar();
   }, [open, recarregar]);
+
+  useEffect(() => {
+    if (open && usuarios.length === 0) {
+      getUsers()
+        .then((us) => setUsuarios(us.filter((u) => u.status === "ACTIVE")))
+        .catch(() => {});
+    }
+  }, [open, usuarios.length]);
 
   async function run(nome: string, fn: () => Promise<SgsiDocumento>, ok: string) {
     setAcao(nome);
@@ -105,6 +140,45 @@ export function SgsiDocumentoWorkflowDialog({
     run("gravar", () => sgsiApi.gravarVersaoDocumento(doc.id, conteudo), "Versão gravada.");
   const assinar = () =>
     run("assinar", () => sgsiApi.assinarDocumento(doc.id), "Documento assinado.");
+
+  const tramitar = () => {
+    if (!destino) return;
+    run(
+      "tramitar",
+      () =>
+        sgsiApi.tramitarDocumento(
+          doc.id,
+          Number(destino),
+          despacho.trim() || null,
+        ),
+      "Documento tramitado.",
+    ).then(() => {
+      setDestino("");
+      setDespacho("");
+    });
+  };
+
+  const adicionarColab = () => {
+    if (!novoColab) return;
+    run(
+      "colab",
+      () => sgsiApi.adicionarColaboradorDocumento(doc.id, Number(novoColab)),
+      "Colaborador incluído.",
+    ).then(() => setNovoColab(""));
+  };
+
+  const removerColab = async (usuarioId: number) => {
+    setAcao("colab");
+    try {
+      await sgsiApi.removerColaboradorDocumento(doc.id, usuarioId);
+      toast.success("Colaborador removido.");
+      await recarregar();
+    } catch {
+      /* apiClient */
+    } finally {
+      setAcao(null);
+    }
+  };
 
   const reabrir = () => {
     const motivo = window.prompt(
@@ -326,6 +400,129 @@ export function SgsiDocumentoWorkflowDialog({
                 ))
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Tramitação */}
+        <div className="border-t border-slate-100 pt-3">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <Send className="h-3.5 w-3.5" />
+            Tramitação
+            {doc.titular_nome && (
+              <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 font-normal normal-case text-slate-600">
+                titular atual: {doc.titular_nome}
+              </span>
+            )}
+          </p>
+          {!travado && (
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[180px] flex-1">
+                <Select value={destino} onValueChange={setDestino}>
+                  <SelectTrigger className="h-9 bg-white">
+                    <SelectValue placeholder="Encaminhar para…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usuarios.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <input
+                value={despacho}
+                onChange={(e) => setDespacho(e.target.value)}
+                placeholder="Despacho (opcional)"
+                className="h-9 min-w-[180px] flex-[2] rounded-md border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <Button
+                size="sm"
+                className="shrink-0"
+                onClick={tramitar}
+                disabled={acao !== null || !destino}
+              >
+                {acao === "tramitar" ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Tramitar
+              </Button>
+            </div>
+          )}
+          {tramitacoes.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {tramitacoes.map((t) => (
+                <li key={t.id} className="text-xs text-slate-500">
+                  <span className="text-slate-400">{fmtDataHora(t.criado_em)}</span>{" "}
+                  · {t.de_nome || "—"} → <strong>{t.para_nome || "—"}</strong>
+                  {t.despacho ? `: ${t.despacho}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Colaboradores */}
+        <div className="border-t border-slate-100 pt-3">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <Users className="h-3.5 w-3.5" />
+            Colaboradores ({colaboradores.length})
+            <span className="font-normal normal-case text-slate-400">
+              — direito permanente de edição
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {colaboradores.map((c) => (
+              <span
+                key={c.usuario_id}
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+              >
+                {c.nome}
+                <button
+                  onClick={() => removerColab(c.usuario_id)}
+                  className="text-slate-400 hover:text-red-600"
+                  title="Remover"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            {colaboradores.length === 0 && (
+              <span className="text-xs text-slate-400">Nenhum colaborador.</span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <div className="min-w-[180px] flex-1">
+              <Select value={novoColab} onValueChange={setNovoColab}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="Adicionar colaborador…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {usuarios
+                    .filter(
+                      (u) =>
+                        !colaboradores.some((c) => c.usuario_id === Number(u.id)),
+                    )
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={adicionarColab}
+              disabled={acao !== null || !novoColab}
+            >
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+              Incluir
+            </Button>
           </div>
         </div>
       </DialogContent>

@@ -743,6 +743,52 @@ public class SgsiController {
         return exec(() -> documentos.reabrir(id, motivo, userId()), "Documento não encontrado");
     }
 
+    // GET /api/sgsi/documentos/{id}/colaboradores
+    @GetMapping("/documentos/{id:\\d+}/colaboradores")
+    public ResponseEntity<?> listarColaboradores(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(documentos.listarColaboradores(id));
+    }
+
+    // POST /api/sgsi/documentos/{id}/colaboradores — { usuario_id }
+    @PostMapping("/documentos/{id:\\d+}/colaboradores")
+    public ResponseEntity<?> adicionarColaborador(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return exec(() -> documentos.adicionarColaborador(id, optLong(body == null ? null : body.get("usuario_id")), userId()),
+                "Documento não encontrado");
+    }
+
+    // DELETE /api/sgsi/documentos/{id}/colaboradores/{usuarioId}
+    @DeleteMapping("/documentos/{id:\\d+}/colaboradores/{usuarioId:\\d+}")
+    public ResponseEntity<?> removerColaborador(@PathVariable long id, @PathVariable long usuarioId) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        if (!documentos.removerColaborador(id, usuarioId, userId())) {
+            return ResponseEntity.status(404).body(Map.of("error", "Colaborador não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // GET /api/sgsi/documentos/{id}/tramitacoes
+    @GetMapping("/documentos/{id:\\d+}/tramitacoes")
+    public ResponseEntity<?> listarTramitacoes(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(documentos.listarTramitacoes(id));
+    }
+
+    // POST /api/sgsi/documentos/{id}/tramitar — { para_usuario_id, despacho }
+    @PostMapping("/documentos/{id:\\d+}/tramitar")
+    public ResponseEntity<?> tramitarDocumento(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Long para = optLong(body == null ? null : body.get("para_usuario_id"));
+        String despacho = str(body == null ? null : body.get("despacho"));
+        return exec(() -> documentos.tramitar(id, para, despacho, userId()), "Documento não encontrado");
+    }
+
     /** Executa uma operação de workflow mapeando 404 (null), 409 (estado inválido) e 400 (argumento). */
     private ResponseEntity<?> exec(java.util.function.Supplier<Map<String, Object>> op, String notFound) {
         try {
@@ -855,5 +901,14 @@ public class SgsiController {
 
     private static String str(Object v) {
         return v == null ? null : String.valueOf(v);
+    }
+
+    private static Long optLong(Object v) {
+        if (v == null || String.valueOf(v).isBlank()) return null;
+        try {
+            return Long.parseLong(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }
