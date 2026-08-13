@@ -7,6 +7,7 @@ import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
 import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
 import br.jus.tjgo.kaizen.service.SgsiPainelService;
+import br.jus.tjgo.kaizen.service.SgsiRiscoService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,7 @@ public class SgsiController {
     private final SgsiDocumentoService documentos;
     private final SgsiIndicadorService indicadores;
     private final SgsiFrameworkService frameworks;
+    private final SgsiRiscoService riscos;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -81,6 +83,53 @@ public class SgsiController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // GET /api/sgsi/riscos
+    @GetMapping("/riscos")
+    public ResponseEntity<?> listarRiscos() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(riscos.listar());
+    }
+
+    // POST /api/sgsi/riscos
+    @PostMapping("/riscos")
+    public ResponseEntity<?> criarRisco(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(riscos.criar(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PUT /api/sgsi/riscos/{id}
+    @PutMapping("/riscos/{id:\\d+}")
+    public ResponseEntity<?> atualizarRisco(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> r = riscos.atualizar(id, body == null ? Map.of() : body);
+            if (r == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Risco não encontrado"));
+            }
+            return ResponseEntity.ok(r);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // DELETE /api/sgsi/riscos/{id}
+    @DeleteMapping("/riscos/{id:\\d+}")
+    public ResponseEntity<?> deletarRisco(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        if (!riscos.deletar(id)) {
+            return ResponseEntity.status(404).body(Map.of("error", "Risco não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     // GET /api/sgsi/painel — visão executiva agregada

@@ -244,6 +244,11 @@ const menuItemsCompleto: MenuItem[] = [
         icon: FolderKanban,
         path: "/seguranca-informacao/frameworks",
       },
+      {
+        title: "Riscos",
+        icon: Shield,
+        path: "/seguranca-informacao/riscos",
+      },
     ],
   },
   {

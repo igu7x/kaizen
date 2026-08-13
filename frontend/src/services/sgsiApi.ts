@@ -186,6 +186,61 @@ export interface SgsiFrameworkItem {
   instrumentos: string | null; // siglas separadas por vírgula
 }
 
+export type SgsiRiscoStatus =
+  | "IDENTIFICADO"
+  | "EM_ANALISE"
+  | "EM_TRATAMENTO"
+  | "MITIGADO"
+  | "ACEITO";
+export type SgsiPlanoStatus = "NAO_INICIADO" | "EM_ANDAMENTO" | "CONCLUIDO";
+
+/** Risco do registro do SGSI. O IRS é calculado no backend (prob × sev × relevância). */
+export interface SgsiRisco {
+  id: number;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  titulo: string;
+  ativo_informacao: string | null;
+  ameaca: string | null;
+  vulnerabilidade: string | null;
+  dono: string | null;
+  probabilidade: number;
+  severidade: number;
+  relevancia: number;
+  probabilidade_residual: number | null;
+  severidade_residual: number | null;
+  controles: string | null;
+  status: SgsiRiscoStatus;
+  criado_em?: string;
+  atualizado_em?: string;
+  irs_inerente: number;
+  irs_residual: number;
+  plano_descricao: string | null;
+  plano_responsavel: string | null;
+  plano_prazo: string | null;
+  plano_status: SgsiPlanoStatus | null;
+}
+
+export type SgsiRiscoInput = {
+  titulo: string;
+  instrumento_codigo?: string | null;
+  status?: SgsiRiscoStatus;
+  ativo_informacao?: string | null;
+  ameaca?: string | null;
+  vulnerabilidade?: string | null;
+  dono?: string | null;
+  probabilidade: number;
+  severidade: number;
+  relevancia: number;
+  probabilidade_residual?: number | null;
+  severidade_residual?: number | null;
+  controles?: string | null;
+  plano_descricao?: string | null;
+  plano_responsavel?: string | null;
+  plano_prazo?: string | null;
+  plano_status?: SgsiPlanoStatus | null;
+};
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -382,4 +437,37 @@ export const sgsiApi = {
     );
     return { ...i, id: Number(i.id), ordem: Number(i.ordem) };
   },
+
+  async listarRiscos(): Promise<SgsiRisco[]> {
+    const data = await apiClient.get<SgsiRisco[]>(`${BASE}/riscos`);
+    return (data || []).map(normRisco);
+  },
+
+  async criarRisco(input: SgsiRiscoInput): Promise<SgsiRisco> {
+    return normRisco(await apiClient.post<SgsiRisco>(`${BASE}/riscos`, input));
+  },
+
+  async atualizarRisco(id: number, input: SgsiRiscoInput): Promise<SgsiRisco> {
+    return normRisco(
+      await apiClient.put<SgsiRisco>(`${BASE}/riscos/${id}`, input),
+    );
+  },
+
+  removerRisco(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(`${BASE}/riscos/${id}`);
+  },
 };
+
+function normRisco(r: SgsiRisco): SgsiRisco {
+  return {
+    ...r,
+    id: Number(r.id),
+    probabilidade: Number(r.probabilidade),
+    severidade: Number(r.severidade),
+    relevancia: Number(r.relevancia),
+    probabilidade_residual: num(r.probabilidade_residual),
+    severidade_residual: num(r.severidade_residual),
+    irs_inerente: Number(r.irs_inerente),
+    irs_residual: Number(r.irs_residual),
+  };
+}

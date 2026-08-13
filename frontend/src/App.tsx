@@ -43,6 +43,7 @@ import SgsiInstrumentoDetalhe from "./pages/SgsiInstrumentoDetalhe";
 import SgsiDocumentos from "./pages/SgsiDocumentos";
 import SgsiIndicadores from "./pages/SgsiIndicadores";
 import SgsiFrameworks from "./pages/SgsiFrameworks";
+import SgsiRiscos from "./pages/SgsiRiscos";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -181,6 +182,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <SgsiFrameworks />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/riscos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiRiscos />
                       </ProtectedRoute>
                     }
                   />
