@@ -441,6 +441,40 @@ export interface SgsiProcessoDetalhe extends SgsiProcesso {
   flows: SgsiProcessoFlow[];
 }
 
+/** Panorama de ciência de um instrumento (RN-39). */
+export interface SgsiLeituraItem {
+  codigo: string;
+  sigla_oficial: string | null;
+  numeral_romano: string | null;
+  ordem: number;
+  requisitos: number;
+  exigidos: number;
+  confirmados: number;
+  eu_confirmei: boolean;
+  eu_exigido: boolean;
+}
+
+export interface SgsiLeituraLeitor {
+  usuario_id: number;
+  nome: string;
+  email: string | null;
+  confirmado: boolean;
+  confirmado_em: string | null;
+}
+
+export interface SgsiLeituraDetalhe {
+  instrumento: {
+    codigo: string;
+    sigla_oficial: string | null;
+    nome_completo: string | null;
+    numeral_romano: string | null;
+  };
+  modo: "TODOS" | "LISTA";
+  exigidos: number;
+  confirmados: number;
+  leitores: SgsiLeituraLeitor[];
+}
+
 /** Registro da trilha de auditoria do SGSI (leitura de audit_log). */
 export interface SgsiAuditoria {
   id: number;
@@ -929,6 +963,52 @@ export const sgsiApi = {
       tarefa_numero: num(m.tarefa_numero),
       prazo_marco: num(m.prazo_marco),
     }));
+  },
+
+  async getLeituraPanorama(): Promise<SgsiLeituraItem[]> {
+    const data = await apiClient.get<SgsiLeituraItem[]>(`${BASE}/leitura`);
+    return (data || []).map((i) => ({
+      ...i,
+      ordem: Number(i.ordem),
+      requisitos: Number(i.requisitos),
+      exigidos: Number(i.exigidos),
+      confirmados: Number(i.confirmados),
+      eu_confirmei: i.eu_confirmei === true || String(i.eu_confirmei) === "true",
+      eu_exigido: i.eu_exigido === true || String(i.eu_exigido) === "true",
+    }));
+  },
+
+  async getLeituraDetalhe(codigo: string): Promise<SgsiLeituraDetalhe> {
+    const d = await apiClient.get<SgsiLeituraDetalhe>(
+      `${BASE}/leitura/${encodeURIComponent(codigo)}`,
+    );
+    return {
+      ...d,
+      exigidos: Number(d.exigidos),
+      confirmados: Number(d.confirmados),
+      leitores: (d.leitores || []).map((l) => ({
+        ...l,
+        usuario_id: Number(l.usuario_id),
+        confirmado: l.confirmado === true || String(l.confirmado) === "true",
+      })),
+    };
+  },
+
+  definirRequisitosLeitura(
+    codigo: string,
+    usuarioIds: number[],
+  ): Promise<SgsiLeituraDetalhe> {
+    return apiClient.put<SgsiLeituraDetalhe>(
+      `${BASE}/leitura/${encodeURIComponent(codigo)}/requisitos`,
+      { usuario_ids: usuarioIds },
+    );
+  },
+
+  confirmarLeitura(codigo: string): Promise<SgsiLeituraDetalhe> {
+    return apiClient.post<SgsiLeituraDetalhe>(
+      `${BASE}/leitura/${encodeURIComponent(codigo)}/confirmar`,
+      {},
+    );
   },
 
   async getAuditoria(params?: {

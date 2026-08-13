@@ -33,6 +33,7 @@ import {
   Lock,
   SlidersHorizontal,
   History,
+  BookCheck,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -230,6 +231,11 @@ const menuItemsCompleto: MenuItem[] = [
         title: "Instrumentos Normativos",
         icon: BookOpen,
         path: "/seguranca-informacao/instrumentos",
+      },
+      {
+        title: "Ciência e Leitura",
+        icon: BookCheck,
+        path: "/seguranca-informacao/leitura",
       },
       {
         title: "Obrigações Documentais",

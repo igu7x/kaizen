@@ -31,6 +31,8 @@ const TABELA_LABEL: Record<string, string> = {
   sgsi_documento: "Obrigações",
   sgsi_ata: "Atas",
   sgsi_configuracao: "Configurações",
+  sgsi_leitura_requisito: "Leitura — requisitos",
+  sgsi_leitura_confirmacao: "Leitura — confirmação",
 };
 
 const EVENTO_CLASSE: Record<string, string> = {
@@ -41,6 +43,13 @@ const EVENTO_CLASSE: Record<string, string> = {
   MEDICAO_REGISTRADA: "bg-blue-50 text-blue-700",
   STATUS_ALTERADO: "bg-blue-50 text-blue-700",
   DIGITALIZADO: "bg-indigo-50 text-indigo-700",
+  DOC_CONTEUDO_GRAVADO: "bg-blue-50 text-blue-700",
+  DOC_ASSINADO: "bg-emerald-50 text-emerald-700",
+  DOC_REABERTO: "bg-amber-50 text-amber-700",
+  CHECKOUT: "bg-slate-100 text-slate-600",
+  CHECKOUT_LIBERADO: "bg-slate-100 text-slate-600",
+  LEITURA_CONFIRMADA: "bg-emerald-50 text-emerald-700",
+  REQUISITOS_DEFINIDOS: "bg-blue-50 text-blue-700",
   CANCELADO: "bg-red-50 text-red-600",
   EXCLUIDO: "bg-red-50 text-red-600",
 };

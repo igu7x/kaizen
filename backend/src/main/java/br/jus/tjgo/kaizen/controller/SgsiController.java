@@ -5,6 +5,7 @@ import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiAtaService;
 import br.jus.tjgo.kaizen.service.SgsiAuditoriaService;
 import br.jus.tjgo.kaizen.service.SgsiConfiguracaoService;
+import br.jus.tjgo.kaizen.service.SgsiLeituraService;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiEmissaoService;
 import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
@@ -16,11 +17,13 @@ import br.jus.tjgo.kaizen.service.SgsiProcessoService;
 import br.jus.tjgo.kaizen.service.SgsiRelatorioService;
 import br.jus.tjgo.kaizen.service.SgsiRiscoService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +49,7 @@ public class SgsiController {
     private final SgsiAtaService atas;
     private final SgsiProcessoService processos;
     private final SgsiConfiguracaoService configuracoes;
+    private final SgsiLeituraService leitura;
     private final SgsiAuditoriaService auditoria;
     private final SgsiPainelService painel;
 
@@ -370,6 +374,72 @@ public class SgsiController {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
         return ResponseEntity.ok(auditoria.facetas());
+    }
+
+    // ─── Ciência e Leitura Confirmada ───────────────────────────────────────────────────────────
+
+    // GET /api/sgsi/leitura — panorama de ciência por instrumento
+    @GetMapping("/leitura")
+    public ResponseEntity<?> leituraPanorama() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(leitura.panorama(userId()));
+    }
+
+    // GET /api/sgsi/leitura/{codigo} — leitores exigidos e suas confirmações
+    @GetMapping("/leitura/{codigo}")
+    public ResponseEntity<?> leituraDetalhe(@PathVariable String codigo) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> d = leitura.detalhe(codigo);
+        if (d == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Instrumento não encontrado"));
+        }
+        return ResponseEntity.ok(d);
+    }
+
+    // PUT /api/sgsi/leitura/{codigo}/requisitos — define os leitores exigidos { usuario_ids: [] }
+    @PutMapping("/leitura/{codigo}/requisitos")
+    public ResponseEntity<?> leituraRequisitos(@PathVariable String codigo, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        List<Long> ids = new ArrayList<>();
+        Object raw = body == null ? null : body.get("usuario_ids");
+        if (raw instanceof List<?> list) {
+            for (Object o : list) {
+                if (o == null) continue;
+                try {
+                    ids.add(Long.parseLong(String.valueOf(o).trim()));
+                } catch (NumberFormatException ignored) {
+                    // ignora ids inválidos
+                }
+            }
+        }
+        Map<String, Object> d = leitura.definirRequisitos(codigo, ids, userId());
+        if (d == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Instrumento não encontrado"));
+        }
+        return ResponseEntity.ok(d);
+    }
+
+    // POST /api/sgsi/leitura/{codigo}/confirmar — confirma a leitura do usuário atual
+    @PostMapping("/leitura/{codigo}/confirmar")
+    public ResponseEntity<?> leituraConfirmar(@PathVariable String codigo, HttpServletRequest req) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> d = leitura.confirmar(codigo, userId(), ipDe(req));
+        if (d == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Instrumento não encontrado"));
+        }
+        return ResponseEntity.ok(d);
+    }
+
+    private static String ipDe(HttpServletRequest req) {
+        String fwd = req.getHeader("X-Forwarded-For");
+        if (fwd != null && !fwd.isBlank()) {
+            return fwd.split(",")[0].trim();
+        }
+        return req.getRemoteAddr();
     }
 
     // GET /api/sgsi/instrumentos
