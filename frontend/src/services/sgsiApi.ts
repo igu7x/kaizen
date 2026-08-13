@@ -241,6 +241,26 @@ export type SgsiRiscoInput = {
   plano_status?: SgsiPlanoStatus | null;
 };
 
+/** Linha da Matriz de Rastreabilidade (atividade → normativo → documento → emissão). */
+export interface SgsiMatrizItem {
+  id: number;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  instrumento_numeral: string | null;
+  instrumento_ordem: number | null;
+  tarefa_numero: number | null;
+  tarefa_fase: string | null;
+  atividade: string | null;
+  documento: string;
+  tipo: string;
+  normativo_origem: string | null;
+  responsavel: string | null;
+  prazo_marco: number | null;
+  status: string;
+  numero_emissao: string | null;
+  prazo_efetivo: string | null;
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -455,6 +475,17 @@ export const sgsiApi = {
 
   removerRisco(id: number): Promise<{ success: boolean }> {
     return apiClient.delete<{ success: boolean }>(`${BASE}/riscos/${id}`);
+  },
+
+  async getMatriz(): Promise<SgsiMatrizItem[]> {
+    const data = await apiClient.get<SgsiMatrizItem[]>(`${BASE}/matriz`);
+    return (data || []).map((m) => ({
+      ...m,
+      id: Number(m.id),
+      instrumento_ordem: num(m.instrumento_ordem),
+      tarefa_numero: num(m.tarefa_numero),
+      prazo_marco: num(m.prazo_marco),
+    }));
   },
 };
 

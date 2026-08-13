@@ -249,6 +249,11 @@ const menuItemsCompleto: MenuItem[] = [
         icon: Shield,
         path: "/seguranca-informacao/riscos",
       },
+      {
+        title: "Matriz de Rastreabilidade",
+        icon: Workflow,
+        path: "/seguranca-informacao/matriz",
+      },
     ],
   },
   {

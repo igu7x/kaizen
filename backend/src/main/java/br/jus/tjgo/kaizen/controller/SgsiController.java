@@ -6,6 +6,7 @@ import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
 import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
+import br.jus.tjgo.kaizen.service.SgsiMatrizService;
 import br.jus.tjgo.kaizen.service.SgsiPainelService;
 import br.jus.tjgo.kaizen.service.SgsiRiscoService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
@@ -33,6 +34,7 @@ public class SgsiController {
     private final SgsiIndicadorService indicadores;
     private final SgsiFrameworkService frameworks;
     private final SgsiRiscoService riscos;
+    private final SgsiMatrizService matriz;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -130,6 +132,14 @@ public class SgsiController {
             return ResponseEntity.status(404).body(Map.of("error", "Risco não encontrado"));
         }
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // GET /api/sgsi/matriz — matriz de rastreabilidade consolidada
+    @GetMapping("/matriz")
+    public ResponseEntity<?> matriz() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(matriz.listar());
     }
 
     // GET /api/sgsi/painel — visão executiva agregada
