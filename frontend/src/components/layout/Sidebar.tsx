@@ -265,6 +265,11 @@ const menuItemsCompleto: MenuItem[] = [
         path: "/seguranca-informacao/atas",
       },
       {
+        title: "Processos (BPMN)",
+        icon: Workflow,
+        path: "/seguranca-informacao/processos",
+      },
+      {
         title: "Matriz de Rastreabilidade",
         icon: Workflow,
         path: "/seguranca-informacao/matriz",

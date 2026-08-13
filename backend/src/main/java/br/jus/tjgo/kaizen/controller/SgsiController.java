@@ -10,6 +10,7 @@ import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
 import br.jus.tjgo.kaizen.service.SgsiMatrizService;
 import br.jus.tjgo.kaizen.service.SgsiPainelService;
+import br.jus.tjgo.kaizen.service.SgsiProcessoService;
 import br.jus.tjgo.kaizen.service.SgsiRelatorioService;
 import br.jus.tjgo.kaizen.service.SgsiRiscoService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
@@ -41,6 +42,7 @@ public class SgsiController {
     private final SgsiEmissaoService emissoes;
     private final SgsiRelatorioService relatorios;
     private final SgsiAtaService atas;
+    private final SgsiProcessoService processos;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -213,6 +215,26 @@ public class SgsiController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(400).body(Map.of("error", ex.getMessage()));
         }
+    }
+
+    // GET /api/sgsi/processos
+    @GetMapping("/processos")
+    public ResponseEntity<?> listarProcessos() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(processos.listar());
+    }
+
+    // GET /api/sgsi/processos/{id}
+    @GetMapping("/processos/{id}")
+    public ResponseEntity<?> buscarProcesso(@PathVariable String id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> p = processos.buscar(id);
+        if (p == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Processo não encontrado"));
+        }
+        return ResponseEntity.ok(p);
     }
 
     // GET /api/sgsi/atas

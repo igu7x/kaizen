@@ -48,6 +48,7 @@ import SgsiMatriz from "./pages/SgsiMatriz";
 import SgsiEmissoes from "./pages/SgsiEmissoes";
 import SgsiRelatorios from "./pages/SgsiRelatorios";
 import SgsiAtas from "./pages/SgsiAtas";
+import SgsiProcessos from "./pages/SgsiProcessos";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -218,6 +219,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <SgsiAtas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/processos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiProcessos />
                       </ProtectedRoute>
                     }
                   />

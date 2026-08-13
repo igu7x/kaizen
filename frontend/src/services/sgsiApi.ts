@@ -336,6 +336,33 @@ export interface SgsiAta {
   criado_em?: string;
 }
 
+/** Processo de negócio (BPMN) — item da lista. */
+export interface SgsiProcesso {
+  id: string;
+  nome: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  referencia: string | null;
+  restrito: boolean;
+  versao: number;
+  raias?: number;
+  nos?: number;
+}
+
+export interface SgsiProcessoNode {
+  id: string;
+  t: "start" | "task" | "gw" | "end";
+  n: string;
+  l: number;
+}
+export type SgsiProcessoFlow = [string, string] | [string, string, string];
+
+export interface SgsiProcessoDetalhe extends SgsiProcesso {
+  lanes: string[];
+  nodes: SgsiProcessoNode[];
+  flows: SgsiProcessoFlow[];
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -590,6 +617,36 @@ export const sgsiApi = {
         motivo,
       }),
     );
+  },
+
+  async listarProcessos(): Promise<SgsiProcesso[]> {
+    const data = await apiClient.get<SgsiProcesso[]>(`${BASE}/processos`);
+    return (data || []).map((p) => ({
+      ...p,
+      versao: Number(p.versao),
+      raias: p.raias != null ? Number(p.raias) : undefined,
+      nos: p.nos != null ? Number(p.nos) : undefined,
+    }));
+  },
+
+  async buscarProcesso(id: string): Promise<SgsiProcessoDetalhe> {
+    const p = await apiClient.get<
+      SgsiProcesso & { lanes: string; nodes: string; flows: string }
+    >(`${BASE}/processos/${encodeURIComponent(id)}`);
+    const parse = <T>(s: string): T => {
+      try {
+        return JSON.parse(s || "[]") as T;
+      } catch {
+        return [] as unknown as T;
+      }
+    };
+    return {
+      ...p,
+      versao: Number(p.versao),
+      lanes: parse<string[]>(p.lanes),
+      nodes: parse<SgsiProcessoNode[]>(p.nodes),
+      flows: parse<SgsiProcessoFlow[]>(p.flows),
+    };
   },
 
   async listarAtas(): Promise<SgsiAta[]> {
