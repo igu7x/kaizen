@@ -526,9 +526,6 @@ export function PcaItemDetalhes() {
                   {pcaItem.status}
                 </Badge>
               </div>
-              <p className="text-gray-600 mt-1 flex items-center gap-2">
-                <p className="text-sm text-gray-500 font-medium">
-              </p>
             </div>
           </div>
         </div>
