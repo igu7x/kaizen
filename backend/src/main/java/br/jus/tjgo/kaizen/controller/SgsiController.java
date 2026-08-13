@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
+import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class SgsiController {
     private final SgsiInstrumentoService instrumentos;
     private final SgsiTarefaService tarefas;
     private final SgsiDocumentoService documentos;
+    private final SgsiIndicadorService indicadores;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
     private ResponseEntity<?> guard() {
@@ -107,6 +109,49 @@ public class SgsiController {
                 return ResponseEntity.status(404).body(Map.of("error", "Documento não encontrado"));
             }
             return ResponseEntity.ok(atualizado);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/sgsi/indicadores
+    @GetMapping("/indicadores")
+    public ResponseEntity<?> listarIndicadores() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(indicadores.listar());
+    }
+
+    // GET /api/sgsi/indicadores/{id}/medicoes
+    @GetMapping("/indicadores/{id:\\d+}/medicoes")
+    public ResponseEntity<?> listarMedicoes(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(indicadores.listarMedicoes(id));
+    }
+
+    // POST /api/sgsi/indicadores/{id}/medicoes — { competencia (AAAA-MM), valor, observacao }
+    @PostMapping("/indicadores/{id:\\d+}/medicoes")
+    public ResponseEntity<?> registrarMedicao(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        String competencia = body == null ? null : str(body.get("competencia"));
+        String observacao = body == null ? null : str(body.get("observacao"));
+        java.math.BigDecimal valor = null;
+        Object raw = body == null ? null : body.get("valor");
+        if (raw != null) {
+            try {
+                valor = new java.math.BigDecimal(String.valueOf(raw));
+            } catch (NumberFormatException e) {
+                return ResponseEntity.status(400).body(Map.of("error", "valor deve ser numérico"));
+            }
+        }
+        try {
+            Map<String, Object> m = indicadores.registrarMedicao(id, competencia, valor, observacao, userId());
+            if (m == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Indicador não encontrado"));
+            }
+            return ResponseEntity.status(201).body(m);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         }

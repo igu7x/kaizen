@@ -84,6 +84,40 @@ export interface SgsiDocumento {
   tarefa_numero: number | null;
 }
 
+/** Indicador do SGSI (31). Meta/tolerância podem ser nulas (aguardando deliberação do CGSI). */
+export interface SgsiIndicador {
+  id: number;
+  seed_key: string | null;
+  instrumento_codigo: string | null;
+  tarefa_id: number | null;
+  nome: string;
+  referencia: string | null;
+  responsavel: string | null;
+  formula: string | null;
+  unidade: string;
+  meta: number | null;
+  tolerancia: number | null;
+  direcao: ">=" | "<=";
+  frequencia: string | null;
+  ativo: boolean;
+  instrumento_sigla: string | null;
+  instrumento_ordem: number | null;
+  ultimo_valor: number | null;
+  ultima_competencia: string | null;
+  ultima_data: string | null;
+}
+
+/** Medição de um indicador numa competência (AAAA-MM). */
+export interface SgsiMedicao {
+  id: number;
+  indicador_id: number;
+  competencia: string;
+  data_referencia: string;
+  valor: number;
+  observacao: string | null;
+  criado_em?: string;
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -110,6 +144,27 @@ function normDocumento(d: SgsiDocumento): SgsiDocumento {
     prazo_marco: num(d.prazo_marco),
     instrumento_ordem: num(d.instrumento_ordem),
     tarefa_numero: num(d.tarefa_numero),
+  };
+}
+
+function normIndicador(i: SgsiIndicador): SgsiIndicador {
+  return {
+    ...i,
+    id: Number(i.id),
+    tarefa_id: num(i.tarefa_id),
+    meta: num(i.meta),
+    tolerancia: num(i.tolerancia),
+    ultimo_valor: num(i.ultimo_valor),
+    instrumento_ordem: num(i.instrumento_ordem),
+  };
+}
+
+function normMedicao(m: SgsiMedicao): SgsiMedicao {
+  return {
+    ...m,
+    id: Number(m.id),
+    indicador_id: Number(m.indicador_id),
+    valor: Number(m.valor),
   };
 }
 
@@ -182,6 +237,30 @@ export const sgsiApi = {
       await apiClient.patch<SgsiDocumento>(`${BASE}/documentos/${id}`, {
         status,
       }),
+    );
+  },
+
+  async listarIndicadores(): Promise<SgsiIndicador[]> {
+    const data = await apiClient.get<SgsiIndicador[]>(`${BASE}/indicadores`);
+    return (data || []).map(normIndicador);
+  },
+
+  async listarMedicoes(indicadorId: number): Promise<SgsiMedicao[]> {
+    const data = await apiClient.get<SgsiMedicao[]>(
+      `${BASE}/indicadores/${indicadorId}/medicoes`,
+    );
+    return (data || []).map(normMedicao);
+  },
+
+  async registrarMedicao(
+    indicadorId: number,
+    dados: { competencia: string; valor: number; observacao?: string },
+  ): Promise<SgsiMedicao> {
+    return normMedicao(
+      await apiClient.post<SgsiMedicao>(
+        `${BASE}/indicadores/${indicadorId}/medicoes`,
+        dados,
+      ),
     );
   },
 };

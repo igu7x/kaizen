@@ -229,6 +229,11 @@ const menuItemsCompleto: MenuItem[] = [
         icon: FileText,
         path: "/seguranca-informacao/documentos",
       },
+      {
+        title: "Indicadores",
+        icon: BarChart3,
+        path: "/seguranca-informacao/indicadores",
+      },
     ],
   },
   {
