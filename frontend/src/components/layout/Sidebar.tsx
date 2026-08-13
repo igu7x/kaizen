@@ -222,7 +222,7 @@ const menuItemsCompleto: MenuItem[] = [
   },
   {
     // Módulo em construção (porte do SGSI/TJGO). Restrito a superadmin por ora.
-    title: "Segurança da Informação",
+    title: "Gestão de Riscos e Compliance",
     icon: Lock,
     superAdminOnly: true,
     children: [

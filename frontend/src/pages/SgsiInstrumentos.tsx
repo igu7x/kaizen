@@ -36,7 +36,7 @@ export default function SgsiInstrumentos() {
     <Layout>
       <div className="page-transition-enter min-h-full">
         <div className="max-w-6xl mx-auto px-6 py-8">
-          <Breadcrumbs items={[{ label: "Segurança da Informação" }]} />
+          <Breadcrumbs items={[{ label: "Gestão de Riscos e Compliance" }]} />
 
           {/* Header */}
           <div className="mt-4 mb-6 flex items-center gap-4">
@@ -48,7 +48,7 @@ export default function SgsiInstrumentos() {
             />
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-0.5">
-                Segurança da Informação
+                Gestão de Riscos e Compliance
               </p>
               <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <ShieldCheck className="h-6 w-6 text-blue-600" />

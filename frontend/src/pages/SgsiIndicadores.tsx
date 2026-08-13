@@ -103,7 +103,7 @@ export default function SgsiIndicadores() {
           <Breadcrumbs
             items={[
               {
-                label: "Segurança da Informação",
+                label: "Gestão de Riscos e Compliance",
                 to: "/seguranca-informacao/instrumentos",
               },
               { label: "Indicadores" },
@@ -120,7 +120,7 @@ export default function SgsiIndicadores() {
             />
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-0.5">
-                Segurança da Informação
+                Gestão de Riscos e Compliance
               </p>
               <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <Gauge className="h-6 w-6 text-blue-600" />

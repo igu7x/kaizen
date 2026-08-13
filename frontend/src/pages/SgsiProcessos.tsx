@@ -48,7 +48,7 @@ export default function SgsiProcessos() {
           <Breadcrumbs
             items={[
               {
-                label: "Segurança da Informação",
+                label: "Gestão de Riscos e Compliance",
                 to: "/seguranca-informacao/instrumentos",
               },
               { label: "Processos" },
@@ -65,7 +65,7 @@ export default function SgsiProcessos() {
             />
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-0.5">
-                Segurança da Informação
+                Gestão de Riscos e Compliance
               </p>
               <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <Workflow className="h-6 w-6 text-blue-600" />

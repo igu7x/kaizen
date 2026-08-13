@@ -90,7 +90,7 @@ export default function SgsiInstrumentoDetalhe() {
           <Breadcrumbs
             items={[
               {
-                label: "Segurança da Informação",
+                label: "Gestão de Riscos e Compliance",
                 to: "/seguranca-informacao/instrumentos",
               },
               { label: instrumento?.sigla_oficial || codigo },
