@@ -19,6 +19,7 @@ import java.util.Set;
 public class SgsiRiscoService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
 
     private static final Set<String> STATUS = Set.of(
             "IDENTIFICADO", "EM_ANALISE", "EM_TRATAMENTO", "MITIGADO", "ACEITO");
@@ -70,11 +71,12 @@ public class SgsiRiscoService {
                 prob, sev, rel, optEscala(b, "probabilidade_residual"), optEscala(b, "severidade_residual"),
                 str(b.get("controles")), status, userId);
         salvarPlano(id, b);
+        audit.log("sgsi_risco", id, "INSERT", userId, Map.of("evento", "CRIADO"), null, null);
         return buscar(id);
     }
 
     @Transactional
-    public Map<String, Object> atualizar(long id, Map<String, Object> b) {
+    public Map<String, Object> atualizar(long id, Map<String, Object> b, Long userId) {
         if (buscar(id) == null) {
             return null;
         }
@@ -93,12 +95,17 @@ public class SgsiRiscoService {
                 optEscala(b, "probabilidade_residual"), optEscala(b, "severidade_residual"),
                 str(b.get("controles")), statusOu(b, "IDENTIFICADO"), id);
         salvarPlano(id, b);
+        audit.log("sgsi_risco", id, "UPDATE", userId, Map.of("evento", "ATUALIZADO"), null, null);
         return buscar(id);
     }
 
     @Transactional
-    public boolean deletar(long id) {
-        return jdbc.update("DELETE FROM sgsi_risco WHERE id = ?", id) > 0;
+    public boolean deletar(long id, Long userId) {
+        boolean ok = jdbc.update("DELETE FROM sgsi_risco WHERE id = ?", id) > 0;
+        if (ok) {
+            audit.log("sgsi_risco", id, "DELETE", userId, Map.of("evento", "EXCLUIDO"), null, null);
+        }
+        return ok;
     }
 
     /** Upsert do plano de ação 1:1 quando há descrição; caso contrário não mexe. */

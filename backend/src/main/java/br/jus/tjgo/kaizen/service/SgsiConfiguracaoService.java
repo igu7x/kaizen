@@ -18,6 +18,7 @@ import java.util.Map;
 public class SgsiConfiguracaoService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
     private static final ObjectMapper JSON = new ObjectMapper();
 
     public List<Map<String, Object>> listar() {
@@ -44,6 +45,9 @@ public class SgsiConfiguracaoService {
         if (n == 0) {
             return null;
         }
+        // record_id é NOT NULL na audit_log e a configuração tem PK textual (chave) — 0 = sem id numérico.
+        audit.log("sgsi_configuracao", 0L, "UPDATE", userId,
+                Map.of("evento", "ATUALIZADO", "chave", chave, "valor", valorJson), null, null);
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT chave, valor::text AS valor, descricao, atualizado_em " +
                 "FROM sgsi_configuracao WHERE chave = ?", chave);

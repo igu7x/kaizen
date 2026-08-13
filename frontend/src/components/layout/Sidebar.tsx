@@ -32,6 +32,7 @@ import {
   Gavel,
   Lock,
   SlidersHorizontal,
+  History,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -279,6 +280,11 @@ const menuItemsCompleto: MenuItem[] = [
         title: "Configurações",
         icon: SlidersHorizontal,
         path: "/seguranca-informacao/configuracoes",
+      },
+      {
+        title: "Auditoria",
+        icon: History,
+        path: "/seguranca-informacao/auditoria",
       },
     ],
   },

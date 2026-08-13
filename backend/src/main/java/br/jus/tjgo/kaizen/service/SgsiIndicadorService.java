@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 public class SgsiIndicadorService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
 
     private static final Pattern COMPETENCIA = Pattern.compile("^\\d{4}-\\d{2}$");
 
@@ -71,6 +72,9 @@ public class SgsiIndicadorService {
                 "      data_referencia = EXCLUDED.data_referencia, registrado_por = EXCLUDED.registrado_por",
                 indicadorId, comp, comp + "-01", valor,
                 (observacao == null || observacao.isBlank()) ? null : observacao.trim(), userId);
+
+        audit.log("sgsi_indicador", indicadorId, "UPDATE", userId,
+                Map.of("evento", "MEDICAO_REGISTRADA", "competencia", comp), null, null);
 
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT id, indicador_id, competencia, data_referencia, valor, observacao, criado_em " +

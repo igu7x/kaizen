@@ -16,6 +16,7 @@ import java.util.Map;
 public class SgsiAtaService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
 
     private static final String SELECT_BASE =
             "SELECT a.id, a.data_reuniao, a.instrumento_codigo, i.sigla_oficial AS instrumento_sigla, " +
@@ -46,11 +47,12 @@ public class SgsiAtaService {
                 data, str(b.get("instrumento_codigo")), titulo, str(b.get("participantes")),
                 str(b.get("pauta")), str(b.get("deliberacoes")), str(b.get("encaminhamentos")),
                 str(b.get("numero_emissao")), userId);
+        audit.log("sgsi_ata", id, "INSERT", userId, Map.of("evento", "CRIADO"), null, null);
         return buscar(id);
     }
 
     @Transactional
-    public Map<String, Object> atualizar(long id, Map<String, Object> b) {
+    public Map<String, Object> atualizar(long id, Map<String, Object> b, Long userId) {
         if (buscar(id) == null) return null;
         String titulo = str(b.get("titulo"));
         String data = str(b.get("data_reuniao"));
@@ -62,12 +64,17 @@ public class SgsiAtaService {
                 data, str(b.get("instrumento_codigo")), titulo, str(b.get("participantes")),
                 str(b.get("pauta")), str(b.get("deliberacoes")), str(b.get("encaminhamentos")),
                 str(b.get("numero_emissao")), id);
+        audit.log("sgsi_ata", id, "UPDATE", userId, Map.of("evento", "ATUALIZADO"), null, null);
         return buscar(id);
     }
 
     @Transactional
-    public boolean deletar(long id) {
-        return jdbc.update("DELETE FROM sgsi_ata WHERE id = ?", id) > 0;
+    public boolean deletar(long id, Long userId) {
+        boolean ok = jdbc.update("DELETE FROM sgsi_ata WHERE id = ?", id) > 0;
+        if (ok) {
+            audit.log("sgsi_ata", id, "DELETE", userId, Map.of("evento", "EXCLUIDO"), null, null);
+        }
+        return ok;
     }
 
     private static String str(Object v) {

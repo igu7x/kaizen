@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiAtaService;
+import br.jus.tjgo.kaizen.service.SgsiAuditoriaService;
 import br.jus.tjgo.kaizen.service.SgsiConfiguracaoService;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiEmissaoService;
@@ -45,6 +46,7 @@ public class SgsiController {
     private final SgsiAtaService atas;
     private final SgsiProcessoService processos;
     private final SgsiConfiguracaoService configuracoes;
+    private final SgsiAuditoriaService auditoria;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -123,7 +125,7 @@ public class SgsiController {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
         try {
-            Map<String, Object> r = riscos.atualizar(id, body == null ? Map.of() : body);
+            Map<String, Object> r = riscos.atualizar(id, body == null ? Map.of() : body, userId());
             if (r == null) {
                 return ResponseEntity.status(404).body(Map.of("error", "Risco não encontrado"));
             }
@@ -138,7 +140,7 @@ public class SgsiController {
     public ResponseEntity<?> deletarRisco(@PathVariable long id) {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
-        if (!riscos.deletar(id)) {
+        if (!riscos.deletar(id, userId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Risco não encontrado"));
         }
         return ResponseEntity.ok(Map.of("success", true));
@@ -265,7 +267,7 @@ public class SgsiController {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
         try {
-            Map<String, Object> a = atas.atualizar(id, body == null ? Map.of() : body);
+            Map<String, Object> a = atas.atualizar(id, body == null ? Map.of() : body, userId());
             if (a == null) {
                 return ResponseEntity.status(404).body(Map.of("error", "Ata não encontrada"));
             }
@@ -280,7 +282,7 @@ public class SgsiController {
     public ResponseEntity<?> deletarAta(@PathVariable long id) {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
-        if (!atas.deletar(id)) {
+        if (!atas.deletar(id, userId())) {
             return ResponseEntity.status(404).body(Map.of("error", "Ata não encontrada"));
         }
         return ResponseEntity.ok(Map.of("success", true));
@@ -350,6 +352,26 @@ public class SgsiController {
         return ResponseEntity.ok(painel.resumo());
     }
 
+    // GET /api/sgsi/auditoria?acao=&tabela=&busca=&limite= — trilha de auditoria do módulo
+    @GetMapping("/auditoria")
+    public ResponseEntity<?> auditoria(
+            @RequestParam(value = "acao", required = false) String acao,
+            @RequestParam(value = "tabela", required = false) String tabela,
+            @RequestParam(value = "busca", required = false) String busca,
+            @RequestParam(value = "limite", required = false) Integer limite) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(auditoria.listar(acao, tabela, busca, limite));
+    }
+
+    // GET /api/sgsi/auditoria/facetas — ações e tabelas distintas para os filtros
+    @GetMapping("/auditoria/facetas")
+    public ResponseEntity<?> auditoriaFacetas() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(auditoria.facetas());
+    }
+
     // GET /api/sgsi/instrumentos
     @GetMapping("/instrumentos")
     public ResponseEntity<?> listarInstrumentos() {
@@ -409,7 +431,7 @@ public class SgsiController {
         if (g != null) return g;
         String status = body == null ? null : str(body.get("status"));
         try {
-            Map<String, Object> atualizado = documentos.atualizarStatus(id, status);
+            Map<String, Object> atualizado = documentos.atualizarStatus(id, status, userId());
             if (atualizado == null) {
                 return ResponseEntity.status(404).body(Map.of("error", "Documento não encontrado"));
             }

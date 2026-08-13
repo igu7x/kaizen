@@ -20,6 +20,7 @@ import java.util.Set;
 public class SgsiDocumentoService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
 
     private static final Set<String> STATUS_VALIDOS = Set.of(
             "PENDENTE", "EM_ELABORACAO", "EM_REVISAO", "EM_ASSINATURA",
@@ -61,13 +62,18 @@ public class SgsiDocumentoService {
 
     /** Atualiza apenas o status (fatia atual). Retorna o documento, null se não existir. */
     @Transactional
-    public Map<String, Object> atualizarStatus(long id, String status) {
+    public Map<String, Object> atualizarStatus(long id, String status, Long userId) {
         if (status == null || !STATUS_VALIDOS.contains(status.trim())) {
             throw new IllegalArgumentException("status inválido");
         }
         int n = jdbc.update(
                 "UPDATE sgsi_documento SET status = ?, atualizado_em = now() WHERE id = ?",
                 status.trim(), id);
-        return n > 0 ? buscar(id) : null;
+        if (n == 0) {
+            return null;
+        }
+        audit.log("sgsi_documento", id, "UPDATE", userId,
+                Map.of("evento", "STATUS_ALTERADO", "status", status.trim()), null, null);
+        return buscar(id);
     }
 }

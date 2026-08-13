@@ -24,6 +24,7 @@ public class SgsiRelatorioService {
 
     private final JdbcTemplate jdbc;
     private final SgsiEmissaoService emissoes;
+    private final AuditService audit;
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private static final String SERIE_RELATORIO = "REL";
@@ -135,6 +136,8 @@ public class SgsiRelatorioService {
                 Long.class,
                 numero, catalogoCodigo, titulo, periodo, destinatario,
                 conteudoJson, str(b.get("observacoes")), hash, userId);
+        audit.log("sgsi_relatorio", id, "INSERT", userId,
+                Map.of("evento", "EMITIDO", "numero", numero, "catalogo", catalogoCodigo), null, null);
         return buscar(id);
     }
 

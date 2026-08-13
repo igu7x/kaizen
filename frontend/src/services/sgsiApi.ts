@@ -413,6 +413,24 @@ export interface SgsiProcessoDetalhe extends SgsiProcesso {
   flows: SgsiProcessoFlow[];
 }
 
+/** Registro da trilha de auditoria do SGSI (leitura de audit_log). */
+export interface SgsiAuditoria {
+  id: number;
+  created_at: string;
+  action: string;
+  table_name: string;
+  record_id: number | null;
+  user_id: number | null;
+  user_name: string | null;
+  user_email: string | null;
+  changed_fields: string | null;
+}
+
+export interface SgsiAuditoriaFacetas {
+  acoes: string[];
+  tabelas: string[];
+}
+
 /** Configuração (parâmetro) do SGSI — chave → valor JSON (texto cru). */
 export interface SgsiConfiguracao {
   chave: string;
@@ -790,6 +808,35 @@ export const sgsiApi = {
       tarefa_numero: num(m.tarefa_numero),
       prazo_marco: num(m.prazo_marco),
     }));
+  },
+
+  async getAuditoria(params?: {
+    acao?: string;
+    tabela?: string;
+    busca?: string;
+    limite?: number;
+  }): Promise<SgsiAuditoria[]> {
+    const q = new URLSearchParams();
+    if (params?.acao) q.set("acao", params.acao);
+    if (params?.tabela) q.set("tabela", params.tabela);
+    if (params?.busca) q.set("busca", params.busca);
+    if (params?.limite) q.set("limite", String(params.limite));
+    const qs = q.toString();
+    const data = await apiClient.get<SgsiAuditoria[]>(
+      `${BASE}/auditoria${qs ? `?${qs}` : ""}`,
+    );
+    return (data || []).map((a) => ({
+      ...a,
+      id: Number(a.id),
+      record_id: a.record_id === null ? null : Number(a.record_id),
+      user_id: a.user_id === null ? null : Number(a.user_id),
+    }));
+  },
+
+  getAuditoriaFacetas(): Promise<SgsiAuditoriaFacetas> {
+    return apiClient
+      .get<SgsiAuditoriaFacetas>(`${BASE}/auditoria/facetas`)
+      .then((d) => d || { acoes: [], tabelas: [] });
   },
 
   getConfiguracoes(): Promise<SgsiConfiguracao[]> {

@@ -19,6 +19,7 @@ import java.util.Set;
 public class SgsiTarefaService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
 
     private static final Set<String> STATUS_VALIDOS = Set.of(
             "NAO_INICIADA", "EM_ANDAMENTO", "CONCLUIDA", "ATRASADA", "BLOQUEADA");
@@ -72,6 +73,9 @@ public class SgsiTarefaService {
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 id, statusAnterior, statusNovo, pctAnterior, pctNovo,
                 (observacao == null || observacao.isBlank()) ? null : observacao.trim(), userId);
+
+        audit.log("sgsi_tarefa", id, "UPDATE", userId,
+                Map.of("evento", "ATUALIZADO", "status", statusNovo), null, null);
 
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT id, instrumento_codigo, numero, fase, tipo, oque, porque, onde, quem, " +

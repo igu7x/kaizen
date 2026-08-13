@@ -18,6 +18,7 @@ import java.util.Set;
 public class SgsiFrameworkService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
 
     private static final Set<String> STATUS_VALIDOS = Set.of(
             "NAO_AVALIADO", "CONFORME", "PARCIALMENTE_CONFORME", "NAO_CONFORME", "NAO_APLICAVEL");
@@ -70,6 +71,9 @@ public class SgsiFrameworkService {
                 "      avaliado_por = EXCLUDED.avaliado_por, avaliado_em = now()",
                 itemId, status.trim(),
                 (observacao == null || observacao.isBlank()) ? null : observacao.trim(), userId);
+
+        audit.log("sgsi_framework_item", itemId, "UPDATE", userId,
+                Map.of("evento", "AVALIADO", "status", status.trim()), null, null);
 
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT fi.id, fi.framework_codigo, fi.item_id, fi.nome, fi.ordem, " +

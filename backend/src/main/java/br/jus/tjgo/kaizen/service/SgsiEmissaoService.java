@@ -23,6 +23,7 @@ import java.util.Set;
 public class SgsiEmissaoService {
 
     private final JdbcTemplate jdbc;
+    private final AuditService audit;
 
     private static final Set<String> CLASSIFICACOES = Set.of(
             "PUBLICA", "INTERNA", "RESTRITA", "SIGILOSA_CLASSIFICADA");
@@ -100,6 +101,8 @@ public class SgsiEmissaoService {
                 str(b.get("tipo")), str(b.get("instrumento_codigo")), str(b.get("referencia")),
                 dataEmissao.toString(), autoridade, str(b.get("proad")), classificacao,
                 str(b.get("observacoes")), hash, userId);
+        audit.log("sgsi_emissao", id, "INSERT", userId,
+                Map.of("evento", "EMITIDO", "numero", numero, "serie", serieCodigo), null, null);
         return buscar(id);
     }
 
@@ -142,6 +145,8 @@ public class SgsiEmissaoService {
                 (String) e.get("autoridade"), (String) e.get("classificacao"),
                 (String) e.get("proad"), (String) e.get("referencia"), fileHash));
         jdbc.update("UPDATE sgsi_emissao SET hash_sha256 = ? WHERE id = ?", novoHash, emissaoId);
+        audit.log("sgsi_emissao", emissaoId, "UPDATE", userId,
+                Map.of("evento", "DIGITALIZADO"), null, null);
         return buscar(emissaoId);
     }
 
@@ -164,6 +169,8 @@ public class SgsiEmissaoService {
             // ou não existe, ou já estava cancelada
             return buscar(emissaoId);
         }
+        audit.log("sgsi_emissao", emissaoId, "UPDATE", userId,
+                Map.of("evento", "CANCELADO", "motivo", motivo.trim()), null, null);
         return buscar(emissaoId);
     }
 
