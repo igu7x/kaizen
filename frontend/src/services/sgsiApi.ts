@@ -363,6 +363,14 @@ export interface SgsiProcessoDetalhe extends SgsiProcesso {
   flows: SgsiProcessoFlow[];
 }
 
+/** Configuração (parâmetro) do SGSI — chave → valor JSON (texto cru). */
+export interface SgsiConfiguracao {
+  chave: string;
+  valor: string;
+  descricao: string | null;
+  atualizado_em?: string;
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -688,6 +696,19 @@ export const sgsiApi = {
       tarefa_numero: num(m.tarefa_numero),
       prazo_marco: num(m.prazo_marco),
     }));
+  },
+
+  getConfiguracoes(): Promise<SgsiConfiguracao[]> {
+    return apiClient
+      .get<SgsiConfiguracao[]>(`${BASE}/configuracoes`)
+      .then((d) => d || []);
+  },
+
+  atualizarConfiguracao(chave: string, valor: string): Promise<SgsiConfiguracao> {
+    return apiClient.put<SgsiConfiguracao>(
+      `${BASE}/configuracoes/${encodeURIComponent(chave)}`,
+      { valor },
+    );
   },
 };
 

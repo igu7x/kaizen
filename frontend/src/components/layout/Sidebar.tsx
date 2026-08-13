@@ -31,6 +31,7 @@ import {
   Cpu,
   Gavel,
   Lock,
+  SlidersHorizontal,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -273,6 +274,11 @@ const menuItemsCompleto: MenuItem[] = [
         title: "Matriz de Rastreabilidade",
         icon: Workflow,
         path: "/seguranca-informacao/matriz",
+      },
+      {
+        title: "Configurações",
+        icon: SlidersHorizontal,
+        path: "/seguranca-informacao/configuracoes",
       },
     ],
   },

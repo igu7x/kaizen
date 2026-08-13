@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiAtaService;
+import br.jus.tjgo.kaizen.service.SgsiConfiguracaoService;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiEmissaoService;
 import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
@@ -43,6 +44,7 @@ public class SgsiController {
     private final SgsiRelatorioService relatorios;
     private final SgsiAtaService atas;
     private final SgsiProcessoService processos;
+    private final SgsiConfiguracaoService configuracoes;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -442,6 +444,31 @@ public class SgsiController {
                 return ResponseEntity.status(404).body(Map.of("error", "Tarefa não encontrada"));
             }
             return ResponseEntity.ok(atualizada);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/sgsi/configuracoes — parâmetros do SGSI (chave → valor JSON)
+    @GetMapping("/configuracoes")
+    public ResponseEntity<?> listarConfiguracoes() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(configuracoes.listar());
+    }
+
+    // PUT /api/sgsi/configuracoes/{chave} — { valor (JSON) }
+    @PutMapping("/configuracoes/{chave}")
+    public ResponseEntity<?> atualizarConfiguracao(@PathVariable String chave, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        String valor = body == null ? null : str(body.get("valor"));
+        try {
+            Map<String, Object> c = configuracoes.atualizar(chave, valor, userId());
+            if (c == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Configuração não encontrada"));
+            }
+            return ResponseEntity.ok(c);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         }
