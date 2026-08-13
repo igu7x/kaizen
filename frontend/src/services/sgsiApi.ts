@@ -308,6 +308,19 @@ export interface SgsiEmissao {
   arquivo_hash: string | null;
 }
 
+/** Modelo de relatório do catálogo do SGSI. */
+export interface SgsiRelatorioCatalogo {
+  codigo: string;
+  nome: string;
+  obrigatorio: boolean;
+  periodicidade: string;
+  destinatario: string;
+  base_normativa: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  ordem: number;
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -562,6 +575,17 @@ export const sgsiApi = {
         motivo,
       }),
     );
+  },
+
+  async getCatalogoRelatorios(): Promise<SgsiRelatorioCatalogo[]> {
+    const data = await apiClient.get<SgsiRelatorioCatalogo[]>(
+      `${BASE}/relatorios/catalogo`,
+    );
+    return (data || []).map((c) => ({
+      ...c,
+      ordem: Number(c.ordem),
+      obrigatorio: c.obrigatorio === true || String(c.obrigatorio) === "true",
+    }));
   },
 
   async getMatriz(): Promise<SgsiMatrizItem[]> {

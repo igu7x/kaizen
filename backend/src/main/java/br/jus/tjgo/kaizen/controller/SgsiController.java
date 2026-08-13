@@ -9,6 +9,7 @@ import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
 import br.jus.tjgo.kaizen.service.SgsiMatrizService;
 import br.jus.tjgo.kaizen.service.SgsiPainelService;
+import br.jus.tjgo.kaizen.service.SgsiRelatorioService;
 import br.jus.tjgo.kaizen.service.SgsiRiscoService;
 import br.jus.tjgo.kaizen.service.SgsiTarefaService;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class SgsiController {
     private final SgsiRiscoService riscos;
     private final SgsiMatrizService matriz;
     private final SgsiEmissaoService emissoes;
+    private final SgsiRelatorioService relatorios;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -209,6 +211,14 @@ public class SgsiController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(400).body(Map.of("error", ex.getMessage()));
         }
+    }
+
+    // GET /api/sgsi/relatorios/catalogo — modelos de relatório do SGSI
+    @GetMapping("/relatorios/catalogo")
+    public ResponseEntity<?> catalogoRelatorios() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(relatorios.listarCatalogo());
     }
 
     // GET /api/sgsi/matriz — matriz de rastreabilidade consolidada
