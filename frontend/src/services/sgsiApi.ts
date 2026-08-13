@@ -261,6 +261,53 @@ export interface SgsiMatrizItem {
   prazo_efetivo: string | null;
 }
 
+/** Série de numeração de documentos. */
+export interface SgsiSerie {
+  codigo: string;
+  nome: string;
+  prefixo: string;
+  mascara: string;
+  digitos: number;
+  reinicia: "ANO" | "NUNCA";
+  orgao: string | null;
+  ativa: boolean;
+}
+
+export type SgsiClassificacao =
+  | "PUBLICA"
+  | "INTERNA"
+  | "RESTRITA"
+  | "SIGILOSA_CLASSIFICADA";
+
+/** Emissão (documento numerado) do livro de emissões. */
+export interface SgsiEmissao {
+  id: number;
+  numero: string;
+  serie_codigo: string;
+  serie_nome: string | null;
+  sequencial: number;
+  ano: number;
+  documento_id: number | null;
+  titulo: string;
+  tipo: string | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  referencia: string | null;
+  data_emissao: string;
+  autoridade: string;
+  proad: string | null;
+  classificacao: SgsiClassificacao;
+  observacoes: string | null;
+  hash_sha256: string;
+  status: "EMITIDO" | "CANCELADO";
+  cancel_motivo: string | null;
+  cancel_em: string | null;
+  emitido_em?: string;
+  digitalizado: boolean;
+  arquivo_nome: string | null;
+  arquivo_hash: string | null;
+}
+
 const BASE = "/api/sgsi";
 
 // O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
@@ -477,6 +524,46 @@ export const sgsiApi = {
     return apiClient.delete<{ success: boolean }>(`${BASE}/riscos/${id}`);
   },
 
+  async listarSeries(): Promise<SgsiSerie[]> {
+    const data = await apiClient.get<SgsiSerie[]>(`${BASE}/series`);
+    return (data || []).map((s) => ({ ...s, digitos: Number(s.digitos) }));
+  },
+
+  async listarEmissoes(): Promise<SgsiEmissao[]> {
+    const data = await apiClient.get<SgsiEmissao[]>(`${BASE}/emissoes`);
+    return (data || []).map(normEmissao);
+  },
+
+  async emitir(input: Record<string, unknown>): Promise<SgsiEmissao> {
+    return normEmissao(await apiClient.post<SgsiEmissao>(`${BASE}/emissoes`, input));
+  },
+
+  async anexarDigitalizacao(
+    id: number,
+    arquivo: { nome: string; mime: string; conteudo: string },
+  ): Promise<SgsiEmissao> {
+    return normEmissao(
+      await apiClient.put<SgsiEmissao>(
+        `${BASE}/emissoes/${id}/digitalizacao`,
+        arquivo,
+      ),
+    );
+  },
+
+  getDigitalizacao(
+    id: number,
+  ): Promise<{ nome: string; mime: string; conteudo_base64: string }> {
+    return apiClient.get(`${BASE}/emissoes/${id}/digitalizacao`);
+  },
+
+  async cancelarEmissao(id: number, motivo: string): Promise<SgsiEmissao> {
+    return normEmissao(
+      await apiClient.patch<SgsiEmissao>(`${BASE}/emissoes/${id}/cancelar`, {
+        motivo,
+      }),
+    );
+  },
+
   async getMatriz(): Promise<SgsiMatrizItem[]> {
     const data = await apiClient.get<SgsiMatrizItem[]>(`${BASE}/matriz`);
     return (data || []).map((m) => ({
@@ -488,6 +575,17 @@ export const sgsiApi = {
     }));
   },
 };
+
+function normEmissao(e: SgsiEmissao): SgsiEmissao {
+  return {
+    ...e,
+    id: Number(e.id),
+    sequencial: Number(e.sequencial),
+    ano: Number(e.ano),
+    documento_id: num(e.documento_id),
+    digitalizado: e.digitalizado === true || String(e.digitalizado) === "true",
+  };
+}
 
 function normRisco(r: SgsiRisco): SgsiRisco {
   return {

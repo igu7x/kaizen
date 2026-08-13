@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
+import br.jus.tjgo.kaizen.service.SgsiEmissaoService;
 import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
 import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
@@ -35,6 +36,7 @@ public class SgsiController {
     private final SgsiFrameworkService frameworks;
     private final SgsiRiscoService riscos;
     private final SgsiMatrizService matriz;
+    private final SgsiEmissaoService emissoes;
     private final SgsiPainelService painel;
 
     /** Guarda provisória: só superadmin. Retorna null se ok, ou a resposta de erro (401/403). */
@@ -132,6 +134,81 @@ public class SgsiController {
             return ResponseEntity.status(404).body(Map.of("error", "Risco não encontrado"));
         }
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // GET /api/sgsi/series
+    @GetMapping("/series")
+    public ResponseEntity<?> listarSeries() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(emissoes.listarSeries());
+    }
+
+    // GET /api/sgsi/emissoes
+    @GetMapping("/emissoes")
+    public ResponseEntity<?> listarEmissoes() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(emissoes.listarEmissoes());
+    }
+
+    // POST /api/sgsi/emissoes — emitir documento numerado
+    @PostMapping("/emissoes")
+    public ResponseEntity<?> emitir(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(emissoes.emitir(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PUT /api/sgsi/emissoes/{id}/digitalizacao — { nome, mime, conteudo (base64) }
+    @PutMapping("/emissoes/{id:\\d+}/digitalizacao")
+    public ResponseEntity<?> digitalizar(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> e = emissoes.anexarDigitalizacao(id,
+                    str(body == null ? null : body.get("nome")),
+                    str(body == null ? null : body.get("mime")),
+                    str(body == null ? null : body.get("conteudo")), userId());
+            if (e == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Emissão não encontrada"));
+            }
+            return ResponseEntity.ok(e);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(400).body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    // GET /api/sgsi/emissoes/{id}/digitalizacao — conteúdo do PDF
+    @GetMapping("/emissoes/{id:\\d+}/digitalizacao")
+    public ResponseEntity<?> getDigitalizacao(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> a = emissoes.getDigitalizacao(id);
+        if (a == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Sem digitalização"));
+        }
+        return ResponseEntity.ok(a);
+    }
+
+    // PATCH /api/sgsi/emissoes/{id}/cancelar — { motivo }
+    @PatchMapping("/emissoes/{id:\\d+}/cancelar")
+    public ResponseEntity<?> cancelarEmissao(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> e = emissoes.cancelar(id, str(body == null ? null : body.get("motivo")), userId());
+            if (e == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Emissão não encontrada"));
+            }
+            return ResponseEntity.ok(e);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(400).body(Map.of("error", ex.getMessage()));
+        }
     }
 
     // GET /api/sgsi/matriz — matriz de rastreabilidade consolidada

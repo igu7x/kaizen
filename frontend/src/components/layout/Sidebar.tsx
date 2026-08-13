@@ -250,6 +250,11 @@ const menuItemsCompleto: MenuItem[] = [
         path: "/seguranca-informacao/riscos",
       },
       {
+        title: "Emissões",
+        icon: FilePlus,
+        path: "/seguranca-informacao/emissoes",
+      },
+      {
         title: "Matriz de Rastreabilidade",
         icon: Workflow,
         path: "/seguranca-informacao/matriz",
