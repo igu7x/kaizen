@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronRight, Loader2, ShieldCheck, Lock } from "lucide-react";
+import { ChevronRight, Loader2, ShieldCheck, Lock, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -40,6 +40,7 @@ const STATUS_ORDEM: SgsiTarefaStatus[] = [
 const pct = (v: number) => `${Math.round((v || 0) * 100)}%`;
 
 export default function SgsiInstrumentoDetalhe() {
+  const navigate = useNavigate();
   const { codigo = "" } = useParams();
   const [instrumento, setInstrumento] = useState<SgsiInstrumento | null>(null);
   const [tarefas, setTarefas] = useState<SgsiTarefa[]>([]);
@@ -95,6 +96,18 @@ export default function SgsiInstrumentoDetalhe() {
               { label: instrumento?.sigla_oficial || codigo },
             ]}
           />
+
+          <div className="mt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/seguranca-informacao/instrumentos")}
+              className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 -ml-2"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Instrumentos
+            </Button>
+          </div>
 
           {loading ? (
             <div className="flex items-center justify-center py-24 text-slate-500">

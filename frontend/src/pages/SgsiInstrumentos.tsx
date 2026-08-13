@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, ShieldCheck, Lock, Search } from "lucide-react";
+import { Loader2, ShieldCheck, Lock, Search, ArrowLeft } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sgsiApi, SgsiInstrumento } from "@/services/sgsiApi";
 
@@ -37,6 +38,18 @@ export default function SgsiInstrumentos() {
       <div className="page-transition-enter min-h-full">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <Breadcrumbs items={[{ label: "Segurança da Informação" }]} />
+
+          <div className="mt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 -ml-2"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Voltar
+            </Button>
+          </div>
 
           {/* Header */}
           <div className="mt-4 mb-6 flex items-center gap-4">
