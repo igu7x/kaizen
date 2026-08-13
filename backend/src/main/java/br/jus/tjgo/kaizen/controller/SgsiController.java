@@ -3,6 +3,7 @@ package br.jus.tjgo.kaizen.controller;
 import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.AuthenticatedUser;
 import br.jus.tjgo.kaizen.service.SgsiAlertaService;
+import br.jus.tjgo.kaizen.service.SgsiApiService;
 import br.jus.tjgo.kaizen.service.SgsiAtaService;
 import br.jus.tjgo.kaizen.service.SgsiAuditoriaService;
 import br.jus.tjgo.kaizen.service.SgsiConfiguracaoService;
@@ -54,6 +55,7 @@ public class SgsiController {
     private final SgsiLeituraService leitura;
     private final SgsiEventosService eventos;
     private final SgsiAlertaService alertas;
+    private final SgsiApiService apiIntegracao;
     private final SgsiAuditoriaService auditoria;
     private final SgsiPainelService painel;
 
@@ -444,6 +446,96 @@ public class SgsiController {
             return fwd.split(",")[0].trim();
         }
         return req.getRemoteAddr();
+    }
+
+    // ─── Integração: API e Webhooks ─────────────────────────────────────────────────────────────
+
+    // GET /api/sgsi/integracao/escopos
+    @GetMapping("/integracao/escopos")
+    public ResponseEntity<?> escopos() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(apiIntegracao.listarEscopos());
+    }
+
+    // GET /api/sgsi/integracao/chaves
+    @GetMapping("/integracao/chaves")
+    public ResponseEntity<?> listarChaves() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(apiIntegracao.listarChaves());
+    }
+
+    // POST /api/sgsi/integracao/chaves — cria e retorna o segredo em claro uma única vez
+    @PostMapping("/integracao/chaves")
+    public ResponseEntity<?> criarChave(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(apiIntegracao.criarChave(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PATCH /api/sgsi/integracao/chaves/{id} — { status }
+    @PatchMapping("/integracao/chaves/{id}")
+    public ResponseEntity<?> alterarChave(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> k = apiIntegracao.alterarStatusChave(id, str(body == null ? null : body.get("status")), userId());
+            if (k == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Chave não encontrada"));
+            }
+            return ResponseEntity.ok(k);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/sgsi/integracao/webhooks
+    @GetMapping("/integracao/webhooks")
+    public ResponseEntity<?> listarWebhooks() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(apiIntegracao.listarWebhooks());
+    }
+
+    // POST /api/sgsi/integracao/webhooks — cria e retorna o segredo em claro uma única vez
+    @PostMapping("/integracao/webhooks")
+    public ResponseEntity<?> criarWebhook(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(apiIntegracao.criarWebhook(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PATCH /api/sgsi/integracao/webhooks/{id} — { ativo }
+    @PatchMapping("/integracao/webhooks/{id:\\d+}")
+    public ResponseEntity<?> alternarWebhook(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        boolean ativo = body != null && Boolean.parseBoolean(String.valueOf(body.get("ativo")));
+        Map<String, Object> w = apiIntegracao.alternarWebhook(id, ativo, userId());
+        if (w == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Webhook não encontrado"));
+        }
+        return ResponseEntity.ok(w);
+    }
+
+    // DELETE /api/sgsi/integracao/webhooks/{id}
+    @DeleteMapping("/integracao/webhooks/{id:\\d+}")
+    public ResponseEntity<?> deletarWebhook(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        if (!apiIntegracao.deletarWebhook(id, userId())) {
+            return ResponseEntity.status(404).body(Map.of("error", "Webhook não encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     // ─── Alertas (RN-06/07/08/09) ───────────────────────────────────────────────────────────────

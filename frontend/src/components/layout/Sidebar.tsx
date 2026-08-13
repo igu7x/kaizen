@@ -36,6 +36,7 @@ import {
   BookCheck,
   ShieldAlert,
   Bell,
+  Plug,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -293,6 +294,11 @@ const menuItemsCompleto: MenuItem[] = [
         title: "Matriz de Rastreabilidade",
         icon: Workflow,
         path: "/seguranca-informacao/matriz",
+      },
+      {
+        title: "Integração (API)",
+        icon: Plug,
+        path: "/seguranca-informacao/integracao",
       },
       {
         title: "Configurações",

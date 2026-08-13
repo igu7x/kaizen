@@ -462,6 +462,41 @@ export interface SgsiProcessoDetalhe extends SgsiProcesso {
   flows: SgsiProcessoFlow[];
 }
 
+/** Escopo de API (permissão granular de máquina). */
+export interface SgsiApiEscopo {
+  codigo: string;
+  descricao: string;
+}
+
+/** Chave de API (credencial de máquina). O segredo só vem no retorno da criação. */
+export interface SgsiApiChave {
+  id: string;
+  nome: string;
+  unidade: string | null;
+  exige_mtls: boolean;
+  limite_por_min: number | null;
+  expiracao: string | null;
+  status: "ATIVA" | "SUSPENSA" | "REVOGADA";
+  criada_em: string;
+  escopos: string | null;
+}
+export interface SgsiApiChaveCriada extends SgsiApiChave {
+  segredo: string;
+}
+
+/** Webhook de saída. */
+export interface SgsiWebhook {
+  id: number;
+  nome: string;
+  url: string;
+  eventos: string | null;
+  ativo: boolean;
+  criado_em: string;
+}
+export interface SgsiWebhookCriado extends SgsiWebhook {
+  segredo: string;
+}
+
 /** Alerta derivado (calculado de um prazo, não persistido) — RN-07. */
 export interface SgsiAlertaDerivado {
   chave: string;
@@ -1104,6 +1139,60 @@ export const sgsiApi = {
       tarefa_numero: num(m.tarefa_numero),
       prazo_marco: num(m.prazo_marco),
     }));
+  },
+
+  getEscopos(): Promise<SgsiApiEscopo[]> {
+    return apiClient
+      .get<SgsiApiEscopo[]>(`${BASE}/integracao/escopos`)
+      .then((d) => d || []);
+  },
+
+  async getChaves(): Promise<SgsiApiChave[]> {
+    const d = await apiClient.get<SgsiApiChave[]>(`${BASE}/integracao/chaves`);
+    return (d || []).map((k) => ({
+      ...k,
+      exige_mtls: k.exige_mtls === true || String(k.exige_mtls) === "true",
+      limite_por_min: k.limite_por_min == null ? null : Number(k.limite_por_min),
+    }));
+  },
+
+  criarChave(input: Record<string, unknown>): Promise<SgsiApiChaveCriada> {
+    return apiClient.post<SgsiApiChaveCriada>(`${BASE}/integracao/chaves`, input);
+  },
+
+  alterarStatusChave(id: string, status: string): Promise<SgsiApiChave> {
+    return apiClient.patch<SgsiApiChave>(
+      `${BASE}/integracao/chaves/${encodeURIComponent(id)}`,
+      { status },
+    );
+  },
+
+  async getWebhooks(): Promise<SgsiWebhook[]> {
+    const d = await apiClient.get<SgsiWebhook[]>(`${BASE}/integracao/webhooks`);
+    return (d || []).map((w) => ({
+      ...w,
+      id: Number(w.id),
+      ativo: w.ativo === true || String(w.ativo) === "true",
+    }));
+  },
+
+  criarWebhook(input: Record<string, unknown>): Promise<SgsiWebhookCriado> {
+    return apiClient.post<SgsiWebhookCriado>(
+      `${BASE}/integracao/webhooks`,
+      input,
+    );
+  },
+
+  alternarWebhook(id: number, ativo: boolean): Promise<SgsiWebhook> {
+    return apiClient.patch<SgsiWebhook>(`${BASE}/integracao/webhooks/${id}`, {
+      ativo,
+    });
+  },
+
+  removerWebhook(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/integracao/webhooks/${id}`,
+    );
   },
 
   async getAlertas(): Promise<SgsiAlertasPainel> {

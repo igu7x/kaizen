@@ -54,6 +54,7 @@ import SgsiAuditoria from "./pages/SgsiAuditoria";
 import SgsiLeitura from "./pages/SgsiLeitura";
 import SgsiEventos from "./pages/SgsiEventos";
 import SgsiAlertas from "./pages/SgsiAlertas";
+import SgsiIntegracao from "./pages/SgsiIntegracao";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -280,6 +281,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <SgsiAlertas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/integracao"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiIntegracao />
                       </ProtectedRoute>
                     }
                   />
