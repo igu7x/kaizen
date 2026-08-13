@@ -1,0 +1,1503 @@
+import { apiClient } from "./apiClient";
+
+/** Instrumento normativo do SGSI (POSIC/TJGO basilar + 13 complementares). */
+export interface SgsiInstrumento {
+  codigo: string;
+  ordem: number;
+  numeral_romano: string | null;
+  sigla_oficial: string;
+  nome_curto: string;
+  nome_completo: string;
+  titulo_plano: string | null;
+  cor_hex: string | null;
+  restrito: boolean;
+  artigos: number | null;
+  versao: string | null;
+  ancora: string;
+  vigente_desde: string | null;
+  // Agregados do plano 5W2H (só no listar).
+  total_tarefas?: number;
+  tarefas_concluidas?: number;
+  progresso?: number;
+}
+
+export type SgsiTarefaStatus =
+  | "NAO_INICIADA"
+  | "EM_ANDAMENTO"
+  | "CONCLUIDA"
+  | "ATRASADA"
+  | "BLOQUEADA";
+
+/** Tarefa do plano de trabalho 5W2H de um instrumento. */
+export interface SgsiTarefa {
+  id: number;
+  instrumento_codigo: string;
+  numero: number;
+  fase: string;
+  tipo: string;
+  oque: string;
+  porque: string | null;
+  onde: string | null;
+  quem: string | null;
+  como: string | null;
+  custo: string | null;
+  dados_levantar: string | null;
+  inicio_m: number;
+  fim_m: number;
+  status: SgsiTarefaStatus;
+  percentual: number; // 0..1
+  responsavel_id: number | null;
+  atualizado_por: number | null;
+  atualizado_em?: string;
+}
+
+export type SgsiDocumentoStatus =
+  | "PENDENTE"
+  | "EM_ELABORACAO"
+  | "EM_REVISAO"
+  | "EM_ASSINATURA"
+  | "ASSINADO"
+  | "PUBLICADO"
+  | "CANCELADO";
+
+/** Obrigação documental exigida por um instrumento (286 no total). */
+export interface SgsiDocumento {
+  id: number;
+  seed_key: string | null;
+  nome: string;
+  tipo: string;
+  instrumento_codigo: string | null;
+  tarefa_id: number | null;
+  atividade: string | null;
+  referencia: string | null;
+  responsavel: string | null;
+  prazo_marco: number | null;
+  prazo_data: string | null;
+  status: SgsiDocumentoStatus;
+  origem: string;
+  numero_emissao: string | null;
+  atualizado_em?: string;
+  // Enriquecimento (join).
+  instrumento_sigla: string | null;
+  instrumento_numeral: string | null;
+  instrumento_ordem: number | null;
+  tarefa_numero: number | null;
+  // Workflow (checkout / versão / assinatura / tramitação).
+  checkout_id: number | null;
+  checkout_em: string | null;
+  checkout_nome: string | null;
+  titular_id: number | null;
+  titular_nome: string | null;
+  versao_atual: number | null;
+  assinaturas: number | null;
+}
+
+/** Colaborador (direito permanente de edição) de um documento. */
+export interface SgsiDocumentoColaborador {
+  usuario_id: number;
+  nome: string;
+  email: string | null;
+  incluido_em: string;
+}
+
+/** Item do histórico de tramitação de um documento. */
+export interface SgsiDocumentoTramitacao {
+  id: number;
+  de_usuario_id: number | null;
+  de_nome: string | null;
+  para_usuario_id: number;
+  para_nome: string | null;
+  despacho: string | null;
+  criado_em: string;
+}
+
+/** Item do histórico de versões de um documento (sem conteúdo). */
+export interface SgsiDocumentoVersao {
+  numero: number;
+  caracteres: number;
+  criado_em: string;
+  autor_nome: string | null;
+}
+
+/** Versão com o conteúdo. */
+export interface SgsiDocumentoVersaoConteudo extends SgsiDocumentoVersao {
+  conteudo: string;
+}
+
+/** Assinatura registrada sobre uma versão. */
+export interface SgsiDocumentoAssinatura {
+  nome: string;
+  login: string;
+  versao_numero: number | null;
+  hash_sha256: string;
+  criado_em: string;
+}
+
+/** Indicador do SGSI (31). Meta/tolerância podem ser nulas (aguardando deliberação do CGSI). */
+export interface SgsiIndicador {
+  id: number;
+  seed_key: string | null;
+  instrumento_codigo: string | null;
+  tarefa_id: number | null;
+  nome: string;
+  referencia: string | null;
+  responsavel: string | null;
+  formula: string | null;
+  unidade: string;
+  meta: number | null;
+  tolerancia: number | null;
+  direcao: ">=" | "<=";
+  frequencia: string | null;
+  ativo: boolean;
+  instrumento_sigla: string | null;
+  instrumento_ordem: number | null;
+  ultimo_valor: number | null;
+  ultima_competencia: string | null;
+  ultima_data: string | null;
+}
+
+/** Medição de um indicador numa competência (AAAA-MM). */
+export interface SgsiMedicao {
+  id: number;
+  indicador_id: number;
+  competencia: string;
+  data_referencia: string;
+  valor: number;
+  observacao: string | null;
+  criado_em?: string;
+}
+
+/** Visão executiva agregada do módulo (Painel de Compliance). */
+export interface SgsiPainel {
+  tarefas: {
+    total: number;
+    concluidas: number;
+    em_andamento: number;
+    atrasadas: number;
+    bloqueadas: number;
+    nao_iniciadas: number;
+    progresso: number;
+  };
+  documentos: {
+    total: number;
+    pendentes: number;
+    publicados: number;
+    cancelados: number;
+  };
+  indicadores: {
+    total: number;
+    com_meta: number;
+    com_medicao: number;
+    dentro_meta: number;
+    fora_meta: number;
+  };
+  instrumentos: {
+    codigo: string;
+    sigla_oficial: string;
+    numeral_romano: string | null;
+    ordem: number;
+    cor_hex: string | null;
+    restrito: boolean;
+    total_tarefas: number;
+    tarefas_concluidas: number;
+    progresso: number;
+  }[];
+}
+
+/** Framework de governança (CIS, NIST, ISO 27001/27002, COBIT, LGPD). */
+export interface SgsiFramework {
+  codigo: string;
+  nome: string;
+  descricao: string | null;
+  ordem: number;
+  total_itens: number;
+  avaliados: number;
+  conformes: number;
+}
+
+export type SgsiAvaliacaoStatus =
+  | "NAO_AVALIADO"
+  | "CONFORME"
+  | "PARCIALMENTE_CONFORME"
+  | "NAO_CONFORME"
+  | "NAO_APLICAVEL";
+
+/** Item de um framework, com instrumentos vinculados e avaliação de conformidade. */
+export interface SgsiFrameworkItem {
+  id: number;
+  framework_codigo: string;
+  item_id: string;
+  nome: string;
+  ordem: number;
+  avaliacao_status: SgsiAvaliacaoStatus;
+  avaliacao_observacao: string | null;
+  avaliado_em?: string | null;
+  instrumentos: string | null; // siglas separadas por vírgula
+}
+
+export type SgsiRiscoStatus =
+  | "IDENTIFICADO"
+  | "EM_ANALISE"
+  | "EM_TRATAMENTO"
+  | "MITIGADO"
+  | "ACEITO";
+export type SgsiPlanoStatus = "NAO_INICIADO" | "EM_ANDAMENTO" | "CONCLUIDO";
+
+/** Risco do registro do SGSI. O IRS é calculado no backend (prob × sev × relevância). */
+export interface SgsiRisco {
+  id: number;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  titulo: string;
+  ativo_informacao: string | null;
+  ameaca: string | null;
+  vulnerabilidade: string | null;
+  dono: string | null;
+  probabilidade: number;
+  severidade: number;
+  relevancia: number;
+  probabilidade_residual: number | null;
+  severidade_residual: number | null;
+  controles: string | null;
+  status: SgsiRiscoStatus;
+  criado_em?: string;
+  atualizado_em?: string;
+  irs_inerente: number;
+  irs_residual: number;
+  plano_descricao: string | null;
+  plano_responsavel: string | null;
+  plano_prazo: string | null;
+  plano_status: SgsiPlanoStatus | null;
+}
+
+export type SgsiRiscoInput = {
+  titulo: string;
+  instrumento_codigo?: string | null;
+  status?: SgsiRiscoStatus;
+  ativo_informacao?: string | null;
+  ameaca?: string | null;
+  vulnerabilidade?: string | null;
+  dono?: string | null;
+  probabilidade: number;
+  severidade: number;
+  relevancia: number;
+  probabilidade_residual?: number | null;
+  severidade_residual?: number | null;
+  controles?: string | null;
+  plano_descricao?: string | null;
+  plano_responsavel?: string | null;
+  plano_prazo?: string | null;
+  plano_status?: SgsiPlanoStatus | null;
+};
+
+/** Linha da Matriz de Rastreabilidade (atividade → normativo → documento → emissão). */
+export interface SgsiMatrizItem {
+  id: number;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  instrumento_numeral: string | null;
+  instrumento_ordem: number | null;
+  tarefa_numero: number | null;
+  tarefa_fase: string | null;
+  atividade: string | null;
+  documento: string;
+  tipo: string;
+  normativo_origem: string | null;
+  responsavel: string | null;
+  prazo_marco: number | null;
+  status: string;
+  numero_emissao: string | null;
+  prazo_efetivo: string | null;
+}
+
+/** Série de numeração de documentos. */
+export interface SgsiSerie {
+  codigo: string;
+  nome: string;
+  prefixo: string;
+  mascara: string;
+  digitos: number;
+  reinicia: "ANO" | "NUNCA";
+  orgao: string | null;
+  ativa: boolean;
+}
+
+export type SgsiClassificacao =
+  | "PUBLICA"
+  | "INTERNA"
+  | "RESTRITA"
+  | "SIGILOSA_CLASSIFICADA";
+
+/** Emissão (documento numerado) do livro de emissões. */
+export interface SgsiEmissao {
+  id: number;
+  numero: string;
+  serie_codigo: string;
+  serie_nome: string | null;
+  sequencial: number;
+  ano: number;
+  documento_id: number | null;
+  titulo: string;
+  tipo: string | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  referencia: string | null;
+  data_emissao: string;
+  autoridade: string;
+  proad: string | null;
+  classificacao: SgsiClassificacao;
+  observacoes: string | null;
+  hash_sha256: string;
+  status: "EMITIDO" | "CANCELADO";
+  cancel_motivo: string | null;
+  cancel_em: string | null;
+  emitido_em?: string;
+  digitalizado: boolean;
+  arquivo_nome: string | null;
+  arquivo_hash: string | null;
+}
+
+/** Modelo de relatório do catálogo do SGSI. */
+export interface SgsiRelatorioCatalogo {
+  codigo: string;
+  nome: string;
+  obrigatorio: boolean;
+  periodicidade: string;
+  destinatario: string;
+  base_normativa: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  ordem: number;
+}
+
+/** Relatório efetivamente emitido — item da lista. */
+export interface SgsiRelatorio {
+  id: number;
+  numero: string;
+  catalogo_codigo: string;
+  catalogo_nome: string;
+  obrigatorio?: boolean;
+  titulo: string;
+  periodo: string | null;
+  destinatario: string | null;
+  observacoes: string | null;
+  hash_sha256: string;
+  data_emissao: string;
+  emissao_status: string | null;
+}
+
+/** Retrato imutável de um indicador no instante da emissão (RN-37). */
+export interface SgsiRelatorioIndicadorSnapshot {
+  id: number;
+  nome: string;
+  unidade: string | null;
+  meta: number | null;
+  tolerancia: number | null;
+  direcao: string | null;
+  frequencia: string | null;
+  instrumento_sigla: string | null;
+  competencia: string | null;
+  valor: number | null;
+}
+
+export interface SgsiRelatorioConteudo {
+  gerado_em: string;
+  indicadores: SgsiRelatorioIndicadorSnapshot[];
+}
+
+/** Relatório emitido com o snapshot parseado. */
+export interface SgsiRelatorioDetalhe extends SgsiRelatorio {
+  conteudo: SgsiRelatorioConteudo | null;
+}
+
+/** Modelo obrigatório sem emissão no ano corrente (pendência RN-36). */
+export interface SgsiRelatorioPendencia {
+  codigo: string;
+  nome: string;
+  periodicidade: string;
+  destinatario: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+}
+
+/** Ata de reunião de comitê do SGSI. */
+export interface SgsiAta {
+  id: number;
+  data_reuniao: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  titulo: string;
+  participantes: string | null;
+  pauta: string | null;
+  deliberacoes: string | null;
+  encaminhamentos: string | null;
+  numero_emissao: string | null;
+  criado_em?: string;
+}
+
+/** Processo de negócio (BPMN) — item da lista. */
+export interface SgsiProcesso {
+  id: string;
+  nome: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  referencia: string | null;
+  restrito: boolean;
+  versao: number;
+  raias?: number;
+  nos?: number;
+}
+
+export interface SgsiProcessoNode {
+  id: string;
+  t: "start" | "task" | "gw" | "end";
+  n: string;
+  l: number;
+}
+export type SgsiProcessoFlow = [string, string] | [string, string, string];
+
+export interface SgsiProcessoDetalhe extends SgsiProcesso {
+  lanes: string[];
+  nodes: SgsiProcessoNode[];
+  flows: SgsiProcessoFlow[];
+}
+
+/** Sistema inventariado no SBOM (item da lista). */
+export interface SgsiSbomSistema {
+  id: string;
+  sistema: string;
+  versao: string | null;
+  fornecedor: string | null;
+  tipo: string | null;
+  criticidade: "ALTA" | "MEDIA" | "BAIXA" | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  formato: string | null;
+  data_referencia: string | null;
+  origem: "REAL" | "DEMONSTRACAO";
+  criado_em: string;
+  componentes: number;
+  eol_vencidos: number;
+}
+
+/** Componente de software de um SBOM. */
+export interface SgsiSbomComponente {
+  id: number;
+  nome: string;
+  versao: string | null;
+  fornecedor: string | null;
+  licenca: string | null;
+  tipo: string | null;
+  procedencia: string | null;
+  purl: string | null;
+  eol_data: string | null;
+}
+
+/** Sistema com seus componentes. */
+export interface SgsiSbomDetalhe {
+  id: string;
+  sistema: string;
+  versao: string | null;
+  fornecedor: string | null;
+  tipo: string | null;
+  criticidade: "ALTA" | "MEDIA" | "BAIXA" | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  formato: string | null;
+  data_referencia: string | null;
+  observacoes: string | null;
+  origem: "REAL" | "DEMONSTRACAO";
+  componentes: SgsiSbomComponente[];
+}
+
+/** Escopo de API (permissão granular de máquina). */
+export interface SgsiApiEscopo {
+  codigo: string;
+  descricao: string;
+}
+
+/** Chave de API (credencial de máquina). O segredo só vem no retorno da criação. */
+export interface SgsiApiChave {
+  id: string;
+  nome: string;
+  unidade: string | null;
+  exige_mtls: boolean;
+  limite_por_min: number | null;
+  expiracao: string | null;
+  status: "ATIVA" | "SUSPENSA" | "REVOGADA";
+  criada_em: string;
+  escopos: string | null;
+}
+export interface SgsiApiChaveCriada extends SgsiApiChave {
+  segredo: string;
+}
+
+/** Webhook de saída. */
+export interface SgsiWebhook {
+  id: number;
+  nome: string;
+  url: string;
+  eventos: string | null;
+  ativo: boolean;
+  criado_em: string;
+}
+export interface SgsiWebhookCriado extends SgsiWebhook {
+  segredo: string;
+}
+
+/** Alerta derivado (calculado de um prazo, não persistido) — RN-07. */
+export interface SgsiAlertaDerivado {
+  chave: string;
+  tipo: "DOCUMENTO" | "TAREFA";
+  ref_id: number;
+  titulo: string;
+  instrumento: string | null;
+  data_limite: string;
+  dias: number;
+  gravidade: "VENCIDO" | "PROXIMO";
+}
+
+/** Alerta registrado (persistido, criado por usuário/API) — RN-06. */
+export interface SgsiAlertaRegistrado {
+  id: number;
+  titulo: string;
+  descricao: string | null;
+  data_referencia: string | null;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+  origem: "MANUAL" | "API";
+  lido: boolean;
+  criado_em: string;
+}
+
+export interface SgsiAlertasPainel {
+  derivados: SgsiAlertaDerivado[];
+  registrados: SgsiAlertaRegistrado[];
+  contador: number;
+}
+
+/** Evento de RH com prazo de ação derivado da norma (RN-40). */
+export interface SgsiEventoRh {
+  id: number;
+  tipo: "DESLIGAMENTO" | "MOVIMENTACAO" | "AFASTAMENTO" | "INGRESSO";
+  matricula: string;
+  nome: string | null;
+  unidade: string | null;
+  data_evento: string;
+  prazo_acao: string;
+  situacao: "PENDENTE" | "EXECUTADO" | "FALHA";
+  executado_em: string | null;
+  origem: string | null;
+  criado_em?: string;
+}
+
+/** Incidente de segurança com prazo de acionamento derivado da severidade (RN-41). */
+export interface SgsiIncidente {
+  id: number;
+  severidade: "BAIXA" | "MEDIA" | "ALTA" | "CRITICA";
+  titulo: string;
+  descricao: string | null;
+  ativos: string | null;
+  dados_pessoais: boolean;
+  fornecedor: string | null;
+  detectado_em: string;
+  prazo_acionamento: string;
+  situacao: "TRIAGEM" | "EM_TRATAMENTO" | "CONTIDO" | "ENCERRADO";
+  origem: string | null;
+  criado_em?: string;
+}
+
+/** Panorama de ciência de um instrumento (RN-39). */
+export interface SgsiLeituraItem {
+  codigo: string;
+  sigla_oficial: string | null;
+  numeral_romano: string | null;
+  ordem: number;
+  requisitos: number;
+  exigidos: number;
+  confirmados: number;
+  eu_confirmei: boolean;
+  eu_exigido: boolean;
+}
+
+export interface SgsiLeituraLeitor {
+  usuario_id: number;
+  nome: string;
+  email: string | null;
+  confirmado: boolean;
+  confirmado_em: string | null;
+}
+
+export interface SgsiLeituraDetalhe {
+  instrumento: {
+    codigo: string;
+    sigla_oficial: string | null;
+    nome_completo: string | null;
+    numeral_romano: string | null;
+  };
+  modo: "TODOS" | "LISTA";
+  exigidos: number;
+  confirmados: number;
+  leitores: SgsiLeituraLeitor[];
+}
+
+/** Registro da trilha de auditoria do SGSI (leitura de audit_log). */
+export interface SgsiAuditoria {
+  id: number;
+  created_at: string;
+  action: string;
+  table_name: string;
+  record_id: number | null;
+  user_id: number | null;
+  user_name: string | null;
+  user_email: string | null;
+  changed_fields: string | null;
+}
+
+export interface SgsiAuditoriaFacetas {
+  acoes: string[];
+  tabelas: string[];
+}
+
+/** Configuração (parâmetro) do SGSI — chave → valor JSON (texto cru). */
+export interface SgsiConfiguracao {
+  chave: string;
+  valor: string;
+  descricao: string | null;
+  atualizado_em?: string;
+}
+
+const BASE = "/api/sgsi";
+
+// O Jackson serializa numeric/bigint como STRING — coagimos os numéricos aqui.
+function normInstrumento(i: SgsiInstrumento): SgsiInstrumento {
+  return {
+    ...i,
+    ordem: Number(i.ordem),
+    total_tarefas: i.total_tarefas != null ? Number(i.total_tarefas) : undefined,
+    tarefas_concluidas:
+      i.tarefas_concluidas != null ? Number(i.tarefas_concluidas) : undefined,
+    progresso: i.progresso != null ? Number(i.progresso) : undefined,
+  };
+}
+
+function num(v: unknown): number | null {
+  return v == null ? null : Number(v);
+}
+
+function normDocumento(d: SgsiDocumento): SgsiDocumento {
+  return {
+    ...d,
+    id: Number(d.id),
+    tarefa_id: num(d.tarefa_id),
+    prazo_marco: num(d.prazo_marco),
+    instrumento_ordem: num(d.instrumento_ordem),
+    tarefa_numero: num(d.tarefa_numero),
+    checkout_id: num(d.checkout_id),
+    titular_id: num(d.titular_id),
+    versao_atual: num(d.versao_atual),
+    assinaturas: num(d.assinaturas),
+  };
+}
+
+function normIndicador(i: SgsiIndicador): SgsiIndicador {
+  return {
+    ...i,
+    id: Number(i.id),
+    tarefa_id: num(i.tarefa_id),
+    meta: num(i.meta),
+    tolerancia: num(i.tolerancia),
+    ultimo_valor: num(i.ultimo_valor),
+    instrumento_ordem: num(i.instrumento_ordem),
+  };
+}
+
+function normMedicao(m: SgsiMedicao): SgsiMedicao {
+  return {
+    ...m,
+    id: Number(m.id),
+    indicador_id: Number(m.indicador_id),
+    valor: Number(m.valor),
+  };
+}
+
+function normTarefa(t: SgsiTarefa): SgsiTarefa {
+  return {
+    ...t,
+    id: Number(t.id),
+    numero: Number(t.numero),
+    inicio_m: Number(t.inicio_m),
+    fim_m: Number(t.fim_m),
+    percentual: Number(t.percentual),
+  };
+}
+
+function nrec<T extends Record<string, unknown>>(o: T): T {
+  const r: Record<string, unknown> = { ...o };
+  for (const k of Object.keys(r)) r[k] = Number(r[k]);
+  return r as T;
+}
+
+export const sgsiApi = {
+  async getPainel(): Promise<SgsiPainel> {
+    const p = await apiClient.get<SgsiPainel>(`${BASE}/painel`);
+    return {
+      tarefas: nrec(p.tarefas),
+      documentos: nrec(p.documentos),
+      indicadores: nrec(p.indicadores),
+      instrumentos: (p.instrumentos || []).map((i) => ({
+        ...i,
+        ordem: Number(i.ordem),
+        total_tarefas: Number(i.total_tarefas),
+        tarefas_concluidas: Number(i.tarefas_concluidas),
+        progresso: Number(i.progresso),
+      })),
+    };
+  },
+
+  async listarInstrumentos(): Promise<SgsiInstrumento[]> {
+    const data = await apiClient.get<SgsiInstrumento[]>(`${BASE}/instrumentos`);
+    return (data || []).map(normInstrumento);
+  },
+
+  async buscarInstrumento(codigo: string): Promise<SgsiInstrumento> {
+    return normInstrumento(
+      await apiClient.get<SgsiInstrumento>(
+        `${BASE}/instrumentos/${encodeURIComponent(codigo)}`,
+      ),
+    );
+  },
+
+  async listarTarefas(codigo: string): Promise<SgsiTarefa[]> {
+    const data = await apiClient.get<SgsiTarefa[]>(
+      `${BASE}/instrumentos/${encodeURIComponent(codigo)}/tarefas`,
+    );
+    return (data || []).map(normTarefa);
+  },
+
+  async atualizarTarefa(
+    id: number,
+    dados: {
+      status?: SgsiTarefaStatus;
+      percentual?: number; // 0..1
+      observacao?: string;
+    },
+  ): Promise<SgsiTarefa> {
+    return normTarefa(
+      await apiClient.patch<SgsiTarefa>(`${BASE}/tarefas/${id}`, dados),
+    );
+  },
+
+  async listarDocumentos(filtros?: {
+    instrumento?: string;
+    status?: string;
+    tipo?: string;
+  }): Promise<SgsiDocumento[]> {
+    const qs = new URLSearchParams();
+    if (filtros?.instrumento) qs.set("instrumento", filtros.instrumento);
+    if (filtros?.status) qs.set("status", filtros.status);
+    if (filtros?.tipo) qs.set("tipo", filtros.tipo);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const data = await apiClient.get<SgsiDocumento[]>(
+      `${BASE}/documentos${suffix}`,
+    );
+    return (data || []).map(normDocumento);
+  },
+
+  async atualizarStatusDocumento(
+    id: number,
+    status: SgsiDocumentoStatus,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.patch<SgsiDocumento>(`${BASE}/documentos/${id}`, {
+        status,
+      }),
+    );
+  },
+
+  // ── Workflow do documento ──────────────────────────────────────────────
+  async assumirEdicaoDocumento(id: number): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/checkout`, {}),
+    );
+  },
+
+  async liberarEdicaoDocumento(
+    id: number,
+    forcar = false,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.delete<SgsiDocumento>(
+        `${BASE}/documentos/${id}/checkout${forcar ? "?forcar=true" : ""}`,
+      ),
+    );
+  },
+
+  async gravarVersaoDocumento(
+    id: number,
+    conteudo: string,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/versoes`, {
+        conteudo,
+      }),
+    );
+  },
+
+  async listarVersoesDocumento(id: number): Promise<SgsiDocumentoVersao[]> {
+    const data = await apiClient.get<SgsiDocumentoVersao[]>(
+      `${BASE}/documentos/${id}/versoes`,
+    );
+    return (data || []).map((v) => ({
+      ...v,
+      numero: Number(v.numero),
+      caracteres: Number(v.caracteres),
+    }));
+  },
+
+  async getVersaoVigente(
+    id: number,
+  ): Promise<SgsiDocumentoVersaoConteudo | null> {
+    const v = await apiClient.get<SgsiDocumentoVersaoConteudo>(
+      `${BASE}/documentos/${id}/versoes/vigente`,
+    );
+    return v && v.numero != null
+      ? { ...v, numero: Number(v.numero), caracteres: Number(v.caracteres) }
+      : null;
+  },
+
+  async getVersaoDocumento(
+    id: number,
+    numero: number,
+  ): Promise<SgsiDocumentoVersaoConteudo> {
+    const v = await apiClient.get<SgsiDocumentoVersaoConteudo>(
+      `${BASE}/documentos/${id}/versoes/${numero}`,
+    );
+    return { ...v, numero: Number(v.numero), caracteres: Number(v.caracteres) };
+  },
+
+  async listarAssinaturasDocumento(
+    id: number,
+  ): Promise<SgsiDocumentoAssinatura[]> {
+    const data = await apiClient.get<SgsiDocumentoAssinatura[]>(
+      `${BASE}/documentos/${id}/assinaturas`,
+    );
+    return (data || []).map((a) => ({
+      ...a,
+      versao_numero: a.versao_numero == null ? null : Number(a.versao_numero),
+    }));
+  },
+
+  async assinarDocumento(id: number): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(
+        `${BASE}/documentos/${id}/assinaturas`,
+        {},
+      ),
+    );
+  },
+
+  async reabrirDocumento(id: number, motivo: string): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/reabrir`, {
+        motivo,
+      }),
+    );
+  },
+
+  async listarColaboradoresDocumento(
+    id: number,
+  ): Promise<SgsiDocumentoColaborador[]> {
+    const data = await apiClient.get<SgsiDocumentoColaborador[]>(
+      `${BASE}/documentos/${id}/colaboradores`,
+    );
+    return (data || []).map((c) => ({ ...c, usuario_id: Number(c.usuario_id) }));
+  },
+
+  async adicionarColaboradorDocumento(
+    id: number,
+    usuarioId: number,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(
+        `${BASE}/documentos/${id}/colaboradores`,
+        { usuario_id: usuarioId },
+      ),
+    );
+  },
+
+  removerColaboradorDocumento(
+    id: number,
+    usuarioId: number,
+  ): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/documentos/${id}/colaboradores/${usuarioId}`,
+    );
+  },
+
+  async listarTramitacoesDocumento(
+    id: number,
+  ): Promise<SgsiDocumentoTramitacao[]> {
+    const data = await apiClient.get<SgsiDocumentoTramitacao[]>(
+      `${BASE}/documentos/${id}/tramitacoes`,
+    );
+    return (data || []).map((t) => ({
+      ...t,
+      id: Number(t.id),
+      de_usuario_id: t.de_usuario_id == null ? null : Number(t.de_usuario_id),
+      para_usuario_id: Number(t.para_usuario_id),
+    }));
+  },
+
+  async tramitarDocumento(
+    id: number,
+    paraUsuarioId: number,
+    despacho: string | null,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/tramitar`, {
+        para_usuario_id: paraUsuarioId,
+        despacho,
+      }),
+    );
+  },
+
+  async listarIndicadores(): Promise<SgsiIndicador[]> {
+    const data = await apiClient.get<SgsiIndicador[]>(`${BASE}/indicadores`);
+    return (data || []).map(normIndicador);
+  },
+
+  async listarMedicoes(indicadorId: number): Promise<SgsiMedicao[]> {
+    const data = await apiClient.get<SgsiMedicao[]>(
+      `${BASE}/indicadores/${indicadorId}/medicoes`,
+    );
+    return (data || []).map(normMedicao);
+  },
+
+  async registrarMedicao(
+    indicadorId: number,
+    dados: { competencia: string; valor: number; observacao?: string },
+  ): Promise<SgsiMedicao> {
+    return normMedicao(
+      await apiClient.post<SgsiMedicao>(
+        `${BASE}/indicadores/${indicadorId}/medicoes`,
+        dados,
+      ),
+    );
+  },
+
+  async listarFrameworks(): Promise<SgsiFramework[]> {
+    const data = await apiClient.get<SgsiFramework[]>(`${BASE}/frameworks`);
+    return (data || []).map((f) => ({
+      ...f,
+      ordem: Number(f.ordem),
+      total_itens: Number(f.total_itens),
+      avaliados: Number(f.avaliados),
+      conformes: Number(f.conformes),
+    }));
+  },
+
+  async listarItensFramework(codigo: string): Promise<SgsiFrameworkItem[]> {
+    const data = await apiClient.get<SgsiFrameworkItem[]>(
+      `${BASE}/frameworks/${encodeURIComponent(codigo)}/itens`,
+    );
+    return (data || []).map((i) => ({ ...i, id: Number(i.id), ordem: Number(i.ordem) }));
+  },
+
+  async avaliarItemFramework(
+    itemId: number,
+    dados: { status: SgsiAvaliacaoStatus; observacao?: string },
+  ): Promise<SgsiFrameworkItem> {
+    const i = await apiClient.put<SgsiFrameworkItem>(
+      `${BASE}/frameworks/itens/${itemId}/avaliacao`,
+      dados,
+    );
+    return { ...i, id: Number(i.id), ordem: Number(i.ordem) };
+  },
+
+  async listarRiscos(): Promise<SgsiRisco[]> {
+    const data = await apiClient.get<SgsiRisco[]>(`${BASE}/riscos`);
+    return (data || []).map(normRisco);
+  },
+
+  async criarRisco(input: SgsiRiscoInput): Promise<SgsiRisco> {
+    return normRisco(await apiClient.post<SgsiRisco>(`${BASE}/riscos`, input));
+  },
+
+  async atualizarRisco(id: number, input: SgsiRiscoInput): Promise<SgsiRisco> {
+    return normRisco(
+      await apiClient.put<SgsiRisco>(`${BASE}/riscos/${id}`, input),
+    );
+  },
+
+  removerRisco(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(`${BASE}/riscos/${id}`);
+  },
+
+  async listarSeries(): Promise<SgsiSerie[]> {
+    const data = await apiClient.get<SgsiSerie[]>(`${BASE}/series`);
+    return (data || []).map((s) => ({ ...s, digitos: Number(s.digitos) }));
+  },
+
+  async listarEmissoes(): Promise<SgsiEmissao[]> {
+    const data = await apiClient.get<SgsiEmissao[]>(`${BASE}/emissoes`);
+    return (data || []).map(normEmissao);
+  },
+
+  async emitir(input: Record<string, unknown>): Promise<SgsiEmissao> {
+    return normEmissao(await apiClient.post<SgsiEmissao>(`${BASE}/emissoes`, input));
+  },
+
+  async anexarDigitalizacao(
+    id: number,
+    arquivo: { nome: string; mime: string; conteudo: string },
+  ): Promise<SgsiEmissao> {
+    return normEmissao(
+      await apiClient.put<SgsiEmissao>(
+        `${BASE}/emissoes/${id}/digitalizacao`,
+        arquivo,
+      ),
+    );
+  },
+
+  getDigitalizacao(
+    id: number,
+  ): Promise<{ nome: string; mime: string; conteudo_base64: string }> {
+    return apiClient.get(`${BASE}/emissoes/${id}/digitalizacao`);
+  },
+
+  async cancelarEmissao(id: number, motivo: string): Promise<SgsiEmissao> {
+    return normEmissao(
+      await apiClient.patch<SgsiEmissao>(`${BASE}/emissoes/${id}/cancelar`, {
+        motivo,
+      }),
+    );
+  },
+
+  async listarProcessos(): Promise<SgsiProcesso[]> {
+    const data = await apiClient.get<SgsiProcesso[]>(`${BASE}/processos`);
+    return (data || []).map((p) => ({
+      ...p,
+      versao: Number(p.versao),
+      raias: p.raias != null ? Number(p.raias) : undefined,
+      nos: p.nos != null ? Number(p.nos) : undefined,
+    }));
+  },
+
+  async buscarProcesso(id: string): Promise<SgsiProcessoDetalhe> {
+    const p = await apiClient.get<
+      SgsiProcesso & { lanes: string; nodes: string; flows: string }
+    >(`${BASE}/processos/${encodeURIComponent(id)}`);
+    const parse = <T>(s: string): T => {
+      try {
+        return JSON.parse(s || "[]") as T;
+      } catch {
+        return [] as unknown as T;
+      }
+    };
+    return {
+      ...p,
+      versao: Number(p.versao),
+      lanes: parse<string[]>(p.lanes),
+      nodes: parse<SgsiProcessoNode[]>(p.nodes),
+      flows: parse<SgsiProcessoFlow[]>(p.flows),
+    };
+  },
+
+  async listarAtas(): Promise<SgsiAta[]> {
+    const data = await apiClient.get<SgsiAta[]>(`${BASE}/atas`);
+    return (data || []).map((a) => ({ ...a, id: Number(a.id) }));
+  },
+
+  async criarAta(input: Record<string, unknown>): Promise<SgsiAta> {
+    const a = await apiClient.post<SgsiAta>(`${BASE}/atas`, input);
+    return { ...a, id: Number(a.id) };
+  },
+
+  async atualizarAta(id: number, input: Record<string, unknown>): Promise<SgsiAta> {
+    const a = await apiClient.put<SgsiAta>(`${BASE}/atas/${id}`, input);
+    return { ...a, id: Number(a.id) };
+  },
+
+  removerAta(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(`${BASE}/atas/${id}`);
+  },
+
+  async getCatalogoRelatorios(): Promise<SgsiRelatorioCatalogo[]> {
+    const data = await apiClient.get<SgsiRelatorioCatalogo[]>(
+      `${BASE}/relatorios/catalogo`,
+    );
+    return (data || []).map((c) => ({
+      ...c,
+      ordem: Number(c.ordem),
+      obrigatorio: c.obrigatorio === true || String(c.obrigatorio) === "true",
+    }));
+  },
+
+  async getRelatoriosEmitidos(): Promise<SgsiRelatorio[]> {
+    const data = await apiClient.get<SgsiRelatorio[]>(`${BASE}/relatorios`);
+    return (data || []).map((r) => ({
+      ...r,
+      id: Number(r.id),
+      obrigatorio: r.obrigatorio === true || String(r.obrigatorio) === "true",
+    }));
+  },
+
+  getRelatorioPendencias(): Promise<SgsiRelatorioPendencia[]> {
+    return apiClient
+      .get<SgsiRelatorioPendencia[]>(`${BASE}/relatorios/pendencias`)
+      .then((d) => d || []);
+  },
+
+  async getRelatorio(id: number): Promise<SgsiRelatorioDetalhe> {
+    const r = await apiClient.get<SgsiRelatorio & { conteudo: string }>(
+      `${BASE}/relatorios/${id}`,
+    );
+    let conteudo: SgsiRelatorioConteudo | null = null;
+    try {
+      conteudo = r.conteudo ? JSON.parse(r.conteudo) : null;
+    } catch {
+      conteudo = null;
+    }
+    return { ...r, id: Number(r.id), conteudo };
+  },
+
+  async emitirRelatorio(
+    input: Record<string, unknown>,
+  ): Promise<SgsiRelatorioDetalhe> {
+    const r = await apiClient.post<SgsiRelatorio & { conteudo: string }>(
+      `${BASE}/relatorios`,
+      input,
+    );
+    let conteudo: SgsiRelatorioConteudo | null = null;
+    try {
+      conteudo = r.conteudo ? JSON.parse(r.conteudo) : null;
+    } catch {
+      conteudo = null;
+    }
+    return { ...r, id: Number(r.id), conteudo };
+  },
+
+  async getMatriz(): Promise<SgsiMatrizItem[]> {
+    const data = await apiClient.get<SgsiMatrizItem[]>(`${BASE}/matriz`);
+    return (data || []).map((m) => ({
+      ...m,
+      id: Number(m.id),
+      instrumento_ordem: num(m.instrumento_ordem),
+      tarefa_numero: num(m.tarefa_numero),
+      prazo_marco: num(m.prazo_marco),
+    }));
+  },
+
+  async getSbomSistemas(): Promise<SgsiSbomSistema[]> {
+    const d = await apiClient.get<SgsiSbomSistema[]>(`${BASE}/sbom`);
+    return (d || []).map((s) => ({
+      ...s,
+      componentes: Number(s.componentes),
+      eol_vencidos: Number(s.eol_vencidos),
+    }));
+  },
+
+  async getSbomSistema(id: string): Promise<SgsiSbomDetalhe> {
+    const d = await apiClient.get<SgsiSbomDetalhe>(
+      `${BASE}/sbom/${encodeURIComponent(id)}`,
+    );
+    return {
+      ...d,
+      componentes: (d.componentes || []).map((c) => ({
+        ...c,
+        id: Number(c.id),
+      })),
+    };
+  },
+
+  criarSbomSistema(input: Record<string, unknown>): Promise<SgsiSbomDetalhe> {
+    return apiClient.post<SgsiSbomDetalhe>(`${BASE}/sbom`, input);
+  },
+
+  removerSbomSistema(id: string): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/sbom/${encodeURIComponent(id)}`,
+    );
+  },
+
+  async adicionarComponenteSbom(
+    id: string,
+    input: Record<string, unknown>,
+  ): Promise<SgsiSbomDetalhe> {
+    const d = await apiClient.post<SgsiSbomDetalhe>(
+      `${BASE}/sbom/${encodeURIComponent(id)}/componentes`,
+      input,
+    );
+    return {
+      ...d,
+      componentes: (d.componentes || []).map((c) => ({
+        ...c,
+        id: Number(c.id),
+      })),
+    };
+  },
+
+  removerComponenteSbom(compId: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/sbom/componentes/${compId}`,
+    );
+  },
+
+  getEscopos(): Promise<SgsiApiEscopo[]> {
+    return apiClient
+      .get<SgsiApiEscopo[]>(`${BASE}/integracao/escopos`)
+      .then((d) => d || []);
+  },
+
+  async getChaves(): Promise<SgsiApiChave[]> {
+    const d = await apiClient.get<SgsiApiChave[]>(`${BASE}/integracao/chaves`);
+    return (d || []).map((k) => ({
+      ...k,
+      exige_mtls: k.exige_mtls === true || String(k.exige_mtls) === "true",
+      limite_por_min: k.limite_por_min == null ? null : Number(k.limite_por_min),
+    }));
+  },
+
+  criarChave(input: Record<string, unknown>): Promise<SgsiApiChaveCriada> {
+    return apiClient.post<SgsiApiChaveCriada>(`${BASE}/integracao/chaves`, input);
+  },
+
+  alterarStatusChave(id: string, status: string): Promise<SgsiApiChave> {
+    return apiClient.patch<SgsiApiChave>(
+      `${BASE}/integracao/chaves/${encodeURIComponent(id)}`,
+      { status },
+    );
+  },
+
+  async getWebhooks(): Promise<SgsiWebhook[]> {
+    const d = await apiClient.get<SgsiWebhook[]>(`${BASE}/integracao/webhooks`);
+    return (d || []).map((w) => ({
+      ...w,
+      id: Number(w.id),
+      ativo: w.ativo === true || String(w.ativo) === "true",
+    }));
+  },
+
+  criarWebhook(input: Record<string, unknown>): Promise<SgsiWebhookCriado> {
+    return apiClient.post<SgsiWebhookCriado>(
+      `${BASE}/integracao/webhooks`,
+      input,
+    );
+  },
+
+  alternarWebhook(id: number, ativo: boolean): Promise<SgsiWebhook> {
+    return apiClient.patch<SgsiWebhook>(`${BASE}/integracao/webhooks/${id}`, {
+      ativo,
+    });
+  },
+
+  removerWebhook(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(
+      `${BASE}/integracao/webhooks/${id}`,
+    );
+  },
+
+  async getAlertas(): Promise<SgsiAlertasPainel> {
+    const d = await apiClient.get<SgsiAlertasPainel>(`${BASE}/alertas`);
+    return {
+      contador: Number(d?.contador ?? 0),
+      derivados: (d?.derivados || []).map((a) => ({
+        ...a,
+        ref_id: Number(a.ref_id),
+        dias: Number(a.dias),
+      })),
+      registrados: (d?.registrados || []).map((a) => ({
+        ...a,
+        id: Number(a.id),
+        lido: a.lido === true || String(a.lido) === "true",
+      })),
+    };
+  },
+
+  criarAlerta(input: Record<string, unknown>): Promise<SgsiAlertaRegistrado> {
+    return apiClient.post<SgsiAlertaRegistrado>(`${BASE}/alertas`, input);
+  },
+
+  marcarLidoAlerta(id: number, lido: boolean): Promise<SgsiAlertaRegistrado> {
+    return apiClient.patch<SgsiAlertaRegistrado>(`${BASE}/alertas/${id}`, {
+      lido,
+    });
+  },
+
+  removerAlerta(id: number): Promise<{ success: boolean }> {
+    return apiClient.delete<{ success: boolean }>(`${BASE}/alertas/${id}`);
+  },
+
+  dispensarAlerta(chave: string): Promise<{ success: boolean }> {
+    return apiClient.post<{ success: boolean }>(`${BASE}/alertas/dispensar`, {
+      chave,
+    });
+  },
+
+  reativarAlerta(chave: string): Promise<{ success: boolean }> {
+    return apiClient.post<{ success: boolean }>(`${BASE}/alertas/reativar`, {
+      chave,
+    });
+  },
+
+  async getEventosRh(situacao?: string): Promise<SgsiEventoRh[]> {
+    const qs = situacao ? `?situacao=${encodeURIComponent(situacao)}` : "";
+    const data = await apiClient.get<SgsiEventoRh[]>(`${BASE}/eventos-rh${qs}`);
+    return (data || []).map((e) => ({ ...e, id: Number(e.id) }));
+  },
+
+  criarEventoRh(input: Record<string, unknown>): Promise<SgsiEventoRh> {
+    return apiClient
+      .post<SgsiEventoRh>(`${BASE}/eventos-rh`, input)
+      .then((e) => ({ ...e, id: Number(e.id) }));
+  },
+
+  atualizarSituacaoEventoRh(
+    id: number,
+    situacao: string,
+  ): Promise<SgsiEventoRh> {
+    return apiClient
+      .patch<SgsiEventoRh>(`${BASE}/eventos-rh/${id}`, { situacao })
+      .then((e) => ({ ...e, id: Number(e.id) }));
+  },
+
+  async getIncidentes(situacao?: string): Promise<SgsiIncidente[]> {
+    const qs = situacao ? `?situacao=${encodeURIComponent(situacao)}` : "";
+    const data = await apiClient.get<SgsiIncidente[]>(`${BASE}/incidentes${qs}`);
+    return (data || []).map((i) => ({
+      ...i,
+      id: Number(i.id),
+      dados_pessoais:
+        i.dados_pessoais === true || String(i.dados_pessoais) === "true",
+    }));
+  },
+
+  criarIncidente(input: Record<string, unknown>): Promise<SgsiIncidente> {
+    return apiClient
+      .post<SgsiIncidente>(`${BASE}/incidentes`, input)
+      .then((i) => ({ ...i, id: Number(i.id) }));
+  },
+
+  atualizarSituacaoIncidente(
+    id: number,
+    situacao: string,
+  ): Promise<SgsiIncidente> {
+    return apiClient
+      .patch<SgsiIncidente>(`${BASE}/incidentes/${id}`, { situacao })
+      .then((i) => ({ ...i, id: Number(i.id) }));
+  },
+
+  async getLeituraPanorama(): Promise<SgsiLeituraItem[]> {
+    const data = await apiClient.get<SgsiLeituraItem[]>(`${BASE}/leitura`);
+    return (data || []).map((i) => ({
+      ...i,
+      ordem: Number(i.ordem),
+      requisitos: Number(i.requisitos),
+      exigidos: Number(i.exigidos),
+      confirmados: Number(i.confirmados),
+      eu_confirmei: i.eu_confirmei === true || String(i.eu_confirmei) === "true",
+      eu_exigido: i.eu_exigido === true || String(i.eu_exigido) === "true",
+    }));
+  },
+
+  async getLeituraDetalhe(codigo: string): Promise<SgsiLeituraDetalhe> {
+    const d = await apiClient.get<SgsiLeituraDetalhe>(
+      `${BASE}/leitura/${encodeURIComponent(codigo)}`,
+    );
+    return {
+      ...d,
+      exigidos: Number(d.exigidos),
+      confirmados: Number(d.confirmados),
+      leitores: (d.leitores || []).map((l) => ({
+        ...l,
+        usuario_id: Number(l.usuario_id),
+        confirmado: l.confirmado === true || String(l.confirmado) === "true",
+      })),
+    };
+  },
+
+  definirRequisitosLeitura(
+    codigo: string,
+    usuarioIds: number[],
+  ): Promise<SgsiLeituraDetalhe> {
+    return apiClient.put<SgsiLeituraDetalhe>(
+      `${BASE}/leitura/${encodeURIComponent(codigo)}/requisitos`,
+      { usuario_ids: usuarioIds },
+    );
+  },
+
+  confirmarLeitura(codigo: string): Promise<SgsiLeituraDetalhe> {
+    return apiClient.post<SgsiLeituraDetalhe>(
+      `${BASE}/leitura/${encodeURIComponent(codigo)}/confirmar`,
+      {},
+    );
+  },
+
+  async getAuditoria(params?: {
+    acao?: string;
+    tabela?: string;
+    busca?: string;
+    limite?: number;
+  }): Promise<SgsiAuditoria[]> {
+    const q = new URLSearchParams();
+    if (params?.acao) q.set("acao", params.acao);
+    if (params?.tabela) q.set("tabela", params.tabela);
+    if (params?.busca) q.set("busca", params.busca);
+    if (params?.limite) q.set("limite", String(params.limite));
+    const qs = q.toString();
+    const data = await apiClient.get<SgsiAuditoria[]>(
+      `${BASE}/auditoria${qs ? `?${qs}` : ""}`,
+    );
+    return (data || []).map((a) => ({
+      ...a,
+      id: Number(a.id),
+      record_id: a.record_id === null ? null : Number(a.record_id),
+      user_id: a.user_id === null ? null : Number(a.user_id),
+    }));
+  },
+
+  getAuditoriaFacetas(): Promise<SgsiAuditoriaFacetas> {
+    return apiClient
+      .get<SgsiAuditoriaFacetas>(`${BASE}/auditoria/facetas`)
+      .then((d) => d || { acoes: [], tabelas: [] });
+  },
+
+  getConfiguracoes(): Promise<SgsiConfiguracao[]> {
+    return apiClient
+      .get<SgsiConfiguracao[]>(`${BASE}/configuracoes`)
+      .then((d) => d || []);
+  },
+
+  atualizarConfiguracao(chave: string, valor: string): Promise<SgsiConfiguracao> {
+    return apiClient.put<SgsiConfiguracao>(
+      `${BASE}/configuracoes/${encodeURIComponent(chave)}`,
+      { valor },
+    );
+  },
+};
+
+function normEmissao(e: SgsiEmissao): SgsiEmissao {
+  return {
+    ...e,
+    id: Number(e.id),
+    sequencial: Number(e.sequencial),
+    ano: Number(e.ano),
+    documento_id: num(e.documento_id),
+    digitalizado: e.digitalizado === true || String(e.digitalizado) === "true",
+  };
+}
+
+function normRisco(r: SgsiRisco): SgsiRisco {
+  return {
+    ...r,
+    id: Number(r.id),
+    probabilidade: Number(r.probabilidade),
+    severidade: Number(r.severidade),
+    relevancia: Number(r.relevancia),
+    probabilidade_residual: num(r.probabilidade_residual),
+    severidade_residual: num(r.severidade_residual),
+    irs_inerente: Number(r.irs_inerente),
+    irs_residual: Number(r.irs_residual),
+  };
+}

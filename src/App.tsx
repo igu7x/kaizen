@@ -37,6 +37,25 @@ import CadastroHub from "./pages/CadastroHub";
 import PdticAcoes from "./pages/PdticAcoes";
 import PermissoesTap from "./pages/PermissoesTap";
 import PermissoesProcessosTi from "./pages/PermissoesProcessosTi";
+import SgsiPainel from "./pages/SgsiPainel";
+import SgsiInstrumentos from "./pages/SgsiInstrumentos";
+import SgsiInstrumentoDetalhe from "./pages/SgsiInstrumentoDetalhe";
+import SgsiDocumentos from "./pages/SgsiDocumentos";
+import SgsiIndicadores from "./pages/SgsiIndicadores";
+import SgsiFrameworks from "./pages/SgsiFrameworks";
+import SgsiRiscos from "./pages/SgsiRiscos";
+import SgsiMatriz from "./pages/SgsiMatriz";
+import SgsiEmissoes from "./pages/SgsiEmissoes";
+import SgsiRelatorios from "./pages/SgsiRelatorios";
+import SgsiAtas from "./pages/SgsiAtas";
+import SgsiProcessos from "./pages/SgsiProcessos";
+import SgsiConfiguracoes from "./pages/SgsiConfiguracoes";
+import SgsiAuditoria from "./pages/SgsiAuditoria";
+import SgsiLeitura from "./pages/SgsiLeitura";
+import SgsiEventos from "./pages/SgsiEventos";
+import SgsiAlertas from "./pages/SgsiAlertas";
+import SgsiIntegracao from "./pages/SgsiIntegracao";
+import SgsiSbom from "./pages/SgsiSbom";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -127,6 +146,158 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Pdtic />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/painel"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiPainel />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/instrumentos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiInstrumentos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/instrumentos/:codigo"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiInstrumentoDetalhe />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/documentos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiDocumentos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/indicadores"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiIndicadores />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/frameworks"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiFrameworks />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/riscos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiRiscos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/emissoes"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiEmissoes />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/relatorios"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiRelatorios />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/atas"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiAtas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/processos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiProcessos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/matriz"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiMatriz />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/configuracoes"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiConfiguracoes />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/auditoria"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiAuditoria />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/leitura"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiLeitura />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/eventos"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiEventos />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/alertas"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiAlertas />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/integracao"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiIntegracao />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seguranca-informacao/sbom"
+                    element={
+                      <ProtectedRoute>
+                        <SgsiSbom />
                       </ProtectedRoute>
                     }
                   />

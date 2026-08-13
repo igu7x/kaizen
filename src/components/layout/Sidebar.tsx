@@ -30,6 +30,14 @@ import {
   BarChart3,
   Cpu,
   Gavel,
+  Lock,
+  SlidersHorizontal,
+  History,
+  BookCheck,
+  ShieldAlert,
+  Bell,
+  Plug,
+  Boxes,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -213,6 +221,104 @@ const menuItemsCompleto: MenuItem[] = [
     permissaoCodigo: "painel_indicadores",
   },
   {
+    // Módulo em construção (porte do SGSI/TJGO). Restrito a superadmin por ora.
+    title: "Gestão de Riscos e Compliance",
+    icon: Lock,
+    superAdminOnly: true,
+    children: [
+      {
+        title: "Painel",
+        icon: LayoutDashboard,
+        path: "/seguranca-informacao/painel",
+      },
+      {
+        title: "Alertas",
+        icon: Bell,
+        path: "/seguranca-informacao/alertas",
+      },
+      {
+        title: "Instrumentos Normativos",
+        icon: BookOpen,
+        path: "/seguranca-informacao/instrumentos",
+      },
+      {
+        title: "Ciência e Leitura",
+        icon: BookCheck,
+        path: "/seguranca-informacao/leitura",
+      },
+      {
+        title: "Obrigações Documentais",
+        icon: FileText,
+        path: "/seguranca-informacao/documentos",
+      },
+      {
+        title: "Indicadores",
+        icon: BarChart3,
+        path: "/seguranca-informacao/indicadores",
+      },
+      {
+        title: "Frameworks",
+        icon: FolderKanban,
+        path: "/seguranca-informacao/frameworks",
+      },
+      {
+        title: "Riscos",
+        icon: Shield,
+        path: "/seguranca-informacao/riscos",
+      },
+      {
+        title: "Eventos e SLA",
+        icon: ShieldAlert,
+        path: "/seguranca-informacao/eventos",
+      },
+      {
+        title: "Emissões",
+        icon: FilePlus,
+        path: "/seguranca-informacao/emissoes",
+      },
+      {
+        title: "Relatórios",
+        icon: FileText,
+        path: "/seguranca-informacao/relatorios",
+      },
+      {
+        title: "Atas",
+        icon: ClipboardList,
+        path: "/seguranca-informacao/atas",
+      },
+      {
+        title: "Processos (BPMN)",
+        icon: Workflow,
+        path: "/seguranca-informacao/processos",
+      },
+      {
+        title: "Matriz de Rastreabilidade",
+        icon: Workflow,
+        path: "/seguranca-informacao/matriz",
+      },
+      {
+        title: "SBOM",
+        icon: Boxes,
+        path: "/seguranca-informacao/sbom",
+      },
+      {
+        title: "Integração (API)",
+        icon: Plug,
+        path: "/seguranca-informacao/integracao",
+      },
+      {
+        title: "Configurações",
+        icon: SlidersHorizontal,
+        path: "/seguranca-informacao/configuracoes",
+      },
+      {
+        title: "Auditoria",
+        icon: History,
+        path: "/seguranca-informacao/auditoria",
+      },
+    ],
+  },
+  {
     title: "Administração",
     icon: Settings,
     adminOnly: true,
@@ -270,6 +376,14 @@ function MenuItemComponent({
   const { user } = useAuth();
 
   if (item.adminOnly && user?.role !== "ADMIN") {
+    return null;
+  }
+
+  // Itens superAdminOnly (no nível do módulo) só aparecem para superadmins
+  if (
+    item.superAdminOnly &&
+    (user as { is_superadmin?: boolean } | null)?.is_superadmin !== true
+  ) {
     return null;
   }
 
