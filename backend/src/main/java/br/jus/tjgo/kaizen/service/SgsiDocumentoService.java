@@ -1,10 +1,14 @@
 package br.jus.tjgo.kaizen.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,15 +30,22 @@ public class SgsiDocumentoService {
             "PENDENTE", "EM_ELABORACAO", "EM_REVISAO", "EM_ASSINATURA",
             "ASSINADO", "PUBLICADO", "CANCELADO");
 
+    /** Status em que o conteúdo fica imutável (RN-14). */
+    private static final Set<String> STATUS_TRAVADOS = Set.of("EM_ASSINATURA", "ASSINADO", "PUBLICADO");
+
     private static final String SELECT_BASE =
             "SELECT d.id, d.seed_key, d.nome, d.tipo, d.instrumento_codigo, d.tarefa_id, " +
             "       d.atividade, d.referencia, d.responsavel, d.prazo_marco, d.prazo_data, " +
             "       d.status, d.origem, d.numero_emissao, d.atualizado_em, " +
+            "       d.checkout_id, d.checkout_em, cu.name AS checkout_nome, " +
+            "       ( SELECT MAX(v.numero) FROM sgsi_documento_versao v WHERE v.documento_id = d.id ) AS versao_atual, " +
+            "       ( SELECT COUNT(*) FROM sgsi_documento_assinatura a WHERE a.documento_id = d.id ) AS assinaturas, " +
             "       i.sigla_oficial AS instrumento_sigla, i.numeral_romano AS instrumento_numeral, " +
             "       i.ordem AS instrumento_ordem, t.numero AS tarefa_numero " +
             "  FROM sgsi_documento d " +
             "  LEFT JOIN sgsi_instrumento i ON i.codigo = d.instrumento_codigo " +
-            "  LEFT JOIN sgsi_tarefa t      ON t.id = d.tarefa_id ";
+            "  LEFT JOIN sgsi_tarefa t      ON t.id = d.tarefa_id " +
+            "  LEFT JOIN users cu           ON cu.id = d.checkout_id ";
 
     public List<Map<String, Object>> listar(String instrumento, String status, String tipo) {
         StringBuilder sql = new StringBuilder(SELECT_BASE).append(" WHERE 1=1 ");
@@ -75,5 +86,189 @@ public class SgsiDocumentoService {
         audit.log("sgsi_documento", id, "UPDATE", userId,
                 Map.of("evento", "STATUS_ALTERADO", "status", status.trim()), null, null);
         return buscar(id);
+    }
+
+    // ─── Workflow: checkout, versionamento e assinatura (RN-14..RN-18) ──────────────────────────
+
+    /** Assume a edição exclusiva (checkout). 409 se travado ou preso por terceiro. */
+    @Transactional
+    public Map<String, Object> assumirEdicao(long id, Long userId) {
+        Map<String, Object> d = estado(id);
+        if (d == null) return null;
+        exigirNaoTravado(d);
+        Long dono = asLong(d.get("checkout_id"));
+        if (dono != null && !dono.equals(userId)) {
+            throw new IllegalStateException("Documento em edição por outro usuário.");
+        }
+        jdbc.update("UPDATE sgsi_documento SET checkout_id = ?, checkout_em = now() WHERE id = ?", userId, id);
+        audit.log("sgsi_documento", id, "UPDATE", userId, Map.of("evento", "CHECKOUT"), null, null);
+        return buscar(id);
+    }
+
+    /** Libera o checkout. Só o dono libera, salvo {@code forcar} (documento:aprovar / superadmin). */
+    @Transactional
+    public Map<String, Object> liberarEdicao(long id, Long userId, boolean forcar) {
+        Map<String, Object> d = estado(id);
+        if (d == null) return null;
+        Long dono = asLong(d.get("checkout_id"));
+        if (dono == null) return buscar(id);
+        if (!dono.equals(userId) && !forcar) {
+            throw new IllegalStateException("Checkout pertence a outro usuário.");
+        }
+        jdbc.update("UPDATE sgsi_documento SET checkout_id = NULL, checkout_em = NULL WHERE id = ?", id);
+        audit.log("sgsi_documento", id, "UPDATE", userId,
+                Map.of("evento", "CHECKOUT_LIBERADO", "forcado", String.valueOf(forcar)), null, null);
+        return buscar(id);
+    }
+
+    /** Grava uma nova versão do conteúdo (RN-16). Exige checkout próprio e documento não travado (RN-15). */
+    @Transactional
+    public Map<String, Object> gravarVersao(long id, String conteudo, Long userId) {
+        if (conteudo == null || conteudo.isBlank()) {
+            throw new IllegalArgumentException("conteúdo é obrigatório");
+        }
+        Map<String, Object> d = estado(id);
+        if (d == null) return null;
+        exigirNaoTravado(d);
+        Long dono = asLong(d.get("checkout_id"));
+        if (dono == null) {
+            throw new IllegalStateException("Assuma a edição do documento antes de gravar.");
+        }
+        if (!dono.equals(userId)) {
+            throw new IllegalStateException("Documento em edição por outro usuário.");
+        }
+        int numero = 1 + jdbc.queryForObject(
+                "SELECT COALESCE(MAX(numero), 0) FROM sgsi_documento_versao WHERE documento_id = ?",
+                Integer.class, id);
+        jdbc.update(
+                "INSERT INTO sgsi_documento_versao (documento_id, numero, conteudo, caracteres, autor_id) " +
+                "VALUES (?, ?, ?, ?, ?)",
+                id, numero, conteudo, conteudo.length(), userId);
+        if ("PENDENTE".equals(d.get("status"))) {
+            jdbc.update("UPDATE sgsi_documento SET status = 'EM_ELABORACAO', atualizado_em = now() WHERE id = ?", id);
+        }
+        audit.log("sgsi_documento", id, "UPDATE", userId,
+                Map.of("evento", "DOC_CONTEUDO_GRAVADO", "versao", String.valueOf(numero)), null, null);
+        return buscar(id);
+    }
+
+    public List<Map<String, Object>> listarVersoes(long id) {
+        return jdbc.queryForList(
+                "SELECT v.numero, v.caracteres, v.criado_em, u.name AS autor_nome " +
+                "FROM sgsi_documento_versao v LEFT JOIN users u ON u.id = v.autor_id " +
+                "WHERE v.documento_id = ? ORDER BY v.numero DESC", id);
+    }
+
+    /** Conteúdo de uma versão; se {@code numero} for null, a vigente (maior número). Null se não houver. */
+    public Map<String, Object> buscarVersao(long id, Integer numero) {
+        String base =
+                "SELECT v.numero, v.conteudo, v.caracteres, v.criado_em, u.name AS autor_nome " +
+                "FROM sgsi_documento_versao v LEFT JOIN users u ON u.id = v.autor_id WHERE v.documento_id = ? ";
+        List<Map<String, Object>> rows = numero == null
+                ? jdbc.queryForList(base + "ORDER BY v.numero DESC LIMIT 1", id)
+                : jdbc.queryForList(base + "AND v.numero = ?", id, numero);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    public List<Map<String, Object>> listarAssinaturas(long id) {
+        return jdbc.queryForList(
+                "SELECT nome, login, versao_numero, hash_sha256, criado_em " +
+                "FROM sgsi_documento_assinatura WHERE documento_id = ? ORDER BY criado_em", id);
+    }
+
+    /** Assina a versão vigente (RN-18): hash do conteúdo; 1ª assinatura leva a EM_ASSINATURA. */
+    @Transactional
+    public Map<String, Object> assinar(long id, Long userId) {
+        Map<String, Object> d = estado(id);
+        if (d == null) return null;
+        String status = (String) d.get("status");
+        if (STATUS_TRAVADOS.contains(status) && !"EM_ASSINATURA".equals(status)) {
+            throw new IllegalStateException("Documento já assinado/publicado — não aceita novas assinaturas.");
+        }
+        Map<String, Object> versao = buscarVersao(id, null);
+        if (versao == null) {
+            throw new IllegalArgumentException("documento sem conteúdo para assinar");
+        }
+        int numero = ((Number) versao.get("numero")).intValue();
+        String conteudo = (String) versao.get("conteudo");
+
+        List<Map<String, Object>> us = jdbc.queryForList(
+                "SELECT name, email FROM users WHERE id = ?", userId);
+        String nome = us.isEmpty() ? "—" : String.valueOf(us.get(0).get("name"));
+        String login = us.isEmpty() || us.get(0).get("email") == null
+                ? String.valueOf(userId) : String.valueOf(us.get(0).get("email"));
+
+        String hash = sha256(id + "|" + numero + "|" + conteudo + "|" + login + "|" + Instant.now());
+        try {
+            jdbc.update(
+                    "INSERT INTO sgsi_documento_assinatura (documento_id, usuario_id, nome, login, versao_numero, hash_sha256) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    id, userId, nome, login, numero, hash);
+        } catch (DuplicateKeyException e) {
+            throw new IllegalStateException("Você já assinou esta versão do documento.");
+        }
+        Integer total = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sgsi_documento_assinatura WHERE documento_id = ?", Integer.class, id);
+        if (total != null && total == 1) {
+            jdbc.update("UPDATE sgsi_documento SET status = 'EM_ASSINATURA', atualizado_em = now() WHERE id = ?", id);
+        }
+        audit.log("sgsi_documento", id, "UPDATE", userId,
+                Map.of("evento", "DOC_ASSINADO", "versao", String.valueOf(numero)), null, null);
+        return buscar(id);
+    }
+
+    /** Reabre um documento travado (RN-14): invalida (apaga) todas as assinaturas e volta a EM_ELABORACAO. */
+    @Transactional
+    public Map<String, Object> reabrir(long id, String motivo, Long userId) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException("motivo é obrigatório");
+        }
+        Map<String, Object> d = estado(id);
+        if (d == null) return null;
+        String status = (String) d.get("status");
+        if ("PUBLICADO".equals(status)) {
+            throw new IllegalStateException("Documento publicado não é reabrível — cancele a emissão e emita novo.");
+        }
+        if (!STATUS_TRAVADOS.contains(status)) {
+            throw new IllegalStateException("Só documentos travados (em assinatura/assinados) podem ser reabertos.");
+        }
+        String nomes = jdbc.queryForObject(
+                "SELECT COALESCE(string_agg(nome, ', '), '') FROM sgsi_documento_assinatura WHERE documento_id = ?",
+                String.class, id);
+        int invalidadas = jdbc.update("DELETE FROM sgsi_documento_assinatura WHERE documento_id = ?", id);
+        jdbc.update("UPDATE sgsi_documento SET status = 'EM_ELABORACAO', atualizado_em = now() WHERE id = ?", id);
+        audit.log("sgsi_documento", id, "UPDATE", userId,
+                Map.of("evento", "DOC_REABERTO", "motivo", motivo.trim(),
+                        "assinaturas_invalidadas", String.valueOf(invalidadas),
+                        "signatarios", nomes == null ? "" : nomes), null, null);
+        return buscar(id);
+    }
+
+    // ---- helpers de workflow ----
+    private Map<String, Object> estado(long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT status, checkout_id FROM sgsi_documento WHERE id = ?", id);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private void exigirNaoTravado(Map<String, Object> d) {
+        if (STATUS_TRAVADOS.contains(d.get("status"))) {
+            throw new IllegalStateException("Documento travado (em assinatura/assinado/publicado) — conteúdo imutável.");
+        }
+    }
+
+    private static Long asLong(Object v) {
+        return v == null ? null : ((Number) v).longValue();
+    }
+
+    private static String sha256(String s) {
+        try {
+            byte[] dg = MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(dg.length * 2);
+            for (byte b : dg) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -441,6 +441,103 @@ public class SgsiController {
         }
     }
 
+    // ─── Workflow do documento: checkout, versões e assinatura ──────────────────────────────────
+
+    // POST /api/sgsi/documentos/{id}/checkout — assume a edição exclusiva
+    @PostMapping("/documentos/{id:\\d+}/checkout")
+    public ResponseEntity<?> assumirEdicao(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return exec(() -> documentos.assumirEdicao(id, userId()), "Documento não encontrado");
+    }
+
+    // DELETE /api/sgsi/documentos/{id}/checkout?forcar= — libera o checkout
+    @DeleteMapping("/documentos/{id:\\d+}/checkout")
+    public ResponseEntity<?> liberarEdicao(@PathVariable long id,
+            @RequestParam(value = "forcar", required = false, defaultValue = "false") boolean forcar) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return exec(() -> documentos.liberarEdicao(id, userId(), forcar), "Documento não encontrado");
+    }
+
+    // POST /api/sgsi/documentos/{id}/versoes — grava nova versão do conteúdo { conteudo }
+    @PostMapping("/documentos/{id:\\d+}/versoes")
+    public ResponseEntity<?> gravarVersao(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        String conteudo = body == null ? null : str(body.get("conteudo"));
+        return exec(() -> documentos.gravarVersao(id, conteudo, userId()), "Documento não encontrado");
+    }
+
+    // GET /api/sgsi/documentos/{id}/versoes — histórico de versões
+    @GetMapping("/documentos/{id:\\d+}/versoes")
+    public ResponseEntity<?> listarVersoes(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(documentos.listarVersoes(id));
+    }
+
+    // GET /api/sgsi/documentos/{id}/versoes/vigente — conteúdo da versão vigente
+    @GetMapping("/documentos/{id:\\d+}/versoes/vigente")
+    public ResponseEntity<?> versaoVigente(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> v = documentos.buscarVersao(id, null);
+        return ResponseEntity.ok(v == null ? Map.of() : v);
+    }
+
+    // GET /api/sgsi/documentos/{id}/versoes/{numero} — conteúdo de uma versão específica
+    @GetMapping("/documentos/{id:\\d+}/versoes/{numero:\\d+}")
+    public ResponseEntity<?> versao(@PathVariable long id, @PathVariable int numero) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> v = documentos.buscarVersao(id, numero);
+        if (v == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Versão não encontrada"));
+        }
+        return ResponseEntity.ok(v);
+    }
+
+    // GET /api/sgsi/documentos/{id}/assinaturas — assinaturas registradas
+    @GetMapping("/documentos/{id:\\d+}/assinaturas")
+    public ResponseEntity<?> listarAssinaturas(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(documentos.listarAssinaturas(id));
+    }
+
+    // POST /api/sgsi/documentos/{id}/assinaturas — assina a versão vigente
+    @PostMapping("/documentos/{id:\\d+}/assinaturas")
+    public ResponseEntity<?> assinar(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return exec(() -> documentos.assinar(id, userId()), "Documento não encontrado");
+    }
+
+    // POST /api/sgsi/documentos/{id}/reabrir — reabre e invalida as assinaturas { motivo }
+    @PostMapping("/documentos/{id:\\d+}/reabrir")
+    public ResponseEntity<?> reabrirDocumento(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        String motivo = body == null ? null : str(body.get("motivo"));
+        return exec(() -> documentos.reabrir(id, motivo, userId()), "Documento não encontrado");
+    }
+
+    /** Executa uma operação de workflow mapeando 404 (null), 409 (estado inválido) e 400 (argumento). */
+    private ResponseEntity<?> exec(java.util.function.Supplier<Map<String, Object>> op, String notFound) {
+        try {
+            Map<String, Object> r = op.get();
+            if (r == null) {
+                return ResponseEntity.status(404).body(Map.of("error", notFound));
+            }
+            return ResponseEntity.ok(r);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // GET /api/sgsi/indicadores
     @GetMapping("/indicadores")
     public ResponseEntity<?> listarIndicadores() {

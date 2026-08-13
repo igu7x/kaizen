@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Loader2, FileText, Search } from "lucide-react";
+import { ChevronRight, Loader2, FileText, Search, FileClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -19,6 +19,7 @@ import {
   SgsiDocumento,
   SgsiDocumentoStatus,
 } from "@/services/sgsiApi";
+import { SgsiDocumentoWorkflowDialog } from "@/components/sgsi/SgsiDocumentoWorkflowDialog";
 
 const TODOS = "__todos__";
 
@@ -360,6 +361,7 @@ function DocumentoDetalhe({
 }) {
   const [status, setStatus] = useState<SgsiDocumentoStatus>(doc.status);
   const [salvando, setSalvando] = useState(false);
+  const [workflowAberto, setWorkflowAberto] = useState(false);
 
   const campos: [string, string | null][] = [
     ["Referência normativa", doc.referencia],
@@ -436,7 +438,32 @@ function DocumentoDetalhe({
             Salvar
           </Button>
         </div>
+
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+          <p className="text-xs text-slate-500">
+            {doc.versao_atual ? `v${doc.versao_atual}` : "sem versão"} ·{" "}
+            {doc.assinaturas ?? 0} assinatura(s)
+            {doc.checkout_id != null && doc.checkout_nome
+              ? ` · em edição por ${doc.checkout_nome}`
+              : ""}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWorkflowAberto(true)}
+          >
+            <FileClock className="h-3.5 w-3.5 mr-1.5" />
+            Elaborar / assinar
+          </Button>
+        </div>
       </div>
+
+      <SgsiDocumentoWorkflowDialog
+        doc={doc}
+        open={workflowAberto}
+        onOpenChange={setWorkflowAberto}
+        onAtualizado={onAtualizado}
+      />
     </div>
   );
 }

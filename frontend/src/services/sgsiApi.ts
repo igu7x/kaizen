@@ -82,6 +82,34 @@ export interface SgsiDocumento {
   instrumento_numeral: string | null;
   instrumento_ordem: number | null;
   tarefa_numero: number | null;
+  // Workflow (checkout / versão / assinatura).
+  checkout_id: number | null;
+  checkout_em: string | null;
+  checkout_nome: string | null;
+  versao_atual: number | null;
+  assinaturas: number | null;
+}
+
+/** Item do histórico de versões de um documento (sem conteúdo). */
+export interface SgsiDocumentoVersao {
+  numero: number;
+  caracteres: number;
+  criado_em: string;
+  autor_nome: string | null;
+}
+
+/** Versão com o conteúdo. */
+export interface SgsiDocumentoVersaoConteudo extends SgsiDocumentoVersao {
+  conteudo: string;
+}
+
+/** Assinatura registrada sobre uma versão. */
+export interface SgsiDocumentoAssinatura {
+  nome: string;
+  login: string;
+  versao_numero: number | null;
+  hash_sha256: string;
+  criado_em: string;
 }
 
 /** Indicador do SGSI (31). Meta/tolerância podem ser nulas (aguardando deliberação do CGSI). */
@@ -465,6 +493,9 @@ function normDocumento(d: SgsiDocumento): SgsiDocumento {
     prazo_marco: num(d.prazo_marco),
     instrumento_ordem: num(d.instrumento_ordem),
     tarefa_numero: num(d.tarefa_numero),
+    checkout_id: num(d.checkout_id),
+    versao_atual: num(d.versao_atual),
+    assinaturas: num(d.assinaturas),
   };
 }
 
@@ -579,6 +610,96 @@ export const sgsiApi = {
     return normDocumento(
       await apiClient.patch<SgsiDocumento>(`${BASE}/documentos/${id}`, {
         status,
+      }),
+    );
+  },
+
+  // ── Workflow do documento ──────────────────────────────────────────────
+  async assumirEdicaoDocumento(id: number): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/checkout`, {}),
+    );
+  },
+
+  async liberarEdicaoDocumento(
+    id: number,
+    forcar = false,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.delete<SgsiDocumento>(
+        `${BASE}/documentos/${id}/checkout${forcar ? "?forcar=true" : ""}`,
+      ),
+    );
+  },
+
+  async gravarVersaoDocumento(
+    id: number,
+    conteudo: string,
+  ): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/versoes`, {
+        conteudo,
+      }),
+    );
+  },
+
+  async listarVersoesDocumento(id: number): Promise<SgsiDocumentoVersao[]> {
+    const data = await apiClient.get<SgsiDocumentoVersao[]>(
+      `${BASE}/documentos/${id}/versoes`,
+    );
+    return (data || []).map((v) => ({
+      ...v,
+      numero: Number(v.numero),
+      caracteres: Number(v.caracteres),
+    }));
+  },
+
+  async getVersaoVigente(
+    id: number,
+  ): Promise<SgsiDocumentoVersaoConteudo | null> {
+    const v = await apiClient.get<SgsiDocumentoVersaoConteudo>(
+      `${BASE}/documentos/${id}/versoes/vigente`,
+    );
+    return v && v.numero != null
+      ? { ...v, numero: Number(v.numero), caracteres: Number(v.caracteres) }
+      : null;
+  },
+
+  async getVersaoDocumento(
+    id: number,
+    numero: number,
+  ): Promise<SgsiDocumentoVersaoConteudo> {
+    const v = await apiClient.get<SgsiDocumentoVersaoConteudo>(
+      `${BASE}/documentos/${id}/versoes/${numero}`,
+    );
+    return { ...v, numero: Number(v.numero), caracteres: Number(v.caracteres) };
+  },
+
+  async listarAssinaturasDocumento(
+    id: number,
+  ): Promise<SgsiDocumentoAssinatura[]> {
+    const data = await apiClient.get<SgsiDocumentoAssinatura[]>(
+      `${BASE}/documentos/${id}/assinaturas`,
+    );
+    return (data || []).map((a) => ({
+      ...a,
+      versao_numero: a.versao_numero == null ? null : Number(a.versao_numero),
+    }));
+  },
+
+  async assinarDocumento(id: number): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(
+        `${BASE}/documentos/${id}/assinaturas`,
+        {},
+      ),
+    );
+  },
+
+  async reabrirDocumento(id: number, motivo: string): Promise<SgsiDocumento> {
+    return normDocumento(
+      await apiClient.post<SgsiDocumento>(`${BASE}/documentos/${id}/reabrir`, {
+        motivo,
       }),
     );
   },
