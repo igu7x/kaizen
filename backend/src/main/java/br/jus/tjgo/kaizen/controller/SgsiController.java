@@ -8,6 +8,7 @@ import br.jus.tjgo.kaizen.service.SgsiConfiguracaoService;
 import br.jus.tjgo.kaizen.service.SgsiLeituraService;
 import br.jus.tjgo.kaizen.service.SgsiDocumentoService;
 import br.jus.tjgo.kaizen.service.SgsiEmissaoService;
+import br.jus.tjgo.kaizen.service.SgsiEventosService;
 import br.jus.tjgo.kaizen.service.SgsiFrameworkService;
 import br.jus.tjgo.kaizen.service.SgsiIndicadorService;
 import br.jus.tjgo.kaizen.service.SgsiInstrumentoService;
@@ -50,6 +51,7 @@ public class SgsiController {
     private final SgsiProcessoService processos;
     private final SgsiConfiguracaoService configuracoes;
     private final SgsiLeituraService leitura;
+    private final SgsiEventosService eventos;
     private final SgsiAuditoriaService auditoria;
     private final SgsiPainelService painel;
 
@@ -440,6 +442,80 @@ public class SgsiController {
             return fwd.split(",")[0].trim();
         }
         return req.getRemoteAddr();
+    }
+
+    // ─── Eventos institucionais e SLA (RN-40/41) ────────────────────────────────────────────────
+
+    // GET /api/sgsi/eventos-rh?situacao=
+    @GetMapping("/eventos-rh")
+    public ResponseEntity<?> listarEventosRh(@RequestParam(value = "situacao", required = false) String situacao) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(eventos.listarEventosRh(situacao));
+    }
+
+    // POST /api/sgsi/eventos-rh — registra um evento de RH (prazo derivado da norma)
+    @PostMapping("/eventos-rh")
+    public ResponseEntity<?> criarEventoRh(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(eventos.criarEventoRh(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PATCH /api/sgsi/eventos-rh/{id} — { situacao }
+    @PatchMapping("/eventos-rh/{id:\\d+}")
+    public ResponseEntity<?> atualizarEventoRh(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> e = eventos.atualizarSituacaoEventoRh(id, str(body == null ? null : body.get("situacao")), userId());
+            if (e == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Evento não encontrado"));
+            }
+            return ResponseEntity.ok(e);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/sgsi/incidentes?situacao=
+    @GetMapping("/incidentes")
+    public ResponseEntity<?> listarIncidentes(@RequestParam(value = "situacao", required = false) String situacao) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(eventos.listarIncidentes(situacao));
+    }
+
+    // POST /api/sgsi/incidentes — registra um incidente (prazo derivado da severidade)
+    @PostMapping("/incidentes")
+    public ResponseEntity<?> criarIncidente(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(eventos.criarIncidente(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PATCH /api/sgsi/incidentes/{id} — { situacao }
+    @PatchMapping("/incidentes/{id:\\d+}")
+    public ResponseEntity<?> atualizarIncidente(@PathVariable long id, @RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            Map<String, Object> i = eventos.atualizarSituacaoIncidente(id, str(body == null ? null : body.get("situacao")), userId());
+            if (i == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Incidente não encontrado"));
+            }
+            return ResponseEntity.ok(i);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
     }
 
     // GET /api/sgsi/instrumentos

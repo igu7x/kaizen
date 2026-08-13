@@ -441,6 +441,37 @@ export interface SgsiProcessoDetalhe extends SgsiProcesso {
   flows: SgsiProcessoFlow[];
 }
 
+/** Evento de RH com prazo de ação derivado da norma (RN-40). */
+export interface SgsiEventoRh {
+  id: number;
+  tipo: "DESLIGAMENTO" | "MOVIMENTACAO" | "AFASTAMENTO" | "INGRESSO";
+  matricula: string;
+  nome: string | null;
+  unidade: string | null;
+  data_evento: string;
+  prazo_acao: string;
+  situacao: "PENDENTE" | "EXECUTADO" | "FALHA";
+  executado_em: string | null;
+  origem: string | null;
+  criado_em?: string;
+}
+
+/** Incidente de segurança com prazo de acionamento derivado da severidade (RN-41). */
+export interface SgsiIncidente {
+  id: number;
+  severidade: "BAIXA" | "MEDIA" | "ALTA" | "CRITICA";
+  titulo: string;
+  descricao: string | null;
+  ativos: string | null;
+  dados_pessoais: boolean;
+  fornecedor: string | null;
+  detectado_em: string;
+  prazo_acionamento: string;
+  situacao: "TRIAGEM" | "EM_TRATAMENTO" | "CONTIDO" | "ENCERRADO";
+  origem: string | null;
+  criado_em?: string;
+}
+
 /** Panorama de ciência de um instrumento (RN-39). */
 export interface SgsiLeituraItem {
   codigo: string;
@@ -963,6 +994,53 @@ export const sgsiApi = {
       tarefa_numero: num(m.tarefa_numero),
       prazo_marco: num(m.prazo_marco),
     }));
+  },
+
+  async getEventosRh(situacao?: string): Promise<SgsiEventoRh[]> {
+    const qs = situacao ? `?situacao=${encodeURIComponent(situacao)}` : "";
+    const data = await apiClient.get<SgsiEventoRh[]>(`${BASE}/eventos-rh${qs}`);
+    return (data || []).map((e) => ({ ...e, id: Number(e.id) }));
+  },
+
+  criarEventoRh(input: Record<string, unknown>): Promise<SgsiEventoRh> {
+    return apiClient
+      .post<SgsiEventoRh>(`${BASE}/eventos-rh`, input)
+      .then((e) => ({ ...e, id: Number(e.id) }));
+  },
+
+  atualizarSituacaoEventoRh(
+    id: number,
+    situacao: string,
+  ): Promise<SgsiEventoRh> {
+    return apiClient
+      .patch<SgsiEventoRh>(`${BASE}/eventos-rh/${id}`, { situacao })
+      .then((e) => ({ ...e, id: Number(e.id) }));
+  },
+
+  async getIncidentes(situacao?: string): Promise<SgsiIncidente[]> {
+    const qs = situacao ? `?situacao=${encodeURIComponent(situacao)}` : "";
+    const data = await apiClient.get<SgsiIncidente[]>(`${BASE}/incidentes${qs}`);
+    return (data || []).map((i) => ({
+      ...i,
+      id: Number(i.id),
+      dados_pessoais:
+        i.dados_pessoais === true || String(i.dados_pessoais) === "true",
+    }));
+  },
+
+  criarIncidente(input: Record<string, unknown>): Promise<SgsiIncidente> {
+    return apiClient
+      .post<SgsiIncidente>(`${BASE}/incidentes`, input)
+      .then((i) => ({ ...i, id: Number(i.id) }));
+  },
+
+  atualizarSituacaoIncidente(
+    id: number,
+    situacao: string,
+  ): Promise<SgsiIncidente> {
+    return apiClient
+      .patch<SgsiIncidente>(`${BASE}/incidentes/${id}`, { situacao })
+      .then((i) => ({ ...i, id: Number(i.id) }));
   },
 
   async getLeituraPanorama(): Promise<SgsiLeituraItem[]> {

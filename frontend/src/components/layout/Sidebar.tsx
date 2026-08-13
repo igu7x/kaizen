@@ -34,6 +34,7 @@ import {
   SlidersHorizontal,
   History,
   BookCheck,
+  ShieldAlert,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -256,6 +257,11 @@ const menuItemsCompleto: MenuItem[] = [
         title: "Riscos",
         icon: Shield,
         path: "/seguranca-informacao/riscos",
+      },
+      {
+        title: "Eventos e SLA",
+        icon: ShieldAlert,
+        path: "/seguranca-informacao/eventos",
       },
       {
         title: "Emissões",
