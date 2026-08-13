@@ -321,6 +321,56 @@ export interface SgsiRelatorioCatalogo {
   ordem: number;
 }
 
+/** Relatório efetivamente emitido — item da lista. */
+export interface SgsiRelatorio {
+  id: number;
+  numero: string;
+  catalogo_codigo: string;
+  catalogo_nome: string;
+  obrigatorio?: boolean;
+  titulo: string;
+  periodo: string | null;
+  destinatario: string | null;
+  observacoes: string | null;
+  hash_sha256: string;
+  data_emissao: string;
+  emissao_status: string | null;
+}
+
+/** Retrato imutável de um indicador no instante da emissão (RN-37). */
+export interface SgsiRelatorioIndicadorSnapshot {
+  id: number;
+  nome: string;
+  unidade: string | null;
+  meta: number | null;
+  tolerancia: number | null;
+  direcao: string | null;
+  frequencia: string | null;
+  instrumento_sigla: string | null;
+  competencia: string | null;
+  valor: number | null;
+}
+
+export interface SgsiRelatorioConteudo {
+  gerado_em: string;
+  indicadores: SgsiRelatorioIndicadorSnapshot[];
+}
+
+/** Relatório emitido com o snapshot parseado. */
+export interface SgsiRelatorioDetalhe extends SgsiRelatorio {
+  conteudo: SgsiRelatorioConteudo | null;
+}
+
+/** Modelo obrigatório sem emissão no ano corrente (pendência RN-36). */
+export interface SgsiRelatorioPendencia {
+  codigo: string;
+  nome: string;
+  periodicidade: string;
+  destinatario: string;
+  instrumento_codigo: string | null;
+  instrumento_sigla: string | null;
+}
+
 /** Ata de reunião de comitê do SGSI. */
 export interface SgsiAta {
   id: number;
@@ -685,6 +735,50 @@ export const sgsiApi = {
       ordem: Number(c.ordem),
       obrigatorio: c.obrigatorio === true || String(c.obrigatorio) === "true",
     }));
+  },
+
+  async getRelatoriosEmitidos(): Promise<SgsiRelatorio[]> {
+    const data = await apiClient.get<SgsiRelatorio[]>(`${BASE}/relatorios`);
+    return (data || []).map((r) => ({
+      ...r,
+      id: Number(r.id),
+      obrigatorio: r.obrigatorio === true || String(r.obrigatorio) === "true",
+    }));
+  },
+
+  getRelatorioPendencias(): Promise<SgsiRelatorioPendencia[]> {
+    return apiClient
+      .get<SgsiRelatorioPendencia[]>(`${BASE}/relatorios/pendencias`)
+      .then((d) => d || []);
+  },
+
+  async getRelatorio(id: number): Promise<SgsiRelatorioDetalhe> {
+    const r = await apiClient.get<SgsiRelatorio & { conteudo: string }>(
+      `${BASE}/relatorios/${id}`,
+    );
+    let conteudo: SgsiRelatorioConteudo | null = null;
+    try {
+      conteudo = r.conteudo ? JSON.parse(r.conteudo) : null;
+    } catch {
+      conteudo = null;
+    }
+    return { ...r, id: Number(r.id), conteudo };
+  },
+
+  async emitirRelatorio(
+    input: Record<string, unknown>,
+  ): Promise<SgsiRelatorioDetalhe> {
+    const r = await apiClient.post<SgsiRelatorio & { conteudo: string }>(
+      `${BASE}/relatorios`,
+      input,
+    );
+    let conteudo: SgsiRelatorioConteudo | null = null;
+    try {
+      conteudo = r.conteudo ? JSON.parse(r.conteudo) : null;
+    } catch {
+      conteudo = null;
+    }
+    return { ...r, id: Number(r.id), conteudo };
   },
 
   async getMatriz(): Promise<SgsiMatrizItem[]> {

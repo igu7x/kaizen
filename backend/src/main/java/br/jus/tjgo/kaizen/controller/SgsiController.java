@@ -294,6 +294,46 @@ public class SgsiController {
         return ResponseEntity.ok(relatorios.listarCatalogo());
     }
 
+    // GET /api/sgsi/relatorios/pendencias — modelos obrigatórios sem emissão no ano corrente (RN-36)
+    @GetMapping("/relatorios/pendencias")
+    public ResponseEntity<?> pendenciasRelatorios() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(relatorios.pendencias());
+    }
+
+    // GET /api/sgsi/relatorios — relatórios já emitidos
+    @GetMapping("/relatorios")
+    public ResponseEntity<?> listarRelatorios() {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        return ResponseEntity.ok(relatorios.listarEmitidos());
+    }
+
+    // GET /api/sgsi/relatorios/{id} — relatório emitido com o retrato dos indicadores
+    @GetMapping("/relatorios/{id:\\d+}")
+    public ResponseEntity<?> buscarRelatorio(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> r = relatorios.buscar(id);
+        if (r == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Relatório não encontrado"));
+        }
+        return ResponseEntity.ok(r);
+    }
+
+    // POST /api/sgsi/relatorios — emite um relatório (aloca número REL + congela indicadores)
+    @PostMapping("/relatorios")
+    public ResponseEntity<?> emitirRelatorio(@RequestBody(required = false) Map<String, Object> body) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        try {
+            return ResponseEntity.status(201).body(relatorios.emitir(body == null ? Map.of() : body, userId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // GET /api/sgsi/matriz — matriz de rastreabilidade consolidada
     @GetMapping("/matriz")
     public ResponseEntity<?> matriz() {
