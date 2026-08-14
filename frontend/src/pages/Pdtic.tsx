@@ -106,13 +106,9 @@ export default function Pdtic() {
   );
 
   const handleKr1 = () => {
-    if (krAtivo === "kr1") {
-      setKrAtivo(null);
-      setFiltroStatus("todas");
-    } else {
-      setKrAtivo("kr1");
-      setFiltroStatus("concluidas");
-    }
+    // KR-1 mostra TODAS as ações (a coluna Status já indica concluída/pendente).
+    setKrAtivo(krAtivo === "kr1" ? null : "kr1");
+    setFiltroStatus("todas");
   };
 
   const handleKr2 = () => {
@@ -443,7 +439,7 @@ export default function Pdtic() {
 
           {/* Tabela: Ações do PDTIC — ou os itens do PCA concluídos quando o KR-2 está ativo */}
           {krAtivo === "kr2" ? (
-            <PcaConcluidosTabela itens={pcaConcluidos} loading={pcaItensLoading} />
+            <PcaItensTabela itens={pcaItens} loading={pcaItensLoading} />
           ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
             <div className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -580,8 +576,9 @@ export default function Pdtic() {
 
           {krAtivo === "kr2" ? (
             <p className="text-xs text-slate-400">
-              {pcaConcluidos.length} item(ns) do PCA concluído(s) — Plano de
-              Contratações Anual {PCA_ANO} (versão {PCA_VERSAO}).
+              {pcaItens.length} item(ns) do PCA · {pcaConcluidos.length}{" "}
+              concluído(s) — Plano de Contratações Anual {PCA_ANO} (versão{" "}
+              {PCA_VERSAO}).
             </p>
           ) : (
             <p className="text-xs text-slate-400">
@@ -771,8 +768,21 @@ function AtingimentoGeralCard({ pct }: { pct: number }) {
   );
 }
 
-/** Tabela dos itens do PCA concluídos (exibida quando o KR-2 está selecionado). */
-function PcaConcluidosTabela({
+/** Um item do PCA está concluído quando o status começa com "Conclu" (Concluída/Concluído). */
+const pcaConcluido = (p: PcaItem) =>
+  String(p.status).toLowerCase().startsWith("conclu");
+
+/** Rótulo do status do item do PCA para exibição. */
+function pcaStatusLabel(p: PcaItem): string {
+  const s = String(p.status ?? "").toLowerCase();
+  if (s.startsWith("conclu")) return "Concluído";
+  if (s.includes("andamento")) return "Em andamento";
+  if (s.includes("inici")) return "Não iniciada";
+  return String(p.status ?? "").trim() || "—";
+}
+
+/** Tabela de TODOS os itens do PCA (exibida no KR-2), com a coluna de status por item. */
+function PcaItensTabela({
   itens,
   loading,
 }: {
@@ -781,7 +791,7 @@ function PcaConcluidosTabela({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-      <div className="grid grid-cols-[1fr_160px_160px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="grid grid-cols-[1fr_160px_160px_130px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <span>Item / Objeto</span>
         <span>Área</span>
         <span className="text-right">Valor estimado</span>
@@ -795,44 +805,54 @@ function PcaConcluidosTabela({
       ) : itens.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
           <ShoppingCart className="h-8 w-8 text-slate-300 mb-2" />
-          <p className="text-sm">Nenhum item do PCA concluído nesta versão.</p>
+          <p className="text-sm">Nenhum item no PCA desta versão.</p>
         </div>
       ) : (
         <ul className="divide-y divide-slate-100">
-          {itens.map((p) => (
-            <li
-              key={p.id}
-              className="grid grid-cols-[1fr_160px_160px_120px] items-center gap-3 px-5 py-3"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm text-slate-800" title={p.objeto}>
-                  {p.objeto || "—"}
-                </p>
-                {p.itemPca && (
-                  <p className="text-[11px] font-medium uppercase text-slate-400">
-                    {p.itemPca}
-                  </p>
-                )}
-              </div>
-              <div
-                className="truncate text-sm text-slate-600"
-                title={p.areaNome || p.areaSigla || undefined}
+          {itens.map((p) => {
+            const ok = pcaConcluido(p);
+            return (
+              <li
+                key={p.id}
+                className="grid grid-cols-[1fr_160px_160px_130px] items-center gap-3 px-5 py-3"
               >
-                {p.areaSigla || p.areaNome || "—"}
-              </div>
-              <div className="text-right text-sm tabular-nums text-slate-700">
-                {Number(p.valor_estimado || 0).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
-              </div>
-              <div className="flex justify-center">
-                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                  Concluído
-                </span>
-              </div>
-            </li>
-          ))}
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-slate-800" title={p.objeto}>
+                    {p.objeto || "—"}
+                  </p>
+                  {p.itemPca && (
+                    <p className="text-[11px] font-medium uppercase text-slate-400">
+                      {p.itemPca}
+                    </p>
+                  )}
+                </div>
+                <div
+                  className="truncate text-sm text-slate-600"
+                  title={p.areaNome || p.areaSigla || undefined}
+                >
+                  {p.areaSigla || p.areaNome || "—"}
+                </div>
+                <div className="text-right text-sm tabular-nums text-slate-700">
+                  {Number(p.valor_estimado || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </div>
+                <div className="flex justify-center">
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+                      ok
+                        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                        : "bg-amber-50 text-amber-700 ring-amber-200",
+                    )}
+                  >
+                    {pcaStatusLabel(p)}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
