@@ -124,6 +124,25 @@ public class ProcessosNegocioNotificacoes {
         }
     }
 
+    /**
+     * Aviso agendado: a próxima revisão do processo vigente está a 90 dias (ou menos). Avisa os
+     * Responsáveis. Dedupe por ciclo: a assinatura usa a DATA da próxima revisão como versão, então o
+     * e-mail sai uma única vez por ciclo de revisão, mesmo que o job rode todo dia.
+     */
+    public void aoRevisaoProxima(long id, String nome, String proximaRevisao) {
+        try {
+            for (Long uid : responsaveis(id)) {
+                notificador.notificar(uid, "processo_revisao_proxima", id, proximaRevisao,
+                        "Revisão de processo em até 90 dias",
+                        "O processo \"" + nome + "\" tem a próxima revisão prevista para " + proximaRevisao
+                                + ". Programe a revisão com antecedência.",
+                        LINK + id);
+            }
+        } catch (Exception e) {
+            log.warn("[notif-processo] revisao-proxima: {}", e.getMessage());
+        }
+    }
+
     /** Editor atribuído → avisa o próprio editor. */
     public void aoAtribuirEditor(Map<String, Object> proc, long editorUserId) {
         try {
