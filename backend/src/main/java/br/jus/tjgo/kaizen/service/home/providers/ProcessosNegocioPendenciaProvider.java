@@ -115,7 +115,19 @@ public class ProcessosNegocioPendenciaProvider implements PendenciaProvider {
                 "pn.status = 'validado_final' AND " + FALTA_ATA + " AND (" + RESP + " OR " + REVISOR + ")",
                 new Object[]{uid, uid, uid});
 
-        // 7) Revisão vencida (Data da Versão + 1 ano no passado) — aguarda Responsável ou Revisor.
+        // 7a) Revisão SE APROXIMANDO — faltam 90 dias ou menos para a Data da Versão + 1 ano, mas
+        //     ainda não venceu. O processo reentra na lista de revisão e o Responsável/Revisor é
+        //     avisado para programar a revisão com antecedência.
+        add(out, "processo_revisao_proxima", Pendencia.PRIO_VALIDACAO, "amber",
+                "1 processo de negócio com revisão em até 90 dias — programe a revisão",
+                " processos de negócio com revisão em até 90 dias — programem a revisão",
+                "pn.status = 'validado_final' " +
+                        "AND (substring(pn.periodo from '^\\d{4}-\\d{2}-\\d{2}'))::date + INTERVAL '1 year' >= CURRENT_DATE " +
+                        "AND (substring(pn.periodo from '^\\d{4}-\\d{2}-\\d{2}'))::date + INTERVAL '1 year' <= CURRENT_DATE + INTERVAL '90 days' " +
+                        "AND (" + RESP + " OR " + REVISOR + ")",
+                new Object[]{uid, uid, uid});
+
+        // 7b) Revisão vencida (Data da Versão + 1 ano no passado) — aguarda Responsável ou Revisor.
         add(out, "processo_revisao_vencida", Pendencia.PRIO_VENCIDO, "red",
                 "1 processo de negócio com revisão vencida — inicie a revisão",
                 " processos de negócio com revisão vencida — iniciem a revisão",
