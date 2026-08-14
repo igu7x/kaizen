@@ -8,6 +8,10 @@ import {
   X,
   Eye,
   ChevronRight,
+  Target,
+  ShoppingCart,
+  ShieldCheck,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -21,8 +25,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { pdticAcoesApi, PdticAcao } from "@/services/pdticAcoesApi";
+import { getPcaStats, getPcaItems } from "@/services/pcaApi";
+import type { PcaStats, PcaItem } from "@/types";
 
 const TODAS = "__todas__";
+
+// KR-2 (Base) e KR-3 (Alvo) puxam do Plano de Contratações Anual — por ora, ano corrente e VERSÃO 1.
+const PCA_ANO = new Date().getFullYear();
+const PCA_VERSAO = 1;
+// Meta fixa do KR-2 (não muda com os dados).
+const KR2_ALVO = 25;
+// KR-3 ainda em discussão: base sem fonte de extração disponível (valor provisório).
+const KR3_BASE = 32;
 
 /** Prazo no formato MM/AAAA a partir de YYYY-MM-DD. */
 function prazoMesAno(iso?: string | null): string {
@@ -68,6 +82,61 @@ export default function Pdtic() {
     carregar();
   }, []);
 
+  // Estatísticas do PCA (versão 1) para alimentar KR-2 (concluídos) e KR-3 (total de itens).
+  const [pca, setPca] = useState<PcaStats | null>(null);
+  useEffect(() => {
+    getPcaStats(PCA_ANO, undefined, PCA_VERSAO)
+      .then(setPca)
+      .catch(() => {
+        /* sem PCA, os KRs dependentes ficam em 0 */
+      });
+  }, []);
+
+  // KR clicado (filtro): "kr1" → ações concluídas na tabela; "kr2" → itens do PCA concluídos.
+  const [krAtivo, setKrAtivo] = useState<"kr1" | "kr2" | null>(null);
+  const [pcaItens, setPcaItens] = useState<PcaItem[]>([]);
+  const [pcaItensLoading, setPcaItensLoading] = useState(false);
+  const [pcaItensCarregado, setPcaItensCarregado] = useState(false);
+  const pcaConcluidos = useMemo(
+    () =>
+      pcaItens.filter((p) =>
+        String(p.status).toLowerCase().startsWith("conclu"),
+      ),
+    [pcaItens],
+  );
+
+  const handleKr1 = () => {
+    // KR-1 mostra TODAS as ações (a coluna Status já indica concluída/pendente).
+    setKrAtivo(krAtivo === "kr1" ? null : "kr1");
+    setFiltroStatus("todas");
+  };
+
+  const handleKr2 = () => {
+    if (krAtivo === "kr2") {
+      setKrAtivo(null);
+      return;
+    }
+    setKrAtivo("kr2");
+    if (!pcaItensCarregado) {
+      setPcaItensLoading(true);
+      getPcaItems(PCA_ANO, undefined, PCA_VERSAO)
+        .then((its) => {
+          setPcaItens(its);
+          setPcaItensCarregado(true);
+        })
+        .catch(() => {
+          /* erro tratado no apiClient */
+        })
+        .finally(() => setPcaItensLoading(false));
+    }
+  };
+
+  /** Volta para o modo de Ações (limpa o KR ativo) e aplica o filtro de status escolhido. */
+  const selecionarStatus = (s: "todas" | "concluidas" | "pendentes") => {
+    setKrAtivo(null);
+    setFiltroStatus(s);
+  };
+
   const diretorias = useMemo(
     () =>
       Array.from(
@@ -110,6 +179,23 @@ export default function Pdtic() {
     const progresso = total === 0 ? 0 : Math.round((concluidas / total) * 100);
     return { total, concluidas, pendentes, progresso };
   }, [filtradas]);
+
+  // KRs do PDTIC. KR-1 vem das ações (Base = concluídas, Alvo = total). KR-2/KR-3 vêm do PCA.
+  // O Atingimento Geral fica em 0% até os 3 KRs estarem bem estabelecidos.
+  const krs = useMemo(() => {
+    const pctd = (base: number, alvo: number) =>
+      alvo > 0 ? Math.round((base / alvo) * 100) : 0;
+    const kr1Base = stats.concluidas;
+    const kr1Alvo = stats.total;
+    const kr2Base = pca?.concluidos ?? 0;
+    const kr3Alvo = pca?.total ?? 0;
+    return {
+      kr1: { base: kr1Base, alvo: kr1Alvo, pct: pctd(kr1Base, kr1Alvo) },
+      kr2: { base: kr2Base, alvo: KR2_ALVO, pct: pctd(kr2Base, KR2_ALVO) },
+      kr3: { base: KR3_BASE, alvo: kr3Alvo, pct: pctd(KR3_BASE, kr3Alvo) },
+      geral: 0,
+    };
+  }, [stats.concluidas, stats.total, pca]);
 
   // Os cards funcionam como filtro: a tabela respeita o status escolhido (os cards seguem
   // mostrando os totais reais, independentemente do filtro ativo).
@@ -263,6 +349,65 @@ export default function Pdtic() {
             </div>
           </div>
 
+          {/* KRs (Resultados-Chave) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <KrCard
+              tag="KR-1"
+              tagColor="text-blue-600"
+              iconBg="bg-blue-50 text-blue-600"
+              icon={<Target className="h-6 w-6" />}
+              titulo="Cumprir 80% das Ações Planejadas dentro do prazo de conclusão definido no quadro de ações"
+              gaugeColor="#2563eb"
+              pct={krs.kr1.pct}
+              onClick={handleKr1}
+              active={krAtivo === "kr1"}
+              activeRing="ring-blue-400"
+              linhas={[
+                ["Mensurado", "% de ações concluídas"],
+                ["Fonte", "Painel de Ações"],
+                ["Frequência", "Anual"],
+                ["Base", String(krs.kr1.base)],
+                ["Alvo", String(krs.kr1.alvo)],
+              ]}
+            />
+            <KrCard
+              tag="KR-2"
+              tagColor="text-emerald-600"
+              iconBg="bg-emerald-50 text-emerald-600"
+              icon={<ShoppingCart className="h-6 w-6" />}
+              titulo="Concluir 25 demandas de aquisições de TIC do plano de contratação anual vigente"
+              gaugeColor="#16a34a"
+              pct={krs.kr2.pct}
+              onClick={handleKr2}
+              active={krAtivo === "kr2"}
+              activeRing="ring-emerald-400"
+              linhas={[
+                ["Mensurado", "% de contratos assinados"],
+                ["Fonte", "Plano de Contratações"],
+                ["Frequência", "Semestral"],
+                ["Base", String(krs.kr2.base)],
+                ["Alvo", String(krs.kr2.alvo)],
+              ]}
+            />
+            <KrCard
+              tag="KR-3"
+              tagColor="text-violet-600"
+              iconBg="bg-violet-50 text-violet-600"
+              icon={<ShieldCheck className="h-6 w-6" />}
+              titulo="Manter 95% de compliance quanto à transparência, aprovação e revisão dos planejamentos táticos e processos e planos de negócio em TIC"
+              gaugeColor="#7c3aed"
+              pct={krs.kr3.pct}
+              linhas={[
+                ["Mensurado", "Índice de compliance"],
+                ["Fonte", "Relatórios de Compliance"],
+                ["Frequência", "Anual"],
+                ["Base", String(krs.kr3.base)],
+                ["Alvo", String(krs.kr3.alvo)],
+              ]}
+            />
+            <AtingimentoGeralCard pct={krs.geral} />
+          </div>
+
           {/* Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
@@ -270,33 +415,37 @@ export default function Pdtic() {
               valor={stats.total}
               icon={<FileText className="h-6 w-6" />}
               cor="blue"
-              active={filtroStatus === "todas"}
-              onClick={() => setFiltroStatus("todas")}
+              active={krAtivo === null && filtroStatus === "todas"}
+              onClick={() => selecionarStatus("todas")}
             />
             <StatCard
               titulo="Concluídas"
               valor={stats.concluidas}
               icon={<CheckCircle2 className="h-6 w-6" />}
               cor="green"
-              active={filtroStatus === "concluidas"}
-              onClick={() => setFiltroStatus("concluidas")}
+              active={krAtivo === null && filtroStatus === "concluidas"}
+              onClick={() => selecionarStatus("concluidas")}
             />
             <StatCard
               titulo="Pendentes"
               valor={stats.pendentes}
               icon={<AlertTriangle className="h-6 w-6" />}
               cor="red"
-              active={filtroStatus === "pendentes"}
-              onClick={() => setFiltroStatus("pendentes")}
+              active={krAtivo === null && filtroStatus === "pendentes"}
+              onClick={() => selecionarStatus("pendentes")}
             />
             <ProgressoCard progresso={stats.progresso} />
           </div>
 
-          {/* Tabela */}
+          {/* Tabela: Ações do PDTIC — ou os itens do PCA concluídos quando o KR-2 está ativo */}
+          {krAtivo === "kr2" ? (
+            <PcaItensTabela itens={pcaItens} loading={pcaItensLoading} />
+          ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <span>Ações</span>
-              <span className="text-center">Prazo</span>
+              <span>Área responsável</span>
+              <span className="text-center">Conclusão</span>
               <span className="text-center">Status</span>
               <span className="text-center">Evidência</span>
             </div>
@@ -339,7 +488,7 @@ export default function Pdtic() {
                         }
                       }}
                       aria-expanded={aberto}
-                      className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60 cursor-pointer"
+                      className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60 cursor-pointer"
                     >
                       <div className="flex items-start gap-2 min-w-0">
                         <ChevronRight
@@ -357,6 +506,12 @@ export default function Pdtic() {
                             </p>
                           )}
                         </div>
+                      </div>
+                      <div
+                        className="truncate text-sm text-slate-600"
+                        title={a.area_responsavel || undefined}
+                      >
+                        {a.area_responsavel || "—"}
                       </div>
                       <div className="text-center text-sm tabular-nums text-slate-600 whitespace-nowrap">
                         {prazoMesAno(a.conclusao)}
@@ -417,18 +572,27 @@ export default function Pdtic() {
               </ul>
             )}
           </div>
+          )}
 
-          <p className="text-xs text-slate-400">
-            {stats.total} açã{stats.total === 1 ? "o" : "es"} ·{" "}
-            {stats.concluidas} concluída{stats.concluidas === 1 ? "" : "s"} ·{" "}
-            {stats.pendentes} pendente{stats.pendentes === 1 ? "" : "s"}
-            {filtroStatus !== "todas" && (
-              <span className="ml-1 text-slate-500">
-                · filtrando:{" "}
-                {filtroStatus === "concluidas" ? "Concluídas" : "Pendentes"}
-              </span>
-            )}
-          </p>
+          {krAtivo === "kr2" ? (
+            <p className="text-xs text-slate-400">
+              {pcaItens.length} item(ns) do PCA · {pcaConcluidos.length}{" "}
+              concluído(s) — Plano de Contratações Anual {PCA_ANO} (versão{" "}
+              {PCA_VERSAO}).
+            </p>
+          ) : (
+            <p className="text-xs text-slate-400">
+              {stats.total} açã{stats.total === 1 ? "o" : "es"} ·{" "}
+              {stats.concluidas} concluída{stats.concluidas === 1 ? "" : "s"} ·{" "}
+              {stats.pendentes} pendente{stats.pendentes === 1 ? "" : "s"}
+              {filtroStatus !== "todas" && (
+                <span className="ml-1 text-slate-500">
+                  · filtrando:{" "}
+                  {filtroStatus === "concluidas" ? "Concluídas" : "Pendentes"}
+                </span>
+              )}
+            </p>
+          )}
       </div>
 
       {/* Input de upload oculto (reusado por todas as linhas) */}
@@ -446,6 +610,255 @@ export default function Pdtic() {
   );
 }
 
+/** Formata um valor de custo (texto livre, ex.: "2000000,00") como moeda brasileira: R$ 2.000.000,00. */
+function formatReais(valor?: string | null): string {
+  if (!valor || !valor.trim()) return "";
+  const n = Number(
+    valor.replace(/R\$/gi, "").replace(/\s/g, "").replace(/\./g, "").replace(",", "."),
+  );
+  if (Number.isNaN(n)) return valor.trim();
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/** Gauge circular (270°) com o percentual no centro. */
+function KrGauge({ pct, color }: { pct: number; color: string }) {
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  const size = 128;
+  const stroke = 12;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const track = circ * 0.75; // arco de 270°, com a abertura embaixo
+  const filled = track * (v / 100);
+  return (
+    <div className="relative flex h-28 w-28 items-center justify-center">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        className="h-28 w-28"
+        style={{ transform: "rotate(135deg)" }}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth={stroke}
+          strokeDasharray={`${track} ${circ}`}
+          strokeLinecap="round"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeDasharray={`${filled} ${circ}`}
+          strokeLinecap="round"
+          className="transition-[stroke-dasharray] duration-500"
+        />
+      </svg>
+      <span className="absolute text-2xl font-bold text-slate-900">{v}%</span>
+    </div>
+  );
+}
+
+/** Card de um Resultado-Chave (KR) do PDTIC: cabeçalho, gauge e a ficha (Mensurado/Fonte/…). */
+function KrCard({
+  tag,
+  tagColor,
+  iconBg,
+  icon,
+  titulo,
+  gaugeColor,
+  pct,
+  linhas,
+  onClick,
+  active = false,
+  activeRing,
+}: {
+  tag: string;
+  tagColor: string;
+  iconBg: string;
+  icon: React.ReactNode;
+  titulo: string;
+  gaugeColor: string;
+  pct: number;
+  linhas: [string, string][];
+  onClick?: () => void;
+  active?: boolean;
+  activeRing?: string;
+}) {
+  const clicavel = !!onClick;
+  return (
+    <div
+      role={clicavel ? "button" : undefined}
+      tabIndex={clicavel ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        clicavel
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={cn(
+        "flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition-shadow",
+        clicavel && "cursor-pointer hover:shadow-md",
+        active && cn("ring-2 ring-offset-1", activeRing),
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className={cn("shrink-0 rounded-xl p-2.5", iconBg)}>{icon}</div>
+        <div className="min-w-0">
+          <p className={cn("text-lg font-bold", tagColor)}>{tag}</p>
+          <p className="text-xs leading-snug text-slate-600">{titulo}</p>
+        </div>
+      </div>
+      <div className="my-3 flex justify-center">
+        <KrGauge pct={pct} color={gaugeColor} />
+      </div>
+      <table className="w-full text-xs">
+        <tbody>
+          {linhas.map(([k, v]) => (
+            <tr key={k} className="border-t border-slate-100">
+              <td className="py-1.5 pr-2 font-medium text-slate-500">{k}</td>
+              <td className="py-1.5 text-slate-700">{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Card de Atingimento Geral do PDTIC (0% até os 3 KRs estarem estabelecidos). */
+function AtingimentoGeralCard({ pct }: { pct: number }) {
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  return (
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 rounded-xl bg-blue-50 p-2.5 text-blue-600">
+          <BarChart3 className="h-6 w-6" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold uppercase tracking-wide text-blue-600">
+            Atingimento Geral
+          </p>
+          <p className="mt-1.5 text-xs font-semibold text-slate-500">Objetivo</p>
+          <p className="text-xs leading-snug text-slate-700">
+            Aumentar a satisfação dos usuários com recursos de TIC
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center py-4">
+        <span className="text-4xl font-bold text-blue-600">{v}%</span>
+        <span className="mt-1 text-xs text-slate-500">Atingimento do PDTIC</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-blue-600 transition-all"
+          style={{ width: `${v}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Um item do PCA está concluído quando o status começa com "Conclu" (Concluída/Concluído). */
+const pcaConcluido = (p: PcaItem) =>
+  String(p.status).toLowerCase().startsWith("conclu");
+
+/** Rótulo do status do item do PCA para exibição. */
+function pcaStatusLabel(p: PcaItem): string {
+  const s = String(p.status ?? "").toLowerCase();
+  if (s.startsWith("conclu")) return "Concluído";
+  if (s.includes("andamento")) return "Em andamento";
+  if (s.includes("inici")) return "Não iniciada";
+  return String(p.status ?? "").trim() || "—";
+}
+
+/** Tabela de TODOS os itens do PCA (exibida no KR-2), com a coluna de status por item. */
+function PcaItensTabela({
+  itens,
+  loading,
+}: {
+  itens: PcaItem[];
+  loading: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="grid grid-cols-[1fr_160px_160px_130px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <span>Item / Objeto</span>
+        <span>Área</span>
+        <span className="text-right">Valor estimado</span>
+        <span className="text-center">Status</span>
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-slate-500">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          Carregando itens do PCA…
+        </div>
+      ) : itens.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
+          <ShoppingCart className="h-8 w-8 text-slate-300 mb-2" />
+          <p className="text-sm">Nenhum item no PCA desta versão.</p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {itens.map((p) => {
+            const ok = pcaConcluido(p);
+            return (
+              <li
+                key={p.id}
+                className="grid grid-cols-[1fr_160px_160px_130px] items-center gap-3 px-5 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-slate-800" title={p.objeto}>
+                    {p.objeto || "—"}
+                  </p>
+                  {p.itemPca && (
+                    <p className="text-[11px] font-medium uppercase text-slate-400">
+                      {p.itemPca}
+                    </p>
+                  )}
+                </div>
+                <div
+                  className="truncate text-sm text-slate-600"
+                  title={p.areaNome || p.areaSigla || undefined}
+                >
+                  {p.areaSigla || p.areaNome || "—"}
+                </div>
+                <div className="text-right text-sm tabular-nums text-slate-700">
+                  {Number(p.valor_estimado || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </div>
+                <div className="flex justify-center">
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+                      ok
+                        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                        : "bg-amber-50 text-amber-700 ring-amber-200",
+                    )}
+                  >
+                    {pcaStatusLabel(p)}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /** Painel expansível com os campos não obrigatórios cadastrados da ação. */
 function DetalhesAcao({ a }: { a: PdticAcao }) {
   const curtos: [string, string | null | undefined][] = [
@@ -458,7 +871,11 @@ function DetalhesAcao({ a }: { a: PdticAcao }) {
     ["Macrodesafios TJGO", a.macrodesafios_tjgo],
     [
       "Custo",
-      a.com_custo ? a.custo?.trim() || "Sim (valor não informado)" : null,
+      a.com_custo
+        ? a.custo?.trim()
+          ? formatReais(a.custo)
+          : "Sim (valor não informado)"
+        : null,
     ],
   ];
   const preenchidos = curtos.filter(([, v]) => v && String(v).trim());
