@@ -25,8 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { pdticAcoesApi, PdticAcao } from "@/services/pdticAcoesApi";
-import { getPcaStats } from "@/services/pcaApi";
-import type { PcaStats } from "@/types";
+import { getPcaStats, getPcaItems } from "@/services/pcaApi";
+import type { PcaStats, PcaItem } from "@/types";
 
 const TODAS = "__todas__";
 
@@ -91,6 +91,55 @@ export default function Pdtic() {
         /* sem PCA, os KRs dependentes ficam em 0 */
       });
   }, []);
+
+  // KR clicado (filtro): "kr1" → ações concluídas na tabela; "kr2" → itens do PCA concluídos.
+  const [krAtivo, setKrAtivo] = useState<"kr1" | "kr2" | null>(null);
+  const [pcaItens, setPcaItens] = useState<PcaItem[]>([]);
+  const [pcaItensLoading, setPcaItensLoading] = useState(false);
+  const [pcaItensCarregado, setPcaItensCarregado] = useState(false);
+  const pcaConcluidos = useMemo(
+    () =>
+      pcaItens.filter((p) =>
+        String(p.status).toLowerCase().startsWith("conclu"),
+      ),
+    [pcaItens],
+  );
+
+  const handleKr1 = () => {
+    if (krAtivo === "kr1") {
+      setKrAtivo(null);
+      setFiltroStatus("todas");
+    } else {
+      setKrAtivo("kr1");
+      setFiltroStatus("concluidas");
+    }
+  };
+
+  const handleKr2 = () => {
+    if (krAtivo === "kr2") {
+      setKrAtivo(null);
+      return;
+    }
+    setKrAtivo("kr2");
+    if (!pcaItensCarregado) {
+      setPcaItensLoading(true);
+      getPcaItems(PCA_ANO, undefined, PCA_VERSAO)
+        .then((its) => {
+          setPcaItens(its);
+          setPcaItensCarregado(true);
+        })
+        .catch(() => {
+          /* erro tratado no apiClient */
+        })
+        .finally(() => setPcaItensLoading(false));
+    }
+  };
+
+  /** Volta para o modo de Ações (limpa o KR ativo) e aplica o filtro de status escolhido. */
+  const selecionarStatus = (s: "todas" | "concluidas" | "pendentes") => {
+    setKrAtivo(null);
+    setFiltroStatus(s);
+  };
 
   const diretorias = useMemo(
     () =>
@@ -314,6 +363,9 @@ export default function Pdtic() {
               titulo="Cumprir 80% das Ações Planejadas dentro do prazo de conclusão definido no quadro de ações"
               gaugeColor="#2563eb"
               pct={krs.kr1.pct}
+              onClick={handleKr1}
+              active={krAtivo === "kr1"}
+              activeRing="ring-blue-400"
               linhas={[
                 ["Mensurado", "% de ações concluídas"],
                 ["Fonte", "Painel de Ações"],
@@ -330,6 +382,9 @@ export default function Pdtic() {
               titulo="Concluir 25 demandas de aquisições de TIC do plano de contratação anual vigente"
               gaugeColor="#16a34a"
               pct={krs.kr2.pct}
+              onClick={handleKr2}
+              active={krAtivo === "kr2"}
+              activeRing="ring-emerald-400"
               linhas={[
                 ["Mensurado", "% de contratos assinados"],
                 ["Fonte", "Plano de Contratações"],
@@ -364,29 +419,32 @@ export default function Pdtic() {
               valor={stats.total}
               icon={<FileText className="h-6 w-6" />}
               cor="blue"
-              active={filtroStatus === "todas"}
-              onClick={() => setFiltroStatus("todas")}
+              active={krAtivo === null && filtroStatus === "todas"}
+              onClick={() => selecionarStatus("todas")}
             />
             <StatCard
               titulo="Concluídas"
               valor={stats.concluidas}
               icon={<CheckCircle2 className="h-6 w-6" />}
               cor="green"
-              active={filtroStatus === "concluidas"}
-              onClick={() => setFiltroStatus("concluidas")}
+              active={krAtivo === null && filtroStatus === "concluidas"}
+              onClick={() => selecionarStatus("concluidas")}
             />
             <StatCard
               titulo="Pendentes"
               valor={stats.pendentes}
               icon={<AlertTriangle className="h-6 w-6" />}
               cor="red"
-              active={filtroStatus === "pendentes"}
-              onClick={() => setFiltroStatus("pendentes")}
+              active={krAtivo === null && filtroStatus === "pendentes"}
+              onClick={() => selecionarStatus("pendentes")}
             />
             <ProgressoCard progresso={stats.progresso} />
           </div>
 
-          {/* Tabela */}
+          {/* Tabela: Ações do PDTIC — ou os itens do PCA concluídos quando o KR-2 está ativo */}
+          {krAtivo === "kr2" ? (
+            <PcaConcluidosTabela itens={pcaConcluidos} loading={pcaItensLoading} />
+          ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
             <div className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <span>Ações</span>
@@ -518,18 +576,26 @@ export default function Pdtic() {
               </ul>
             )}
           </div>
+          )}
 
-          <p className="text-xs text-slate-400">
-            {stats.total} açã{stats.total === 1 ? "o" : "es"} ·{" "}
-            {stats.concluidas} concluída{stats.concluidas === 1 ? "" : "s"} ·{" "}
-            {stats.pendentes} pendente{stats.pendentes === 1 ? "" : "s"}
-            {filtroStatus !== "todas" && (
-              <span className="ml-1 text-slate-500">
-                · filtrando:{" "}
-                {filtroStatus === "concluidas" ? "Concluídas" : "Pendentes"}
-              </span>
-            )}
-          </p>
+          {krAtivo === "kr2" ? (
+            <p className="text-xs text-slate-400">
+              {pcaConcluidos.length} item(ns) do PCA concluído(s) — Plano de
+              Contratações Anual {PCA_ANO} (versão {PCA_VERSAO}).
+            </p>
+          ) : (
+            <p className="text-xs text-slate-400">
+              {stats.total} açã{stats.total === 1 ? "o" : "es"} ·{" "}
+              {stats.concluidas} concluída{stats.concluidas === 1 ? "" : "s"} ·{" "}
+              {stats.pendentes} pendente{stats.pendentes === 1 ? "" : "s"}
+              {filtroStatus !== "todas" && (
+                <span className="ml-1 text-slate-500">
+                  · filtrando:{" "}
+                  {filtroStatus === "concluidas" ? "Concluídas" : "Pendentes"}
+                </span>
+              )}
+            </p>
+          )}
       </div>
 
       {/* Input de upload oculto (reusado por todas as linhas) */}
@@ -610,6 +676,9 @@ function KrCard({
   gaugeColor,
   pct,
   linhas,
+  onClick,
+  active = false,
+  activeRing,
 }: {
   tag: string;
   tagColor: string;
@@ -619,9 +688,32 @@ function KrCard({
   gaugeColor: string;
   pct: number;
   linhas: [string, string][];
+  onClick?: () => void;
+  active?: boolean;
+  activeRing?: string;
 }) {
+  const clicavel = !!onClick;
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
+    <div
+      role={clicavel ? "button" : undefined}
+      tabIndex={clicavel ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        clicavel
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={cn(
+        "flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition-shadow",
+        clicavel && "cursor-pointer hover:shadow-md",
+        active && cn("ring-2 ring-offset-1", activeRing),
+      )}
+    >
       <div className="flex items-start gap-3">
         <div className={cn("shrink-0 rounded-xl p-2.5", iconBg)}>{icon}</div>
         <div className="min-w-0">
@@ -675,6 +767,74 @@ function AtingimentoGeralCard({ pct }: { pct: number }) {
           style={{ width: `${v}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+/** Tabela dos itens do PCA concluídos (exibida quando o KR-2 está selecionado). */
+function PcaConcluidosTabela({
+  itens,
+  loading,
+}: {
+  itens: PcaItem[];
+  loading: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="grid grid-cols-[1fr_160px_160px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <span>Item / Objeto</span>
+        <span>Área</span>
+        <span className="text-right">Valor estimado</span>
+        <span className="text-center">Status</span>
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-slate-500">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          Carregando itens do PCA…
+        </div>
+      ) : itens.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
+          <ShoppingCart className="h-8 w-8 text-slate-300 mb-2" />
+          <p className="text-sm">Nenhum item do PCA concluído nesta versão.</p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {itens.map((p) => (
+            <li
+              key={p.id}
+              className="grid grid-cols-[1fr_160px_160px_120px] items-center gap-3 px-5 py-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm text-slate-800" title={p.objeto}>
+                  {p.objeto || "—"}
+                </p>
+                {p.itemPca && (
+                  <p className="text-[11px] font-medium uppercase text-slate-400">
+                    {p.itemPca}
+                  </p>
+                )}
+              </div>
+              <div
+                className="truncate text-sm text-slate-600"
+                title={p.areaNome || p.areaSigla || undefined}
+              >
+                {p.areaSigla || p.areaNome || "—"}
+              </div>
+              <div className="text-right text-sm tabular-nums text-slate-700">
+                {Number(p.valor_estimado || 0).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </div>
+              <div className="flex justify-center">
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                  Concluído
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
