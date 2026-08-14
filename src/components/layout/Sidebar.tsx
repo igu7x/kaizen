@@ -30,7 +30,7 @@ import {
   BarChart3,
   Cpu,
   Gavel,
-  Lock,
+  Scale,
   SlidersHorizontal,
   History,
   BookCheck,
@@ -223,7 +223,7 @@ const menuItemsCompleto: MenuItem[] = [
   {
     // Módulo em construção (porte do SGSI/TJGO). Restrito a superadmin por ora.
     title: "Gestão de Riscos e Compliance",
-    icon: Lock,
+    icon: Scale,
     superAdminOnly: true,
     children: [
       {

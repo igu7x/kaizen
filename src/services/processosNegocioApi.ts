@@ -222,6 +222,9 @@ export function validarComiteParaEnvio(
  */
 export function isK1(p: ProcessoNegocio): boolean {
   if (!p.codigo) return false;
+  // Só é Modelo K1 depois de homologado (validado_final) — mesma regra do backend (isK1Server).
+  // A ata do comitê anexada durante a elaboração NÃO antecipa o K1.
+  if (p.status !== "validado_final") return false;
   if (camposObrigatoriosFaltantes(p).length > 0) return false;
   const exigidos = p.apreciacao || [];
   const aprovados = p.aprovacoes || [];
@@ -240,14 +243,17 @@ export function isK1(p: ProcessoNegocio): boolean {
 export function isVigente(p: ProcessoNegocio): boolean {
   if (!p.codigo) return false; // regra: só é vigente quando possui um ID
   if (camposObrigatoriosFaltantes(p).length > 0) return false;
+  // Vigente exige a homologação final (validado_final). A ata do comitê, sozinha, NÃO torna o
+  // processo vigente — para diretorias com comitê, exige-se validado_final E as atas exigidas.
+  // (Alinhado ao backend isK1Server, que também requer status = validado_final.)
+  if (!p.validado_final_em) return false;
   if (exigeComiteAprovacao(p.diretoria)) {
     const exigidos = p.apreciacao || [];
-    if (exigidos.length === 0) return !!p.validado_final_em;
     return exigidos.every((c) =>
       (p.aprovacoes || []).some((a) => a.comite === c && !!a.em),
     );
   }
-  return !!p.validado_final_em;
+  return true;
 }
 
 /**
@@ -289,13 +295,22 @@ export function revisaoVencida(p: ProcessoNegocio): boolean {
   return next != null && next.getTime() < Date.now();
 }
 
+/** Janela de revisão: falta {@code dias} (padrão 90) ou menos para a próxima revisão (inclui vencida). */
+export function revisaoNaJanela(p: ProcessoNegocio, dias = 90): boolean {
+  const next = proximaRevisao(p);
+  if (next == null) return false;
+  const diffDias = (next.getTime() - Date.now()) / 86_400_000;
+  return diffDias <= dias;
+}
+
 /**
- * Revisão ou Novo = ainda não finalizado (status ≠ validado_final — ex.: em elaboração/revisão) OU
- * não é K1 completo OU está com a revisão vencida. Não é exclusivo de {@link isVigente}: um Modelo K1
- * em revisão aparece nas DUAS abas (vigente como modelo publicado; em revisão como versão em curso).
+ * Revisão ou Novo = ainda não é um Modelo K1 vigente (em elaboração/validação, novo ou recusado) OU,
+ * sendo vigente, já entrou na janela de 90 dias antes da próxima revisão (inclui a revisão vencida).
+ * Um processo VIGENTE fora da janela sai desta lista; ao faltar 90 dias para a revisão ele reentra.
  */
 export function isRevisaoOuNovo(p: ProcessoNegocio): boolean {
-  return p.status !== "validado_final" || !isK1(p) || revisaoVencida(p);
+  if (!isVigente(p)) return true;
+  return revisaoNaJanela(p, 90);
 }
 
 /**
