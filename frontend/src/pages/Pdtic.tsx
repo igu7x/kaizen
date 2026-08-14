@@ -294,9 +294,10 @@ export default function Pdtic() {
 
           {/* Tabela */}
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <span>Ações</span>
-              <span className="text-center">Prazo</span>
+              <span>Área responsável</span>
+              <span className="text-center">Conclusão</span>
               <span className="text-center">Status</span>
               <span className="text-center">Evidência</span>
             </div>
@@ -339,7 +340,7 @@ export default function Pdtic() {
                         }
                       }}
                       aria-expanded={aberto}
-                      className="grid grid-cols-[1fr_120px_130px_130px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60 cursor-pointer"
+                      className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60 cursor-pointer"
                     >
                       <div className="flex items-start gap-2 min-w-0">
                         <ChevronRight
@@ -357,6 +358,12 @@ export default function Pdtic() {
                             </p>
                           )}
                         </div>
+                      </div>
+                      <div
+                        className="truncate text-sm text-slate-600"
+                        title={a.area_responsavel || undefined}
+                      >
+                        {a.area_responsavel || "—"}
                       </div>
                       <div className="text-center text-sm tabular-nums text-slate-600 whitespace-nowrap">
                         {prazoMesAno(a.conclusao)}
@@ -446,6 +453,16 @@ export default function Pdtic() {
   );
 }
 
+/** Formata um valor de custo (texto livre, ex.: "2000000,00") como moeda brasileira: R$ 2.000.000,00. */
+function formatReais(valor?: string | null): string {
+  if (!valor || !valor.trim()) return "";
+  const n = Number(
+    valor.replace(/R\$/gi, "").replace(/\s/g, "").replace(/\./g, "").replace(",", "."),
+  );
+  if (Number.isNaN(n)) return valor.trim();
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 /** Painel expansível com os campos não obrigatórios cadastrados da ação. */
 function DetalhesAcao({ a }: { a: PdticAcao }) {
   const curtos: [string, string | null | undefined][] = [
@@ -458,7 +475,11 @@ function DetalhesAcao({ a }: { a: PdticAcao }) {
     ["Macrodesafios TJGO", a.macrodesafios_tjgo],
     [
       "Custo",
-      a.com_custo ? a.custo?.trim() || "Sim (valor não informado)" : null,
+      a.com_custo
+        ? a.custo?.trim()
+          ? formatReais(a.custo)
+          : "Sim (valor não informado)"
+        : null,
     ],
   ];
   const preenchidos = curtos.filter(([, v]) => v && String(v).trim());
