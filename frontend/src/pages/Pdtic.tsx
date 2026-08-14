@@ -8,6 +8,10 @@ import {
   X,
   Eye,
   ChevronRight,
+  Target,
+  ShoppingCart,
+  ShieldCheck,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -21,8 +25,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { pdticAcoesApi, PdticAcao } from "@/services/pdticAcoesApi";
+import { getPcaStats } from "@/services/pcaApi";
+import type { PcaStats } from "@/types";
 
 const TODAS = "__todas__";
+
+// KR-2 (Base) e KR-3 (Alvo) puxam do Plano de Contratações Anual — por ora, ano corrente e VERSÃO 1.
+const PCA_ANO = new Date().getFullYear();
+const PCA_VERSAO = 1;
+// Meta fixa do KR-2 (não muda com os dados).
+const KR2_ALVO = 25;
+// KR-3 ainda em discussão: base sem fonte de extração disponível (valor provisório).
+const KR3_BASE = 32;
 
 /** Prazo no formato MM/AAAA a partir de YYYY-MM-DD. */
 function prazoMesAno(iso?: string | null): string {
@@ -68,6 +82,16 @@ export default function Pdtic() {
     carregar();
   }, []);
 
+  // Estatísticas do PCA (versão 1) para alimentar KR-2 (concluídos) e KR-3 (total de itens).
+  const [pca, setPca] = useState<PcaStats | null>(null);
+  useEffect(() => {
+    getPcaStats(PCA_ANO, undefined, PCA_VERSAO)
+      .then(setPca)
+      .catch(() => {
+        /* sem PCA, os KRs dependentes ficam em 0 */
+      });
+  }, []);
+
   const diretorias = useMemo(
     () =>
       Array.from(
@@ -110,6 +134,23 @@ export default function Pdtic() {
     const progresso = total === 0 ? 0 : Math.round((concluidas / total) * 100);
     return { total, concluidas, pendentes, progresso };
   }, [filtradas]);
+
+  // KRs do PDTIC. KR-1 vem das ações (Base = concluídas, Alvo = total). KR-2/KR-3 vêm do PCA.
+  // O Atingimento Geral fica em 0% até os 3 KRs estarem bem estabelecidos.
+  const krs = useMemo(() => {
+    const pctd = (base: number, alvo: number) =>
+      alvo > 0 ? Math.round((base / alvo) * 100) : 0;
+    const kr1Base = stats.concluidas;
+    const kr1Alvo = stats.total;
+    const kr2Base = pca?.concluidos ?? 0;
+    const kr3Alvo = pca?.total ?? 0;
+    return {
+      kr1: { base: kr1Base, alvo: kr1Alvo, pct: pctd(kr1Base, kr1Alvo) },
+      kr2: { base: kr2Base, alvo: KR2_ALVO, pct: pctd(kr2Base, KR2_ALVO) },
+      kr3: { base: KR3_BASE, alvo: kr3Alvo, pct: pctd(KR3_BASE, kr3Alvo) },
+      geral: 0,
+    };
+  }, [stats.concluidas, stats.total, pca]);
 
   // Os cards funcionam como filtro: a tabela respeita o status escolhido (os cards seguem
   // mostrando os totais reais, independentemente do filtro ativo).
@@ -261,6 +302,59 @@ export default function Pdtic() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* KRs (Resultados-Chave) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <KrCard
+              tag="KR-1"
+              tagColor="text-blue-600"
+              iconBg="bg-blue-50 text-blue-600"
+              icon={<Target className="h-6 w-6" />}
+              titulo="Cumprir 80% das Ações Planejadas dentro do prazo de conclusão definido no quadro de ações"
+              gaugeColor="#2563eb"
+              pct={krs.kr1.pct}
+              linhas={[
+                ["Mensurado", "% de ações concluídas"],
+                ["Fonte", "Painel de Ações"],
+                ["Frequência", "Anual"],
+                ["Base", String(krs.kr1.base)],
+                ["Alvo", String(krs.kr1.alvo)],
+              ]}
+            />
+            <KrCard
+              tag="KR-2"
+              tagColor="text-emerald-600"
+              iconBg="bg-emerald-50 text-emerald-600"
+              icon={<ShoppingCart className="h-6 w-6" />}
+              titulo="Concluir 25 demandas de aquisições de TIC do plano de contratação anual vigente"
+              gaugeColor="#16a34a"
+              pct={krs.kr2.pct}
+              linhas={[
+                ["Mensurado", "% de contratos assinados"],
+                ["Fonte", "Plano de Contratações"],
+                ["Frequência", "Semestral"],
+                ["Base", String(krs.kr2.base)],
+                ["Alvo", String(krs.kr2.alvo)],
+              ]}
+            />
+            <KrCard
+              tag="KR-3"
+              tagColor="text-violet-600"
+              iconBg="bg-violet-50 text-violet-600"
+              icon={<ShieldCheck className="h-6 w-6" />}
+              titulo="Manter 95% de compliance quanto à transparência, aprovação e revisão dos planejamentos táticos e processos e planos de negócio em TIC"
+              gaugeColor="#7c3aed"
+              pct={krs.kr3.pct}
+              linhas={[
+                ["Mensurado", "Índice de compliance"],
+                ["Fonte", "Relatórios de Compliance"],
+                ["Frequência", "Anual"],
+                ["Base", String(krs.kr3.base)],
+                ["Alvo", String(krs.kr3.alvo)],
+              ]}
+            />
+            <AtingimentoGeralCard pct={krs.geral} />
           </div>
 
           {/* Cards */}
@@ -461,6 +555,128 @@ function formatReais(valor?: string | null): string {
   );
   if (Number.isNaN(n)) return valor.trim();
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/** Gauge circular (270°) com o percentual no centro. */
+function KrGauge({ pct, color }: { pct: number; color: string }) {
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  const size = 128;
+  const stroke = 12;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const track = circ * 0.75; // arco de 270°, com a abertura embaixo
+  const filled = track * (v / 100);
+  return (
+    <div className="relative flex h-28 w-28 items-center justify-center">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        className="h-28 w-28"
+        style={{ transform: "rotate(135deg)" }}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth={stroke}
+          strokeDasharray={`${track} ${circ}`}
+          strokeLinecap="round"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeDasharray={`${filled} ${circ}`}
+          strokeLinecap="round"
+          className="transition-[stroke-dasharray] duration-500"
+        />
+      </svg>
+      <span className="absolute text-2xl font-bold text-slate-900">{v}%</span>
+    </div>
+  );
+}
+
+/** Card de um Resultado-Chave (KR) do PDTIC: cabeçalho, gauge e a ficha (Mensurado/Fonte/…). */
+function KrCard({
+  tag,
+  tagColor,
+  iconBg,
+  icon,
+  titulo,
+  gaugeColor,
+  pct,
+  linhas,
+}: {
+  tag: string;
+  tagColor: string;
+  iconBg: string;
+  icon: React.ReactNode;
+  titulo: string;
+  gaugeColor: string;
+  pct: number;
+  linhas: [string, string][];
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex items-start gap-3">
+        <div className={cn("shrink-0 rounded-xl p-2.5", iconBg)}>{icon}</div>
+        <div className="min-w-0">
+          <p className={cn("text-lg font-bold", tagColor)}>{tag}</p>
+          <p className="text-xs leading-snug text-slate-600">{titulo}</p>
+        </div>
+      </div>
+      <div className="my-3 flex justify-center">
+        <KrGauge pct={pct} color={gaugeColor} />
+      </div>
+      <table className="w-full text-xs">
+        <tbody>
+          {linhas.map(([k, v]) => (
+            <tr key={k} className="border-t border-slate-100">
+              <td className="py-1.5 pr-2 font-medium text-slate-500">{k}</td>
+              <td className="py-1.5 text-slate-700">{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Card de Atingimento Geral do PDTIC (0% até os 3 KRs estarem estabelecidos). */
+function AtingimentoGeralCard({ pct }: { pct: number }) {
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  return (
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 rounded-xl bg-blue-50 p-2.5 text-blue-600">
+          <BarChart3 className="h-6 w-6" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold uppercase tracking-wide text-blue-600">
+            Atingimento Geral
+          </p>
+          <p className="mt-1.5 text-xs font-semibold text-slate-500">Objetivo</p>
+          <p className="text-xs leading-snug text-slate-700">
+            Aumentar a satisfação dos usuários com recursos de TIC
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center py-4">
+        <span className="text-4xl font-bold text-blue-600">{v}%</span>
+        <span className="mt-1 text-xs text-slate-500">Atingimento do PDTIC</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-blue-600 transition-all"
+          style={{ width: `${v}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 /** Painel expansível com os campos não obrigatórios cadastrados da ação. */
