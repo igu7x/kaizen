@@ -497,7 +497,12 @@ public class ProcessosNegocioService {
         // 'em_elaboracao' (precisa revalidar). NÃO limpa os carimbos das camadas — o processo já é
         // Modelo K1 e o PDF/tela continuam mostrando a ÚLTIMA validação até a revalidação
         // sobrescrever (evita um K1 aparecer "Pendente"). O ciclo é re-carimbado ao reenviar/validar.
-        boolean reabrirCiclo = "validado_final".equals(statusAtual);
+        //
+        // SÓ reabre quando houve edição de CONTEÚDO VERSIONÁVEL (editouConteudo). Um save sem mudança
+        // real — reabrir/fechar o editor, anexar a ata do comitê ou o documento primário (anexos não
+        // contam) — NÃO invalida a homologação: senão o processo vigente cai num loop de "validar de
+        // novo" sem que nada tenha mudado.
+        boolean reabrirCiclo = "validado_final".equals(statusAtual) && editouConteudo;
         if (reabrirCiclo) {
             fields.add("status = 'em_elaboracao'");
             fields.add("recusado_em = NULL");
