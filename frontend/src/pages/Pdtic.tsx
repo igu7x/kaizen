@@ -768,6 +768,13 @@ function AtingimentoGeralCard({ pct }: { pct: number }) {
   );
 }
 
+// A API do PCA responde em snake_case; a interface PcaItem mistura nomes, então lemos os campos
+// reais de forma defensiva (item_pca, area_demandante) sem depender dos apelidos camelCase.
+type PcaRow = PcaItem & { item_pca?: string; area_demandante?: string };
+const codPca = (p: PcaItem) => (p as PcaRow).item_pca ?? p.itemPca ?? "";
+const areaPca = (p: PcaItem) =>
+  (p as PcaRow).area_demandante ?? p.areaSigla ?? p.areaNome ?? "";
+
 /** Um item do PCA está concluído quando o status começa com "Conclu" (Concluída/Concluído). */
 const pcaConcluido = (p: PcaItem) =>
   String(p.status).toLowerCase().startsWith("conclu");
@@ -817,20 +824,23 @@ function PcaItensTabela({
                 className="grid grid-cols-[1fr_160px_160px_130px] items-center gap-3 px-5 py-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-slate-800" title={p.objeto}>
-                    {p.objeto || "—"}
-                  </p>
-                  {p.itemPca && (
-                    <p className="text-[11px] font-medium uppercase text-slate-400">
-                      {p.itemPca}
+                  {codPca(p) && (
+                    <p className="text-[11px] font-semibold uppercase text-blue-600">
+                      {codPca(p)}
                     </p>
                   )}
+                  <p
+                    className="line-clamp-2 text-sm text-slate-800"
+                    title={p.objeto}
+                  >
+                    {p.objeto || "—"}
+                  </p>
                 </div>
                 <div
                   className="truncate text-sm text-slate-600"
-                  title={p.areaNome || p.areaSigla || undefined}
+                  title={areaPca(p) || undefined}
                 >
-                  {p.areaSigla || p.areaNome || "—"}
+                  {areaPca(p) || "—"}
                 </div>
                 <div className="text-right text-sm tabular-nums text-slate-700">
                   {Number(p.valor_estimado || 0).toLocaleString("pt-BR", {
