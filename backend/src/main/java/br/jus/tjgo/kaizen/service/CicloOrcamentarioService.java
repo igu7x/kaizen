@@ -44,6 +44,7 @@ public class CicloOrcamentarioService {
     private final PermissoesAcoesService permissoesAcoesService;
     private final DelegacaoEdicaoService delegacaoEdicaoService;
     private final StorageService storageService;
+    private final ParametrosCicloService parametrosCicloService;
 
     private static final String ESTADO_FORMACAO_INICIAL = "aguardando_proad";
     private static final String ESTADO_REVISAO_INICIAL = "em_consulta_1";
@@ -82,17 +83,40 @@ public class CicloOrcamentarioService {
     /** RF-76 — janelas ordinárias (início, fim, versão gerada). A 1ª abre pelo evento de publicação. */
     private record Janela(int ordem, int versao, MonthDay inicio, MonthDay fim) {}
 
-    private static final List<Janela> JANELAS = List.of(
+    /** Fallback hardcoded — usado apenas se a tabela parametros_ciclo_revisao estiver vazia. */
+    private static final List<Janela> JANELAS_FALLBACK = List.of(
             new Janela(1, 2, null, MonthDay.of(1, 31)),
             new Janela(2, 3, MonthDay.of(4, 1), MonthDay.of(4, 30)),
             new Janela(3, 4, MonthDay.of(7, 1), MonthDay.of(7, 31)));
 
-    /** RF-31 — corte da Formação: a partir de 01/03 a consulta às unidades fecha (auto-fechamento). */
-    private static final MonthDay CORTE_FORMACAO = MonthDay.of(3, 1);
+    /** RF-31 — corte da Formação: fallback se a tabela parametros_ciclo_geral estiver vazia. */
+    private static final MonthDay CORTE_FORMACAO_FALLBACK = MonthDay.of(3, 1);
 
-    private static Janela janelaAtiva(LocalDate hoje) {
+    /** Lê janelas do banco (parametros_ciclo_revisao) com fallback para valores padrão. */
+    private List<Janela> getJanelas() {
+        try {
+            var params = parametrosCicloService.getJanelasRevisaoParam();
+            if (params.isEmpty()) return JANELAS_FALLBACK;
+            return params.stream()
+                    .map(p -> new Janela(p.ordem(), p.versao(), p.inicio(), p.fim()))
+                    .toList();
+        } catch (Exception e) {
+            return JANELAS_FALLBACK;
+        }
+    }
+
+    /** Lê corte de formação do banco com fallback. */
+    private MonthDay getCorteFormacao() {
+        try {
+            return parametrosCicloService.getCorteFormacao();
+        } catch (Exception e) {
+            return CORTE_FORMACAO_FALLBACK;
+        }
+    }
+
+    private Janela janelaAtiva(LocalDate hoje) {
         MonthDay hm = MonthDay.of(hoje.getMonthValue(), hoje.getDayOfMonth());
-        for (Janela j : JANELAS) {
+        for (Janela j : getJanelas()) {
             if (j.inicio() == null) continue;
             if (!hm.isBefore(j.inicio()) && !hm.isAfter(j.fim())) {
                 return j;
@@ -101,9 +125,9 @@ public class CicloOrcamentarioService {
         return null;
     }
 
-    private static Janela janelaDaVersao(Integer versao) {
+    private Janela janelaDaVersao(Integer versao) {
         if (versao == null) return null;
-        for (Janela j : JANELAS) {
+        for (Janela j : getJanelas()) {
             if (j.versao() == versao) return j;
         }
         return null;
@@ -116,7 +140,7 @@ public class CicloOrcamentarioService {
      *  - Revisão com janela aberta cuja janela já encerrou → rito de validação (RF-67/69; demandante
      *    deixa de editar, CCA consolida a partir de D+1).
      */
-    private static String estadoDerivadoPorData(CicloDto ciclo, LocalDate hoje) {
+    private String estadoDerivadoPorData(CicloDto ciclo, LocalDate hoje) {
         MonthDay hm = MonthDay.of(hoje.getMonthValue(), hoje.getDayOfMonth());
         if ("revisao".equals(ciclo.finalidade()) && "em_consulta_1".equals(ciclo.estado())) {
             Janela j = janelaDaVersao(ciclo.versaoGerada());
