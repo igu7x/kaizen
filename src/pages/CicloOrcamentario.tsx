@@ -18,14 +18,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { rotuloVersao } from "@/components/contratacoes/ciclo/cicloConstants";
+import { rotuloVersao, type CalendarioRevisao } from "@/components/contratacoes/ciclo/cicloConstants";
 import {
   cicloOrcamentarioApi,
   resolverJanelaRevisao,
   type FinalidadeCiclo,
   type Ciclo,
   type EntradaCiclo,
+  type JanelaRevisaoResumo,
 } from "@/services/cicloOrcamentarioApi";
+import { carregarCalendarioRevisao } from "@/services/parametrosCicloApi";
 
 /**
  * Ciclo Orçamentário — a oficina onde se produz ou altera um PCA-TIC (RF-59/60).
@@ -76,6 +78,15 @@ export default function CicloOrcamentario() {
     () => resolverJanelaRevisao(hoje, anoVigente),
     [hoje, anoVigente],
   );
+
+  // Carrega calendário dinâmico do backend e re-resolve a janela ativa
+  const [janelaState, setJanelaState] = useState<JanelaRevisaoResumo>(janela);
+
+  useEffect(() => {
+    carregarCalendarioRevisao().then((cal) => {
+      setJanelaState(resolverJanelaRevisao(hoje, anoVigente, cal));
+    });
+  }, [hoje, anoVigente]);
 
   const [entrada, setEntrada] = useState<EntradaCiclo | null>(null);
   const [finalidade, setFinalidade] = useState<FinalidadeCiclo | null>(null);
@@ -147,20 +158,20 @@ export default function CicloOrcamentario() {
             titulo={`Revisão PCA – ${anoVigente}`}
             descricao="Revisão do plano vigente. Três janelas ordinárias ao ano; cada publicação gera a próxima versão (V2, V3, V4)."
             metas={
-              janela.ativa
+              janelaState.ativa
                 ? [
                   {
-                    texto: `${janela.calendario.ordem}ª revisão · janela aberta`,
+                    texto: `${janelaState.calendario.ordem}ª revisão · janela aberta`,
                     tom: "amber",
                   },
                   {
-                    texto: `gera ${rotuloVersao(janela.calendario.versao)}`,
+                    texto: `gera ${rotuloVersao(janelaState.calendario.versao)}`,
                     tom: "plain",
                   },
                 ]
                 : [
                   {
-                    texto: `próxima janela · ${janela.proximaAberturaEm ?? "—"}`,
+                    texto: `próxima janela · ${janelaState.proximaAberturaEm ?? "—"}`,
                     tom: "gray",
                   },
                 ]

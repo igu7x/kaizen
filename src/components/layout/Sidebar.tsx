@@ -155,7 +155,6 @@ const menuItemsCompleto: MenuItem[] = [
             path: "/ciclo-orcamentario",
             permissaoCodigo: "contratacoes_novas",
           },
-
         ]
       },
       {

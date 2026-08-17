@@ -2,12 +2,13 @@ import type { CicloTimelinePerna, CicloTimelineNode } from "./CicloTimeline";
 
 /**
  * Dados canônicos do Ciclo Orçamentário, derivados da Especificação de Requisitos
- * (RF-42, RF-76, RF-77, RF-78). Mantidos aqui como fonte única para a timeline e o calendário.
- * As datas do rito são fixas por decreto; o backend confirma/parametriza (RF-73).
+ * (RF-42, RF-76, RF-77, RF-78). As constantes *_DEFAULT servem como fallback quando
+ * o backend (parametros_ciclo_*) não responde. As telas devem buscar os dados dinâmicos
+ * via parametrosCicloApi e usar estes defaults apenas em caso de erro.
  */
 
-/** RF-42 — Formação: 11 nós em duas pernas (Formação 1–7; Revisão e publicação 8–11). */
-export const NOS_FORMACAO: CicloTimelinePerna[] = [
+/** RF-42 — Formação: fallback default para o timeline (quando o backend não responde). */
+export const NOS_FORMACAO_DEFAULT: CicloTimelinePerna[] = [
   {
     label: "Formação",
     nodes: [
@@ -43,7 +44,8 @@ export interface CalendarioRevisao {
   remessaDg: string;
 }
 
-export const CALENDARIO_REVISOES: CalendarioRevisao[] = [
+/** Fallback default para o calendário de revisões (quando o backend não responde). */
+export const CALENDARIO_REVISOES_DEFAULT: CalendarioRevisao[] = [
   {
     ordem: 1,
     versao: 2,
@@ -80,7 +82,8 @@ export const CALENDARIO_REVISOES: CalendarioRevisao[] = [
 export function nosRevisao(cal: CalendarioRevisao): CicloTimelinePerna[] {
   const nodes: CicloTimelineNode[] = [
     { area: "Demandantes", fase: "Janela de ajustes", data: cal.janelaFim },
-    { area: "CCA · GEJUT", fase: "Consolidação", data: cal.ritoSgjt },
+    { area: "CCA", fase: "Consolidação", data: cal.ritoSgjt },
+    { area: "GEJUT", fase: "Validação", data: cal.ritoSgjt },
     { area: "CGTIC · CGovTIC", fase: "Comitês", data: cal.comites },
     { area: "CCA · GEJUT → DG", fase: "Remessa DG", data: cal.remessaDg },
   ];
@@ -91,3 +94,7 @@ export function nosRevisao(cal: CalendarioRevisao): CicloTimelinePerna[] {
 export function rotuloVersao(versao: number): string {
   return `Versão ${versao}`;
 }
+
+// Aliases de retrocompatibilidade — novos consumers devem usar *_DEFAULT diretamente.
+export const NOS_FORMACAO = NOS_FORMACAO_DEFAULT;
+export const CALENDARIO_REVISOES = CALENDARIO_REVISOES_DEFAULT;

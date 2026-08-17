@@ -33,6 +33,7 @@ export interface User {
   cc_fc_classe?: string | null;
   codigo?: string | null;
   is_developer?: boolean;
+  is_superadmin?: boolean;
   // Camada D — tags de Permissão de Ação concedidas (Ciclo Orçamentário)
   tags_acesso?: string[];
 }

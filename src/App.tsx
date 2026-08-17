@@ -56,6 +56,7 @@ import SgsiEventos from "./pages/SgsiEventos";
 import SgsiAlertas from "./pages/SgsiAlertas";
 import SgsiIntegracao from "./pages/SgsiIntegracao";
 import SgsiSbom from "./pages/SgsiSbom";
+import CadastroContratacoesTic from "./pages/CadastroContratacoesTic";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
@@ -64,6 +65,7 @@ import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
 import CicloOrcamentario from "./pages/CicloOrcamentario";
 import FormacaoPca from "./pages/FormacaoPca";
 import RevisaoPca from "./pages/RevisaoPca";
+import ParametrosContratacoesTic from "./pages/ParametrosContratacoesTic";
 import PermissoesAcoes from "./pages/PermissoesAcoes";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
 import { FormFiller } from "./components/pessoas/FormFiller";
@@ -627,6 +629,22 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["ADMIN"]}>
                         <PermissoesProcessosTi />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/cadastros/contratacoes-tic"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <CadastroContratacoesTic />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/cadastros/contratacoes-tic/parametros"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]} requireSuperadmin={true}>
+                        <ParametrosContratacoesTic />
                       </ProtectedRoute>
                     }
                   />

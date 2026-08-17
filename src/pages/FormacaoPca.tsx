@@ -7,7 +7,9 @@ import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, Plus, ExternalLink, Check
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { CicloTimeline } from "@/components/contratacoes/ciclo/CicloTimeline";
-import { NOS_FORMACAO } from "@/components/contratacoes/ciclo/cicloConstants";
+import type { CicloTimelinePerna } from "@/components/contratacoes/ciclo/CicloTimeline";
+import { NOS_FORMACAO_DEFAULT } from "@/components/contratacoes/ciclo/cicloConstants";
+import { carregarFasesFormacaoTimeline } from "@/services/parametrosCicloApi";
 import { cicloOrcamentarioApi, type Ciclo } from "@/services/cicloOrcamentarioApi";
 import { contractsApi } from "@/services/contractsApi";
 import { ifoApi, type Ifo } from "@/services/dfdApi";
@@ -150,6 +152,7 @@ export default function FormacaoPca() {
   const [ciclo, setCiclo] = useState<Ciclo | null>(null);
   const [acaoEmCurso, setAcaoEmCurso] = useState(false);
   const [proadInput, setProadInput] = useState("");
+  const [pernasFormacao, setPernasFormacao] = useState<CicloTimelinePerna[]>(NOS_FORMACAO_DEFAULT);
 
   // Dados dos blocos
   const [ifosEncerramento, setIfosEncerramento] = useState<Ifo[]>([]);
@@ -221,6 +224,11 @@ export default function FormacaoPca() {
       cancelled = true;
     };
   }, [anoFormacao]);
+
+  // Carrega fases dinâmicas da Formação (parametros_ciclo_formacao)
+  useEffect(() => {
+    carregarFasesFormacaoTimeline().then(setPernasFormacao);
+  }, []);
 
   const loadBlocos = async () => {
     if (!ciclo) return;
@@ -429,7 +437,7 @@ export default function FormacaoPca() {
         {ciclo && (
           <section className="space-y-4">
             <CicloTimeline
-              pernas={NOS_FORMACAO}
+              pernas={pernasFormacao}
               activeIndex={formacaoEstado != null ? IDX_FORMACAO[formacaoEstado] ?? 0 : 0}
               showMarcoLegend
             />
