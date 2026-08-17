@@ -100,6 +100,8 @@ export default function Pdtic() {
   const [pcaItens, setPcaItens] = useState<PcaItem[]>([]);
   const [pcaItensLoading, setPcaItensLoading] = useState(false);
   const [pcaItensCarregado, setPcaItensCarregado] = useState(false);
+  // Filtro dentro do KR-2: "todos" (card Alvo) ou "concluidos" (card Concluída).
+  const [pcaFiltro, setPcaFiltro] = useState<"todos" | "concluidos">("todos");
   const pcaConcluidos = useMemo(
     () =>
       pcaItens.filter((p) =>
@@ -107,19 +109,23 @@ export default function Pdtic() {
       ),
     [pcaItens],
   );
+  // Lista exibida na tabela do KR-2, respeitando o card-filtro (Alvo/Concluída).
+  const pcaTabela = useMemo(
+    () => (pcaFiltro === "concluidos" ? pcaItens.filter(pcaConcluido) : pcaItens),
+    [pcaItens, pcaFiltro],
+  );
 
   const handleKr1 = () => {
     // KR-1 mostra TODAS as ações (a coluna Status já indica concluída/pendente).
-    setKrAtivo(krAtivo === "kr1" ? null : "kr1");
+    // Clicar repetidamente mantém o KR-1 ativo (sem toggle) — só sai dele pelos cards de status.
+    setKrAtivo("kr1");
     setFiltroStatus("todas");
   };
 
   const handleKr2 = () => {
-    if (krAtivo === "kr2") {
-      setKrAtivo(null);
-      return;
-    }
+    // Idempotente: clicar de novo no KR-2 continua no KR-2 (sem voltar pro modo Ações).
     setKrAtivo("kr2");
+    setPcaFiltro("todos");
     if (!pcaItensCarregado) {
       setPcaItensLoading(true);
       getPcaItems(PCA_ANO, undefined, PCA_VERSAO)
@@ -420,12 +426,16 @@ export default function Pdtic() {
                   valor={krs.kr2.alvo}
                   icon={<Target className="h-6 w-6" />}
                   cor="blue"
+                  active={pcaFiltro === "todos"}
+                  onClick={() => setPcaFiltro("todos")}
                 />
                 <StatCard
                   titulo="Concluída"
                   valor={krs.kr2.base}
                   icon={<CheckCircle2 className="h-6 w-6" />}
                   cor="green"
+                  active={pcaFiltro === "concluidos"}
+                  onClick={() => setPcaFiltro("concluidos")}
                 />
                 <ProgressoCard
                   progresso={krs.kr2.pct}
@@ -465,10 +475,14 @@ export default function Pdtic() {
 
           {/* Tabela: Ações do PDTIC — ou os itens do PCA concluídos quando o KR-2 está ativo */}
           {krAtivo === "kr2" ? (
-            <PcaItensTabela itens={pcaItens} loading={pcaItensLoading} />
+            <PcaItensTabela
+              itens={pcaTabela}
+              loading={pcaItensLoading}
+              filtro={pcaFiltro}
+            />
           ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="grid grid-cols-[minmax(0,1fr)_260px_110px_110px_110px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <span>Ações</span>
               <span>Área responsável</span>
               <span className="text-center">Conclusão</span>
@@ -514,9 +528,9 @@ export default function Pdtic() {
                         }
                       }}
                       aria-expanded={aberto}
-                      className="grid grid-cols-[1fr_200px_120px_120px_120px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60 cursor-pointer"
+                      className="grid grid-cols-[minmax(0,1fr)_260px_110px_110px_110px] items-center gap-3 px-5 py-3 hover:bg-slate-50/60 cursor-pointer"
                     >
-                      <div className="flex items-start gap-2 min-w-0">
+                      <div className="flex items-start gap-2 min-w-0 pr-6">
                         <ChevronRight
                           className={cn(
                             "h-4 w-4 mt-0.5 flex-shrink-0 text-slate-400 transition-transform",
@@ -534,7 +548,7 @@ export default function Pdtic() {
                         </div>
                       </div>
                       <div
-                        className="truncate text-sm text-slate-600"
+                        className="text-sm text-slate-600 break-words"
                         title={a.area_responsavel || undefined}
                       >
                         {a.area_responsavel || "—"}
@@ -817,9 +831,11 @@ function pcaStatusLabel(p: PcaItem): string {
 function PcaItensTabela({
   itens,
   loading,
+  filtro,
 }: {
   itens: PcaItem[];
   loading: boolean;
+  filtro: "todos" | "concluidos";
 }) {
   if (loading) {
     return (
@@ -833,12 +849,27 @@ function PcaItensTabela({
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-500">
         <ShoppingCart className="h-8 w-8 text-slate-300 mb-2" />
-        <p className="text-sm">Nenhum item no PCA vigente.</p>
+        <p className="text-sm">
+          {filtro === "concluidos"
+            ? "Nenhum item concluído no PCA vigente."
+            : "Nenhum item no PCA vigente."}
+        </p>
       </div>
     );
   }
   return (
-    <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      {/* Cabeçalho — alinhado às colunas de cada linha (Tipo · PCA/Objeto · Área · Valor · Status) */}
+      <div className="flex items-center gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="w-16 shrink-0 text-center">Tipo</div>
+        <div className="min-w-0 flex-1">PCA / Objeto</div>
+        <div className="hidden shrink-0 items-center gap-6 md:flex">
+          <div className="w-32 text-center">Área</div>
+          <div className="w-32 text-right">Valor estimado</div>
+          <div className="w-28 text-center">Status</div>
+        </div>
+      </div>
+      <div className="divide-y divide-slate-100">
       {itens.map((p) => {
         const renov =
           p.tipo === "Renovação" || p.contract_type === "Renovação";
@@ -851,7 +882,7 @@ function PcaItensTabela({
             className="flex items-center gap-4 px-5 py-4"
           >
             {/* Ícone por tipo (Renovação/Nova) — mesmo padrão do Plano de Contratações */}
-            <div className="flex shrink-0 flex-col items-center gap-2">
+            <div className="flex w-16 shrink-0 flex-col items-center gap-2">
               <div
                 className={cn(
                   "flex h-11 w-11 items-center justify-center rounded-xl shadow-lg",
@@ -910,6 +941,7 @@ function PcaItensTabela({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
