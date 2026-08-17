@@ -67,6 +67,8 @@ import FormacaoPca from "./pages/FormacaoPca";
 import RevisaoPca from "./pages/RevisaoPca";
 import ParametrosContratacoesTic from "./pages/ParametrosContratacoesTic";
 import PermissoesAcoes from "./pages/PermissoesAcoes";
+import RiscosContratacoes from "./pages/RiscosContratacoes";
+import RiscosContratacoesDetalhe from "./pages/RiscosContratacoesDetalhe";
 import { FormBuilder } from "./components/pessoas/FormBuilder";
 import { FormFiller } from "./components/pessoas/FormFiller";
 import { FormResponses } from "./components/pessoas/FormResponses";
@@ -373,6 +375,22 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <PlanejamentoContratacao />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/planejamento-contratacao/riscos-contratacoes"
+                    element={
+                      <ProtectedRoute>
+                        <RiscosContratacoes />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/planejamento-contratacao/riscos-contratacoes/:id"
+                    element={
+                      <ProtectedRoute>
+                        <RiscosContratacoesDetalhe />
                       </ProtectedRoute>
                     }
                   />
