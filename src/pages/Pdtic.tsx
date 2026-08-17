@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   ShieldCheck,
   BarChart3,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -25,14 +26,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { pdticAcoesApi, PdticAcao } from "@/services/pdticAcoesApi";
-import { getPcaStats, getPcaItems } from "@/services/pcaApi";
+import { getPcaStats, getPcaItems, formatCurrency } from "@/services/pcaApi";
 import type { PcaStats, PcaItem } from "@/types";
 
 const TODAS = "__todas__";
 
-// KR-2 (Base) e KR-3 (Alvo) puxam do Plano de Contratações Anual — por ora, ano corrente e VERSÃO 1.
+// KR-2 (Base) e KR-3 (Alvo) puxam do Plano de Contratações Anual do ano corrente.
+// versionNumber undefined = PLANO VIGENTE (dado atual/vivo), igual ao padrão da tela do PCA —
+// snapshots congelados (pcas_snapshots) não têm os itens recém-adicionados.
 const PCA_ANO = new Date().getFullYear();
-const PCA_VERSAO = 1;
+const PCA_VERSAO: number | undefined = undefined;
 // Meta fixa do KR-2 (não muda com os dados).
 const KR2_ALVO = 25;
 // KR-3 ainda em discussão: base sem fonte de extração disponível (valor provisório).
@@ -408,33 +411,56 @@ export default function Pdtic() {
             <AtingimentoGeralCard pct={krs.geral} />
           </div>
 
-          {/* Cards */}
+          {/* Cards — KR-2 ativo mostra Alvo/Concluída do PCA; senão, os totais das ações */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              titulo="Ações"
-              valor={stats.total}
-              icon={<FileText className="h-6 w-6" />}
-              cor="blue"
-              active={krAtivo === null && filtroStatus === "todas"}
-              onClick={() => selecionarStatus("todas")}
-            />
-            <StatCard
-              titulo="Concluídas"
-              valor={stats.concluidas}
-              icon={<CheckCircle2 className="h-6 w-6" />}
-              cor="green"
-              active={krAtivo === null && filtroStatus === "concluidas"}
-              onClick={() => selecionarStatus("concluidas")}
-            />
-            <StatCard
-              titulo="Pendentes"
-              valor={stats.pendentes}
-              icon={<AlertTriangle className="h-6 w-6" />}
-              cor="red"
-              active={krAtivo === null && filtroStatus === "pendentes"}
-              onClick={() => selecionarStatus("pendentes")}
-            />
-            <ProgressoCard progresso={stats.progresso} />
+            {krAtivo === "kr2" ? (
+              <>
+                <StatCard
+                  titulo="Alvo"
+                  valor={krs.kr2.alvo}
+                  icon={<Target className="h-6 w-6" />}
+                  cor="blue"
+                />
+                <StatCard
+                  titulo="Concluída"
+                  valor={krs.kr2.base}
+                  icon={<CheckCircle2 className="h-6 w-6" />}
+                  cor="green"
+                />
+                <ProgressoCard
+                  progresso={krs.kr2.pct}
+                  className="sm:col-span-2"
+                />
+              </>
+            ) : (
+              <>
+                <StatCard
+                  titulo="Ações"
+                  valor={stats.total}
+                  icon={<FileText className="h-6 w-6" />}
+                  cor="blue"
+                  active={krAtivo === null && filtroStatus === "todas"}
+                  onClick={() => selecionarStatus("todas")}
+                />
+                <StatCard
+                  titulo="Concluídas"
+                  valor={stats.concluidas}
+                  icon={<CheckCircle2 className="h-6 w-6" />}
+                  cor="green"
+                  active={krAtivo === null && filtroStatus === "concluidas"}
+                  onClick={() => selecionarStatus("concluidas")}
+                />
+                <StatCard
+                  titulo="Pendentes"
+                  valor={stats.pendentes}
+                  icon={<AlertTriangle className="h-6 w-6" />}
+                  cor="red"
+                  active={krAtivo === null && filtroStatus === "pendentes"}
+                  onClick={() => selecionarStatus("pendentes")}
+                />
+                <ProgressoCard progresso={stats.progresso} />
+              </>
+            )}
           </div>
 
           {/* Tabela: Ações do PDTIC — ou os itens do PCA concluídos quando o KR-2 está ativo */}
@@ -577,8 +603,7 @@ export default function Pdtic() {
           {krAtivo === "kr2" ? (
             <p className="text-xs text-slate-400">
               {pcaItens.length} item(ns) do PCA · {pcaConcluidos.length}{" "}
-              concluído(s) — Plano de Contratações Anual {PCA_ANO} (versão{" "}
-              {PCA_VERSAO}).
+              concluído(s) — Plano de Contratações Anual {PCA_ANO} (vigente).
             </p>
           ) : (
             <p className="text-xs text-slate-400">
@@ -796,75 +821,95 @@ function PcaItensTabela({
   itens: PcaItem[];
   loading: boolean;
 }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-      <div className="grid grid-cols-[1fr_160px_160px_130px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        <span>Item / Objeto</span>
-        <span>Área</span>
-        <span className="text-right">Valor estimado</span>
-        <span className="text-center">Status</span>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-16 text-slate-500">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+        Carregando itens do PCA…
       </div>
-      {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" />
-          Carregando itens do PCA…
-        </div>
-      ) : itens.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
-          <ShoppingCart className="h-8 w-8 text-slate-300 mb-2" />
-          <p className="text-sm">Nenhum item no PCA desta versão.</p>
-        </div>
-      ) : (
-        <ul className="divide-y divide-slate-100">
-          {itens.map((p) => {
-            const ok = pcaConcluido(p);
-            return (
-              <li
-                key={p.id}
-                className="grid grid-cols-[1fr_160px_160px_130px] items-center gap-3 px-5 py-3"
+    );
+  }
+  if (itens.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-500">
+        <ShoppingCart className="h-8 w-8 text-slate-300 mb-2" />
+        <p className="text-sm">Nenhum item no PCA vigente.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      {itens.map((p) => {
+        const renov =
+          p.tipo === "Renovação" || p.contract_type === "Renovação";
+        const cod = codPca(p);
+        const num = parseInt(cod, 10);
+        const ok = pcaConcluido(p);
+        return (
+          <div
+            key={p.id}
+            className="flex items-center gap-4 px-5 py-4"
+          >
+            {/* Ícone por tipo (Renovação/Nova) — mesmo padrão do Plano de Contratações */}
+            <div className="flex shrink-0 flex-col items-center gap-2">
+              <div
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl shadow-lg",
+                  renov
+                    ? "bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/30"
+                    : "bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/30",
+                )}
               >
-                <div className="min-w-0">
-                  {codPca(p) && (
-                    <p className="text-[11px] font-semibold uppercase text-blue-600">
-                      {codPca(p)}
-                    </p>
+                {renov ? (
+                  <RefreshCw className="h-5 w-5 text-white" />
+                ) : (
+                  <FileText className="h-5 w-5 text-white" />
+                )}
+              </div>
+              <span
+                className={cn(
+                  "text-[11px] font-medium leading-none",
+                  renov ? "text-emerald-600" : "text-blue-600",
+                )}
+              >
+                {renov ? "Renovação" : "Nova"}
+              </span>
+            </div>
+
+            {/* Número do PCA + objeto */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-semibold text-slate-900">
+                {cod ? (num ? `PCA ${num}` : cod) : "—"}
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
+                {p.objeto || "—"}
+              </p>
+            </div>
+
+            {/* Colunas (desktop): área · valor · status */}
+            <div className="hidden shrink-0 items-center gap-6 md:flex">
+              <div className="w-32 text-center text-sm text-slate-700">
+                {areaPca(p) || "—"}
+              </div>
+              <div className="w-32 text-right text-sm font-bold text-emerald-700">
+                {formatCurrency(Number(p.valor_estimado || 0))}
+              </div>
+              <div className="flex w-28 justify-center">
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+                    ok
+                      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                      : "bg-amber-50 text-amber-700 ring-amber-200",
                   )}
-                  <p
-                    className="line-clamp-2 text-sm text-slate-800"
-                    title={p.objeto}
-                  >
-                    {p.objeto || "—"}
-                  </p>
-                </div>
-                <div
-                  className="truncate text-sm text-slate-600"
-                  title={areaPca(p) || undefined}
                 >
-                  {areaPca(p) || "—"}
-                </div>
-                <div className="text-right text-sm tabular-nums text-slate-700">
-                  {Number(p.valor_estimado || 0).toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </div>
-                <div className="flex justify-center">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-                      ok
-                        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                        : "bg-amber-50 text-amber-700 ring-amber-200",
-                    )}
-                  >
-                    {pcaStatusLabel(p)}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  {pcaStatusLabel(p)}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -988,9 +1033,20 @@ function StatCard({
   );
 }
 
-function ProgressoCard({ progresso }: { progresso: number }) {
+function ProgressoCard({
+  progresso,
+  className,
+}: {
+  progresso: number;
+  className?: string;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-violet-50 to-white p-5">
+    <div
+      className={cn(
+        "flex flex-col justify-center rounded-xl border border-slate-200 bg-gradient-to-br from-violet-50 to-white p-5",
+        className,
+      )}
+    >
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Progresso
