@@ -15,7 +15,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -822,8 +821,6 @@ function PcaItensTabela({
   itens: PcaItem[];
   loading: boolean;
 }) {
-  const navigate = useNavigate();
-
   if (loading) {
     return (
       <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-16 text-slate-500">
@@ -851,16 +848,7 @@ function PcaItensTabela({
         return (
           <div
             key={p.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate(`/contratacoes-ti/item/${p.id}`)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                navigate(`/contratacoes-ti/item/${p.id}`);
-              }
-            }}
-            className="group flex cursor-pointer items-center gap-4 px-5 py-4 hover:bg-slate-50"
+            className="flex items-center gap-4 px-5 py-4"
           >
             {/* Ícone por tipo (Renovação/Nova) — mesmo padrão do Plano de Contratações */}
             <div className="flex shrink-0 flex-col items-center gap-2">
@@ -890,7 +878,7 @@ function PcaItensTabela({
 
             {/* Número do PCA + objeto */}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-semibold text-slate-900 group-hover:text-blue-600">
+              <p className="truncate text-base font-semibold text-slate-900">
                 {cod ? (num ? `PCA ${num}` : cod) : "—"}
               </p>
               <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
