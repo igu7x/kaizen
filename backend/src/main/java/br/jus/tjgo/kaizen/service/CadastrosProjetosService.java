@@ -440,10 +440,31 @@ public class CadastrosProjetosService {
         }
         if (data.containsKey("entregas")) {
             List<Map<String, Object>> inputEntregas = asMapList(data.get("entregas"));
+            // Salvaguarda anti-perda de dados (incidente de prod jul/2026): a request de edição do
+            // projeto DEVE trazer o id de cada entrega existente. Se o id não vier (bug de client),
+            // NUNCA criar uma duplicata em branco por cima da original — isso soft-deletava a entrega
+            // com evidência/data de conclusão. Aqui casamos pelo nome com uma entrega ATIVA ainda não
+            // reivindicada e ATUALIZAMOS (updateEntrega preserva evidência e data_conclusao), garantindo
+            // que o dado do usuário jamais seja descartado mesmo que o frontend volte a falhar.
+            Map<String, Long> idAtivoPorNome = new LinkedHashMap<>();
+            for (Map<String, Object> ex : jdbc.queryForList(
+                    "SELECT id, nome FROM cadastros_projetos_entregas WHERE projeto_id = ? AND ativo = TRUE", id)) {
+                idAtivoPorNome.putIfAbsent(chaveNome(ex.get("nome")), ((Number) ex.get("id")).longValue());
+            }
             List<Long> keepIds = new ArrayList<>();
             for (Map<String, Object> entrega : inputEntregas) {
-                if (entrega.containsKey("id") && entrega.get("id") != null) {
-                    long entregaId = ((Number) entrega.get("id")).longValue();
+                Long entregaId = null;
+                if (entrega.get("id") != null) {
+                    entregaId = ((Number) entrega.get("id")).longValue();
+                } else {
+                    Long porNome = idAtivoPorNome.get(chaveNome(entrega.get("nome")));
+                    if (porNome != null && !keepIds.contains(porNome)) {
+                        entregaId = porNome;
+                        log.warn("[projetos] entrega sem id na request (projeto {}, \"{}\") — casada pelo nome " +
+                                "com a entrega existente {} para preservar evidência/conclusão", id, entrega.get("nome"), entregaId);
+                    }
+                }
+                if (entregaId != null) {
                     updateEntrega(entregaId, entrega, userId);
                     keepIds.add(entregaId);
                 } else {
@@ -630,6 +651,11 @@ public class CadastrosProjetosService {
                 "SELECT evidencia_data, evidencia_filename FROM cadastros_projetos_entregas " +
                         "WHERE id = ? AND ativo = TRUE", id);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Chave de correspondência de entrega por nome (trim + lower-case), tolerante a null. */
+    private static String chaveNome(Object nome) {
+        return nome == null ? "" : String.valueOf(nome).trim().toLowerCase();
     }
 
     public Map<String, Object> createEntrega(long projetoId, Map<String, Object> data, Long userId) {
