@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -144,7 +145,7 @@ public class ProcessosNegocioPendenciaProvider implements PendenciaProvider {
                      String singular, String pluralSuffix, String whereExtra, Object[] params) {
         try {
             List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT pn.id FROM processos_negocio pn " +
+                    "SELECT pn.id, pn.nome_processo FROM processos_negocio pn " +
                             "WHERE pn.is_deleted = FALSE AND " + whereExtra + " " +
                             "ORDER BY pn.updated_at DESC",
                     params);
@@ -153,10 +154,19 @@ public class ProcessosNegocioPendenciaProvider implements PendenciaProvider {
             }
             int n = rows.size();
             String label = n == 1 ? singular : n + pluralSuffix;
-            // Deep-link ?abrir=<id>: a lista abre o modal de visualização (com Validar/Enviar),
-            // não a tela de detalhe só-leitura.
-            String link = "/gestao-estrategica/processos?abrir=" + rows.get(0).get("id");
-            out.add(new Pendencia(tipo, label, n, link, color, Pendencia.CAT_PROCESSOS, prioridade));
+            // Itens individuais: cada processo com seu deep-link ?abrir=<id> (abre o modal de
+            // visualização com Validar/Enviar). Permite à Home listar e "Ir para pendência" por item.
+            List<Map<String, Object>> itens = new ArrayList<>();
+            for (Map<String, Object> r : rows) {
+                Object id = r.get("id");
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("id", id);
+                item.put("descricao", r.get("nome_processo"));
+                item.put("link", "/gestao-estrategica/processos?abrir=" + id);
+                itens.add(item);
+            }
+            String link = (String) itens.get(0).get("link");
+            out.add(new Pendencia(tipo, label, n, link, color, Pendencia.CAT_PROCESSOS, prioridade, itens));
         } catch (Exception e) {
             log.warn("[home] {}: {}", tipo, e.getMessage());
         }
