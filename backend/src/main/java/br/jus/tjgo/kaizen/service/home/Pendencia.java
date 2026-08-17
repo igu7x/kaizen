@@ -1,6 +1,7 @@
 package br.jus.tjgo.kaizen.service.home;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,7 +20,10 @@ public record Pendencia(
         String link,
         String color,
         String categoria,
-        int prioridade
+        int prioridade,
+        // Itens individuais da pendência (id, descricao, link). Quando há mais de um, a Home
+        // expande e oferece "Ir para pendência" por item. Opcional — vazio = comportamento antigo.
+        List<Map<String, Object>> itens
 ) {
 
     // ── Categorias (agrupamento visual na Home) ──
@@ -44,6 +48,13 @@ public record Pendencia(
         if (count < 0) count = 0;
         if (categoria == null || categoria.isBlank()) categoria = CAT_GERAL;
         if (color == null || color.isBlank()) color = "slate";
+        if (itens == null) itens = List.of();
+    }
+
+    /** Construtor compatível (sem itens) — preserva as chamadas antigas dos providers. */
+    public Pendencia(String tipo, String label, int count, String link, String color,
+                     String categoria, int prioridade) {
+        this(tipo, label, count, link, color, categoria, prioridade, List.of());
     }
 
     /** Serializa preservando a ordem dos campos (paridade com o payload antigo + novos campos). */
@@ -56,6 +67,7 @@ public record Pendencia(
         m.put("color", color);
         m.put("categoria", categoria);
         m.put("prioridade", prioridade);
+        m.put("itens", itens);
         return m;
     }
 }

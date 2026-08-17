@@ -10,6 +10,9 @@ export interface HomePendencia {
   categoria?: string;
   /** Urgência (menor = mais urgente). Usada para ordenar dentro de cada categoria. */
   prioridade?: number;
+  /** Itens individuais (id, descricao, link). Quando há mais de um, a Home expande e oferece
+   *  "Ir para pendência" por item. Opcional — providers antigos não enviam. */
+  itens?: { id: number; descricao: string; link: string }[];
 }
 
 export interface HomeResumo {

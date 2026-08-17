@@ -183,6 +183,15 @@ export default function Home() {
     user?.diretoria === "SGJT";
   // O hero renderiza na hora (não depende do resumo); a fila/projetos preenchem quando chega.
   const [resumo, setResumo] = useState<HomeResumo | null>(null);
+  // Pendências com mais de um item expandem para listar cada item individualmente.
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
+  const toggleExpandir = (tipo: string) =>
+    setExpandidas((s) => {
+      const n = new Set(s);
+      if (n.has(tipo)) n.delete(tipo);
+      else n.add(tipo);
+      return n;
+    });
   const { podeAcessar } = usePermissoes();
 
   const heroRef = useRef<HTMLElement>(null);
@@ -467,27 +476,61 @@ export default function Home() {
                       {g.categoria}
                     </p>
                     <ul className="border-t border-[var(--line)]">
-                      {g.itens.map((p) => (
-                        <li key={p.tipo}>
-                          <button
-                            onClick={() => navigate(p.link)}
-                            className="kz-row group flex w-full items-center gap-3.5 border-b border-[var(--line)] px-3 py-4 text-left"
-                          >
-                            <span className="kz-word w-9 shrink-0 text-xl font-bold tabular-nums text-[var(--navy)]">
-                              {p.count}
-                            </span>
-                            <span className="kz-rl flex-1 text-[15px] leading-snug text-[var(--ink)]">
-                              {p.label}
-                            </span>
-                            <span
-                              className="h-2 w-2 shrink-0 rounded-full"
-                              style={{ background: dotColor(p.color) }}
-                              aria-hidden
-                            />
-                            <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
-                          </button>
-                        </li>
-                      ))}
+                      {g.itens.map((p) => {
+                        const multi = p.count > 1 && !!p.itens && p.itens.length > 0;
+                        const aberta = expandidas.has(p.tipo);
+                        return (
+                          <li key={p.tipo}>
+                            <button
+                              onClick={() =>
+                                multi ? toggleExpandir(p.tipo) : navigate(p.link)
+                              }
+                              aria-expanded={multi ? aberta : undefined}
+                              className="kz-row group flex w-full items-center gap-3.5 border-b border-[var(--line)] px-3 py-4 text-left"
+                            >
+                              <span className="kz-word w-9 shrink-0 text-xl font-bold tabular-nums text-[var(--navy)]">
+                                {p.count}
+                              </span>
+                              <span className="kz-rl flex-1 text-[15px] leading-snug text-[var(--ink)]">
+                                {p.label}
+                              </span>
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full"
+                                style={{ background: dotColor(p.color) }}
+                                aria-hidden
+                              />
+                              {multi ? (
+                                <ChevronDown
+                                  className={`h-4 w-4 shrink-0 text-[var(--g3)] transition-transform group-hover:text-[var(--azure)] ${aberta ? "rotate-180" : ""}`}
+                                />
+                              ) : (
+                                <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--g3)] group-hover:text-[var(--azure)]" />
+                              )}
+                            </button>
+                            {multi && aberta && (
+                              <ul className="border-b border-[var(--line)] bg-[var(--g0,#f8fafc)]">
+                                {p.itens!.map((it) => (
+                                  <li
+                                    key={it.id}
+                                    className="flex items-center gap-3 py-2.5 pl-12 pr-3"
+                                  >
+                                    <span className="flex-1 text-[13px] leading-snug text-[var(--g3)]">
+                                      {it.descricao || `#${it.id}`}
+                                    </span>
+                                    <button
+                                      onClick={() => navigate(it.link)}
+                                      className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] font-medium text-[var(--azure)] hover:bg-white"
+                                    >
+                                      Ir para pendência
+                                      <ArrowUpRight className="h-3.5 w-3.5" />
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 ))}
