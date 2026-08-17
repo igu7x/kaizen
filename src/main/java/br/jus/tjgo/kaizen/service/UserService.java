@@ -69,6 +69,11 @@ public class UserService {
         return user != null && Boolean.TRUE.equals(user.get("is_developer"));
     }
 
+    public boolean isSuperadmin(long userId) {
+        Map<String, Object> user = findOneRaw(userId);
+        return user != null && Boolean.TRUE.equals(user.get("is_superadmin"));
+    }
+
     public List<Map<String, Object>> getDevelopers() {
         var rows = jdbc.queryForList("SELECT u.*, " +
                 "a.sigla as area_sigla, cu.sigla as unidade_sigla " +
