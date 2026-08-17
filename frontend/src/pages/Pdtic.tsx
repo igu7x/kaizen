@@ -32,9 +32,11 @@ import type { PcaStats, PcaItem } from "@/types";
 
 const TODAS = "__todas__";
 
-// KR-2 (Base) e KR-3 (Alvo) puxam do Plano de Contratações Anual — por ora, ano corrente e VERSÃO 1.
+// KR-2 (Base) e KR-3 (Alvo) puxam do Plano de Contratações Anual do ano corrente.
+// versionNumber undefined = PLANO VIGENTE (dado atual/vivo), igual ao padrão da tela do PCA —
+// snapshots congelados (pcas_snapshots) não têm os itens recém-adicionados.
 const PCA_ANO = new Date().getFullYear();
-const PCA_VERSAO = 1;
+const PCA_VERSAO: number | undefined = undefined;
 // Meta fixa do KR-2 (não muda com os dados).
 const KR2_ALVO = 25;
 // KR-3 ainda em discussão: base sem fonte de extração disponível (valor provisório).
@@ -602,8 +604,7 @@ export default function Pdtic() {
           {krAtivo === "kr2" ? (
             <p className="text-xs text-slate-400">
               {pcaItens.length} item(ns) do PCA · {pcaConcluidos.length}{" "}
-              concluído(s) — Plano de Contratações Anual {PCA_ANO} (versão{" "}
-              {PCA_VERSAO}).
+              concluído(s) — Plano de Contratações Anual {PCA_ANO} (vigente).
             </p>
           ) : (
             <p className="text-xs text-slate-400">
@@ -835,7 +836,7 @@ function PcaItensTabela({
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-500">
         <ShoppingCart className="h-8 w-8 text-slate-300 mb-2" />
-        <p className="text-sm">Nenhum item no PCA desta versão.</p>
+        <p className="text-sm">Nenhum item no PCA vigente.</p>
       </div>
     );
   }
