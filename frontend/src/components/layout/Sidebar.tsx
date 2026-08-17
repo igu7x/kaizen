@@ -160,8 +160,17 @@ const menuItemsCompleto: MenuItem[] = [
       {
         title: "Planejamento da Contratação",
         icon: FilePlus,
-        path: "/planejamento-contratacao",
         permissaoCodigo: "contratacoes_novas",
+        children: [
+          {
+            title: "Visão Geral",
+            path: "/planejamento-contratacao",
+          },
+          {
+            title: "Avaliação de Riscos",
+            path: "/planejamento-contratacao/riscos-contratacoes",
+          }
+        ]
       },
       {
         title: "Gestão Contratual",

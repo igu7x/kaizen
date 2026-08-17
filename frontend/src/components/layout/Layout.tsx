@@ -47,7 +47,7 @@ export function Layout({ children }: LayoutProps) {
   const isCicloOrcamentarioPage = location.pathname.startsWith(
     "/ciclo-orcamentario",
   );
-
+  const isPlanejamentoContratacaoPage = location.pathname.startsWith("/planejamento-contratacao");
   const isPermissoesPage = location.pathname.startsWith("/permissoes");
   const isSegurancaInfoPage = location.pathname.startsWith(
     "/seguranca-informacao",
@@ -75,6 +75,7 @@ export function Layout({ children }: LayoutProps) {
     isContratosPage ||
     isGerenciamentoPage ||
     isCicloOrcamentarioPage ||
+    isPlanejamentoContratacaoPage ||
     isPermissoesPage ||
     isSegurancaInfoPage;
   // Páginas sem padding (comitês + Home, que usa hero full-bleed próprio)

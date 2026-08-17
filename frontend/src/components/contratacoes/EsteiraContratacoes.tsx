@@ -234,15 +234,15 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
   // Carregar unidades dependendo da diretoria selecionada no formulário
   useEffect(() => {
-    if (formData.id_diretoria) {
+    if (formData.cadastrosAreasId) {
       areasApi
-        .getUnidades(formData.id_diretoria)
+        .getUnidades(formData.cadastrosAreasId)
         .then(setUnidadesList)
         .catch(() => setUnidadesList([]));
     } else {
       setUnidadesList([]);
     }
-  }, [formData.id_diretoria]);
+  }, [formData.cadastrosAreasId]);
 
   async function loadData() {
     try {
@@ -443,8 +443,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       item_pca: "",
       tipo: "Contratação",
       area_demandante: "",
-      id_diretoria: undefined,
-      id_area_demandante: undefined,
+      cadastrosAreasId: undefined,
+      cadastrosUnidadesId: undefined,
       objeto: "",
       valor_estimado: 0,
       valor_formalizado: 0,
@@ -515,9 +515,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
     setFormData({
       item_pca: item.code || item.item_pca,
       tipo: item.contract_type || item.tipo || "Contratação",
-      area_demandante: item.directory_acronym || item.area_demandante,
-      id_diretoria: item.id_diretoria,
-      id_area_demandante: item.id_area_demandante,
+      area_demandante: item.area_demandante || item.directory_acronym || "",
+      cadastrosAreasId: item.cadastros_areas_id ?? item.cadastrosAreasId,
+      cadastrosUnidadesId: item.cadastros_unidades_id ?? item.cadastrosUnidadesId,
       objeto: item.object_name || item.objeto,
       valor_estimado: item.estimated_value_cents ? item.estimated_value_cents / 100 : item.valor_estimado,
       valor_formalizado: item.valor_formalizado || 0,
@@ -547,7 +547,11 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
     try {
       setSaving(true);
-      const created = await pcaApi.createPcaItem(formData);
+      const created = await pcaApi.createPcaItem({
+        ...formData,
+        cadastrosAreasId: formData.cadastrosAreasId ?? null,
+        cadastrosUnidadesId: formData.cadastrosUnidadesId ?? null,
+      });
 
       // Optimistic Update - adiciona item à lista imediatamente
       setItems((prev) => [...prev, created]);
@@ -585,9 +589,8 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
       const updateData: UpdatePcaItemDto = {
         item_pca: formData.item_pca,
         tipo: formData.tipo,
-        area_demandante: formData.area_demandante,
-        id_diretoria: formData.id_diretoria,
-        id_area_demandante: formData.id_area_demandante,
+        cadastrosAreasId: formData.cadastrosAreasId ?? null,
+        cadastrosUnidadesId: formData.cadastrosUnidadesId ?? null,
         objeto: formData.objeto,
         valor_estimado: formData.valor_estimado,
         valor_formalizado: formData.valor_formalizado,
@@ -1416,15 +1419,15 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             <div className="space-y-2">
               <Label htmlFor="id_diretoria">Diretoria</Label>
               <Select
-                value={formData.id_diretoria ? String(formData.id_diretoria) : undefined}
+                value={formData.cadastrosAreasId ? String(formData.cadastrosAreasId) : undefined}
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
                   const unidade = diretoriasList.find(d => d.id === dirId);
                   setFormData({
                     ...formData,
-                    id_diretoria: dirId,
+                    cadastrosAreasId: dirId,
                     area_demandante: unidade?.nome || "",
-                    id_area_demandante: undefined
+                    cadastrosUnidadesId: undefined
                   });
                 }}
               >
@@ -1445,25 +1448,61 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             <div className="space-y-2">
               <Label htmlFor="id_area_demandante">Área Demandante</Label>
               <Select
-                value={formData.id_area_demandante ? String(formData.id_area_demandante) : undefined}
-                onValueChange={(v) =>
-                  setFormData({ ...formData, id_area_demandante: parseInt(v, 10) })
+                value={
+                  formData.cadastrosUnidadesId
+                    ? String(formData.cadastrosUnidadesId)
+                    : formData.cadastrosAreasId
+                      ? `area:${formData.cadastrosAreasId}`
+                      : undefined
                 }
-                disabled={!formData.id_diretoria}
+                onValueChange={(v) => {
+                  if (v.startsWith("area:")) {
+                    // Selecionou a própria diretoria como área demandante
+                    setFormData({ ...formData, cadastrosUnidadesId: undefined });
+                  } else {
+                    // Selecionou uma unidade
+                    setFormData({ ...formData, cadastrosUnidadesId: parseInt(v, 10) });
+                  }
+                }}
+                disabled={!formData.cadastrosAreasId}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar área responsável..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {unidadesList.map(u => {
-                    const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
-                    const sigla = dir?.sigla || dir?.nome;
-                    return (
-                      <SelectItem key={u.id} value={String(u.id)}>
-                        {u.nome} {sigla ? `(${sigla})` : ""}
+                  {/* Opção 1: A própria Diretoria (Área) */}
+                  {formData.cadastrosAreasId && (() => {
+                    const dir = diretoriasList.find(d => d.id === formData.cadastrosAreasId);
+                    return dir ? (
+                      <SelectItem key={`area:${dir.id}`} value={`area:${dir.id}`}>
+                        {dir.sigla || dir.nome} (Diretoria)
                       </SelectItem>
-                    );
-                  })}
+                    ) : null;
+                  })()}
+                  {/* Opção 2+: Unidades subordinadas */}
+                  {unidadesList
+                    .filter((u) => {
+                      const dir = diretoriasList.find(
+                        (d) => d.id === formData.cadastrosAreasId
+                      );
+                      if (!dir) return true;
+                      const dirName = dir.nome?.trim().toLowerCase();
+                      const dirSigla = dir.sigla?.trim().toLowerCase();
+                      const uName = u.nome?.trim().toLowerCase();
+                      const uSigla = u.sigla?.trim().toLowerCase();
+
+                      if (uName === dirSigla || uName === dirName) return false;
+                      if (uSigla && (uSigla === dirSigla || uSigla === dirName))
+                        return false;
+                      return true;
+                    })
+                    .map((u) => {
+                      return (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.nome} {u.sigla ? `(${u.sigla})` : ""}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>
@@ -1724,15 +1763,15 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             <div className="space-y-2">
               <Label htmlFor="edit_id_diretoria">Diretoria</Label>
               <Select
-                value={formData.id_diretoria ? String(formData.id_diretoria) : undefined}
+                value={formData.cadastrosAreasId ? String(formData.cadastrosAreasId) : undefined}
                 onValueChange={(v) => {
                   const dirId = parseInt(v, 10);
                   const unidade = diretoriasList.find(d => d.id === dirId);
                   setFormData({
                     ...formData,
-                    id_diretoria: dirId,
+                    cadastrosAreasId: dirId,
                     area_demandante: unidade?.nome || "",
-                    id_area_demandante: undefined
+                    cadastrosUnidadesId: undefined
                   });
                 }}
               >
@@ -1753,22 +1792,42 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             <div className="space-y-2">
               <Label htmlFor="edit_id_area_demandante">Área Demandante</Label>
               <Select
-                value={formData.id_area_demandante ? String(formData.id_area_demandante) : undefined}
-                onValueChange={(v) =>
-                  setFormData({ ...formData, id_area_demandante: parseInt(v, 10) })
+                value={
+                  formData.cadastrosUnidadesId
+                    ? String(formData.cadastrosUnidadesId)
+                    : formData.cadastrosAreasId
+                      ? `area:${formData.cadastrosAreasId}`
+                      : undefined
                 }
-                disabled={!formData.id_diretoria}
+                onValueChange={(v) => {
+                  if (v.startsWith("area:")) {
+                    // Selecionou a própria diretoria como área demandante
+                    setFormData({ ...formData, cadastrosUnidadesId: undefined });
+                  } else {
+                    // Selecionou uma unidade
+                    setFormData({ ...formData, cadastrosUnidadesId: parseInt(v, 10) });
+                  }
+                }}
+                disabled={!formData.cadastrosAreasId}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar área responsável..." />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Opção 1: A própria Diretoria (Área) */}
+                  {formData.cadastrosAreasId && (() => {
+                    const dir = diretoriasList.find(d => d.id === formData.cadastrosAreasId);
+                    return dir ? (
+                      <SelectItem key={`area:${dir.id}`} value={`area:${dir.id}`}>
+                        {dir.sigla || dir.nome} (Diretoria)
+                      </SelectItem>
+                    ) : null;
+                  })()}
+                  {/* Opção 2+: Unidades subordinadas */}
                   {unidadesList.map(u => {
-                    const dir = diretoriasList.find(d => d.id === formData.id_diretoria);
-                    const sigla = dir?.sigla || dir?.nome;
                     return (
                       <SelectItem key={u.id} value={String(u.id)}>
-                        {u.nome} {sigla ? `(${sigla})` : ""}
+                        {u.nome} {u.sigla ? `(${u.sigla})` : ""}
                       </SelectItem>
                     );
                   })}

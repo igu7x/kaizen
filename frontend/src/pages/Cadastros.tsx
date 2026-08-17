@@ -793,6 +793,7 @@ export default function Cadastros() {
         if (projetoCompleto.entregas && projetoCompleto.entregas.length > 0) {
           setTempEntregas(
             projetoCompleto.entregas.map((e) => ({
+              id: e.id,
               nome: e.nome,
               descricao: e.descricao || undefined,
               status: e.status,
@@ -807,6 +808,7 @@ export default function Cadastros() {
         if (projetoCompleto.riscos && projetoCompleto.riscos.length > 0) {
           setTempRiscos(
             projetoCompleto.riscos.map((r) => ({
+              id: r.id,
               descricao: r.descricao,
               probabilidade: r.probabilidade,
               impacto: r.impacto,
@@ -819,6 +821,7 @@ export default function Cadastros() {
         if (projetoCompleto.entraves && projetoCompleto.entraves.length > 0) {
           setTempEntraves(
             projetoCompleto.entraves.map((e) => ({
+              id: e.id,
               descricao: e.descricao,
               data_identificacao: e.data_identificacao,
               observacoes: e.observacoes || undefined,
