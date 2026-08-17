@@ -31,7 +31,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { delegacaoApi, type MinhaDelegacaoResponse } from "@/services/delegacaoApi";
 import { PainelDelegacaoEdicao } from "@/components/ciclo/PainelDelegacaoEdicao";
-
+import { useNavigate } from "react-router-dom";
 const IDX_FORMACAO: Record<string, number> = {
   aguardando_proad: 0,
   aberto: 0,
@@ -148,6 +148,7 @@ export default function FormacaoPca() {
   const anoVigente = hoje.getFullYear();
   const anoFormacao = anoVigente + 1;
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [ciclo, setCiclo] = useState<Ciclo | null>(null);
   const [acaoEmCurso, setAcaoEmCurso] = useState(false);
@@ -933,7 +934,10 @@ export default function FormacaoPca() {
 
                                       return (
                                         <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                                          <td className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono">
+                                          <td 
+                                              className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono"
+                                              onClick={() => navigate(`/contratos-ti/${c.id}`)}
+                                            >
                                             <div className="flex items-center gap-1.5">
                                               {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
                                               {ifo.bloco === "encerramento" && formacaoEstado && ["consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg", "publicado"].includes(formacaoEstado) && interesseRenovacao === false && (

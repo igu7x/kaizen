@@ -281,6 +281,15 @@ export interface PcaItem {
   updated_by: number | null;
   contract_ids?: string;
 
+  // Aliases snake_case — retornados pelo backend SQL (Map<String, Object>)
+  cadastros_areas_id?: number | null;
+  cadastros_unidades_id?: number | null;
+  area_demandante?: string | null;
+  item_pca?: string;
+  directory_acronym?: string | null;
+  diretoria_nome?: string | null;
+  area_demandante_nome?: string | null;
+
   // Novos campos do domínio Pca.java
   code?: string;
   year?: string;
@@ -305,6 +314,7 @@ export interface PcaItem {
 export interface CreatePcaItemDto {
   item_pca: string;
   tipo: string;
+  area_demandante?: string;
   cadastrosAreasId?: number | null;
   cadastrosUnidadesId?: number | null;
   areaSigla?: string | null;
@@ -328,6 +338,7 @@ export interface CreatePcaItemDto {
 export interface UpdatePcaItemDto {
   item_pca?: string;
   tipo?: PcaTipo | string;
+  area_demandante?: string;
   cadastrosAreasId?: number | null;
   cadastrosUnidadesId?: number | null;
   areaSigla?: string | null;
