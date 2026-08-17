@@ -190,10 +190,19 @@ public class PcaItemsController {
             data.put("ano", parseIntJs(body.get("ano")));
         }
         // Novos campos FK para diretoria/área
-        if (body.containsKey("id_diretoria")) {
+        if (body.containsKey("cadastrosAreasId")) {
+            data.put("cadastrosAreasId", body.get("cadastrosAreasId"));
+        } else if (body.containsKey("cadastros_areas_id")) {
+            data.put("cadastros_areas_id", body.get("cadastros_areas_id"));
+        } else if (body.containsKey("id_diretoria")) {
             data.put("id_diretoria", body.get("id_diretoria"));
         }
-        if (body.containsKey("id_area_demandante")) {
+
+        if (body.containsKey("cadastrosUnidadesId")) {
+            data.put("cadastrosUnidadesId", body.get("cadastrosUnidadesId"));
+        } else if (body.containsKey("cadastros_unidades_id")) {
+            data.put("cadastros_unidades_id", body.get("cadastros_unidades_id"));
+        } else if (body.containsKey("id_area_demandante")) {
             data.put("id_area_demandante", body.get("id_area_demandante"));
         }
         if (body.containsKey("process"))
@@ -263,9 +272,18 @@ public class PcaItemsController {
         if (body.containsKey("ano"))
             data.put("ano", parseIntJs(body.get("ano")));
         // Novos campos FK para diretoria/área
-        if (body.containsKey("id_diretoria"))
+        if (body.containsKey("cadastrosAreasId"))
+            data.put("cadastrosAreasId", body.get("cadastrosAreasId"));
+        else if (body.containsKey("cadastros_areas_id"))
+            data.put("cadastros_areas_id", body.get("cadastros_areas_id"));
+        else if (body.containsKey("id_diretoria"))
             data.put("id_diretoria", body.get("id_diretoria"));
-        if (body.containsKey("id_area_demandante"))
+
+        if (body.containsKey("cadastrosUnidadesId"))
+            data.put("cadastrosUnidadesId", body.get("cadastrosUnidadesId"));
+        else if (body.containsKey("cadastros_unidades_id"))
+            data.put("cadastros_unidades_id", body.get("cadastros_unidades_id"));
+        else if (body.containsKey("id_area_demandante"))
             data.put("id_area_demandante", body.get("id_area_demandante"));
         if (body.containsKey("process"))
             data.put("process", body.get("process"));

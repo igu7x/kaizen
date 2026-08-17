@@ -52,7 +52,8 @@ public class PcaService {
     private static final String SELECT_COLUMNS =
             "SELECT p.id, p.code as item_pca, " +
             "CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
-            "COALESCE(cadastro_areas.sigla, cadastro_areas.nome) as area_demandante, p.object_name as objeto, " +
+            "CASE WHEN p.cadastros_unidades_id IS NOT NULL THEN cadastro_unidades.nome " +
+            "ELSE COALESCE(cadastro_areas.sigla, cadastro_areas.nome) END as area_demandante, p.object_name as objeto, " +
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.cadastros_areas_id, p.cadastros_unidades_id, " +
@@ -64,7 +65,8 @@ public class PcaService {
     private static final String SELECT_COLUMNS_SNAPSHOT =
             "SELECT p.original_pca_id as id, p.code as item_pca, " +
             "CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
-            "COALESCE(cadastro_areas.sigla, cadastro_areas.nome) as area_demandante, p.object_name as objeto, " +
+            "CASE WHEN p.cadastros_unidades_id IS NOT NULL THEN cadastro_unidades.nome " +
+            "ELSE COALESCE(cadastro_areas.sigla, cadastro_areas.nome) END as area_demandante, p.object_name as objeto, " +
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.cadastros_areas_id, p.cadastros_unidades_id, " +
@@ -239,8 +241,10 @@ public class PcaService {
         Long valCents = asCents(data.get("valor_estimado"));
         Long formCents = asCents(data.get("valor_formalizado"));
         String tipo = mapTipoToContractType((String) data.get("tipo"));
-        Long idCadastrosAreas = numOrNull(data.getOrDefault("cadastros_areas_id", data.get("id_diretoria")));
-        Long idCadastrosUnidades = numOrNull(data.getOrDefault("cadastros_unidades_id", data.get("id_area_demandante")));
+        Object valAreas = data.get("cadastros_areas_id") != null ? data.get("cadastros_areas_id") : (data.get("cadastrosAreasId") != null ? data.get("cadastrosAreasId") : data.get("id_diretoria"));
+        Long idCadastrosAreas = numOrNull(valAreas);
+        Object valUnidades = data.get("cadastros_unidades_id") != null ? data.get("cadastros_unidades_id") : (data.get("cadastrosUnidadesId") != null ? data.get("cadastrosUnidadesId") : data.get("id_area_demandante"));
+        Long cadastrosUnidadesId = numOrNull(valUnidades);
 
         Map<String, Object> created = jdbc.queryForMap(
                 "INSERT INTO pcas (code, contract_type, " +
@@ -263,7 +267,7 @@ public class PcaService {
                 data.get("step"),
                 parsePriorityStr((String) data.get("priority")),
                 idCadastrosAreas,
-                idCadastrosUnidades,
+                cadastrosUnidadesId,
                 userId);
         long newId = ((Number) created.get("id")).longValue();
         audit.log("pcas", newId, "INSERT", userId, null, null, created);
@@ -300,13 +304,13 @@ public class PcaService {
         if (data.containsKey("financial_resource_type")) { updates.add("financial_resource_type = ?"); values.add(data.get("financial_resource_type")); }
         if (data.containsKey("step")) { updates.add("step = ?"); values.add(data.get("step")); }
         if (data.containsKey("priority")) { updates.add("priority = ?"); values.add(parsePriorityStr((String) data.get("priority"))); }
-        if (data.containsKey("cadastros_areas_id") || data.containsKey("id_diretoria")) {
+        if (data.containsKey("cadastros_areas_id") || data.containsKey("id_diretoria") || data.containsKey("cadastrosAreasId")) {
             updates.add("cadastros_areas_id = ?");
-            values.add(numOrNull(data.getOrDefault("cadastros_areas_id", data.get("id_diretoria"))));
+            values.add(numOrNull(data.get("cadastros_areas_id") != null ? data.get("cadastros_areas_id") : (data.get("cadastrosAreasId") != null ? data.get("cadastrosAreasId") : data.get("id_diretoria"))));
         }
-        if (data.containsKey("cadastros_unidades_id") || data.containsKey("id_area_demandante")) {
+        if (data.containsKey("cadastros_unidades_id") || data.containsKey("id_area_demandante") || data.containsKey("cadastrosUnidadesId")) {
             updates.add("cadastros_unidades_id = ?");
-            values.add(numOrNull(data.getOrDefault("cadastros_unidades_id", data.get("id_area_demandante"))));
+            values.add(numOrNull(data.get("cadastros_unidades_id") != null ? data.get("cadastros_unidades_id") : (data.get("cadastrosUnidadesId") != null ? data.get("cadastrosUnidadesId") : data.get("id_area_demandante"))));
         }
 
         updates.add("updated_by = ?");
@@ -336,7 +340,7 @@ public class PcaService {
                 "UPDATE pcas SET status = ?, updated_by = ?, updated_at = NOW() " +
                         "WHERE id = ? AND (is_deleted = FALSE OR is_deleted IS NULL) RETURNING id, code as item_pca, " +
                         "CASE WHEN contract_type = 'RENOVACAO' THEN 'Renovação' WHEN contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
-                        "COALESCE((SELECT sigla FROM cadastros_areas WHERE id = cadastros_areas_id), (SELECT nome FROM cadastros_areas WHERE id = cadastros_areas_id)) as area_demandante, " +
+                        "CASE WHEN cadastros_unidades_id IS NOT NULL THEN (SELECT nome FROM cadastros_unidades WHERE id = cadastros_unidades_id) ELSE COALESCE((SELECT sigla FROM cadastros_areas WHERE id = cadastros_areas_id), (SELECT nome FROM cadastros_areas WHERE id = cadastros_areas_id)) END as area_demandante, " +
                         "cadastros_areas_id, cadastros_unidades_id, " +
                         "(SELECT sigla FROM cadastros_areas WHERE id = cadastros_areas_id) as area_sigla, " +
                         "(SELECT sigla FROM cadastros_unidades WHERE id = cadastros_unidades_id) as unidade_sigla, " +
