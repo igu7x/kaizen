@@ -5,6 +5,7 @@ import { UserRole } from "@/types";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
+  requireSuperadmin?: boolean;
 }
 
 /** Chave onde guardamos o destino ao redirecionar um visitante não autenticado para o login. */
@@ -13,6 +14,7 @@ export const POST_LOGIN_REDIRECT_KEY = "postLoginRedirect";
 export function ProtectedRoute({
   children,
   allowedRoles,
+  requireSuperadmin,
 }: ProtectedRouteProps) {
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
@@ -32,6 +34,10 @@ export function ProtectedRoute({
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (requireSuperadmin && user && !user.is_superadmin) {
     return <Navigate to="/" replace />;
   }
 

@@ -16,12 +16,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { CicloTimeline } from "@/components/contratacoes/ciclo/CicloTimeline";
 import { RevisaoItens } from "@/components/contratacoes/ciclo/RevisaoItens";
-import { nosRevisao, rotuloVersao } from "@/components/contratacoes/ciclo/cicloConstants";
+import { nosRevisao, rotuloVersao, type CalendarioRevisao } from "@/components/contratacoes/ciclo/cicloConstants";
 import {
   cicloOrcamentarioApi,
   resolverJanelaRevisao,
   type Ciclo,
+  type JanelaRevisaoResumo,
 } from "@/services/cicloOrcamentarioApi";
+import { carregarCalendarioRevisao } from "@/services/parametrosCicloApi";
 import { getPcaComparison, getPcaVersoesInfo } from "@/services/pcaApi";
 import { generateRevisaoPcaPDF } from "@/utils/generateRevisaoPcaPDF";
 import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
@@ -31,10 +33,10 @@ const IDX_REVISAO: Record<string, number> = {
   em_consulta_1: 0,
   em_consulta_2: 0,
   consolidacao_cca: 1,
-  validacao_gejut: 1,
-  em_comites: 2,
-  remessa_dg: 3,
-  publicado: 3,
+  validacao_gejut: 2,
+  em_comites: 3,
+  remessa_dg: 4,
+  publicado: 4,
 };
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -154,10 +156,17 @@ function EsteiraControls({
 export default function RevisaoPca() {
   const hoje = useMemo(() => new Date(), []);
   const anoVigente = hoje.getFullYear();
-  const janela = useMemo(
-    () => resolverJanelaRevisao(hoje, anoVigente),
-    [hoje, anoVigente],
-  );
+
+  // Carrega calendário dinâmico do backend e resolve a janela ativa
+  const [calendarioDinamico, setCalendarioDinamico] = useState<CalendarioRevisao[] | undefined>();
+  const [janela, setJanela] = useState<JanelaRevisaoResumo>(() => resolverJanelaRevisao(hoje, anoVigente));
+
+  useEffect(() => {
+    carregarCalendarioRevisao().then((cal) => {
+      setCalendarioDinamico(cal);
+      setJanela(resolverJanelaRevisao(hoje, anoVigente, cal));
+    });
+  }, [hoje, anoVigente]);
 
   const [ciclo, setCiclo] = useState<Ciclo | null>(null);
   const [acaoEmCurso, setAcaoEmCurso] = useState(false);
@@ -485,8 +494,7 @@ export default function RevisaoPca() {
                   {janela.proximaAberturaEm ?? "—"}
                 </h3>
                 <p className="mt-1 max-w-md text-sm text-slate-500">
-                  Fora das janelas, os itens permanecem como na versão vigente do PCA-TIC. 
-                  Cronograma das ordinárias: 1ª · pub→31/01 (V2) · 2ª · 01–30/04 (V3) · 3ª · 01–31/07 (V4).
+                  Fora das janelas, os itens permanecem como na versão vigente do PCA-TIC.
                 </p>
               </div>
             </div>

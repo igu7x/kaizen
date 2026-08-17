@@ -9,6 +9,7 @@ import {
   ClipboardList,
   ChevronRight,
   Workflow,
+  DollarSign,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -64,6 +65,13 @@ const cadastroItems = [
       "Conceder a usuários a edição dos processos de Tecnologia da Informação (novos ou em revisão).",
     icon: Workflow,
     path: "/cadastros/permissoes-processos-ti",
+  },
+  {
+    title: "Contratações de TIC",
+    description:
+      "Cadastros e configurações do módulo de Contratações de TIC.",
+    icon: DollarSign,
+    path: "/cadastros/contratacoes-tic",
   },
 ];
 

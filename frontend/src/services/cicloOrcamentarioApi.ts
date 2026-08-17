@@ -2,7 +2,7 @@ import { apiClient } from "./apiClient";
 import type { PcaItem } from "@/types";
 import type { ValidacaoDemanda } from "./dfdApi";
 import {
-  CALENDARIO_REVISOES,
+  CALENDARIO_REVISOES_DEFAULT,
   type CalendarioRevisao,
 } from "@/components/contratacoes/ciclo/cicloConstants";
 
@@ -145,15 +145,19 @@ function parseDiaMes(dm: string, ano: number): Date | null {
  * RF-60/61 — resolve qual janela ordinária está ativa na data informada e, se nenhuma,
  * quando a próxima abre. A 1ª janela (sem início fixo) é ignorada aqui como "abertura por
  * evento de publicação" — o backend confirma sua abertura real.
+ *
+ * @param calendario — calendário dinâmico carregado do backend; se omitido, usa fallback hardcoded.
  */
 export function resolverJanelaRevisao(
   hoje: Date,
   anoVigente: number,
+  calendario?: CalendarioRevisao[],
 ): JanelaRevisaoResumo {
-  const ativa = CALENDARIO_REVISOES.find((cal) => {
-    if (!cal.janelaInicio) return false;
-    const ini = parseDiaMes(cal.janelaInicio, anoVigente);
-    const fim = parseDiaMes(cal.janelaFim, anoVigente);
+  const cal = calendario && calendario.length > 0 ? calendario : CALENDARIO_REVISOES_DEFAULT;
+  const ativa = cal.find((c) => {
+    if (!c.janelaInicio) return false;
+    const ini = parseDiaMes(c.janelaInicio, anoVigente);
+    const fim = parseDiaMes(c.janelaFim, anoVigente);
     if (!ini || !fim) return false;
     // Fim inclusivo até o final do dia.
     fim.setHours(23, 59, 59, 999);
@@ -162,11 +166,11 @@ export function resolverJanelaRevisao(
   if (ativa) {
     return { calendario: ativa, ativa: true, proximaAberturaEm: null };
   }
-  const proxima = CALENDARIO_REVISOES.filter((c) => c.janelaInicio)
+  const proxima = cal.filter((c) => c.janelaInicio)
     .map((c) => ({ c, ini: parseDiaMes(c.janelaInicio as string, anoVigente) }))
     .filter((x) => x.ini && x.ini >= hoje)
     .sort((a, b) => (a.ini as Date).getTime() - (b.ini as Date).getTime())[0];
-  const fallback = CALENDARIO_REVISOES[0];
+  const fallback = cal[0];
   return {
     calendario: proxima?.c ?? fallback,
     ativa: false,
