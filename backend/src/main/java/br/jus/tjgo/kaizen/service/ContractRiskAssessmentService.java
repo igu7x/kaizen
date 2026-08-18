@@ -6,6 +6,8 @@ import br.jus.tjgo.kaizen.integration.gemini.GeminiIntegrationService;
 import br.jus.tjgo.kaizen.integration.gemini.dto.AnexoDTO;
 import br.jus.tjgo.kaizen.integration.gemini.dto.GeminiResponseDTO;
 import br.jus.tjgo.kaizen.repository.ContractRiskAssessmentRepository;
+import br.jus.tjgo.kaizen.repository.ContractRiskAssessmentValidationRepository;
+import br.jus.tjgo.kaizen.domain.ContractRiskAssessmentValidation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.OffsetDateTime;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -36,6 +39,7 @@ import java.util.Optional;
 public class ContractRiskAssessmentService {
 
     private final ContractRiskAssessmentRepository repository;
+    private final ContractRiskAssessmentValidationRepository validationRepository;
     private final GeminiIntegrationService geminiIntegrationService;
 
     @Transactional
@@ -110,7 +114,10 @@ public class ContractRiskAssessmentService {
     }
 
     public Optional<ContractRiskAssessment> getcontractRiskAssessment(Long id, Long userId) {
-        return repository.findById(id);
+        return repository.findById(id).map(assessment -> {
+            assessment.setHasPreviousValidation(validationRepository.existsByAssessmentId(id));
+            return assessment;
+        });
     }
 
     @Transactional
@@ -123,7 +130,50 @@ public class ContractRiskAssessmentService {
         getcontractRiskAssessment(id, userId).ifPresent(contractRiskAssessment -> {
             contractRiskAssessment.setBody(newBody);
             contractRiskAssessment.setUpdatedById(userId);
+            contractRiskAssessment.setValidatedAt(null);
+            contractRiskAssessment.setValidatedById(null);
             repository.save(contractRiskAssessment);
+        });
+    }
+
+    @Transactional
+    public ContractRiskAssessment createManualAssessment(Long userId, String body) {
+        ContractRiskAssessment assessment = ContractRiskAssessment.builder()
+                .createdById(userId)
+                .status(ContractRiskAssessmentStatus.COMPLETED)
+                .body(body)
+                .build();
+        return repository.save(assessment);
+    }
+
+    @Transactional
+    public void validateAssessment(Long id, Long userId) {
+        repository.findById(id).ifPresent(assessment -> {
+            OffsetDateTime now = OffsetDateTime.now();
+            assessment.setValidatedAt(now);
+            assessment.setValidatedById(userId);
+            repository.save(assessment);
+
+            ContractRiskAssessmentValidation validation = ContractRiskAssessmentValidation.builder()
+                    .assessmentId(id)
+                    .body(assessment.getBody())
+                    .validatedById(userId)
+                    .validatedAt(now)
+                    .build();
+            validationRepository.save(validation);
+        });
+    }
+
+    @Transactional
+    public void recoverValidation(Long id, Long userId) {
+        validationRepository.findFirstByAssessmentIdOrderByValidatedAtDesc(id).ifPresent(validation -> {
+            repository.findById(id).ifPresent(assessment -> {
+                assessment.setBody(validation.getBody());
+                assessment.setValidatedAt(validation.getValidatedAt());
+                assessment.setValidatedById(validation.getValidatedById());
+                assessment.setUpdatedById(userId);
+                repository.save(assessment);
+            });
         });
     }
 }
