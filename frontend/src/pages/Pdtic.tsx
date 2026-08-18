@@ -132,6 +132,14 @@ export default function Pdtic() {
     () => processosVigentes.filter(isK1),
     [processosVigentes],
   );
+  // Filtro dentro do KR-3: "todos" (card Processos Vigentes) ou "revisados" (card Processos Revisados).
+  const [processoFiltro, setProcessoFiltro] = useState<"todos" | "revisados">(
+    "todos",
+  );
+  const processosTabela = useMemo(
+    () => (processoFiltro === "revisados" ? processosK1 : processosVigentes),
+    [processoFiltro, processosK1, processosVigentes],
+  );
 
   // KR clicado (filtro): "kr1" → ações; "kr2" → itens do PCA; "kr3" → processos de TI vigentes.
   const [krAtivo, setKrAtivo] = useState<"kr1" | "kr2" | "kr3" | null>(null);
@@ -178,8 +186,11 @@ export default function Pdtic() {
     }
   };
 
-  // KR-3: mostra a relação dos processos de TI vigentes (a coluna Modelo já indica os K1).
-  const handleKr3 = () => setKrAtivo("kr3");
+  // KR-3: mostra a relação dos processos de TI vigentes (a coluna Revisado indica os revisados).
+  const handleKr3 = () => {
+    setKrAtivo("kr3");
+    setProcessoFiltro("todos");
+  };
 
   /** Volta para o modo de Ações (limpa o KR ativo) e aplica o filtro de status escolhido. */
   const selecionarStatus = (s: "todas" | "concluidas" | "pendentes") => {
@@ -497,12 +508,16 @@ export default function Pdtic() {
                   valor={processosVigentes.length}
                   icon={<ShieldCheck className="h-6 w-6" />}
                   cor="blue"
+                  active={processoFiltro === "todos"}
+                  onClick={() => setProcessoFiltro("todos")}
                 />
                 <StatCard
                   titulo="Processos Revisados"
                   valor={krs.kr3.base}
                   icon={<CheckCircle2 className="h-6 w-6" />}
                   cor="green"
+                  active={processoFiltro === "revisados"}
+                  onClick={() => setProcessoFiltro("revisados")}
                 />
                 <ProgressoCard
                   progresso={krs.kr3.pct}
@@ -549,7 +564,7 @@ export default function Pdtic() {
             />
           ) : krAtivo === "kr3" ? (
             <ProcessosTabela
-              processos={processosVigentes}
+              processos={processosTabela}
               k1Ids={new Set(processosK1.map((p) => p.id))}
               loading={processosLoading}
             />
