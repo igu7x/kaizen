@@ -28,6 +28,7 @@ import {
 import { pdticAcoesApi, PdticAcao } from "@/services/pdticAcoesApi";
 import { getPcaStats, getPcaItems, formatCurrency } from "@/services/pcaApi";
 import type { PcaStats, PcaItem } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 const TODAS = "__todas__";
 
@@ -51,6 +52,9 @@ function prazoMesAno(iso?: string | null): string {
 const concluida = (a: PdticAcao) => !!a.evidencia_nome?.trim();
 
 export default function Pdtic() {
+  // Anônimo (rota pública) pode VER/baixar evidências, mas não anexar/remover.
+  const { isAuthenticated } = useAuth();
+  const podeEditar = isAuthenticated;
   const [acoes, setAcoes] = useState<PdticAcao[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroDiretoria, setFiltroDiretoria] = useState(TODAS);
@@ -583,16 +587,18 @@ export default function Pdtic() {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button
-                              type="button"
-                              title="Remover evidência"
-                              onClick={() => removerEvidencia(a.id)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                            {podeEditar && (
+                              <button
+                                type="button"
+                                title="Remover evidência"
+                                onClick={() => removerEvidencia(a.id)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
                           </>
-                        ) : (
+                        ) : podeEditar ? (
                           <button
                             type="button"
                             onClick={() => escolherArquivo(a.id)}
@@ -602,6 +608,8 @@ export default function Pdtic() {
                             <Download className="h-4 w-4" />
                             PDF
                           </button>
+                        ) : (
+                          <span className="text-slate-300">—</span>
                         )}
                       </div>
                     </div>

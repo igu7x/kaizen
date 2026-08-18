@@ -148,9 +148,10 @@ function App() {
                   <Route
                     path="/gestao-estrategica/pdtic"
                     element={
-                      <ProtectedRoute>
-                        <Pdtic />
-                      </ProtectedRoute>
+                      // Rota PÚBLICA (ver utils/publicRoutes.ts): acessível sem login.
+                      // Anônimo abre em modo público (sem menu, botão Entrar no header);
+                      // logado vê normalmente. Por isso NÃO passa pelo ProtectedRoute.
+                      <Pdtic />
                     }
                   />
                   <Route
