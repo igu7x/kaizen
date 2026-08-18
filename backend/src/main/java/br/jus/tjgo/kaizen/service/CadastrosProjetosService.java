@@ -486,9 +486,41 @@ public class CadastrosProjetosService {
             }
         }
         if (data.containsKey("entraves")) {
-            jdbc.update("UPDATE cadastros_projetos_entraves SET ativo = FALSE WHERE projeto_id = ?", id);
-            for (Map<String, Object> entrave : asMapList(data.get("entraves"))) {
-                createEntrave(id, entrave, userId);
+            // Salvaguarda anti-perda: entraves têm resolvido/data_resolucao gravados por um endpoint
+            // SEPARADO (fora deste formulário) — dado que só existe no servidor. Recriar em branco os
+            // apagaria (reverteria "resolvido" silenciosamente). Então casamos por id (ou por descrição,
+            // se o id não vier) com o entrave ativo existente e ATUALIZAMOS: updateEntrave só mexe nos
+            // campos do formulário e preserva resolvido/data_resolucao quando eles não vêm no payload.
+            List<Map<String, Object>> inputEntraves = asMapList(data.get("entraves"));
+            Map<String, Long> idAtivoPorDescricao = new LinkedHashMap<>();
+            for (Map<String, Object> ex : jdbc.queryForList(
+                    "SELECT id, descricao FROM cadastros_projetos_entraves WHERE projeto_id = ? AND ativo = TRUE", id)) {
+                idAtivoPorDescricao.putIfAbsent(chaveNome(ex.get("descricao")), ((Number) ex.get("id")).longValue());
+            }
+            List<Long> keepIds = new ArrayList<>();
+            for (Map<String, Object> entrave : inputEntraves) {
+                Long entraveId = null;
+                if (entrave.get("id") != null) {
+                    entraveId = ((Number) entrave.get("id")).longValue();
+                } else {
+                    Long porDesc = idAtivoPorDescricao.get(chaveNome(entrave.get("descricao")));
+                    if (porDesc != null && !keepIds.contains(porDesc)) {
+                        entraveId = porDesc;
+                    }
+                }
+                if (entraveId != null) {
+                    updateEntrave(entraveId, entrave, userId);
+                    keepIds.add(entraveId);
+                } else {
+                    Map<String, Object> novo = createEntrave(id, entrave, userId);
+                    keepIds.add(((Number) novo.get("id")).longValue());
+                }
+            }
+            if (keepIds.isEmpty()) {
+                jdbc.update("UPDATE cadastros_projetos_entraves SET ativo = FALSE WHERE projeto_id = ?", id);
+            } else {
+                String inClause = keepIds.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+                jdbc.update("UPDATE cadastros_projetos_entraves SET ativo = FALSE WHERE projeto_id = ? AND id NOT IN (" + inClause + ")", id);
             }
         }
 
@@ -865,6 +897,10 @@ public class CadastrosProjetosService {
         if (data.containsKey("descricao")) {
             fields.add("descricao = ?");
             values.add(data.get("descricao"));
+        }
+        if (data.containsKey("data_identificacao")) {
+            fields.add("data_identificacao = ?");
+            values.add(DateHelper.toSqlDate(data.get("data_identificacao")));
         }
         if (data.containsKey("observacoes")) {
             fields.add("observacoes = ?");

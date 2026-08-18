@@ -420,6 +420,7 @@ export function ProjetoFormDialog({
           if (projetoCompleto.entraves && projetoCompleto.entraves.length > 0) {
             setTempEntraves(
               projetoCompleto.entraves.map((e) => ({
+                id: e.id,
                 descricao: e.descricao,
                 data_identificacao: e.data_identificacao,
                 observacoes: e.observacoes || undefined,
