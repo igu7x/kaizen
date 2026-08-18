@@ -382,26 +382,42 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
   }, [filteredItems]);
 
   const chartDataFaseAtual = useMemo(() => {
-    const faseCounts: Record<string, number> = {};
+    const statusCounts: Record<string, number> = {
+      "Não Iniciada": 0,
+      "Em andamento": 0,
+      "Concluída": 0,
+    };
+    let total = 0;
     filteredItems.forEach(item => {
-      let rawFase = String(item.step || item.status || "Não Iniciada");
-      if (item.status === "Concluída") rawFase = "Concluído";
-
-      const fase = normalizeStep(rawFase) || rawFase;
-      faseCounts[fase] = (faseCounts[fase] || 0) + 1;
+      const st = item.status || "Não Iniciada";
+      if (statusCounts[st] !== undefined) {
+        statusCounts[st] += 1;
+      } else {
+        statusCounts[st] = 1;
+      }
+      total += 1;
     });
+
+    const colors: Record<string, string> = {
+      "Não Iniciada": "#9CA3AF",
+      "Em andamento": "#F59E0B",
+      "Concluída": "#16A34A"
+    };
 
     const fallbackColors = ["#EF4444", "#3B82F6", "#F472B6", "#14B8A6"];
     let fallbackIndex = 0;
 
-    return Object.entries(faseCounts).map(([name, value]) => {
-      let fill = STEP_COLORS[name];
-      if (!fill) {
-        fill = fallbackColors[fallbackIndex % fallbackColors.length];
-        fallbackIndex++;
-      }
-      return { name, value, fill };
-    }).sort((a, b) => b.value - a.value);
+    return Object.entries(statusCounts)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => {
+        let fill = colors[name];
+        if (!fill) {
+          fill = fallbackColors[fallbackIndex % fallbackColors.length];
+          fallbackIndex++;
+        }
+        const percentage = total > 0 ? ((value / total) * 100).toFixed(0) + "%" : "0%";
+        return { name, value, percentage, fill };
+      }).sort((a, b) => b.value - a.value);
   }, [filteredItems]);
 
   // Limpar filtros
@@ -738,10 +754,9 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
 
   // Renderizar status badge
   function renderStatusBadge(status: PcaStatus | string | number) {
-    if (status === "Concluída") return null;
     const label = status === "Em andamento" ? "Demanda em Andamento" : status;
     return (
-      <Badge 
+      <Badge
         className={`${getStatusBadgeClass(status as PcaStatus)} text-center text-[10px] leading-tight px-1 py-0.5 whitespace-normal break-words max-w-full`}
       >
         {label}
@@ -1037,10 +1052,10 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
           </CardContent>
         </Card>
 
-        {/* Gráfico 4: Fase Atual */}
+        {/* Gráfico 4: Estados Atuais */}
         <Card className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden flex flex-col lg:col-span-2 xl:col-span-1">
           <CardHeader className="pb-2 pt-4 px-4 text-center">
-            <CardTitle className="text-sm font-semibold text-gray-800">Fase Atual</CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-800">Estados Atuais</CardTitle>
           </CardHeader>
           <CardContent className="p-4 flex-1 flex flex-col items-center">
             <div className="flex-1 w-full h-[180px]">
@@ -1048,10 +1063,10 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                 <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <Pie
                     data={chartDataFaseAtual}
-                    cx="35%"
+                    cx="50%"
                     cy="50%"
                     innerRadius={25}
-                    outerRadius={55}
+                    outerRadius={85}
                     paddingAngle={2}
                     dataKey="value"
                     labelLine={false}
@@ -1059,7 +1074,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     {chartDataFaseAtual.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
-                    <LabelList dataKey="value" position="inside" style={{ fill: '#FFF', fontSize: '9px', fontWeight: 600 }} />
+                    <LabelList dataKey="percentage" position="inside" style={{ fill: '#FFF', fontSize: '15px', fontWeight: 'normal' }} />
                   </Pie>
                   <Tooltip />
                   <Legend
@@ -1067,7 +1082,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     verticalAlign="middle"
                     align="right"
                     iconType="square"
-                    wrapperStyle={{ fontSize: '9px', fontWeight: 500, color: '#4B5563', right: '0' }}
+                    wrapperStyle={{ fontSize: '10px', fontWeight: 500, color: '#4B5563', right: '35px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -1182,8 +1197,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             {filteredItems.map((item, index) => (
               <div
                 key={item.id}
-                onClick={() => navigate(`/contratacoes-ti/item/${item.id}`)}
-                className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${index !== filteredItems.length - 1 ? "border-b border-gray-100" : ""}`}
+                className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all ${index !== filteredItems.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 {/* Info do Item (Item + Objeto na mesma coluna) */}
                 <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -1283,18 +1297,16 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     </div>
                   )}
 
-                  {/* Chevron */}
+                  {/* Chevron (Removido) */}
                   <div className="w-8 flex justify-center">
-                    <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-slate-500 group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
 
-                {/* Mobile: info resumida + chevron */}
+                {/* Mobile: info resumida */}
                 <div className="flex lg:hidden items-center gap-2">
                   <div className="flex flex-col items-end gap-1">
                     {renderStatusBadge(item.status)}
                   </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-slate-600" />
                 </div>
               </div>
             ))}

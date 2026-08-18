@@ -37,6 +37,13 @@ interface AvaliacaoData {
   titulo: string;
   objetivos: string[];
   riscos: Risco[];
+  equipe?: number[];
+}
+
+interface UserSummary {
+  id: number;
+  name: string;
+  matricula: string;
 }
 
 const probMap: Record<number, string> = { 2: "MUITO BAIXA", 4: "BAIXA", 6: "MÉDIA", 8: "ALTA", 10: "MUITO ALTA" };
@@ -72,17 +79,49 @@ export default function RiscosContratacoesDetalhe() {
   const [isExporting, setIsExporting] = useState(false);
   const [data, setData] = useState<AvaliacaoData | null>(null);
   const [originalData, setOriginalData] = useState<AvaliacaoData | null>(null);
+  const [metadata, setMetadata] = useState<any>(null);
+  const [allUsers, setAllUsers] = useState<UserSummary[]>([]);
+  const [equipeSearch, setEquipeSearch] = useState("");
+  const [showEquipeDropdown, setShowEquipeDropdown] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
-    fetchAssessment();
+    fetchUsers();
+    if (id === "novo") {
+      const newAssessment: AvaliacaoData = {
+        titulo: "Nova Avaliação de Riscos",
+        objetivos: [""],
+        riscos: [],
+        equipe: []
+      };
+      setData(newAssessment);
+      setOriginalData(newAssessment);
+      setIsEditMode(true);
+      setIsEditContextMode(true);
+      setIsLoading(false);
+    } else {
+      fetchAssessment();
+    }
   }, [id]);
+
+  const fetchUsers = async () => {
+    try {
+      const data: any = await apiClient.get("/api/users");
+      setAllUsers(data || []);
+    } catch (e) {
+      console.error("Error fetching users");
+    }
+  };
 
   const fetchAssessment = async () => {
     try {
       const response: any = await apiClient.get(`/api/contract-risk-assessment/${id}`);
+      setMetadata(response);
       if (response.body) {
         const parsed = JSON.parse(response.body);
         parsed.objetivos = parsed.objetivos || [];
+        parsed.equipe = parsed.equipe || [];
         parsed.riscos = parsed.riscos?.map((r: any) => ({
           ...r,
           causas: r.causas || [],
@@ -118,16 +157,50 @@ export default function RiscosContratacoesDetalhe() {
         })
       };
 
+      if (id === "novo") {
+        const response: any = await apiClient.post(`/api/contract-risk-assessment`, cleanedData);
+        toast.success("Avaliação salva com sucesso!");
+        navigate(`/planejamento-contratacao/riscos-contratacoes/${response.id}`, { replace: true });
+        return;
+      }
+
       await apiClient.put(`/api/contract-risk-assessment/${id}`, cleanedData);
       toast.success("Alterações salvas com sucesso!");
       setData(cleanedData);
       setOriginalData(cleanedData);
+      setMetadata({ ...metadata, validatedAt: null, validatedById: null });
       setIsEditMode(false);
       setIsEditContextMode(false);
     } catch (error) {
       toast.error("Erro ao salvar alterações no servidor.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleValidate = async () => {
+    setIsValidating(true);
+    try {
+      await apiClient.post(`/api/contract-risk-assessment/${id}/validate`, {});
+      toast.success("Avaliação validada com sucesso!");
+      fetchAssessment();
+    } catch (e) {
+      toast.error("Erro ao validar avaliação.");
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleRecover = async () => {
+    setIsRecovering(true);
+    try {
+      await apiClient.post(`/api/contract-risk-assessment/${id}/recover-validation`, {});
+      toast.success("Versão validada recuperada com sucesso!");
+      fetchAssessment();
+    } catch (e) {
+      toast.error("Erro ao recuperar versão validada.");
+    } finally {
+      setIsRecovering(false);
     }
   };
 
@@ -139,6 +212,7 @@ export default function RiscosContratacoesDetalhe() {
   const handleCancelContext = () => {
     setData(originalData);
     setIsEditContextMode(false);
+    setIsEditMode(false);
   };
 
   const updateData = (newData: AvaliacaoData) => {
@@ -272,9 +346,96 @@ export default function RiscosContratacoesDetalhe() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
           </Button>
-          <Button onClick={handleExportPDF} variant="outline" className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50">
-            <Printer className="mr-2 h-4 w-4" /> Imprimir
-          </Button>
+          <div className="flex gap-2">
+            {isEditContextMode ? (
+              <>
+                <Button onClick={handleCancelContext} variant="outline" className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50">
+                  Cancelar
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button className="bg-[#002547] hover:bg-[#001b33] text-white" disabled={isSaving}>
+                      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      Salvar
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Salvar alterações?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja salvar as alterações realizadas nesta avaliação de riscos?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleSave} className="bg-[#002547] hover:bg-[#001b33] text-white">
+                        Salvar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : (
+              <>
+                {id !== "novo" && hasPermission && !metadata?.validatedAt && metadata?.hasPreviousValidation && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="border-gray-300 text-gray-700" disabled={isRecovering}>
+                        {isRecovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Recuperar Validação"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Recuperar Versão Validada?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Isso reverterá a avaliação atual para a última versão validada, descartando as edições mais recentes. Tem certeza?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRecover} className="bg-gray-800 text-white">Recuperar</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+
+                {id !== "novo" && hasPermission && !metadata?.validatedAt && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button className="bg-green-600 hover:bg-green-700 text-white" disabled={isValidating}>
+                        {isValidating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Validar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Validar Avaliação?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem certeza que deseja registrar a validação desta versão da avaliação?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleValidate} className="bg-green-600 hover:bg-green-700 text-white">Validar</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+
+                {(id === "novo" || metadata?.validatedAt) && (
+                  <Button onClick={handleExportPDF} variant="outline" className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50">
+                    <Printer className="mr-2 h-4 w-4" /> Imprimir
+                  </Button>
+                )}
+
+                {hasPermission && (
+                  <Button onClick={() => { setIsEditContextMode(true); setIsEditMode(true); }} className="bg-[#002547] hover:bg-[#001b33] text-white">
+                    <Edit className="h-4 w-4 mr-2" /> Editar
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <Card className="border-gray-200 shadow-sm">
@@ -291,89 +452,121 @@ export default function RiscosContratacoesDetalhe() {
               </CardTitle>
             )}
 
-            <div className="flex gap-2 shrink-0 export-hide">
-              {isEditContextMode ? (
-                <>
-                  <Button onClick={handleCancelContext} size="sm" variant="outline" className="text-gray-600">
-                    Cancelar
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" className="bg-[#002547] hover:bg-[#001b33]" disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar Alterações
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Salvar alterações?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Tem certeza que deseja salvar as alterações realizadas nesta avaliação de riscos?
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleSave} className="bg-[#002547] hover:bg-[#001b33]">
-                          Salvar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              ) : (
-                hasPermission && (
-                <Button onClick={() => setIsEditContextMode(true)} size="sm" className="bg-[#002547] hover:bg-[#001b33]">
-                  <Edit className="h-4 w-4 mr-2" /> Editar Escopo
-                </Button>
-                )
-              )}
-            </div>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                Objetivos da Contratação
-              </h3>
-              {isEditContextMode ? (
-                <div className="space-y-2 max-w-3xl">
-                  {data.objetivos.map((obj, i) => (
-                    <div key={i} className="flex gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                  Objetivos da Contratação
+                </h3>
+                {isEditContextMode ? (
+                  <div className="space-y-2 w-full">
+                    {data.objetivos.map((obj, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Input
+                          value={obj}
+                          onChange={(e) => {
+                            const newObjs = [...data.objetivos];
+                            newObjs[i] = e.target.value;
+                            updateData({ ...data, objetivos: newObjs });
+                          }}
+                          className="flex-1 bg-white"
+                          placeholder="Descreva o objetivo..."
+                        />
+                        <Button
+                          variant="ghost" size="icon"
+                          className="text-red-400 hover:text-red-600 flex-shrink-0"
+                          onClick={() => {
+                            const newObjs = data.objetivos.filter((_, index) => index !== i);
+                            updateData({ ...data, objetivos: newObjs });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      variant="ghost" size="sm"
+                      className="text-blue-600 hover:bg-blue-50 mt-2"
+                      onClick={() => updateData({ ...data, objetivos: [...data.objetivos, ""] })}
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Adicionar Objetivo
+                    </Button>
+                  </div>
+                ) : (
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 ml-2">
+                    {data.objetivos.filter(o => o.trim() !== "").map((obj, i) => (
+                      <li key={i}>{obj}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {isEditContextMode && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    Equipe
+                  </h3>
+                  <div className="space-y-2 w-full">
+                    <div className="relative">
                       <Input
-                        value={obj}
+                        placeholder="Buscar usuário para equipe (digite o nome ou matrícula)..."
+                        value={equipeSearch}
                         onChange={(e) => {
-                          const newObjs = [...data.objetivos];
-                          newObjs[i] = e.target.value;
-                          updateData({ ...data, objetivos: newObjs });
+                          setEquipeSearch(e.target.value);
+                          setShowEquipeDropdown(true);
                         }}
-                        className="flex-1 bg-white"
-                        placeholder="Descreva o objetivo..."
+                        onFocus={() => setShowEquipeDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowEquipeDropdown(false), 200)}
+                        className="bg-white w-full"
                       />
-                      <Button
-                        variant="ghost" size="icon"
-                        className="text-red-400 hover:text-red-600 flex-shrink-0"
-                        onClick={() => {
-                          const newObjs = data.objetivos.filter((_, index) => index !== i);
-                          updateData({ ...data, objetivos: newObjs });
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {showEquipeDropdown && equipeSearch && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                          {(() => {
+                            const filteredUsers = allUsers.filter(u => 
+                              !(data.equipe || []).includes(u.id) && 
+                              (u.name.toLowerCase().includes(equipeSearch.toLowerCase()) || 
+                               (u.matricula && u.matricula.toLowerCase().includes(equipeSearch.toLowerCase())))
+                            );
+                            
+                            return filteredUsers.length === 0 ? (
+                              <div className="p-2 text-sm text-gray-500">Nenhum usuário encontrado.</div>
+                            ) : (
+                              filteredUsers.map(u => (
+                                <div
+                                  key={u.id}
+                                  className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                                  onClick={() => {
+                                    updateData({ ...data, equipe: [...(data.equipe || []), u.id] });
+                                    setEquipeSearch("");
+                                    setShowEquipeDropdown(false);
+                                  }}
+                                >
+                                  {u.name} ({u.matricula || '-'})
+                                </div>
+                              ))
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  <Button
-                    variant="ghost" size="sm"
-                    className="text-blue-600 hover:bg-blue-50 mt-2"
-                    onClick={() => updateData({ ...data, objetivos: [...data.objetivos, ""] })}
-                  >
-                    <Plus className="h-4 w-4 mr-2" /> Adicionar Objetivo
-                  </Button>
+                    <div className="flex flex-col gap-2 mt-2">
+                      {(data.equipe || []).map(uid => {
+                        const user = allUsers.find(u => u.id === uid);
+                        return (
+                          <div key={uid} className="flex items-center justify-between bg-gray-50 border rounded-md px-3 py-2 text-sm">
+                            <span>{user ? `${user.name} (${user.matricula || '-'})` : `Usuário ID: ${uid}`}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-600" onClick={() => {
+                              updateData({ ...data, equipe: (data.equipe || []).filter(id => id !== uid) });
+                            }}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <ul className="list-disc list-inside space-y-1 text-gray-600 ml-2">
-                  {data.objetivos.filter(o => o.trim() !== "").map((obj, i) => (
-                    <li key={i}>{obj}</li>
-                  ))}
-                </ul>
               )}
             </div>
           </CardContent>
@@ -417,43 +610,10 @@ export default function RiscosContratacoesDetalhe() {
               )}
             </div>
             <div className="flex gap-3 export-hide">
-              {isEditMode ? (
-                <>
-                  <Button onClick={addRisco} size="sm" variant="outline" className="text-[#002547] border-[#002547] hover:bg-gray-100">
-                    <Plus className="mr-2 h-4 w-4" /> Novo Risco
-                  </Button>
-                  <Button onClick={handleCancel} size="sm" variant="outline" className="text-gray-600">
-                    Cancelar
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" className="bg-[#002547] hover:bg-[#001b33]" disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar Alterações
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Salvar matriz de riscos?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Tem certeza que deseja salvar as alterações realizadas na matriz de riscos?
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleSave} className="bg-[#002547] hover:bg-[#001b33]">
-                          Salvar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              ) : (
-                hasPermission && (
-                <Button onClick={() => setIsEditMode(true)} size="sm" className="bg-[#002547] hover:bg-[#001b33]">
-                  <Edit className="mr-2 h-4 w-4" /> Editar Matriz
+              {isEditMode && (
+                <Button onClick={addRisco} size="sm" variant="outline" className="text-[#002547] border-[#002547] hover:bg-gray-100">
+                  <Plus className="mr-2 h-4 w-4" /> Novo Risco
                 </Button>
-                )
               )}
             </div>
           </div>
