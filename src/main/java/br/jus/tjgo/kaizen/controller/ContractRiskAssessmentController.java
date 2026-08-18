@@ -105,4 +105,42 @@ public class ContractRiskAssessmentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    @TagAcao("PC_AR_CRUD")
+    public ResponseEntity<?> createManualAssessment(@RequestBody Map<String, Object> requestMap) {
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String jsonBody = mapper.writeValueAsString(requestMap);
+            ContractRiskAssessment assessment = service.createManualAssessment(getCurrentUserId(), jsonBody);
+            return ResponseEntity.status(HttpStatus.CREATED).body(assessment);
+        } catch (Exception e) {
+            log.error("Error creating manual assessment", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/{id}/validate")
+    @TagAcao("PC_AR_CRUD")
+    public ResponseEntity<?> validateAssessment(@PathVariable Long id) {
+        try {
+            service.validateAssessment(id, getCurrentUserId());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error validating assessment", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/{id}/recover-validation")
+    @TagAcao("PC_AR_CRUD")
+    public ResponseEntity<?> recoverValidation(@PathVariable Long id) {
+        try {
+            service.recoverValidation(id, getCurrentUserId());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error recovering validation", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

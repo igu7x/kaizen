@@ -27,6 +27,15 @@ public class ContractRiskAssessment {
     @Column(name = "updated_by_id")
     private Long updatedById;
 
+    @Column(name = "validated_by_id")
+    private Long validatedById;
+
+    @Column(name = "validated_at")
+    private OffsetDateTime validatedAt;
+
+    @Transient
+    private Boolean hasPreviousValidation;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private ContractRiskAssessmentStatus status;
