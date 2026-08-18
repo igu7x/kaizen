@@ -9,6 +9,7 @@
  */
 
 import { toast } from "sonner";
+import { isPublicRoute } from "@/utils/publicRoutes";
 
 // Detecta automaticamente a URL da API baseado no ambiente.
 //
@@ -141,6 +142,12 @@ export class ApiClient {
    * Remove dados de autenticação e redireciona para login
    */
   private handleAuthError(): void {
+    // Em rota pública, um 401 é esperado para visitante anônimo — não limpar sessão
+    // nem chutar para o /login (quebraria a página pública).
+    if (isPublicRoute(window.location.pathname)) {
+      return;
+    }
+
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user");
 

@@ -9,7 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User, Menu, UserCircle2 } from "lucide-react";
+import { LogOut, User, Menu, UserCircle2, LogIn } from "lucide-react";
+import { redirectToSsoLogin } from "@/utils/ssoLogin";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -18,21 +19,25 @@ interface HeaderProps {
 export function Header({ onMenuToggle }: HeaderProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  // Anônimo (rota pública): sem menu do usuário e sem toggle de menu lateral.
+  const anonimo = !user;
 
   return (
     <header
-      className="sticky top-0 z-[60] relative h-[72px] flex-shrink-0 overflow-hidden cursor-pointer"
+      className={`sticky top-0 z-[60] relative h-[72px] flex-shrink-0 overflow-hidden ${anonimo ? "" : "cursor-pointer"}`}
       style={{
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
         minWidth: "320px",
       }}
       onClick={() => {
+        // Modo público: Home não é acessível sem login, então o banner não navega.
+        if (anonimo) return;
         navigate("/");
         // Replay da intro da Home mesmo quando já se está nela (rota não remonta).
         window.dispatchEvent(new CustomEvent("kaizen:home"));
       }}
-      role="button"
-      aria-label="Ir para Início"
+      role={anonimo ? undefined : "button"}
+      aria-label={anonimo ? undefined : "Ir para Início"}
     >
       {/* Imagem do header com cache-busting */}
       <img
@@ -44,25 +49,40 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
       {/* Controles flutuantes sobre a imagem */}
       <div className="absolute inset-0 flex items-center justify-between px-4 lg:px-8 xl:px-10 2xl:px-12">
-        {/* Botão Menu Mobile - Esquerda */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="lg:hidden text-white hover:bg-white/10"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMenuToggle();
-          }}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+        {/* Botão Menu Mobile - Esquerda (oculto no modo público: não há menu lateral) */}
+        {!anonimo ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden text-white hover:bg-white/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMenuToggle();
+            }}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        ) : (
+          <div />
+        )}
 
         {/* Espaçador para empurrar o menu do usuário para a direita */}
         <div className="hidden lg:block" />
 
-        {/* Menu do usuário - Direita (impede propagação para não navegar para Home) */}
+        {/* Direita: menu do usuário (logado) ou botão Entrar (anônimo, rota pública).
+            Impede propagação para não navegar para Home ao clicar. */}
         <div onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
+          {anonimo ? (
+            <Button
+              variant="ghost"
+              onClick={() => redirectToSsoLogin()}
+              className="flex items-center gap-2 text-white hover:bg-white/10"
+            >
+              <LogIn className="h-4 w-4" />
+              <span className="text-sm font-medium">Entrar</span>
+            </Button>
+          ) : (
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
@@ -109,6 +129,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
       </div>
     </header>

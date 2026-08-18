@@ -381,6 +381,7 @@ export interface CreateRiscoDto {
 }
 
 export interface CreateEntraveDto {
+  id?: number;
   descricao: string;
   data_identificacao?: string;
   observacoes?: string;

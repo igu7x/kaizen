@@ -13,7 +13,10 @@ export function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  // Modo público: visitante anônimo (só alcançável em rotas públicas — ver publicRoutes.ts).
+  // Abre a página inteira, sem menu lateral; o Header troca o menu do usuário por "Entrar".
+  const modoPublico = !isAuthenticated;
   const { devEnvironment, setDevEnvironment } = useDirectorate();
   const showDevBanner =
     !!user?.is_developer &&
@@ -87,7 +90,9 @@ export function Layout({ children }: LayoutProps) {
       <div
         className={`flex flex-1 overflow-hidden ${isWhiteBgPage ? "bg-white" : "bg-[#0a2351]"}`}
       >
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        {!modoPublico && (
+          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        )}
         <main
           className={`flex-1 overflow-auto transition-colors duration-300 ${isNoPaddingPage ? "p-0" : "p-4 lg:p-6 xl:p-8 2xl:p-10"} ${isWhiteBgPage ? "page-bg-white" : "page-bg-blue"}`}
         >
