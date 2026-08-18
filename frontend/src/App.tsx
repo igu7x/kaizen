@@ -163,6 +163,14 @@ function App() {
                     }
                   />
                   <Route
+                    path="/gestao-riscos/contratacoes-tic"
+                    element={
+                      <ProtectedRoute>
+                        <EmDesenvolvimento titulo="Contratações de TIC" />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/seguranca-informacao/instrumentos"
                     element={
                       <ProtectedRoute>

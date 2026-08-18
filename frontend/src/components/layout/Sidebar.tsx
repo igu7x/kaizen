@@ -155,7 +155,7 @@ const menuItemsCompleto: MenuItem[] = [
             path: "/ciclo-orcamentario",
             permissaoCodigo: "contratacoes_novas",
           },
-        ]
+        ],
       },
       {
         title: "Planejamento da Contratação",
@@ -169,14 +169,14 @@ const menuItemsCompleto: MenuItem[] = [
           {
             title: "Avaliação de Riscos",
             path: "/planejamento-contratacao/riscos-contratacoes",
-          }
-        ]
+          },
+        ],
       },
       {
         title: "Gestão Contratual",
         icon: FileText,
         path: "/contratos-ti",
-        permissaoCodigo: "contratos_ti"
+        permissaoCodigo: "contratos_ti",
       },
     ],
   },
@@ -235,94 +235,105 @@ const menuItemsCompleto: MenuItem[] = [
     superAdminOnly: true,
     children: [
       {
-        title: "Painel",
-        icon: LayoutDashboard,
-        path: "/seguranca-informacao/painel",
-      },
-      {
-        title: "Alertas",
-        icon: Bell,
-        path: "/seguranca-informacao/alertas",
-      },
-      {
-        title: "Instrumentos Normativos",
-        icon: BookOpen,
-        path: "/seguranca-informacao/instrumentos",
-      },
-      {
-        title: "Ciência e Leitura",
-        icon: BookCheck,
-        path: "/seguranca-informacao/leitura",
-      },
-      {
-        title: "Obrigações Documentais",
-        icon: FileText,
-        path: "/seguranca-informacao/documentos",
-      },
-      {
-        title: "Indicadores",
-        icon: BarChart3,
-        path: "/seguranca-informacao/indicadores",
-      },
-      {
-        title: "Frameworks",
-        icon: FolderKanban,
-        path: "/seguranca-informacao/frameworks",
-      },
-      {
-        title: "Riscos",
+        title: "Segurança da Informação",
         icon: Shield,
-        path: "/seguranca-informacao/riscos",
+        children: [
+          {
+            title: "Painel",
+            icon: LayoutDashboard,
+            path: "/seguranca-informacao/painel",
+          },
+          {
+            title: "Alertas",
+            icon: Bell,
+            path: "/seguranca-informacao/alertas",
+          },
+          {
+            title: "Instrumentos Normativos",
+            icon: BookOpen,
+            path: "/seguranca-informacao/instrumentos",
+          },
+          {
+            title: "Ciência e Leitura",
+            icon: BookCheck,
+            path: "/seguranca-informacao/leitura",
+          },
+          {
+            title: "Obrigações Documentais",
+            icon: FileText,
+            path: "/seguranca-informacao/documentos",
+          },
+          {
+            title: "Indicadores",
+            icon: BarChart3,
+            path: "/seguranca-informacao/indicadores",
+          },
+          {
+            title: "Frameworks",
+            icon: FolderKanban,
+            path: "/seguranca-informacao/frameworks",
+          },
+          {
+            title: "Riscos",
+            icon: Shield,
+            path: "/seguranca-informacao/riscos",
+          },
+          {
+            title: "Eventos e SLA",
+            icon: ShieldAlert,
+            path: "/seguranca-informacao/eventos",
+          },
+          {
+            title: "Emissões",
+            icon: FilePlus,
+            path: "/seguranca-informacao/emissoes",
+          },
+          {
+            title: "Relatórios",
+            icon: FileText,
+            path: "/seguranca-informacao/relatorios",
+          },
+          {
+            title: "Atas",
+            icon: ClipboardList,
+            path: "/seguranca-informacao/atas",
+          },
+          {
+            title: "Processos (BPMN)",
+            icon: Workflow,
+            path: "/seguranca-informacao/processos",
+          },
+          {
+            title: "Matriz de Rastreabilidade",
+            icon: Workflow,
+            path: "/seguranca-informacao/matriz",
+          },
+          {
+            title: "SBOM",
+            icon: Boxes,
+            path: "/seguranca-informacao/sbom",
+          },
+          {
+            title: "Integração (API)",
+            icon: Plug,
+            path: "/seguranca-informacao/integracao",
+          },
+          {
+            title: "Configurações",
+            icon: SlidersHorizontal,
+            path: "/seguranca-informacao/configuracoes",
+          },
+          {
+            title: "Auditoria",
+            icon: History,
+            path: "/seguranca-informacao/auditoria",
+          },
+        ],
       },
       {
-        title: "Eventos e SLA",
-        icon: ShieldAlert,
-        path: "/seguranca-informacao/eventos",
-      },
-      {
-        title: "Emissões",
-        icon: FilePlus,
-        path: "/seguranca-informacao/emissoes",
-      },
-      {
-        title: "Relatórios",
-        icon: FileText,
-        path: "/seguranca-informacao/relatorios",
-      },
-      {
-        title: "Atas",
-        icon: ClipboardList,
-        path: "/seguranca-informacao/atas",
-      },
-      {
-        title: "Processos (BPMN)",
-        icon: Workflow,
-        path: "/seguranca-informacao/processos",
-      },
-      {
-        title: "Matriz de Rastreabilidade",
-        icon: Workflow,
-        path: "/seguranca-informacao/matriz",
-      },
-      {
-        title: "SBOM",
-        icon: Boxes,
-        path: "/seguranca-informacao/sbom",
-      },
-      {
-        title: "Integração (API)",
-        icon: Plug,
-        path: "/seguranca-informacao/integracao",
-      },
-      {
-        title: "Configurações",
-        icon: SlidersHorizontal,
-        path: "/seguranca-informacao/configuracoes",
-      },
-      {
-        title: "Auditoria",
-        icon: History,
-        path: "/seguranca-informacao/auditoria",
+        title: "Contratações de TIC",
+        icon: DollarSign,
+        path: "/gestao-riscos/contratacoes-tic",
       },
     ],
   },
@@ -438,7 +449,7 @@ function MenuItemComponent({
     filteredChildren?.some((child) => {
       if (child.path && location.pathname === child.path) return true;
       if (child.children) {
-        return child.children.some(sub => location.pathname === sub.path);
+        return child.children.some((sub) => location.pathname === sub.path);
       }
       return false;
     });
@@ -477,8 +488,12 @@ function MenuItemComponent({
         {!isMinimized && isExpanded && (
           <div className="bg-black/20">
             {filteredChildren?.map((child, idx) => {
-              const hasSubChildren = child.children && child.children.length > 0;
-              const isSubActive = child.path ? location.pathname === child.path : (hasSubChildren && child.children?.some(c => location.pathname === c.path));
+              const hasSubChildren =
+                child.children && child.children.length > 0;
+              const isSubActive = child.path
+                ? location.pathname === child.path
+                : hasSubChildren &&
+                  child.children?.some((c) => location.pathname === c.path);
               return (
                 <div key={idx}>
                   {hasSubChildren ? (
@@ -486,7 +501,8 @@ function MenuItemComponent({
                       onClick={() => toggleMenu(child.title)}
                       className={cn(
                         "w-full flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors",
-                        isSubActive && "bg-white/15 text-white border-l-2 border-white ml-2",
+                        isSubActive &&
+                          "bg-white/15 text-white border-l-2 border-white ml-2",
                       )}
                     >
                       {child.icon && (
@@ -508,7 +524,8 @@ function MenuItemComponent({
                       }}
                       className={cn(
                         "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors",
-                        isSubActive && "bg-white/15 text-white border-l-2 border-white ml-2",
+                        isSubActive &&
+                          "bg-white/15 text-white border-l-2 border-white ml-2",
                       )}
                     >
                       {child.icon && (
@@ -520,7 +537,8 @@ function MenuItemComponent({
                   {hasSubChildren && expandedMenus.includes(child.title) && (
                     <div className="pl-6">
                       {child.children?.map((subChild, subIdx) => {
-                        const isSubSubActive = location.pathname === subChild.path;
+                        const isSubSubActive =
+                          location.pathname === subChild.path;
                         return (
                           <Link
                             key={`sub-${idx}-${subIdx}`}
@@ -569,8 +587,11 @@ function MenuItemComponent({
                   {item.title}
                 </div>
                 {filteredChildren?.map((child, idx) => {
-                  const hasSubChildren = child.children && child.children.length > 0;
-                  const isSubActive = child.path ? location.pathname === child.path : false;
+                  const hasSubChildren =
+                    child.children && child.children.length > 0;
+                  const isSubActive = child.path
+                    ? location.pathname === child.path
+                    : false;
                   return (
                     <div key={idx}>
                       <Link
@@ -585,12 +606,15 @@ function MenuItemComponent({
                         )}
                       >
                         {child.icon && <child.icon className="h-3.5 w-3.5" />}
-                        <span className={hasSubChildren ? "font-semibold" : ""}>{child.title}</span>
+                        <span className={hasSubChildren ? "font-semibold" : ""}>
+                          {child.title}
+                        </span>
                       </Link>
                       {hasSubChildren && (
                         <div className="pl-4 pb-1">
                           {child.children?.map((subChild, subIdx) => {
-                            const isSubSubActive = location.pathname === subChild.path;
+                            const isSubSubActive =
+                              location.pathname === subChild.path;
                             return (
                               <Link
                                 key={`sub-${idx}-${subIdx}`}
@@ -598,12 +622,12 @@ function MenuItemComponent({
                                 // onClick={onNavigate}
                                 className={cn(
                                   "flex items-center gap-2 px-3 py-1.5 text-xs text-white/70 hover:text-white transition-colors",
-                                  isSubSubActive && "text-white font-medium"
+                                  isSubSubActive && "text-white font-medium",
                                 )}
                               >
                                 <span>{subChild.title}</span>
                               </Link>
-                            )
+                            );
                           })}
                         </div>
                       )}
@@ -707,9 +731,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       let isItemExpanded = false;
 
       item.children?.forEach((child) => {
-        const isChildActive = child.path && (currentPath === child.path || currentPath.startsWith(child.path + "/"));
+        const isChildActive =
+          child.path &&
+          (currentPath === child.path ||
+            currentPath.startsWith(child.path + "/"));
         const isSubChildActive = child.children?.some(
-          (sub) => sub.path && (currentPath === sub.path || currentPath.startsWith(sub.path + "/"))
+          (sub) =>
+            sub.path &&
+            (currentPath === sub.path ||
+              currentPath.startsWith(sub.path + "/")),
         );
 
         if (isChildActive || isSubChildActive) {
@@ -769,14 +799,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       // Para outras diretorias, buscar permissões da API (união de todos os domínios do usuário)
       try {
-        const dominios = (user as any).dominios && (user as any).dominios.length > 0
-          ? (user as any).dominios
-          : [getUserDominio(user, loadedAreas)];
+        const dominios =
+          (user as any).dominios && (user as any).dominios.length > 0
+            ? (user as any).dominios
+            : [getUserDominio(user, loadedAreas)];
 
         const todosCodigos = new Set<string>();
         for (const dom of dominios) {
           const response = await getModulosPermitidosMenu(dom as Diretoria);
-          response.modulos_permitidos.forEach((m) => todosCodigos.add(m.codigo));
+          response.modulos_permitidos.forEach((m) =>
+            todosCodigos.add(m.codigo),
+          );
         }
 
         setPermissoesUsuario(Array.from(todosCodigos));
@@ -810,9 +843,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       let shouldExpandItem = false;
 
       item.children?.forEach((child) => {
-        const isChildActive = child.path && (currentPath === child.path || currentPath.startsWith(child.path + "/"));
+        const isChildActive =
+          child.path &&
+          (currentPath === child.path ||
+            currentPath.startsWith(child.path + "/"));
         const isSubChildActive = child.children?.some(
-          (sub) => sub.path && (currentPath === sub.path || currentPath.startsWith(sub.path + "/"))
+          (sub) =>
+            sub.path &&
+            (currentPath === sub.path ||
+              currentPath.startsWith(sub.path + "/")),
         );
 
         if (isChildActive || isSubChildActive) {
@@ -821,14 +860,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         if (isSubChildActive) {
           setExpandedMenus((prev) =>
-            prev.includes(child.title) ? prev : [...prev, child.title]
+            prev.includes(child.title) ? prev : [...prev, child.title],
           );
         }
       });
 
       if (shouldExpandItem) {
         setExpandedMenus((prev) =>
-          prev.includes(item.title) ? prev : [...prev, item.title]
+          prev.includes(item.title) ? prev : [...prev, item.title],
         );
       }
     });
