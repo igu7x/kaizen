@@ -303,7 +303,13 @@ export default function Home() {
     if (prefersReduced) return;
     const atTop = () => (dashRef.current?.scrollTop ?? 0) <= 0;
 
+    // Só interceptamos a rolagem quando ela ocorre sobre a HOME. Se o cursor está no menu
+    // lateral (<aside>), deixamos o próprio menu rolar (senão a Home "roubava" o scroll do menu).
+    const noMenu = (e: Event) =>
+      !!(e.target as Element | null)?.closest?.("aside");
+
     const onWheel = (e: WheelEvent) => {
+      if (noMenu(e)) return;
       if (!committedRef.current) {
         e.preventDefault();
         go(e.deltaY > 0 ? 1 : 0);
@@ -318,6 +324,7 @@ export default function Home() {
       lastY = e.touches[0].clientY;
     };
     const onTouchMove = (e: TouchEvent) => {
+      if (noMenu(e)) return;
       const dy = lastY - e.touches[0].clientY;
       lastY = e.touches[0].clientY;
       if (Math.abs(dy) < 2) return;

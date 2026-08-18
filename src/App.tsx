@@ -60,6 +60,7 @@ import CadastroContratacoesTic from "./pages/CadastroContratacoesTic";
 import Desenvolvimento from "./pages/Desenvolvimento";
 import Perfil from "./pages/Perfil";
 import EmDesenvolvimento from "./pages/EmDesenvolvimento";
+import Auditoria from "./pages/Auditoria";
 import PacCapacitacao from "./pages/PacCapacitacao";
 import PlanejamentoContratacao from "./pages/PlanejamentoContratacao";
 import CicloOrcamentario from "./pages/CicloOrcamentario";
@@ -159,6 +160,22 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <SgsiPainel />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/gestao-riscos/contratacoes-tic"
+                    element={
+                      <ProtectedRoute>
+                        <EmDesenvolvimento titulo="Contratações de TIC" />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/auditoria"
+                    element={
+                      <ProtectedRoute requireSuperadmin>
+                        <Auditoria />
                       </ProtectedRoute>
                     }
                   />
