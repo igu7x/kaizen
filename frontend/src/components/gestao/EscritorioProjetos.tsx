@@ -210,6 +210,25 @@ function ehProjetoPtd(nome: string | null | undefined): boolean {
 // COMPONENTE PRINCIPAL
 // ============================================================
 
+/**
+ * Progresso do projeto pela base de ENTREGAS (concluídas ÷ total) — mesma base da tela de
+ * detalhe "Andamento do Projeto". total_entregas/entregas_concluidas vêm ao vivo da view,
+ * então nunca ficam obsoletos como o progresso_percentual armazenado (recalculado só em escritas).
+ */
+function progressoPorEntregas(
+  p:
+    | {
+        total_entregas?: number | string | null;
+        entregas_concluidas?: number | string | null;
+      }
+    | null
+    | undefined,
+): number {
+  const total = Number(p?.total_entregas) || 0;
+  const concluidas = Number(p?.entregas_concluidas) || 0;
+  return total > 0 ? Math.round((concluidas / total) * 100) : 0;
+}
+
 export function EscritorioProjetos() {
   const { user } = useAuth();
   const { selectedAreaId, selectedArea, setSelectedDirectorate } = useDirectorate();
@@ -2808,10 +2827,9 @@ export function EscritorioProjetos() {
               ) : (
                 <div className="bg-white">
                   {projetosFiltrados.map((projeto, index) => {
-                    const progresso =
-                      (projeto as any).progresso_percentual ||
-                      (projeto as any).progresso ||
-                      0;
+                    // Progresso pela base de entregas (igual ao "Andamento do Projeto"), não pelo
+                    // progresso_percentual armazenado, que pode divergir quando as entregas mudam.
+                    const progresso = progressoPorEntregas(projeto as any);
                     const prazoEstimado =
                       (projeto as any).data_prevista_conclusao ||
                         (projeto as any).data_fim_prevista
@@ -5679,12 +5697,12 @@ export function EscritorioProjetos() {
                         <div
                           className="bg-blue-600 h-2 rounded-full"
                           style={{
-                            width: `${projetoDetalhes.progresso_percentual}%`,
+                            width: `${progressoPorEntregas(projetoDetalhes)}%`,
                           }}
                         />
                       </div>
                       <span className="text-sm font-bold">
-                        {projetoDetalhes.progresso_percentual}%
+                        {progressoPorEntregas(projetoDetalhes)}%
                       </span>
                     </div>
                   </div>
