@@ -268,6 +268,12 @@ export function CompetenciasEquipeForm({
     if (!form.qtd_colaboradores.trim())
       return toast.error("Informe a quantidade de colaboradores.");
 
+    // Salvaguarda anti-perda: nunca enviar a matriz vazia/incompleta. O backend recria os itens
+    // a partir deste payload, então uma lista abaixo do mínimo apagaria a matriz-referencial.
+    if (form.competencias.length < MIN_COMPETENCIAS) {
+      return toast.error(`Informe ao menos ${MIN_COMPETENCIAS} competências.`);
+    }
+
     for (let i = 0; i < form.competencias.length; i++) {
       const c = form.competencias[i];
       if (!c.nome.trim())
