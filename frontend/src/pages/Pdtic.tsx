@@ -46,6 +46,8 @@ const PCA_ANO = new Date().getFullYear();
 const PCA_VERSAO: number | undefined = undefined;
 // Meta fixa do KR-2 (não muda com os dados).
 const KR2_ALVO = 25;
+// Meta fixa do KR-3: nº de processos revisados a atingir.
+const KR3_ALVO = 40;
 // KR-3: mede quantos processos de negócio de TI VIGENTES são Modelo K1 (base) sobre o total de
 // vigentes (alvo). Grupo "ti" = Escritório de Processos / Tecnologia da Informação.
 const PROCESSOS_GRUPO_TI = "ti";
@@ -236,19 +238,18 @@ export default function Pdtic() {
     const kr1Base = stats.concluidas;
     const kr1Alvo = stats.total;
     const kr2Base = pca?.concluidos ?? 0;
-    const kr3Base = processosK1.length; // processos vigentes que são Modelo K1
-    const kr3Alvo = processosVigentes.length; // total de processos vigentes de TI
+    const kr3Base = processosK1.length; // processos revisados (Modelo K1)
     const kr1Pct = pctd(kr1Base, kr1Alvo);
     const kr2Pct = pctd(kr2Base, KR2_ALVO);
-    const kr3Pct = pctd(kr3Base, kr3Alvo);
+    const kr3Pct = pctd(kr3Base, KR3_ALVO); // progresso rumo à meta de 40 revisados
     return {
       kr1: { base: kr1Base, alvo: kr1Alvo, pct: kr1Pct },
       kr2: { base: kr2Base, alvo: KR2_ALVO, pct: kr2Pct },
-      kr3: { base: kr3Base, alvo: kr3Alvo, pct: kr3Pct },
+      kr3: { base: kr3Base, alvo: KR3_ALVO, pct: kr3Pct },
       // Atingimento Geral do PDTIC = média simples dos 3 KRs.
       geral: Math.round((kr1Pct + kr2Pct + kr3Pct) / 3),
     };
-  }, [stats.concluidas, stats.total, pca, processosK1, processosVigentes]);
+  }, [stats.concluidas, stats.total, pca, processosK1]);
 
   // Os cards funcionam como filtro: a tabela respeita o status escolhido (os cards seguem
   // mostrando os totais reais, independentemente do filtro ativo).
@@ -454,7 +455,7 @@ export default function Pdtic() {
               active={krAtivo === "kr3"}
               activeRing="ring-violet-400"
               linhas={[
-                ["Mensurado", "% de processos vigentes Modelo K1"],
+                ["Mensurado", "% de processos revisados (meta 40)"],
                 ["Fonte", "Escritório de Processos (TI)"],
                 ["Frequência", "Anual"],
                 ["Base", String(krs.kr3.base)],
@@ -492,13 +493,13 @@ export default function Pdtic() {
             ) : krAtivo === "kr3" ? (
               <>
                 <StatCard
-                  titulo="Vigentes"
-                  valor={krs.kr3.alvo}
+                  titulo="Processos Vigentes"
+                  valor={processosVigentes.length}
                   icon={<ShieldCheck className="h-6 w-6" />}
                   cor="blue"
                 />
                 <StatCard
-                  titulo="Modelo K1"
+                  titulo="Processos Revisados"
                   valor={krs.kr3.base}
                   icon={<CheckCircle2 className="h-6 w-6" />}
                   cor="green"
@@ -693,7 +694,7 @@ export default function Pdtic() {
           {krAtivo === "kr3" ? (
             <p className="text-xs text-slate-400">
               {processosVigentes.length} processo(s) de TI vigente(s) ·{" "}
-              {processosK1.length} Modelo K1.
+              {processosK1.length} revisado(s) · meta {KR3_ALVO}.
             </p>
           ) : krAtivo === "kr2" ? (
             <p className="text-xs text-slate-400">
@@ -1059,7 +1060,7 @@ function ProcessosTabela({
         <span>Código</span>
         <span>Processo</span>
         <span>Diretoria</span>
-        <span className="text-center">Modelo</span>
+        <span className="text-center">Revisado</span>
       </div>
       <ul className="divide-y divide-slate-100">
         {processos.map((p) => {
@@ -1087,7 +1088,7 @@ function ProcessosTabela({
               <div className="flex justify-center">
                 {ehK1 ? (
                   <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-inset ring-violet-200">
-                    Modelo K1
+                    Revisado
                   </span>
                 ) : (
                   <span className="text-xs text-slate-400">—</span>
