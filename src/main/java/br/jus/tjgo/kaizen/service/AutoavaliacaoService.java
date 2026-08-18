@@ -179,7 +179,12 @@ public class AutoavaliacaoService {
                     str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
                     str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
                     competenciasVersao, versaoAnterior, updateKeysJson, tecnicasVersao, userId, formularioId);
-            jdbc.update("DELETE FROM autoavaliacao_respostas WHERE formulario_id = ?", formularioId);
+            // Salvaguarda anti-perda: só apaga as respostas existentes se o payload REALMENTE
+            // trouxer respostas. Um save com lista vazia/ausente (bug de client, autosave prematuro)
+            // não pode zerar as notas/comentários já gravados de um rascunho.
+            if (!asList(data.get("respostas")).isEmpty()) {
+                jdbc.update("DELETE FROM autoavaliacao_respostas WHERE formulario_id = ?", formularioId);
+            }
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO autoavaliacao_formularios " +

@@ -242,7 +242,11 @@ public class AvaliacaoGestorService {
                     str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
                     userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, formularioId);
-            jdbc.update("DELETE FROM avaliacao_gestor_respostas WHERE formulario_id = ?", formularioId);
+            // Salvaguarda anti-perda: só apaga as respostas existentes se o payload trouxer respostas.
+            // Um save com lista vazia/ausente não pode zerar notas/comentários já gravados no rascunho.
+            if (!asList(data.get("respostas")).isEmpty()) {
+                jdbc.update("DELETE FROM avaliacao_gestor_respostas WHERE formulario_id = ?", formularioId);
+            }
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_gestor_formularios " +

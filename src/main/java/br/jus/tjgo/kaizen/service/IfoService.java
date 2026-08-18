@@ -216,10 +216,19 @@ public class IfoService {
     @Transactional
     public IfoDto atualizarContratos(long id, List<Long> contratosIds, Long userId) {
         verificarPermissaoEdicao(id, "VINCULAR_CONTRATOS", userId);
-        
-        jdbc.update("DELETE FROM ifo_contratos WHERE ifo_id = ?", id);
-        vincularContratos(id, contratosIds, userId);
-        
+
+        // Salvaguarda anti-perda: diff em vez de "apagar tudo e recriar". Preserva os vínculos que
+        // permanecem — e com eles o valor_contrato_cents / interesse_renovacao / motivo_reclassificacao
+        // ajustados à mão (que o recreate zerava). Remove só os que saíram; vincularContratos insere
+        // só os novos (ON CONFLICT DO NOTHING não sobrescreve os que ficam).
+        List<Long> manter = contratosIds == null ? List.of() : contratosIds;
+        for (Long antigo : contratosDoIfo(id)) {
+            if (!manter.contains(antigo)) {
+                jdbc.update("DELETE FROM ifo_contratos WHERE ifo_id = ? AND contract_id = ?", id, antigo);
+            }
+        }
+        vincularContratos(id, manter, userId);
+
         invalidarPorEdicao(id, userId);
         return get(id);
     }

@@ -335,6 +335,15 @@ public class CompetenciasGestorService {
             matrizNotificacoes.aoValidarAutor(findById(id));
         }
 
+        List<Map<String, Object>> competencias = asList(data.get("competencias"));
+        // Salvaguarda anti-perda: um save sem competências no payload NÃO pode apagar a matriz
+        // autoral (nome/descrição/peso) já gravada. O bloco de itens é a última etapa do método,
+        // então retornamos preservando o que já existe (o UPDATE dos metadados do formulário,
+        // acima, já foi aplicado).
+        if (competencias.isEmpty()) {
+            return findById(id);
+        }
+
         List<Map<String, Object>> oldItens = jdbc.queryForList(
                 "SELECT nome, descricao, peso, aplicabilidade, quantidade_pessoas " +
                         "FROM competencias_gestor_itens WHERE formulario_id = ? ORDER BY ordem", id);
@@ -345,7 +354,6 @@ public class CompetenciasGestorService {
 
         jdbc.update("DELETE FROM competencias_gestor_itens WHERE formulario_id = ?", id);
 
-        List<Map<String, Object>> competencias = asList(data.get("competencias"));
         for (int i = 0; i < competencias.size(); i++) {
             Map<String, Object> c = competencias.get(i);
             Map<String, Object> o = oldByName.get(str(c.get("nome")));

@@ -25,6 +25,7 @@ public class TepService {
     private final JdbcTemplate jdbc;
     private final br.jus.tjgo.kaizen.service.notificacao.ProjetosTapTepNotificacoes tapTepNotificacoes;
     private final ObjectMapper objectMapper;
+    private final AuditService audit;
 
     public Map<String, Object> findByProjetoId(long projetoId) {
         var rows = jdbc.queryForList(
@@ -69,6 +70,9 @@ public class TepService {
             }
         }
 
+        // Estado ANTES do upsert (o ON CONFLICT reinicia a cadeia de validação por design).
+        Map<String, Object> anterior = findByProjetoId(projetoId);
+
         Map<String, Object> tep = jdbc.queryForMap(
                 "INSERT INTO tep_termos_encerramento " +
                         "(projeto_id, tipo_encerramento, motivo_cancelamento, consideracoes_gerente, " +
@@ -100,6 +104,14 @@ public class TepService {
 
         jdbc.update("UPDATE cadastros_projetos SET status = ?, updated_at = NOW() WHERE id = ?",
                 tipoEncerramento, projetoId);
+
+        // Salvaguarda anti-perda (sem mudar comportamento): grava no audit_log o estado anterior
+        // que o upsert reinicia. Sem isso, um TEP revalidado perdia SEM RASTRO quem já havia
+        // validado (gestor/diretor). O TEP segue funcionando idêntico; só passa a ter trilha.
+        Object tepIdObj = tep.get("id");
+        Long recordId = tepIdObj instanceof Number ? ((Number) tepIdObj).longValue() : projetoId;
+        audit.log("tep_termos_encerramento", recordId,
+                anterior == null ? "INSERT" : "UPDATE", userId, null, anterior, tep);
 
         tapTepNotificacoes.aoCriarTep(projetoId);
         return tep;
