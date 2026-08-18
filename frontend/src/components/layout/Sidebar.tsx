@@ -338,6 +338,13 @@ const menuItemsCompleto: MenuItem[] = [
     ],
   },
   {
+    // Trilha de auditoria GLOBAL (todos os módulos/usuários). Só superadmin.
+    title: "Auditoria",
+    icon: History,
+    path: "/auditoria",
+    superAdminOnly: true,
+  },
+  {
     title: "Administração",
     icon: Settings,
     adminOnly: true,
