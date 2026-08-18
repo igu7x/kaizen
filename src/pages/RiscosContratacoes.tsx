@@ -4,7 +4,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, FileText, Trash2, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Upload, FileText, Trash2, ArrowRight, Loader2, AlertCircle, Plus, CheckCircle2, ExternalLink } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -18,13 +18,14 @@ interface ContractRiskAssessment {
   body?: string;
   createdAt: string;
   updatedAt?: string;
+  validatedAt?: string;
 }
 
 export default function RiscosContratacoes() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const hasPermission = user?.is_superadmin || (user?.tags_acesso && user.tags_acesso.includes("PC_AR_CRUD"));
-  
+
   const [apiToken, setApiToken] = useState("");
   const [dodFile, setDodFile] = useState<File | null>(null);
   const [etpFile, setEtpFile] = useState<File | null>(null);
@@ -174,123 +175,130 @@ export default function RiscosContratacoes() {
         </div>
 
         {hasPermission && (
-        <Card className="border-gray-200 shadow-sm">
-          <CardContent className="p-6 space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Google API Token</label>
-              <Input
-                type="password"
-                placeholder="Insira seu token da API..."
-                value={apiToken}
-                onChange={handleTokenChange}
-                className="max-w-md bg-gray-50"
-              />
-              <p className="text-xs text-gray-500">
-                Seu token não será armazenado no banco de dados.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-100">
-              {/* DOD Card */}
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  ref={dodInputRef}
-                  onChange={handleFileChange(setDodFile)}
-                />
-                <div className="mx-auto w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                  <FileText className="h-6 w-6" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">DOD</h3>
-                <p className="text-xs text-gray-500 mb-4">Doc. Oficialização Demanda</p>
-                {dodFile ? (
-                  <div className="text-sm text-green-600 font-medium truncate flex items-center justify-center gap-2">
-                    {dodFile.name}
-                    <button onClick={() => { setDodFile(null); if (dodInputRef.current) dodInputRef.current.value = ''; }} className="text-red-500 hover:text-red-700">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-start gap-4">
+                <div className="space-y-2 flex-1 w-full">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Google API Token</label>
+                    <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title="Obter Token">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
                   </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => dodInputRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Anexar PDF
-                  </Button>
-                )}
+                  <Input
+                    type="password"
+                    placeholder="Insira seu token da API..."
+                    value={apiToken}
+                    onChange={handleTokenChange}
+                    className="max-w-md bg-gray-50"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Seu token não será armazenado no banco de dados.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !dodFile || !etpFile || !trFile || assessments.some(a => a.status === 'IN_PROGRESS')}
+                  className="bg-[#002547] hover:bg-[#001b33] mt-6"
+                >
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Iniciar Avaliação de Riscos
+                </Button>
               </div>
 
-              {/* ETP Card */}
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  ref={etpInputRef}
-                  onChange={handleFileChange(setEtpFile)}
-                />
-                <div className="mx-auto w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
-                  <FileText className="h-6 w-6" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">ETP</h3>
-                <p className="text-xs text-gray-500 mb-4">Estudo Técnico Preliminar</p>
-                {etpFile ? (
-                  <div className="text-sm text-green-600 font-medium truncate flex items-center justify-center gap-2">
-                    {etpFile.name}
-                    <button onClick={() => { setEtpFile(null); if (etpInputRef.current) etpInputRef.current.value = ''; }} className="text-red-500 hover:text-red-700">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-100">
+                {/* DOD Card */}
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    ref={dodInputRef}
+                    onChange={handleFileChange(setDodFile)}
+                  />
+                  <div className="mx-auto w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                    <FileText className="h-6 w-6" />
                   </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => etpInputRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Anexar PDF
-                  </Button>
-                )}
+                  <h3 className="font-semibold text-gray-900 mb-1">DOD</h3>
+                  <p className="text-xs text-gray-500 mb-4">Doc. Oficialização Demanda</p>
+                  {dodFile ? (
+                    <div className="text-sm text-green-600 font-medium truncate flex items-center justify-center gap-2">
+                      {dodFile.name}
+                      <button onClick={() => { setDodFile(null); if (dodInputRef.current) dodInputRef.current.value = ''; }} className="text-red-500 hover:text-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => dodInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Anexar PDF
+                    </Button>
+                  )}
+                </div>
+
+                {/* ETP Card */}
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    ref={etpInputRef}
+                    onChange={handleFileChange(setEtpFile)}
+                  />
+                  <div className="mx-auto w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">ETP</h3>
+                  <p className="text-xs text-gray-500 mb-4">Estudo Técnico Preliminar</p>
+                  {etpFile ? (
+                    <div className="text-sm text-green-600 font-medium truncate flex items-center justify-center gap-2">
+                      {etpFile.name}
+                      <button onClick={() => { setEtpFile(null); if (etpInputRef.current) etpInputRef.current.value = ''; }} className="text-red-500 hover:text-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => etpInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Anexar PDF
+                    </Button>
+                  )}
+                </div>
+
+                {/* TR Card */}
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    ref={trInputRef}
+                    onChange={handleFileChange(setTrFile)}
+                  />
+                  <div className="mx-auto w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">TR</h3>
+                  <p className="text-xs text-gray-500 mb-4">Termo de Referência</p>
+                  {trFile ? (
+                    <div className="text-sm text-green-600 font-medium truncate flex items-center justify-center gap-2">
+                      {trFile.name}
+                      <button onClick={() => { setTrFile(null); if (trInputRef.current) trInputRef.current.value = ''; }} className="text-red-500 hover:text-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => trInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Anexar PDF
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              {/* TR Card */}
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  ref={trInputRef}
-                  onChange={handleFileChange(setTrFile)}
-                />
-                <div className="mx-auto w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4">
-                  <FileText className="h-6 w-6" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">TR</h3>
-                <p className="text-xs text-gray-500 mb-4">Termo de Referência</p>
-                {trFile ? (
-                  <div className="text-sm text-green-600 font-medium truncate flex items-center justify-center gap-2">
-                    {trFile.name}
-                    <button onClick={() => { setTrFile(null); if (trInputRef.current) trInputRef.current.value = ''; }} className="text-red-500 hover:text-red-700">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => trInputRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Anexar PDF
-                  </Button>
-                )}
-              </div>
-            </div>
 
-            <div className="pt-4 flex justify-end">
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting || !dodFile || !etpFile || !trFile || assessments.some(a => a.status === 'IN_PROGRESS')}
-                className="bg-[#002547] hover:bg-[#001b33]"
-              >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Iniciar Avaliação de Riscos
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
         )}
 
         {/* Historico */}
@@ -302,11 +310,20 @@ export default function RiscosContratacoes() {
                 placeholder="Buscar por título..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full sm:w-64"
+                className="w-full sm:w-96"
               />
               <Button type="submit" variant="secondary" className="bg-gray-100 hover:bg-gray-200 text-gray-800">
                 Buscar
               </Button>
+              {hasPermission && (
+                <Button
+                  type="button"
+                  onClick={() => navigate("/planejamento-contratacao/riscos-contratacoes/novo")}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Adicionar
+                </Button>
+              )}
             </form>
           </div>
 
@@ -332,35 +349,45 @@ export default function RiscosContratacoes() {
                             {parseTitle(assessment)}
                           </h4>
                           <p className="text-xs text-gray-500 mt-1">
-                            Última atualização: {format(new Date(assessment.updatedAt || assessment.createdAt), "dd 'de' MMMM, HH:mm", { locale: ptBR })}
+                            {assessment.validatedAt
+                              ? `Validado em: ${format(new Date(assessment.validatedAt), "dd 'de' MMMM, HH:mm", { locale: ptBR })}`
+                              : `Atualizado em: ${format(new Date(assessment.updatedAt || assessment.createdAt), "dd 'de' MMMM, HH:mm", { locale: ptBR })}`
+                            }
                           </p>
                         </div>
-                        {hasPermission && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button
-                              className="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                              title="Excluir"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir Avaliação?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir esta avaliação de riscos permanentemente? Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(assessment.id)} className="bg-red-600 hover:bg-red-700">
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                        )}
+                        <div className="flex gap-2 items-center">
+                          {hasPermission && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  className="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir Avaliação?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja excluir esta avaliação de riscos permanentemente? Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(assessment.id)} className="bg-red-600 hover:bg-red-700">
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                          {assessment.validatedAt && (
+                            <span title="Avaliação Validada">
+                              <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {assessment.status === 'IN_PROGRESS' && (
