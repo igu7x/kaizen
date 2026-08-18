@@ -44,8 +44,18 @@ public class AuditoriaService {
             args.add(acao.trim());
         }
         if (tabela != null && !tabela.isBlank()) {
-            sql.append("AND a.table_name = ? ");
-            args.add(tabela.trim());
+            // Aceita 1+ tabelas separadas por vírgula (um "módulo" agrupa várias tabelas no front).
+            List<String> tabs = new ArrayList<>();
+            for (String t : tabela.split(",")) {
+                String x = t.trim();
+                if (!x.isEmpty()) tabs.add(x);
+            }
+            if (!tabs.isEmpty()) {
+                sql.append("AND a.table_name IN (")
+                        .append(String.join(",", tabs.stream().map(t -> "?").toList()))
+                        .append(") ");
+                args.addAll(tabs);
+            }
         }
         if (busca != null && !busca.isBlank()) {
             sql.append("AND (a.action ILIKE ? OR a.table_name ILIKE ? OR u.name ILIKE ? OR u.email ILIKE ?) ");

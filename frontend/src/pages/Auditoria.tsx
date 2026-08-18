@@ -63,6 +63,34 @@ const TABELA_LABEL: Record<string, string> = {
   sgsi_sbom_sistema: "SGSI — SBOM",
 };
 
+/** Agrupa um table_name do audit_log num MÓDULO de negócio (o filtro é por módulo, não por tabela). */
+function moduloDe(table: string): string {
+  if (table.startsWith("sgsi_")) return "Segurança da Informação";
+  if (table.startsWith("cadastros_projetos") || table.startsWith("tep_"))
+    return "Projetos";
+  if (table === "processos_negocio") return "Escritório de Processos";
+  if (table === "pdtic_acoes") return "PDTIC";
+  if (
+    [
+      "pcas",
+      "pcas_snapshots",
+      "ifo",
+      "ifo_contratos",
+      "contracts",
+      "ciclo_orcamentario",
+      "atas_comites",
+    ].includes(table)
+  )
+    return "Contratações de TIC";
+  if (
+    table.startsWith("autoavaliacao") ||
+    table.startsWith("avaliacao_") ||
+    table.startsWith("competencias_")
+  )
+    return "Pessoas / Competências";
+  return "Outros";
+}
+
 /** Cor por evento/ação (canônicos INSERT/UPDATE/DELETE + eventos semânticos do SGSI). */
 const EVENTO_CLASSE: Record<string, string> = {
   INSERT: "bg-emerald-50 text-emerald-700",
@@ -119,9 +147,23 @@ export default function Auditoria() {
   });
   const [loading, setLoading] = useState(true);
   const [fAcao, setFAcao] = useState(TODOS);
-  const [fTabela, setFTabela] = useState(TODOS);
+  const [fModulo, setFModulo] = useState(TODOS);
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
+
+  // Módulo → tabelas do audit_log que ele agrupa (deriva das tabelas realmente presentes).
+  const modulosTabelas = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const t of facetas.tabelas) {
+      const mod = moduloDe(t);
+      m.set(mod, [...(m.get(mod) || []), t]);
+    }
+    return m;
+  }, [facetas.tabelas]);
+  const modulos = useMemo(
+    () => Array.from(modulosTabelas.keys()).sort((a, b) => a.localeCompare(b)),
+    [modulosTabelas],
+  );
 
   // debounce da busca
   useEffect(() => {
@@ -141,7 +183,11 @@ export default function Auditoria() {
     auditoriaApi
       .getAuditoria({
         acao: fAcao === TODOS ? undefined : fAcao,
-        tabela: fTabela === TODOS ? undefined : fTabela,
+        // Um módulo agrupa várias tabelas — manda todas (o backend filtra com IN).
+        tabela:
+          fModulo === TODOS
+            ? undefined
+            : (modulosTabelas.get(fModulo) || []).join(","),
         busca: buscaAplicada || undefined,
         limite: 300,
       })
@@ -152,12 +198,12 @@ export default function Auditoria() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(carregar, [fAcao, fTabela, buscaAplicada]);
+  useEffect(carregar, [fAcao, fModulo, buscaAplicada, modulosTabelas]);
 
   const total = registros.length;
   const limpar = () => {
     setFAcao(TODOS);
-    setFTabela(TODOS);
+    setFModulo(TODOS);
     setBusca("");
   };
 
@@ -214,15 +260,15 @@ export default function Auditoria() {
               <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                 Módulo
               </label>
-              <Select value={fTabela} onValueChange={setFTabela}>
+              <Select value={fModulo} onValueChange={setFModulo}>
                 <SelectTrigger className="h-10 bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={TODOS}>Todos</SelectItem>
-                  {facetas.tabelas.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {TABELA_LABEL[t] || t}
+                  {modulos.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -305,8 +351,13 @@ export default function Auditoria() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                          {TABELA_LABEL[r.table_name] || r.table_name}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="text-slate-700">
+                            {moduloDe(r.table_name)}
+                          </p>
+                          <span className="text-xs text-slate-400">
+                            {TABELA_LABEL[r.table_name] || r.table_name}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span
