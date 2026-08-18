@@ -63,6 +63,14 @@ const TABELA_LABEL: Record<string, string> = {
   sgsi_sbom_sistema: "SGSI — SBOM",
 };
 
+/** Nome legível derivado do próprio table_name (Title Case) — usado quando não há módulo mapeado. */
+function tabelaLegivel(table: string): string {
+  return table
+    .split("_")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
 /** Agrupa um table_name do audit_log num MÓDULO de negócio (o filtro é por módulo, não por tabela). */
 function moduloDe(table: string): string {
   if (table.startsWith("sgsi_")) return "Segurança da Informação";
@@ -71,24 +79,27 @@ function moduloDe(table: string): string {
   if (table === "processos_negocio") return "Escritório de Processos";
   if (table === "pdtic_acoes") return "PDTIC";
   if (
-    [
-      "pcas",
-      "pcas_snapshots",
-      "ifo",
-      "ifo_contratos",
-      "contracts",
-      "ciclo_orcamentario",
-      "atas_comites",
-    ].includes(table)
+    table.startsWith("pca") ||
+    table.startsWith("ifo") ||
+    table.startsWith("contract") ||
+    table.startsWith("orcamento") ||
+    table === "ciclo_orcamentario" ||
+    table === "revisao_item_validacao" ||
+    table === "atas_comites"
   )
     return "Contratações de TIC";
   if (
     table.startsWith("autoavaliacao") ||
     table.startsWith("avaliacao_") ||
-    table.startsWith("competencias_")
+    table.startsWith("competencias")
   )
     return "Pessoas / Competências";
-  return "Outros";
+  if (table.startsWith("comite")) return "Comitês";
+  if (table.startsWith("permissoes") || table === "users") return "Administração";
+  if (table.startsWith("cadastros_")) return "Cadastros";
+  // Sem módulo conhecido: nome legível da própria tabela (NUNCA "Outros"), pra sempre
+  // dar pra saber de onde a ação veio.
+  return tabelaLegivel(table);
 }
 
 /** Cor por evento/ação (canônicos INSERT/UPDATE/DELETE + eventos semânticos do SGSI). */
