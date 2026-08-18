@@ -324,7 +324,11 @@ public class AvaliacaoIntegradaService {
                             "WHERE id = ?",
                     str(data.get("pessoa_nome")), userId, str(data.get("avaliador_nome")),
                     str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv, tecnicasVersao, competenciasVersao, userId, formularioId);
-            jdbc.update("DELETE FROM avaliacao_integrada_respostas WHERE formulario_id = ?", formularioId);
+            // Salvaguarda anti-perda: só apaga as respostas existentes se o payload trouxer respostas.
+            // Um save com lista vazia/ausente não pode zerar notas integradas/comentários do rascunho.
+            if (!asList(data.get("respostas")).isEmpty()) {
+                jdbc.update("DELETE FROM avaliacao_integrada_respostas WHERE formulario_id = ?", formularioId);
+            }
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_integrada_formularios " +
