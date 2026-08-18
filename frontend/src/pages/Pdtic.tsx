@@ -33,6 +33,7 @@ import {
   processosNegocioApi,
   isVigente,
   isK1,
+  temDocumentoPrimario,
   type ProcessoNegocio,
 } from "@/services/processosNegocioApi";
 
@@ -118,8 +119,11 @@ export default function Pdtic() {
       })
       .finally(() => setProcessosLoading(false));
   }, []);
+  // "Vigentes" = mesma base da aba "Processos Vigentes" do Escritório de Processos
+  // (isVigente OU com documento primário anexado). É mais amplo que só isVigente — por isso os
+  // Modelo K1 (isK1) são um SUBCONJUNTO dos vigentes (ex.: 10 vigentes, 4 K1).
   const processosVigentes = useMemo(
-    () => processos.filter(isVigente),
+    () => processos.filter((p) => isVigente(p) || temDocumentoPrimario(p)),
     [processos],
   );
   const processosK1 = useMemo(
@@ -234,11 +238,15 @@ export default function Pdtic() {
     const kr2Base = pca?.concluidos ?? 0;
     const kr3Base = processosK1.length; // processos vigentes que são Modelo K1
     const kr3Alvo = processosVigentes.length; // total de processos vigentes de TI
+    const kr1Pct = pctd(kr1Base, kr1Alvo);
+    const kr2Pct = pctd(kr2Base, KR2_ALVO);
+    const kr3Pct = pctd(kr3Base, kr3Alvo);
     return {
-      kr1: { base: kr1Base, alvo: kr1Alvo, pct: pctd(kr1Base, kr1Alvo) },
-      kr2: { base: kr2Base, alvo: KR2_ALVO, pct: pctd(kr2Base, KR2_ALVO) },
-      kr3: { base: kr3Base, alvo: kr3Alvo, pct: pctd(kr3Base, kr3Alvo) },
-      geral: 0,
+      kr1: { base: kr1Base, alvo: kr1Alvo, pct: kr1Pct },
+      kr2: { base: kr2Base, alvo: KR2_ALVO, pct: kr2Pct },
+      kr3: { base: kr3Base, alvo: kr3Alvo, pct: kr3Pct },
+      // Atingimento Geral do PDTIC = média simples dos 3 KRs.
+      geral: Math.round((kr1Pct + kr2Pct + kr3Pct) / 3),
     };
   }, [stats.concluidas, stats.total, pca, processosK1, processosVigentes]);
 
