@@ -29,6 +29,12 @@ import { pdticAcoesApi, PdticAcao } from "@/services/pdticAcoesApi";
 import { getPcaStats, getPcaItems, formatCurrency } from "@/services/pcaApi";
 import type { PcaStats, PcaItem } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  processosNegocioApi,
+  isVigente,
+  isK1,
+  type ProcessoNegocio,
+} from "@/services/processosNegocioApi";
 
 const TODAS = "__todas__";
 
@@ -39,8 +45,9 @@ const PCA_ANO = new Date().getFullYear();
 const PCA_VERSAO: number | undefined = undefined;
 // Meta fixa do KR-2 (não muda com os dados).
 const KR2_ALVO = 25;
-// KR-3 ainda em discussão: base sem fonte de extração disponível (valor provisório).
-const KR3_BASE = 32;
+// KR-3: mede quantos processos de negócio de TI VIGENTES são Modelo K1 (base) sobre o total de
+// vigentes (alvo). Grupo "ti" = Escritório de Processos / Tecnologia da Informação.
+const PROCESSOS_GRUPO_TI = "ti";
 
 /** Prazo no formato MM/AAAA a partir de YYYY-MM-DD. */
 function prazoMesAno(iso?: string | null): string {
@@ -99,8 +106,29 @@ export default function Pdtic() {
       });
   }, []);
 
-  // KR clicado (filtro): "kr1" → ações concluídas na tabela; "kr2" → itens do PCA concluídos.
-  const [krAtivo, setKrAtivo] = useState<"kr1" | "kr2" | null>(null);
+  // KR-3: processos de negócio de TI. Vigentes (alvo) e quantos deles são Modelo K1 (base).
+  const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
+  const [processosLoading, setProcessosLoading] = useState(true);
+  useEffect(() => {
+    processosNegocioApi
+      .getAll(undefined, PROCESSOS_GRUPO_TI)
+      .then(setProcessos)
+      .catch(() => {
+        /* sem processos, o KR-3 fica em 0 */
+      })
+      .finally(() => setProcessosLoading(false));
+  }, []);
+  const processosVigentes = useMemo(
+    () => processos.filter(isVigente),
+    [processos],
+  );
+  const processosK1 = useMemo(
+    () => processosVigentes.filter(isK1),
+    [processosVigentes],
+  );
+
+  // KR clicado (filtro): "kr1" → ações; "kr2" → itens do PCA; "kr3" → processos de TI vigentes.
+  const [krAtivo, setKrAtivo] = useState<"kr1" | "kr2" | "kr3" | null>(null);
   const [pcaItens, setPcaItens] = useState<PcaItem[]>([]);
   const [pcaItensLoading, setPcaItensLoading] = useState(false);
   const [pcaItensCarregado, setPcaItensCarregado] = useState(false);
@@ -143,6 +171,9 @@ export default function Pdtic() {
         .finally(() => setPcaItensLoading(false));
     }
   };
+
+  // KR-3: mostra a relação dos processos de TI vigentes (a coluna Modelo já indica os K1).
+  const handleKr3 = () => setKrAtivo("kr3");
 
   /** Volta para o modo de Ações (limpa o KR ativo) e aplica o filtro de status escolhido. */
   const selecionarStatus = (s: "todas" | "concluidas" | "pendentes") => {
@@ -201,14 +232,15 @@ export default function Pdtic() {
     const kr1Base = stats.concluidas;
     const kr1Alvo = stats.total;
     const kr2Base = pca?.concluidos ?? 0;
-    const kr3Alvo = pca?.total ?? 0;
+    const kr3Base = processosK1.length; // processos vigentes que são Modelo K1
+    const kr3Alvo = processosVigentes.length; // total de processos vigentes de TI
     return {
       kr1: { base: kr1Base, alvo: kr1Alvo, pct: pctd(kr1Base, kr1Alvo) },
       kr2: { base: kr2Base, alvo: KR2_ALVO, pct: pctd(kr2Base, KR2_ALVO) },
-      kr3: { base: KR3_BASE, alvo: kr3Alvo, pct: pctd(KR3_BASE, kr3Alvo) },
+      kr3: { base: kr3Base, alvo: kr3Alvo, pct: pctd(kr3Base, kr3Alvo) },
       geral: 0,
     };
-  }, [stats.concluidas, stats.total, pca]);
+  }, [stats.concluidas, stats.total, pca, processosK1, processosVigentes]);
 
   // Os cards funcionam como filtro: a tabela respeita o status escolhido (os cards seguem
   // mostrando os totais reais, independentemente do filtro ativo).
@@ -410,9 +442,12 @@ export default function Pdtic() {
               titulo="Manter 95% de compliance quanto à transparência, aprovação e revisão dos planejamentos táticos e processos e planos de negócio em TIC"
               gaugeColor="#7c3aed"
               pct={krs.kr3.pct}
+              onClick={handleKr3}
+              active={krAtivo === "kr3"}
+              activeRing="ring-violet-400"
               linhas={[
-                ["Mensurado", "Índice de compliance"],
-                ["Fonte", "Relatórios de Compliance"],
+                ["Mensurado", "% de processos vigentes Modelo K1"],
+                ["Fonte", "Escritório de Processos (TI)"],
                 ["Frequência", "Anual"],
                 ["Base", String(krs.kr3.base)],
                 ["Alvo", String(krs.kr3.alvo)],
@@ -443,6 +478,25 @@ export default function Pdtic() {
                 />
                 <ProgressoCard
                   progresso={krs.kr2.pct}
+                  className="sm:col-span-2"
+                />
+              </>
+            ) : krAtivo === "kr3" ? (
+              <>
+                <StatCard
+                  titulo="Vigentes"
+                  valor={krs.kr3.alvo}
+                  icon={<ShieldCheck className="h-6 w-6" />}
+                  cor="blue"
+                />
+                <StatCard
+                  titulo="Modelo K1"
+                  valor={krs.kr3.base}
+                  icon={<CheckCircle2 className="h-6 w-6" />}
+                  cor="green"
+                />
+                <ProgressoCard
+                  progresso={krs.kr3.pct}
                   className="sm:col-span-2"
                 />
               </>
@@ -483,6 +537,12 @@ export default function Pdtic() {
               itens={pcaTabela}
               loading={pcaItensLoading}
               filtro={pcaFiltro}
+            />
+          ) : krAtivo === "kr3" ? (
+            <ProcessosTabela
+              processos={processosVigentes}
+              k1Ids={new Set(processosK1.map((p) => p.id))}
+              loading={processosLoading}
             />
           ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -622,7 +682,12 @@ export default function Pdtic() {
           </div>
           )}
 
-          {krAtivo === "kr2" ? (
+          {krAtivo === "kr3" ? (
+            <p className="text-xs text-slate-400">
+              {processosVigentes.length} processo(s) de TI vigente(s) ·{" "}
+              {processosK1.length} Modelo K1.
+            </p>
+          ) : krAtivo === "kr2" ? (
             <p className="text-xs text-slate-400">
               {pcaItens.length} item(ns) do PCA · {pcaConcluidos.length}{" "}
               concluído(s) — Plano de Contratações Anual {PCA_ANO} (vigente).
@@ -950,6 +1015,80 @@ function PcaItensTabela({
         );
       })}
       </div>
+    </div>
+  );
+}
+
+/** Tabela dos processos de TI VIGENTES (exibida no KR-3); a coluna Modelo marca os Modelo K1. */
+function ProcessosTabela({
+  processos,
+  k1Ids,
+  loading,
+}: {
+  processos: ProcessoNegocio[];
+  k1Ids: Set<number>;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-16 text-slate-500">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+        Carregando processos…
+      </div>
+    );
+  }
+  if (processos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-500">
+        <ShieldCheck className="mb-2 h-8 w-8 text-slate-300" />
+        <p className="text-sm">Nenhum processo de TI vigente.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="grid grid-cols-[130px_minmax(0,1fr)_160px_120px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <span>Código</span>
+        <span>Processo</span>
+        <span>Diretoria</span>
+        <span className="text-center">Modelo</span>
+      </div>
+      <ul className="divide-y divide-slate-100">
+        {processos.map((p) => {
+          const ehK1 = k1Ids.has(p.id);
+          return (
+            <li
+              key={p.id}
+              className="grid grid-cols-[130px_minmax(0,1fr)_160px_120px] items-center gap-3 px-5 py-3"
+            >
+              <span className="text-xs font-medium tabular-nums text-slate-500">
+                {p.codigo || "—"}
+              </span>
+              <div className="flex min-w-0 items-center gap-2">
+                <ShieldCheck className="h-4 w-4 flex-shrink-0 text-violet-500" />
+                <p className="truncate text-sm text-slate-800">
+                  {p.nome_processo}
+                </p>
+              </div>
+              <span
+                className="truncate text-sm text-slate-600"
+                title={p.diretoria}
+              >
+                {p.diretoria || "—"}
+              </span>
+              <div className="flex justify-center">
+                {ehK1 ? (
+                  <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-inset ring-violet-200">
+                    Modelo K1
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400">—</span>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
