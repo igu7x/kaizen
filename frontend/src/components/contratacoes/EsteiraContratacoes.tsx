@@ -795,18 +795,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             </SelectContent>
           </Select>
 
-          {canEdit && selectedVersion === undefined && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCreateVersionDialogOpen(true)}
-              disabled={saving}
-              className="text-gray-600 h-9"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Gerar Nova Versão
-            </Button>
-          )}
+
 
           {versionsList.length > 0 && (
             <Button
@@ -820,15 +809,6 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
             </Button>
           )}
         </div>
-        {canEdit && selectedVersion === undefined && (
-          <Button
-            onClick={openAddModal}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Item PCA
-          </Button>
-        )}
       </div>
 
       {/* Cards de Estatísticas */}
