@@ -109,7 +109,7 @@ function formatMesAno(mesVal: string): string {
 }
 
 // Helpers para normalizar valores do backend
-export function normalizePriority(val?: string) {
+function normalizePriority(val?: string) {
   if (!val) return "";
   const v = val.toUpperCase();
   if (v === "ALTO" || v === "1") return "Alto";
@@ -118,7 +118,7 @@ export function normalizePriority(val?: string) {
   return val;
 }
 
-export function normalizeStep(val?: string) {
+function normalizeStep(val?: string) {
   if (!val) return "";
   const v = val.toUpperCase();
   if (v === "PLANEJAMENTO_DA_CONTRATACAO" || v === "PLANEJAMENTO DA CONTRATAÇÃO") return "Planejamento da Contratação";
@@ -127,7 +127,7 @@ export function normalizeStep(val?: string) {
   return val;
 }
 
-export function normalizeResourceType(val?: string) {
+function normalizeResourceType(val?: string) {
   if (!val) return "";
   const v = val.toUpperCase();
   if (v === "CUSTEIO") return "Custeio";
@@ -1082,7 +1082,7 @@ export function EsteiraContratacoes({ anoSelecionado, setAnoSelecionado }: Estei
                     verticalAlign="middle"
                     align="right"
                     iconType="square"
-                    wrapperStyle={{ fontSize: '10px', fontWeight: 500, color: '#4B5563', right: '35px' }}
+                    wrapperStyle={{ fontSize: '10px', fontWeight: 500, color: '#4B5563', right: '10px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>

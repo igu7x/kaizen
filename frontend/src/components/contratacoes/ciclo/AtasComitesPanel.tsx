@@ -177,7 +177,6 @@ export function AtasComitesPanel({ cicloId, readOnly = false }: AtasComitesPanel
       <div className="mb-3 flex items-center gap-2">
         <FileText className="h-4 w-4 text-slate-500" />
         <h3 className="text-sm font-semibold text-slate-800">Atas dos comitês</h3>
-        <span className="text-xs text-slate-400">CGTIC / CGOVTIC · juntada (RN-GERAL-04)</span>
       </div>
 
       {/* Formulário de juntada — oculto no modo readOnly */}
