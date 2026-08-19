@@ -577,14 +577,41 @@ public class ProcessosNegocioController {
      * 'apoio_judiciario'.
      */
     private boolean temPermissaoProcessosTi(Map<String, Object> processo, long userId) {
-        String grupo = str(processo.get("grupo"));
-        boolean ehTi = grupo == null || grupo.isBlank() || "ti".equalsIgnoreCase(grupo.trim());
-        if (!ehTi) {
+        if (!ehGrupoTi(processo)) {
             return false;
         }
         String status = str(processo.get("status"));
         boolean emPreenchimento = "em_elaboracao".equals(status) || "recusado".equals(status);
         if (!emPreenchimento) {
+            return false;
+        }
+        return permissoesProcessosTi.temPermissao(userId);
+    }
+
+    /** Grupo 'ti' (Tecnologia da Informação) — grupo vazio conta como TI, por compatibilidade. */
+    private static boolean ehGrupoTi(Map<String, Object> processo) {
+        String grupo = str(processo.get("grupo"));
+        return grupo == null || grupo.isBlank() || "ti".equalsIgnoreCase(grupo.trim());
+    }
+
+    /**
+     * Mesma permissão nomeada, porém para a APRECIAÇÃO EM INSTÂNCIAS COLEGIADAS (data de aprovação
+     * + PDF da ata do comitê). Aqui o escopo de status é outro de propósito: a aprovação do comitê
+     * chega DEPOIS das três camadas de validação, quando o processo já está 'validado_final' — com
+     * a trava de edição ('em_elaboracao'/'recusado') o campo sumia justo na hora de usá-lo.
+     *
+     * <p>Os estados intermediários ('enviado', 'validado_autor') ficam de fora: enquanto a validação
+     * está em curso, ninguém deve anexar aprovação de comitê.
+     */
+    private boolean podeAnexarAprovacaoProcessosTi(Map<String, Object> processo, long userId) {
+        if (!ehGrupoTi(processo)) {
+            return false;
+        }
+        String status = str(processo.get("status"));
+        boolean statusPermitido = "em_elaboracao".equals(status)
+                || "recusado".equals(status)
+                || "validado_final".equals(status);
+        if (!statusPermitido) {
             return false;
         }
         return permissoesProcessosTi.temPermissao(userId);
@@ -637,9 +664,9 @@ public class ProcessosNegocioController {
         if (processo == null) {
             return false;
         }
-        // Permissão "Processos (TI)": também pode anexar/remover a aprovação do comitê
-        // (mesmo escopo da edição — grupo ti, novo ou em revisão).
-        if (temPermissaoProcessosTi(processo, userId)) {
+        // Permissão "Processos (TI)": também pode anexar/remover a aprovação do comitê — inclusive
+        // com o processo já validado, que é quando a ata do comitê existe pra ser anexada.
+        if (podeAnexarAprovacaoProcessosTi(processo, userId)) {
             return true;
         }
         Object gestorUserId = lookupGestorUserId(str(processo.get("diretoria")));

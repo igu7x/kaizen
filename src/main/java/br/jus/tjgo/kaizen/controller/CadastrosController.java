@@ -534,7 +534,7 @@ public class CadastrosController {
             service.updateEntregaEvidencia(id, filename, fileKey, filesize);
 
             if (filename != null && filename.toLowerCase().endsWith(".pdf")) {
-                service.updateEntregaStatus(id, "concluida");
+                service.updateEntregaStatus(id, CadastrosProjetosService.STATUS_ENTREGA_CONCLUIDA);
                 // Data de Conclusão informada pelo usuário sobrepõe o CURRENT_DATE padrão.
                 if (dataConclusao != null && !dataConclusao.isBlank()) {
                     service.setEntregaDataConclusao(id, dataConclusao);
@@ -620,7 +620,7 @@ public class CadastrosController {
                 deleteFileQuiet(filepath.toString());
             }
             service.updateEntregaEvidencia(id, null, null, null);
-            service.updateEntregaStatus(id, "nao_iniciada");
+            service.updateEntregaStatus(id, CadastrosProjetosService.STATUS_ENTREGA_PENDENTE);
             service.calcularProgresso(((Number) entrega.get("projeto_id")).longValue());
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {

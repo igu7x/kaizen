@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 
 /**
@@ -47,11 +49,27 @@ public class AuditoriaController {
             @RequestParam(required = false) String acao,
             @RequestParam(required = false) String tabela,
             @RequestParam(required = false) String busca,
+            @RequestParam(required = false) String de,
+            @RequestParam(required = false) String ate,
             @RequestParam(required = false) Integer pagina,
             @RequestParam(required = false) Integer tamanho) {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
-        return ResponseEntity.ok(auditoria.listar(acao, tabela, busca, pagina, tamanho));
+        if (!dataValida(de) || !dataValida(ate)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Data inválida. Use o formato AAAA-MM-DD."));
+        }
+        return ResponseEntity.ok(auditoria.listar(acao, tabela, busca, de, ate, pagina, tamanho));
+    }
+
+    /** Aceita vazio/nulo (sem filtro) ou uma data ISO real — evita 500 por texto solto na query. */
+    private static boolean dataValida(String data) {
+        if (data == null || data.isBlank()) return true;
+        try {
+            LocalDate.parse(data.trim());
+            return true;
+        } catch (DateTimeParseException e) {
+            return false;
+        }
     }
 
     @GetMapping("/facetas")
