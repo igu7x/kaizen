@@ -423,6 +423,8 @@ export interface ProcessoNegocio {
   id: number;
   /** ID do processo (PN_{macroArea}_{diretoria}_{seq}), gerado no 1º Modelo K1; null antes disso. */
   codigo: string | null;
+  /** Grupo do Escritório de Processos: "ti" (padrão, inclusive quando vazio) ou "apoio_judiciario". */
+  grupo?: string | null;
   macroprocesso: string;
   diretoria: string;
   periodo: string | null;

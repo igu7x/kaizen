@@ -74,6 +74,10 @@ export const auditoriaApi = {
     acao?: string;
     tabela?: string;
     busca?: string;
+    /** Início do período (AAAA-MM-DD), inclusive. */
+    de?: string;
+    /** Fim do período (AAAA-MM-DD), inclusive — o dia inteiro entra no filtro. */
+    ate?: string;
     pagina?: number;
     tamanho?: number;
   }): Promise<AuditoriaPagina> {
@@ -81,8 +85,11 @@ export const auditoriaApi = {
     if (params?.acao) qs.set("acao", params.acao);
     if (params?.tabela) qs.set("tabela", params.tabela);
     if (params?.busca) qs.set("busca", params.busca);
+    if (params?.de) qs.set("de", params.de);
+    if (params?.ate) qs.set("ate", params.ate);
     if (params?.pagina) qs.set("pagina", String(params.pagina));
-    if (params?.tamanho !== undefined) qs.set("tamanho", String(params.tamanho));
+    if (params?.tamanho !== undefined)
+      qs.set("tamanho", String(params.tamanho));
     const s = qs.toString();
     return apiClient
       .get<AuditoriaPagina>(`${BASE}${s ? `?${s}` : ""}`)

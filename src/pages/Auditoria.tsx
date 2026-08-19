@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, History, Search, RotateCcw, ChevronRight } from "lucide-react";
+import {
+  Loader2,
+  History,
+  Search,
+  RotateCcw,
+  ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -40,6 +46,48 @@ function fmtDataHora(iso?: string): string {
     : d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
+/** Data no formato que o <input type="date"> e o backend usam (AAAA-MM-DD), no fuso local. */
+function paraIso(d: Date): string {
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
+
+function diasAtras(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
+/** Atalhos do período — cobrem o que se pergunta na prática ("o que mudou esta semana?"). */
+const ATALHOS_PERIODO: {
+  rotulo: string;
+  intervalo: () => { de: string; ate: string };
+}[] = [
+  {
+    rotulo: "Hoje",
+    intervalo: () => ({ de: paraIso(new Date()), ate: paraIso(new Date()) }),
+  },
+  {
+    rotulo: "Últimos 7 dias",
+    intervalo: () => ({ de: paraIso(diasAtras(6)), ate: paraIso(new Date()) }),
+  },
+  {
+    rotulo: "Últimos 30 dias",
+    intervalo: () => ({ de: paraIso(diasAtras(29)), ate: paraIso(new Date()) }),
+  },
+  {
+    rotulo: "Este mês",
+    intervalo: () => {
+      const hoje = new Date();
+      return {
+        de: paraIso(new Date(hoje.getFullYear(), hoje.getMonth(), 1)),
+        ate: paraIso(hoje),
+      };
+    },
+  },
+];
+
 /**
  * O evento que a linha mostra. Os módulos do SGSI gravam um evento de negócio dentro de
  * `changed_fields.evento` (EMITIDO, DOC_ASSINADO…); os demais usam a ação canônica do audit_log.
@@ -62,6 +110,9 @@ export default function Auditoria() {
   const [fModulo, setFModulo] = useState(TODOS);
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
+  // Período (AAAA-MM-DD). Vazio = sem limite daquele lado.
+  const [fDe, setFDe] = useState("");
+  const [fAte, setFAte] = useState("");
   const [detalheId, setDetalheId] = useState<number | null>(null);
 
   // Ignora resposta de requisição antiga que chegar depois de o filtro já ter mudado.
@@ -103,8 +154,10 @@ export default function Auditoria() {
           ? undefined
           : (modulosTabelas.get(fModulo) || []).join(","),
       busca: buscaAplicada || undefined,
+      de: fDe || undefined,
+      ate: fAte || undefined,
     }),
-    [fAcao, fModulo, buscaAplicada, modulosTabelas],
+    [fAcao, fModulo, buscaAplicada, modulosTabelas, fDe, fAte],
   );
 
   /** Recarrega do começo (troca de filtro ou clique em "Atualizar"). */
@@ -161,6 +214,8 @@ export default function Auditoria() {
     setFAcao(TODOS);
     setFModulo(TODOS);
     setBusca("");
+    setFDe("");
+    setFAte("");
   };
 
   const carregados = registros.length;
@@ -169,11 +224,12 @@ export default function Auditoria() {
   // Resolve o evento uma vez por registro: com "carregar todos" seriam milhares de JSON.parse
   // a cada render se isso ficasse dentro do map da tabela.
   const linhas = useMemo(
-    () => registros.map((r) => ({
-      r,
-      evento: eventoDa(r),
-      alvo: resumoItem(r.table_name, eventoDa(r), r.record_id, r.item_nome),
-    })),
+    () =>
+      registros.map((r) => ({
+        r,
+        evento: eventoDa(r),
+        alvo: resumoItem(r.table_name, eventoDa(r), r.record_id, r.item_nome),
+      })),
     [registros],
   );
 
@@ -268,11 +324,51 @@ export default function Auditoria() {
                 />
               </div>
             </div>
-            <div className="flex items-end">
-              <Button variant="ghost" onClick={limpar} className="h-10">
-                Limpar filtros
-              </Button>
+            <div className="flex flex-col">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                Período
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  aria-label="Data inicial"
+                  value={fDe}
+                  max={fAte || undefined}
+                  onChange={(e) => setFDe(e.target.value)}
+                  className="h-10 bg-white"
+                />
+                <span className="text-xs text-slate-400">até</span>
+                <Input
+                  type="date"
+                  aria-label="Data final"
+                  value={fAte}
+                  min={fDe || undefined}
+                  onChange={(e) => setFAte(e.target.value)}
+                  className="h-10 bg-white"
+                />
+              </div>
             </div>
+          </div>
+
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {ATALHOS_PERIODO.map((atalho) => (
+              <Button
+                key={atalho.rotulo}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => {
+                  const { de, ate } = atalho.intervalo();
+                  setFDe(de);
+                  setFAte(ate);
+                }}
+              >
+                {atalho.rotulo}
+              </Button>
+            ))}
+            <Button variant="ghost" size="sm" onClick={limpar} className="h-8">
+              Limpar filtros
+            </Button>
           </div>
 
           {/* Tabela */}
@@ -355,7 +451,9 @@ export default function Auditoria() {
                                   : "text-slate-400",
                               )}
                             >
-                              {r.tem_detalhe ? "Ver o que mudou" : "Ver registro"}
+                              {r.tem_detalhe
+                                ? "Ver o que mudou"
+                                : "Ver registro"}
                               <ChevronRight className="h-3.5 w-3.5" />
                             </span>
                           </td>

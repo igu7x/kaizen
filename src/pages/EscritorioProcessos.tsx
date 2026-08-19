@@ -227,11 +227,15 @@ function useSweepAnimation(key: unknown, duration = 1200) {
       if (progress < 1) {
         const mask = `conic-gradient(from -90deg at 50% 50%, black ${angle}deg, transparent ${angle}deg)`;
         el.style.maskImage = mask;
-        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = mask;
+        (
+          el.style as CSSStyleDeclaration & { webkitMaskImage: string }
+        ).webkitMaskImage = mask;
         frame = requestAnimationFrame(animate);
       } else {
         el.style.maskImage = "none";
-        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = "none";
+        (
+          el.style as CSSStyleDeclaration & { webkitMaskImage: string }
+        ).webkitMaskImage = "none";
         el.style.opacity = "1";
         el.style.transform = "none";
       }
@@ -276,11 +280,15 @@ function useWipeAnimation(key: unknown, duration = 1300) {
       if (progress < 1) {
         const mask = `linear-gradient(to right, black ${wipePct}%, transparent ${wipePct}%)`;
         el.style.maskImage = mask;
-        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = mask;
+        (
+          el.style as CSSStyleDeclaration & { webkitMaskImage: string }
+        ).webkitMaskImage = mask;
         frame = requestAnimationFrame(animate);
       } else {
         el.style.maskImage = "none";
-        (el.style as CSSStyleDeclaration & { webkitMaskImage: string }).webkitMaskImage = "none";
+        (
+          el.style as CSSStyleDeclaration & { webkitMaskImage: string }
+        ).webkitMaskImage = "none";
         el.style.opacity = "1";
         el.style.transform = "none";
       }
@@ -448,7 +456,9 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 dataKey="value"
                 isAnimationActive={false}
                 labelLine={false}
-                label={chartData.length > 0 ? renderDonutLeaderLabel : undefined}
+                label={
+                  chartData.length > 0 ? renderDonutLeaderLabel : undefined
+                }
               >
                 {(chartData.length > 0
                   ? chartData
@@ -475,7 +485,10 @@ function DonutChartCard({ title, data, total }: DonutChartCardProps) {
                 className="mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: d.color }}
               />
-              <span className="text-slate-700 flex-1 leading-tight" title={d.desc}>
+              <span
+                className="text-slate-700 flex-1 leading-tight"
+                title={d.desc}
+              >
                 {d.name}{" "}
                 <span className="text-slate-500 font-medium tabular-nums">
                   ({d.value})
@@ -667,7 +680,8 @@ export default function EscritorioProcessos({
   const [temPermissaoProcessosTi, setTemPermissaoProcessosTi] = useState(false);
   const podeEditarProcessosTi = temPermissaoProcessosTi && grupo === "ti";
 
-  const isSuperadmin = (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
+  const isSuperadmin =
+    (user as { is_superadmin?: boolean } | null)?.is_superadmin === true;
   const isComplianceOfficer = isComplianceOfficerEmail(user?.email);
   // Regra (jul/2026): todos os usuários enxergam todos os processos (de todas as diretorias),
   // então o filtro por diretoria fica habilitado para todos. O Visualizador (VIEWER) segue
@@ -743,7 +757,6 @@ export default function EscritorioProcessos({
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   // ============================================================
   // OPÇÕES DOS FILTROS
@@ -835,7 +848,10 @@ export default function EscritorioProcessos({
             return alvo === nome || alvo === sigla || alvo === composto;
           });
         }
-        return u?.responsavel_user_id != null && Number(u.responsavel_user_id) === uid;
+        return (
+          u?.responsavel_user_id != null &&
+          Number(u.responsavel_user_id) === uid
+        );
       });
     };
   }, [unidades, user?.id]);
@@ -942,7 +958,9 @@ export default function EscritorioProcessos({
         return { exec: (id: number) => processosNegocioApi.enviar(id) };
       }
       if (st === "validado_autor" && ehRevisor) {
-        return { exec: (id: number) => processosNegocioApi.validarDiretoria(id) };
+        return {
+          exec: (id: number) => processosNegocioApi.validarDiretoria(id),
+        };
       }
       if (st === "validado_diretoria" && isComplianceOfficer) {
         return { exec: (id: number) => processosNegocioApi.validarFinal(id) };
@@ -1382,19 +1400,24 @@ export default function EscritorioProcessos({
       ? "Apoio Judiciário"
       : "Tecnologia da Informação";
   const GrupoIcon = grupo === "apoio_judiciario" ? Gavel : Cpu;
-  // Cor de destaque por grupo (faixa lateral + ícone + selo), pra diferenciar
-  // as duas páginas de relance: TI = azul, Apoio Judiciário = âmbar.
+  // Cor de destaque por grupo, pra distinguir as duas páginas de relance. A faixa com degradê
+  // atrás do cabeçalho é o que dá a diferença imediata — só o ícone e o selo trocando de cor
+  // deixava as duas telas praticamente idênticas. TI = azul, Apoio Judiciário = âmbar.
   const tema =
     grupo === "apoio_judiciario"
       ? {
-          barra: "linear-gradient(180deg, #78350F 0%, #D97706 100%)",
-          icone: "text-amber-600",
-          selo: "bg-amber-50 text-amber-700 border-amber-200",
+          faixa:
+            "linear-gradient(100deg, #7C2D12 0%, #B45309 45%, #E0900F 100%)",
+          botaoRevisar:
+            "border-amber-200 text-amber-800 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed",
+          botaoNovo: "bg-amber-600 hover:bg-amber-700",
         }
       : {
-          barra: "linear-gradient(180deg, #0A2547 0%, #1565C0 100%)",
-          icone: "text-blue-600",
-          selo: "bg-blue-50 text-blue-700 border-blue-200",
+          faixa:
+            "linear-gradient(100deg, #0A2547 0%, #14508F 45%, #1E7BD6 100%)",
+          botaoRevisar:
+            "border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed",
+          botaoNovo: "bg-blue-600 hover:bg-blue-700",
         };
 
   return (
@@ -1408,28 +1431,45 @@ export default function EscritorioProcessos({
           ]}
         />
 
-        {/* HEADER */}
-        <div className="flex items-end justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div
-              className="w-1.5 h-12 rounded-full"
-              style={{ background: tema.barra }}
-            />
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+        {/* HEADER — faixa sólida com degradê na cor do grupo. É o que separa as duas telas de
+            relance: azul = Tecnologia da Informação, âmbar = Apoio Judiciário. */}
+        {/* A faixa se revela da esquerda pra direita ao abrir a página, com um brilho passando
+            logo em seguida e o conteúdo entrando atrás. Trocar de grupo remonta a animação
+            (key), reforçando a mudança de contexto. */}
+        <div
+          key={grupo}
+          className="faixa-entrada relative overflow-hidden rounded-xl px-6 py-5 shadow-sm"
+          style={{ background: tema.faixa }}
+        >
+          <div
+            aria-hidden
+            className="faixa-brilho pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-12"
+            style={{
+              background:
+                "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)",
+            }}
+          />
+
+          <div className="faixa-conteudo relative flex items-center gap-4">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/25">
+              <GrupoIcon className="h-6 w-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/60">
                 Gestão Estratégica
               </p>
-              <h1 className="flex flex-wrap items-center gap-2.5 text-2xl font-bold text-slate-800">
-                <GrupoIcon className={`h-6 w-6 ${tema.icone}`} />
+              <h1 className="flex flex-wrap items-center gap-3 text-2xl font-bold text-white">
                 Escritório de Processos
-                <span
-                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${tema.selo}`}
-                >
+                <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25">
                   {grupoLabel}
                 </span>
               </h1>
             </div>
           </div>
+        </div>
+
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div />
 
           <div className="flex items-center gap-2">
             {aba === "revisao" && (
@@ -1437,7 +1477,7 @@ export default function EscritorioProcessos({
                 variant="outline"
                 onClick={abrirRevisar}
                 disabled={totalParaRevisar === 0 || revisando != null}
-                className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`h-10 ${tema.botaoRevisar}`}
                 title={
                   totalParaRevisar === 0
                     ? "Nenhum processo sob sua responsabilidade para revisar"
@@ -1451,7 +1491,9 @@ export default function EscritorioProcessos({
                 )}
                 Revisar Processo
                 {totalParaRevisar > 0 && (
-                  <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+                  <span
+                    className={`ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-xs font-semibold text-white ${tema.botaoNovo}`}
+                  >
                     {totalParaRevisar}
                   </span>
                 )}
@@ -1461,7 +1503,7 @@ export default function EscritorioProcessos({
             {(isSuperadmin || ehDiretorOuSubdiretor) && aba === "revisao" && (
               <Button
                 onClick={handleNovoProcesso}
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10"
+                className={`${tema.botaoNovo} text-white shadow-sm h-10`}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Processo
@@ -1831,219 +1873,219 @@ export default function EscritorioProcessos({
                       const bloqueado = aba === "vigentes" && docPri && !k1;
                       return (
                         <Fragment key={p.id}>
-                        <tr
-                          onClick={() => {
-                            if (bloqueado) return;
-                            if (aba === "vigentes") {
-                              setLinhaExpandida(expandido ? null : p.id);
-                            } else {
-                              handleAbrirDetalhe(p);
-                            }
-                          }}
-                          className={`transition-colors ${
-                            bloqueado
-                              ? "cursor-default"
-                              : `cursor-pointer ${expandido ? "bg-slate-50" : "hover:bg-blue-50/50"}`
-                          }`}
-                        >
-                          <td className="relative p-0">
-                            <span
-                              className={`absolute inset-y-1.5 left-1/2 w-1 -translate-x-1/2 rounded-full ${corFaixaStatus(p)}`}
-                            />
-                          </td>
-                          <td className="px-5 py-3 text-center text-slate-600 tabular-nums whitespace-nowrap">
-                            {p.codigo || "—"}
-                          </td>
-                          <td className="px-5 py-3 text-left text-slate-900 font-medium">
-                            {p.nome_processo}
-                          </td>
-                          <td className="px-5 py-3 text-center text-slate-700">
-                            {p.macroprocesso || "—"}
-                          </td>
-                          <td className="px-5 py-3 text-center text-slate-700">
-                            {areaLabel}
-                          </td>
-                          <td className="px-5 py-3 text-center">
-                            {k1 ? (
-                              <button
-                                type="button"
-                                onClick={(e) => handleAbrirModeloK1(e, p)}
-                                title="Abrir PDF do processo (Modelo K1)"
-                                className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors"
-                              >
-                                Modelo K1
-                              </button>
-                            ) : docPri ? (
-                              <button
-                                type="button"
-                                onClick={(e) => handleAbrirDocPrimario(e, p)}
-                                title="Abrir documento primário (PDF)"
-                                className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
-                              >
-                                Doc. Primário
-                              </button>
-                            ) : (
-                              <span className="text-xs italic text-slate-400">
-                                —
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-5 py-3 text-center text-slate-700 tabular-nums">
-                            {formatDataVersao(dataVigencia(p) ?? p.periodo)}
-                          </td>
-                          <td
-                            className={`px-5 py-3 text-center tabular-nums font-medium ${overdue ? "text-red-600" : "text-slate-700"}`}
+                          <tr
+                            onClick={() => {
+                              if (bloqueado) return;
+                              if (aba === "vigentes") {
+                                setLinhaExpandida(expandido ? null : p.id);
+                              } else {
+                                handleAbrirDetalhe(p);
+                              }
+                            }}
+                            className={`transition-colors ${
+                              bloqueado
+                                ? "cursor-default"
+                                : `cursor-pointer ${expandido ? "bg-slate-50" : "hover:bg-blue-50/50"}`
+                            }`}
                           >
-                            {nextRev ? formatDateShort(nextRev) : "—"}
-                          </td>
-                          <td className="px-2 py-3 text-slate-400">
-                            {bloqueado ? null : aba === "vigentes" ? (
-                              <ChevronDown
-                                className={`h-4 w-4 transition-transform ${expandido ? "rotate-180" : ""}`}
+                            <td className="relative p-0">
+                              <span
+                                className={`absolute inset-y-1.5 left-1/2 w-1 -translate-x-1/2 rounded-full ${corFaixaStatus(p)}`}
                               />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </td>
-                        </tr>
-                        {expandido && (
-                          <tr className="bg-slate-50/60">
-                            <td colSpan={9} className="px-6 py-5">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {/* Descrição do Processo */}
-                                <div className="rounded-xl border border-slate-200 bg-white p-5">
-                                  <div className="flex items-center justify-between gap-2 mb-3">
-                                    <div className="flex items-center gap-2 text-slate-700 min-w-0">
-                                      <Info className="h-4 w-4 flex-shrink-0" />
-                                      <span className="text-sm font-semibold truncate">
-                                        Descrição do Processo
-                                      </span>
-                                    </div>
-                                    {/* "Ver detalhes" só para Modelo K1 (abre a última versão
-                                        validada). Documento primário não tem essa visão. */}
-                                    {isK1(p) && (
-                                      <Button
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          navigate(
-                                            `/gestao-estrategica/processos/${p.id}`,
-                                          );
-                                        }}
-                                        className="h-8 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
-                                      >
-                                        Ver detalhes
-                                        <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                  {p.descricao?.trim() ? (
-                                    <p className="text-sm text-slate-700 whitespace-pre-line [overflow-wrap:anywhere] text-justify">
-                                      <RichText text={p.descricao} />
-                                    </p>
-                                  ) : (
-                                    <p className="text-sm text-slate-400">
-                                      Sem descrição cadastrada.
-                                    </p>
-                                  )}
-                                </div>
-
-                                {/* Documentos Anexados */}
-                                <div className="rounded-xl border border-slate-200 bg-white p-5">
-                                  <div className="flex items-center justify-between gap-2 mb-3">
-                                    <div className="flex items-center gap-2 text-slate-700 min-w-0">
-                                      <Paperclip className="h-4 w-4 flex-shrink-0" />
-                                      <span className="text-sm font-semibold truncate">
-                                        Documentos Anexados ao Processo
-                                      </span>
-                                    </div>
-                                    {docs.length > 0 && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          baixarTodosDocumentos(p);
-                                        }}
-                                        disabled={baixandoTodosId === p.id}
-                                        className="h-8 flex-shrink-0"
-                                      >
-                                        {baixandoTodosId === p.id ? (
-                                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                                        ) : (
-                                          <Download className="h-3.5 w-3.5 mr-1" />
-                                        )}
-                                        Baixar todos
-                                      </Button>
-                                    )}
-                                  </div>
-                                  {docs.length === 0 ? (
-                                    <p className="text-sm text-slate-400">
-                                      Nenhum documento anexado.
-                                    </p>
-                                  ) : (
-                                    <ul className="space-y-2">
-                                      {docs.map((doc, idx) => {
-                                        const rowKey = `${p.id}-${idx}`;
-                                        const baixando =
-                                          baixandoDocKey === rowKey;
-                                        const badgeLabel =
-                                          doc.tipo === "PRI"
-                                            ? "Doc. Primário"
-                                            : doc.tipo === "FLUXOGRAMA"
-                                              ? "Fluxograma"
-                                              : doc.tipo === "AUX"
-                                                ? "Aux"
-                                                : doc.tipo;
-                                        return (
-                                          <li
-                                            key={rowKey}
-                                            className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2"
-                                          >
-                                            <span
-                                              className={`inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border flex-shrink-0 ${TIPO_DOCUMENTO_BADGE[doc.tipo] || "bg-slate-100 text-slate-600 border-slate-200"}`}
-                                            >
-                                              {badgeLabel}
-                                            </span>
-                                            <span
-                                              className="flex-1 min-w-0 truncate text-sm text-slate-700"
-                                              title={
-                                                doc.nome_exibicao || doc.nome
-                                              }
-                                            >
-                                              {doc.nome_exibicao ||
-                                                doc.nome ||
-                                                "—"}
-                                            </span>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                abrirDocumentoArtefato(
-                                                  rowKey,
-                                                  p.id,
-                                                  doc,
-                                                );
-                                              }}
-                                              disabled={baixando}
-                                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex-shrink-0"
-                                              title="Abrir documento (PDF)"
-                                            >
-                                              {baixando ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <FileText className="h-4 w-4" />
-                                              )}
-                                            </button>
-                                          </li>
-                                        );
-                                      })}
-                                    </ul>
-                                  )}
-                                </div>
-                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-center text-slate-600 tabular-nums whitespace-nowrap">
+                              {p.codigo || "—"}
+                            </td>
+                            <td className="px-5 py-3 text-left text-slate-900 font-medium">
+                              {p.nome_processo}
+                            </td>
+                            <td className="px-5 py-3 text-center text-slate-700">
+                              {p.macroprocesso || "—"}
+                            </td>
+                            <td className="px-5 py-3 text-center text-slate-700">
+                              {areaLabel}
+                            </td>
+                            <td className="px-5 py-3 text-center">
+                              {k1 ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleAbrirModeloK1(e, p)}
+                                  title="Abrir PDF do processo (Modelo K1)"
+                                  className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors"
+                                >
+                                  Modelo K1
+                                </button>
+                              ) : docPri ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleAbrirDocPrimario(e, p)}
+                                  title="Abrir documento primário (PDF)"
+                                  className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                >
+                                  Doc. Primário
+                                </button>
+                              ) : (
+                                <span className="text-xs italic text-slate-400">
+                                  —
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-center text-slate-700 tabular-nums">
+                              {formatDataVersao(dataVigencia(p) ?? p.periodo)}
+                            </td>
+                            <td
+                              className={`px-5 py-3 text-center tabular-nums font-medium ${overdue ? "text-red-600" : "text-slate-700"}`}
+                            >
+                              {nextRev ? formatDateShort(nextRev) : "—"}
+                            </td>
+                            <td className="px-2 py-3 text-slate-400">
+                              {bloqueado ? null : aba === "vigentes" ? (
+                                <ChevronDown
+                                  className={`h-4 w-4 transition-transform ${expandido ? "rotate-180" : ""}`}
+                                />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
                             </td>
                           </tr>
-                        )}
+                          {expandido && (
+                            <tr className="bg-slate-50/60">
+                              <td colSpan={9} className="px-6 py-5">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                  {/* Descrição do Processo */}
+                                  <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                    <div className="flex items-center justify-between gap-2 mb-3">
+                                      <div className="flex items-center gap-2 text-slate-700 min-w-0">
+                                        <Info className="h-4 w-4 flex-shrink-0" />
+                                        <span className="text-sm font-semibold truncate">
+                                          Descrição do Processo
+                                        </span>
+                                      </div>
+                                      {/* "Ver detalhes" só para Modelo K1 (abre a última versão
+                                        validada). Documento primário não tem essa visão. */}
+                                      {isK1(p) && (
+                                        <Button
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(
+                                              `/gestao-estrategica/processos/${p.id}`,
+                                            );
+                                          }}
+                                          className="h-8 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+                                        >
+                                          Ver detalhes
+                                          <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    {p.descricao?.trim() ? (
+                                      <p className="text-sm text-slate-700 whitespace-pre-line [overflow-wrap:anywhere] text-justify">
+                                        <RichText text={p.descricao} />
+                                      </p>
+                                    ) : (
+                                      <p className="text-sm text-slate-400">
+                                        Sem descrição cadastrada.
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Documentos Anexados */}
+                                  <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                    <div className="flex items-center justify-between gap-2 mb-3">
+                                      <div className="flex items-center gap-2 text-slate-700 min-w-0">
+                                        <Paperclip className="h-4 w-4 flex-shrink-0" />
+                                        <span className="text-sm font-semibold truncate">
+                                          Documentos Anexados ao Processo
+                                        </span>
+                                      </div>
+                                      {docs.length > 0 && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            baixarTodosDocumentos(p);
+                                          }}
+                                          disabled={baixandoTodosId === p.id}
+                                          className="h-8 flex-shrink-0"
+                                        >
+                                          {baixandoTodosId === p.id ? (
+                                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                          ) : (
+                                            <Download className="h-3.5 w-3.5 mr-1" />
+                                          )}
+                                          Baixar todos
+                                        </Button>
+                                      )}
+                                    </div>
+                                    {docs.length === 0 ? (
+                                      <p className="text-sm text-slate-400">
+                                        Nenhum documento anexado.
+                                      </p>
+                                    ) : (
+                                      <ul className="space-y-2">
+                                        {docs.map((doc, idx) => {
+                                          const rowKey = `${p.id}-${idx}`;
+                                          const baixando =
+                                            baixandoDocKey === rowKey;
+                                          const badgeLabel =
+                                            doc.tipo === "PRI"
+                                              ? "Doc. Primário"
+                                              : doc.tipo === "FLUXOGRAMA"
+                                                ? "Fluxograma"
+                                                : doc.tipo === "AUX"
+                                                  ? "Aux"
+                                                  : doc.tipo;
+                                          return (
+                                            <li
+                                              key={rowKey}
+                                              className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2"
+                                            >
+                                              <span
+                                                className={`inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded border flex-shrink-0 ${TIPO_DOCUMENTO_BADGE[doc.tipo] || "bg-slate-100 text-slate-600 border-slate-200"}`}
+                                              >
+                                                {badgeLabel}
+                                              </span>
+                                              <span
+                                                className="flex-1 min-w-0 truncate text-sm text-slate-700"
+                                                title={
+                                                  doc.nome_exibicao || doc.nome
+                                                }
+                                              >
+                                                {doc.nome_exibicao ||
+                                                  doc.nome ||
+                                                  "—"}
+                                              </span>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  abrirDocumentoArtefato(
+                                                    rowKey,
+                                                    p.id,
+                                                    doc,
+                                                  );
+                                                }}
+                                                disabled={baixando}
+                                                className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex-shrink-0"
+                                                title="Abrir documento (PDF)"
+                                              >
+                                                {baixando ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                  <FileText className="h-4 w-4" />
+                                                )}
+                                              </button>
+                                            </li>
+                                          );
+                                        })}
+                                      </ul>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                         </Fragment>
                       );
                     })}
@@ -2060,7 +2102,6 @@ export default function EscritorioProcessos({
             </>
           )}
         </div>
-
       </div>
 
       {/* Modal "Revisar Processo" — escolhe o tipo de revisão (Ordinária/Extraordinária) e o
@@ -2117,7 +2158,9 @@ export default function EscritorioProcessos({
                     >
                       <span
                         className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 ${
-                          ativo ? "border-blue-600 bg-blue-600" : "border-slate-300"
+                          ativo
+                            ? "border-blue-600 bg-blue-600"
+                            : "border-slate-300"
                         }`}
                       />
                       <span className="min-w-0 flex-1">
@@ -2165,7 +2208,9 @@ export default function EscritorioProcessos({
                         >
                           <span
                             className={`mt-1 h-3.5 w-3.5 rounded-full border-2 flex-shrink-0 ${
-                              sel ? "border-blue-600 bg-blue-600" : "border-slate-300"
+                              sel
+                                ? "border-blue-600 bg-blue-600"
+                                : "border-slate-300"
                             }`}
                           />
                           <span className="min-w-0">

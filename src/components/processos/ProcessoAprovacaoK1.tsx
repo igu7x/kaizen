@@ -85,11 +85,16 @@ export function ProcessoAprovacaoK1({
     if (isSuperadmin) return true;
     if (isComplianceOfficerEmail(user?.email)) return true;
     if (isResponsavel(processo, user?.id)) return true;
-    // Permissão "Processos (TI)": mesmo escopo da edição (grupo ti, novo ou em revisão).
+    // Permissão "Processos (TI)": aqui o escopo de status é MAIOR que o da edição de propósito.
+    // A aprovação do comitê chega depois das três camadas de validação (processo já
+    // 'validado_final'); com a trava de edição o campo sumia justo na hora de usá-lo.
+    // Os estados intermediários ficam de fora: validação em curso não recebe ata de comitê.
     const ehGrupoTi = !processo.grupo || processo.grupo === "ti";
-    const emPreenchimento =
-      processo.status === "em_elaboracao" || processo.status === "recusado";
-    if (temPermissaoProcessosTi && ehGrupoTi && emPreenchimento) return true;
+    const statusPermitido =
+      processo.status === "em_elaboracao" ||
+      processo.status === "recusado" ||
+      processo.status === "validado_final";
+    if (temPermissaoProcessosTi && ehGrupoTi && statusPermitido) return true;
     const area = areas.find(
       (a) =>
         a.sigla?.trim().toUpperCase() ===

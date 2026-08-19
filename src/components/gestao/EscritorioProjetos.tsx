@@ -129,6 +129,12 @@ import {
   permissoesTapApi,
   type MinhaPermissaoTap,
 } from "@/services/permissoesTapApi";
+import {
+  entregaConcluida,
+  entregaStatusClasse,
+  entregaStatusLabel,
+  entregaStatusPonto,
+} from "@/utils/entregaStatus";
 
 const tipoLabels: Record<string, string> = {
   plano: "Plano",
@@ -150,18 +156,6 @@ const statusProjetoColors: Record<string, string> = {
   em_execucao: "bg-yellow-500 text-white",
   concluido: "bg-green-500 text-white",
   cancelado: "bg-gray-500 text-white",
-};
-
-const prioridadeLabels: Record<string, string> = {
-  alta: "Alta",
-  media: "Média",
-  baixa: "Baixa",
-};
-
-const complexidadeLabels: Record<string, string> = {
-  baixa: "Baixa",
-  media: "Média",
-  alta: "Alta",
 };
 
 const abrangenciaLabels: Record<string, string> = {
@@ -231,7 +225,8 @@ function progressoPorEntregas(
 
 export function EscritorioProjetos() {
   const { user } = useAuth();
-  const { selectedAreaId, selectedArea, setSelectedDirectorate } = useDirectorate();
+  const { selectedAreaId, selectedArea, setSelectedDirectorate } =
+    useDirectorate();
   const { toast } = useToast();
   const location = useLocation();
   const currentUserId = user?.id ? parseInt(String(user.id)) : undefined;
@@ -264,8 +259,6 @@ export function EscritorioProjetos() {
       projeto.fora_do_escopo &&
       hasEntregas &&
       hasInstrumentos &&
-      projeto.prioridade &&
-      projeto.complexidade &&
       projeto.abrangencia
     );
     if (!valid)
@@ -824,8 +817,7 @@ export function EscritorioProjetos() {
   useEffect(() => {
     const carregarAreas = async () => {
       try {
-        const areasData =
-          await cadastrosProjetosApi.getAreas(selectedAreaId);
+        const areasData = await cadastrosProjetosApi.getAreas(selectedAreaId);
         setAreas(areasData);
       } catch (error) {
         /* erro já tratado pelo apiClient ou ignorado intencionalmente */
@@ -1027,22 +1019,22 @@ export function EscritorioProjetos() {
   const projetosDaDiretoria =
     filtroDiretoria !== "todos"
       ? projetosBase.filter((p) => {
-        const dirsStr = (p as any).diretorias_nomes || "";
-        return dirsStr
-          .split(", ")
-          .some((d: string) => d.trim() === filtroDiretoria);
-      })
+          const dirsStr = (p as any).diretorias_nomes || "";
+          return dirsStr
+            .split(", ")
+            .some((d: string) => d.trim() === filtroDiretoria);
+        })
       : projetosBase;
 
   // Filtrar por unidade se selecionada
   const projetosPorDiretoria =
     filtroUnidade !== "todos"
       ? projetosDaDiretoria.filter((p) => {
-        const areasStr = (p as any).areas_execucao_diretorias || "";
-        return areasStr
-          .split(", ")
-          .some((a: string) => a.trim() === filtroUnidade);
-      })
+          const areasStr = (p as any).areas_execucao_diretorias || "";
+          return areasStr
+            .split(", ")
+            .some((a: string) => a.trim() === filtroUnidade);
+        })
       : projetosDaDiretoria;
 
   // ---- Opções dos selects de filtro (extraídas dos projetos carregados) ----
@@ -1055,9 +1047,7 @@ export function EscritorioProjetos() {
       .filter((n: string) => n && !n.startsWith("auto:"));
 
   const diretoriasDisponiveis = Array.from(
-    new Set(
-      projetosParaOpcoes.flatMap((p) => nomesDe(p, "diretorias_nomes")),
-    ),
+    new Set(projetosParaOpcoes.flatMap((p) => nomesDe(p, "diretorias_nomes"))),
   ).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   // Áreas restritas à diretoria selecionada: só aparecem as áreas dos projetos daquela diretoria.
@@ -1153,14 +1143,14 @@ export function EscritorioProjetos() {
   const projetosFiltrados = (
     buscaProjeto.trim()
       ? projetosFiltradosPorCampos.filter(
-        (projeto) =>
-          (projeto.nome || "")
-            .toLowerCase()
-            .includes(buscaProjeto.toLowerCase()) ||
-          (projeto.codigo || "")
-            .toLowerCase()
-            .includes(buscaProjeto.toLowerCase()),
-      )
+          (projeto) =>
+            (projeto.nome || "")
+              .toLowerCase()
+              .includes(buscaProjeto.toLowerCase()) ||
+            (projeto.codigo || "")
+              .toLowerCase()
+              .includes(buscaProjeto.toLowerCase()),
+        )
       : projetosFiltradosPorCampos
   ).sort((a, b) => {
     const dataA = a.data_prevista_conclusao
@@ -1394,7 +1384,11 @@ export function EscritorioProjetos() {
     }
     setUploadingEvidencia(entregaId);
     try {
-      await cadastrosProjetosApi.uploadEvidencia(entregaId, file, dataConclusao);
+      await cadastrosProjetosApi.uploadEvidencia(
+        entregaId,
+        file,
+        dataConclusao,
+      );
 
       // Recarregar projeto e lista para atualizar status/progresso
       if (projetoDetalhes) {
@@ -1450,17 +1444,6 @@ export function EscritorioProjetos() {
         [entrega.id]: tarefas,
       }));
       setTarefasEntrega(tarefas);
-
-      // Recalcular o status a partir das tarefas SOMENTE quando há tarefas. Sem tarefas, o status
-      // da entrega é manual (dropdown da tabela) e não deve ser sobrescrito.
-      if (tarefas.length > 0) {
-        const statusCorreto = calcularStatusEntrega(tarefas);
-        if (entrega.status !== statusCorreto) {
-          setEntregaSelecionada((prev) =>
-            prev ? { ...prev, status: statusCorreto as any } : prev,
-          );
-        }
-      }
     } catch (error) {
       // Em caso de erro, manter o estado vazio
       setTarefasPorEntrega((prev) => ({
@@ -1471,62 +1454,9 @@ export function EscritorioProjetos() {
     }
   };
 
-  // ============================================================
-  // HELPER - CÁLCULO AUTOMÁTICO DE STATUS DA ENTREGA
-  // ============================================================
-
-  const calcularStatusEntrega = (tarefas: any[]): string => {
-    if (!tarefas || tarefas.length === 0) return "nao_iniciada";
-
-    const statuses = tarefas.map((t) => t.status || t.progresso || "a_fazer");
-    const total = statuses.length;
-    const feitos = statuses.filter((s) => s === "feito").length;
-    const aFazer = statuses.filter((s) => s === "a_fazer").length;
-    const emAndamento = statuses.filter(
-      (s) => s === "fazendo" || s === "em_andamento",
-    ).length;
-
-    // Regra 1: APENAS se todas as tarefas tiverem concluídas
-    if (feitos === total) {
-      return "concluida";
-    }
-
-    // Regra 2: APENAS se todas as tarefas estiverem marcadas como a fazer
-    if (aFazer === total) {
-      return "nao_iniciada";
-    }
-
-    // Regra 3: se pelo menos uma estiver concluida ou em andamento
-    if (feitos > 0 || emAndamento > 0) {
-      return "em_andamento";
-    }
-
-    return "nao_iniciada";
-  };
-
-  // Atualizar status da entrega automaticamente quando tarefas mudam
-  useEffect(() => {
-    if (!entregaSelecionada) return;
-
-    // Usar tarefasPorEntrega como fonte de verdade
-    const tarefasParaCalculo = tarefasPorEntrega[entregaSelecionada.id] || [];
-    // Sem tarefas, o status da entrega é manual — não recalcular/sobrescrever.
-    if (tarefasParaCalculo.length === 0) return;
-    const novoStatus = calcularStatusEntrega(tarefasParaCalculo);
-
-    if (entregaSelecionada.status !== novoStatus) {
-      setEntregaSelecionada((prev: any) =>
-        prev ? { ...prev, status: novoStatus } : prev,
-      );
-
-      // Atualizar no backend também
-      if (entregaSelecionada.projeto_id) {
-        cadastrosProjetosApi
-          .updateEntrega(entregaSelecionada.id, { status: novoStatus })
-          .catch(console.error);
-      }
-    }
-  }, [tarefasPorEntrega, entregaSelecionada?.id, entregaSelecionada?.status]);
+  // O status da entrega NÃO é mais derivado das tarefas nem editável: ele é consequência da
+  // evidência + data de conclusão anexadas. Marcar tarefas como feitas concluía a entrega sem
+  // nenhuma comprovação, que é justamente o que a nova regra impede.
 
   // ============================================================
   // HANDLERS - TAREFAS DE ENTREGA (dados de exemplo)
@@ -1732,7 +1662,7 @@ export function EscritorioProjetos() {
       await cadastrosProjetosApi.createEntrega(projetoDetalhes.id, {
         nome: novaEntregaNome.trim(),
         area_responsavel_id: novaEntregaAreaId,
-        status: "nao_iniciada",
+        status: "pendente",
         ordem: projetoDetalhes.entregas?.length || 0,
         prazo_estimado: novaEntregaPrazo || null,
       });
@@ -2318,10 +2248,10 @@ export function EscritorioProjetos() {
                   {planos
                     .filter((plano) => !ehPlanoOculto(plano.nome))
                     .map((plano) => (
-                    <SelectItem key={plano.id} value={String(plano.id)}>
-                      {plano.nome}
-                    </SelectItem>
-                  ))}
+                      <SelectItem key={plano.id} value={String(plano.id)}>
+                        {plano.nome}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -2415,10 +2345,11 @@ export function EscritorioProjetos() {
               {/* Card - Total de Projetos */}
               <button
                 onClick={() => setFiltroStatus("todos")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "todos"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
+                  filtroStatus === "todos"
                     ? "border-slate-400 shadow-lg ring-2 ring-slate-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                  }`}
+                }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2439,10 +2370,11 @@ export function EscritorioProjetos() {
               {/* Card - Concluídos */}
               <button
                 onClick={() => setFiltroStatus("concluido")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "concluido"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
+                  filtroStatus === "concluido"
                     ? "border-emerald-400 shadow-lg ring-2 ring-emerald-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                  }`}
+                }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2463,10 +2395,11 @@ export function EscritorioProjetos() {
               {/* Card - Em Andamento */}
               <button
                 onClick={() => setFiltroStatus("em_execucao")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "em_execucao"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
+                  filtroStatus === "em_execucao"
                     ? "border-amber-400 shadow-lg ring-2 ring-amber-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                  }`}
+                }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2487,10 +2420,11 @@ export function EscritorioProjetos() {
               {/* Card - Não Iniciados */}
               <button
                 onClick={() => setFiltroStatus("planejado")}
-                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${filtroStatus === "planejado"
+                className={`group relative overflow-hidden rounded-lg bg-gray-100 border transition-all duration-200 text-left ${
+                  filtroStatus === "planejado"
                     ? "border-rose-400 shadow-lg ring-2 ring-rose-400"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                  }`}
+                }`}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500" />
                 <div className="p-4 pl-5 flex items-center gap-3">
@@ -2811,10 +2745,10 @@ export function EscritorioProjetos() {
                     {planoFiltroId
                       ? "Nenhum projeto vinculado"
                       : filtroStatus !== "todos" ||
-                        filtroSituacao !== "todos" ||
-                        filtroSaude !== "todos" ||
-                        filtroPrioridade !== "todos" ||
-                        filtroTap !== "todos"
+                          filtroSituacao !== "todos" ||
+                          filtroSaude !== "todos" ||
+                          filtroPrioridade !== "todos" ||
+                          filtroTap !== "todos"
                         ? "Nenhum projeto com os filtros selecionados"
                         : "Nenhum projeto encontrado"}
                   </p>
@@ -2832,24 +2766,25 @@ export function EscritorioProjetos() {
                     const progresso = progressoPorEntregas(projeto as any);
                     const prazoEstimado =
                       (projeto as any).data_prevista_conclusao ||
-                        (projeto as any).data_fim_prevista
+                      (projeto as any).data_fim_prevista
                         ? new Date(
-                          (projeto as any).data_prevista_conclusao ||
-                          (projeto as any).data_fim_prevista,
-                        ).toLocaleDateString("pt-BR", {
-                          month: "2-digit",
-                          year: "numeric",
-                        })
+                            (projeto as any).data_prevista_conclusao ||
+                              (projeto as any).data_fim_prevista,
+                          ).toLocaleDateString("pt-BR", {
+                            month: "2-digit",
+                            year: "numeric",
+                          })
                         : "—";
 
                     return (
                       <div
                         key={projeto.id}
                         onClick={() => handleVerProjetoDetalhes(projeto.id)}
-                        className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${index !== projetosFiltrados.length - 1
+                        className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${
+                          index !== projetosFiltrados.length - 1
                             ? "border-b border-gray-100"
                             : ""
-                          }`}
+                        }`}
                       >
                         {/* Info do Projeto */}
                         <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -2894,7 +2829,7 @@ export function EscritorioProjetos() {
                             >
                               {
                                 statusProjetoLabels[
-                                projeto.status || "planejado"
+                                  projeto.status || "planejado"
                                 ]
                               }
                             </Badge>
@@ -3002,52 +2937,6 @@ export function EscritorioProjetos() {
     return <span className={config.className}>{config.label}</span>;
   };
 
-  // Altera manualmente o status de uma entrega na tabela de Entregas do detalhe.
-  const handleAlterarStatusEntrega = async (
-    entregaId: number,
-    novoStatus: string,
-  ) => {
-    // "Concluída" exige informar a Data de Conclusão e anexar a evidência (PDF). Não muda o
-    // status direto: abre o diálogo; o backend altera para "Concluída" após o upload.
-    if (novoStatus === "concluida") {
-      const entrega = (projetoDetalhes?.entregas || []).find(
-        (e) => e.id === entregaId,
-      );
-      if (entrega) handleAbrirConcluirEntrega(entrega);
-      return;
-    }
-    try {
-      await cadastrosProjetosApi.updateEntrega(entregaId, {
-        status: novoStatus,
-      });
-      setProjetoDetalhes((prev) =>
-        prev
-          ? {
-              ...prev,
-              entregas: (prev.entregas || []).map((e) =>
-                e.id === entregaId ? { ...e, status: novoStatus } : e,
-              ),
-            }
-          : prev,
-      );
-      toast({
-        title: "Status atualizado",
-        description: `Entrega marcada como ${
-          novoStatus === "concluida"
-            ? "Concluída"
-            : novoStatus === "em_andamento"
-              ? "Em Andamento"
-              : "Não Iniciada"
-        }`,
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível alterar o status da entrega.",
-      });
-    }
-  };
-
   // ============================================================
   // RENDER - TELA DE DETALHES DO PROJETO
   // ============================================================
@@ -3057,31 +2946,12 @@ export function EscritorioProjetos() {
 
     const entregas = projetoDetalhes.entregas || [];
     const total = entregas.length;
-    const planejado = entregas.filter(
-      (e) => e.status === "nao_iniciada",
-    ).length;
-    const emExecucao = entregas.filter(
-      (e) => e.status === "em_andamento",
-    ).length;
+    const concluido = entregas.filter((e) => entregaConcluida(e.status)).length;
+    // Com dois status, tudo que não está concluído é pendente.
+    const planejado = total - concluido;
+    const emExecucao = 0;
     const suspenso = 0; // Adicionar campo quando disponível no backend
-    const concluido = entregas.filter((e) => e.status === "concluida").length;
     const progresso = total > 0 ? Math.round((concluido / total) * 100) : 0;
-
-    // Função para obter o texto do status sem dropdown
-    const getStatusTexto = (status: string) => {
-      const labels: Record<string, { text: string; className: string }> = {
-        nao_iniciada: { text: "Não Iniciada", className: "text-gray-600" },
-        em_andamento: {
-          text: "Em Andamento",
-          className: "text-orange-600 font-medium",
-        },
-        concluida: {
-          text: "Concluída",
-          className: "text-green-600 font-medium",
-        },
-      };
-      return labels[status] || labels["nao_iniciada"];
-    };
 
     // ── EAP (Estrutura Analítica de Projeto) — derivados dos 2 blocos clicáveis ──
     const tapVigenteProjeto = !!projetoDetalhes.tap_validado_patrocinador_em;
@@ -3315,119 +3185,120 @@ export function EscritorioProjetos() {
                 Andamento do Projeto
               </h3>
 
-            {/* Gráfico de Progresso Semicircular */}
-            <div className="flex flex-col items-center justify-center mb-6">
-              {/* Gráfico Semicircular Verde */}
-              <div className="relative w-44 h-24">
-                <svg className="w-full h-full" viewBox="0 0 120 65">
-                  {/* Background arc - Semicírculo cinza */}
-                  <path
-                    d="M 10 60 A 50 50 0 0 1 110 60"
-                    fill="none"
-                    stroke="#e5e7eb"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                  />
-
-                  {/* Progress arc - Semicírculo verde */}
-                  <path
-                    d="M 10 60 A 50 50 0 0 1 110 60"
-                    fill="none"
-                    stroke="#22c55e"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={`${(progresso / 100) * 157} 157`}
-                    className="transition-all duration-700"
-                  />
-                </svg>
-
-                {/* Percentual no Centro */}
-                <div className="absolute inset-0 flex items-end justify-center pb-1">
-                  <span className="text-3xl font-bold text-green-600">
-                    {progresso}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Texto de entregas concluídas */}
-              <p className="mt-2 text-sm text-gray-600">
-                <span className="font-semibold text-gray-800">
-                  {concluido} de {total}
-                </span>{" "}
-                entregas concluídas
-              </p>
-            </div>
-
-            {/* Informações Adicionais com Border */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 text-sm">
-              <div>
-                <p className="text-gray-600 font-medium">Patrocinador</p>
-                <p className="text-gray-900">
-                  {projetoDetalhes.patrocinador_nome || "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-gray-600 font-medium">Gestor do Projeto</p>
-                <p className="text-gray-900">
-                  {projetoDetalhes.gestor_nome || "-"}
-                </p>
-                {projetoDetalhes.diretorias_nomes && (
-                  <p className="text-gray-500 text-xs mt-1">
-                    {projetoDetalhes.diretorias_nomes}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <p className="text-gray-600 font-medium">Status</p>
-                <div className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${projetoDetalhes.status === "concluido"
-                          ? "bg-green-500"
-                          : projetoDetalhes.status === "em_execucao"
-                            ? "bg-blue-500"
-                            : projetoDetalhes.status === "cancelado"
-                              ? "bg-gray-500"
-                              : "bg-gray-400"
-                        }`}
+              {/* Gráfico de Progresso Semicircular */}
+              <div className="flex flex-col items-center justify-center mb-6">
+                {/* Gráfico Semicircular Verde */}
+                <div className="relative w-44 h-24">
+                  <svg className="w-full h-full" viewBox="0 0 120 65">
+                    {/* Background arc - Semicírculo cinza */}
+                    <path
+                      d="M 10 60 A 50 50 0 0 1 110 60"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="10"
+                      strokeLinecap="round"
                     />
-                    <span>
-                      {statusProjetoLabels[projetoDetalhes.status] ||
-                        projetoDetalhes.status}
+
+                    {/* Progress arc - Semicírculo verde */}
+                    <path
+                      d="M 10 60 A 50 50 0 0 1 110 60"
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray={`${(progresso / 100) * 157} 157`}
+                      className="transition-all duration-700"
+                    />
+                  </svg>
+
+                  {/* Percentual no Centro */}
+                  <div className="absolute inset-0 flex items-end justify-center pb-1">
+                    <span className="text-3xl font-bold text-green-600">
+                      {progresso}%
                     </span>
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <p className="text-gray-600 font-medium">Saúde</p>
-                <p className="text-gray-900">
-                  {projetoDetalhes.saude === "verde"
-                    ? "Saudável"
-                    : projetoDetalhes.saude === "amarelo"
-                      ? "Atenção"
-                      : projetoDetalhes.saude === "vermelho"
-                        ? "Crítico"
-                        : "-"}
+                {/* Texto de entregas concluídas */}
+                <p className="mt-2 text-sm text-gray-600">
+                  <span className="font-semibold text-gray-800">
+                    {concluido} de {total}
+                  </span>{" "}
+                  entregas concluídas
                 </p>
               </div>
 
-              <div>
-                <p className="text-gray-600 font-medium">Prazo Estimado</p>
-                <p className="text-gray-900">
-                  {projetoDetalhes.data_prevista_conclusao
-                    ? new Date(
-                      projetoDetalhes.data_prevista_conclusao,
-                    ).toLocaleDateString("pt-BR", {
-                      month: "2-digit",
-                      year: "numeric",
-                    })
-                    : "-"}
-                </p>
+              {/* Informações Adicionais com Border */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 text-sm">
+                <div>
+                  <p className="text-gray-600 font-medium">Patrocinador</p>
+                  <p className="text-gray-900">
+                    {projetoDetalhes.patrocinador_nome || "-"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-gray-600 font-medium">Gestor do Projeto</p>
+                  <p className="text-gray-900">
+                    {projetoDetalhes.gestor_nome || "-"}
+                  </p>
+                  {projetoDetalhes.diretorias_nomes && (
+                    <p className="text-gray-500 text-xs mt-1">
+                      {projetoDetalhes.diretorias_nomes}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-gray-600 font-medium">Status</p>
+                  <div className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          projetoDetalhes.status === "concluido"
+                            ? "bg-green-500"
+                            : projetoDetalhes.status === "em_execucao"
+                              ? "bg-blue-500"
+                              : projetoDetalhes.status === "cancelado"
+                                ? "bg-gray-500"
+                                : "bg-gray-400"
+                        }`}
+                      />
+                      <span>
+                        {statusProjetoLabels[projetoDetalhes.status] ||
+                          projetoDetalhes.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-gray-600 font-medium">Saúde</p>
+                  <p className="text-gray-900">
+                    {projetoDetalhes.saude === "verde"
+                      ? "Saudável"
+                      : projetoDetalhes.saude === "amarelo"
+                        ? "Atenção"
+                        : projetoDetalhes.saude === "vermelho"
+                          ? "Crítico"
+                          : "-"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-gray-600 font-medium">Prazo Estimado</p>
+                  <p className="text-gray-900">
+                    {projetoDetalhes.data_prevista_conclusao
+                      ? new Date(
+                          projetoDetalhes.data_prevista_conclusao,
+                        ).toLocaleDateString("pt-BR", {
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : "-"}
+                  </p>
+                </div>
               </div>
-            </div>
             </div>
           </div>
 
@@ -3505,280 +3376,266 @@ export function EscritorioProjetos() {
                 )}
               </div>
 
-            {/* Tabela com Header Azul */}
-            <div className="overflow-x-auto overflow-y-auto flex-1">
-              {entregas.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-500 py-12">
-                  <Package className="h-16 w-16 mb-4 text-gray-300" />
-                  <p className="text-lg font-medium mb-2">
-                    Nenhuma entrega cadastrada
-                  </p>
-                  {podeEditarEntregas ? (
-                    <>
-                      <p className="text-sm text-gray-400 mb-4">
-                        Adicione entregas para organizar as tarefas do projeto
-                      </p>
-                      <Button
-                        onClick={() => setModalNovaEntregaOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Criar primeira entrega
-                      </Button>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-400">
-                      Este projeto ainda não possui entregas cadastradas.
+              {/* Tabela com Header Azul */}
+              <div className="overflow-x-auto overflow-y-auto flex-1">
+                {entregas.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-500 py-12">
+                    <Package className="h-16 w-16 mb-4 text-gray-300" />
+                    <p className="text-lg font-medium mb-2">
+                      Nenhuma entrega cadastrada
                     </p>
-                  )}
-                </div>
-              ) : (
-                <>
-
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-blue-600">
-                        <th
-                          className="text-left py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "26%" }}
+                    {podeEditarEntregas ? (
+                      <>
+                        <p className="text-sm text-gray-400 mb-4">
+                          Adicione entregas para organizar as tarefas do projeto
+                        </p>
+                        <Button
+                          onClick={() => setModalNovaEntregaOpen(true)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
-                          Nome da Entrega
-                        </th>
-                        <th
-                          className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "13%" }}
-                        >
-                          Prazo Estimado
-                        </th>
-                        <th
-                          className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "16%" }}
-                        >
-                          Status
-                        </th>
-                        <th
-                          className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "14%" }}
-                        >
-                          Data de Conclusão
-                        </th>
-                        <th
-                          className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "19%" }}
-                        >
-                          Evidências
-                        </th>
-                        <th
-                          className="text-center py-4 px-6 text-white font-semibold text-sm"
-                          style={{ width: "12%" }}
-                        >
-                          Ações
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...entregas]
-                        .filter((e) =>
-                          (e.nome || "")
-                            .toLowerCase()
-                            .includes(buscaEntrega.trim().toLowerCase()),
-                        )
-                        .sort((a, b) => {
-                          // Ordena por prazo_estimado crescente; entregas sem prazo vão pro fim.
-                          // Critério de desempate: nome.
-                          const pa = a.prazo_estimado
-                            ? String(a.prazo_estimado).slice(0, 10)
-                            : "";
-                          const pb = b.prazo_estimado
-                            ? String(b.prazo_estimado).slice(0, 10)
-                            : "";
-                          if (pa && pb) {
-                            if (pa !== pb) return pa.localeCompare(pb);
-                          } else if (pa) {
-                            return -1;
-                          } else if (pb) {
-                            return 1;
-                          }
-                          return (a.nome || "").localeCompare(
-                            b.nome || "",
-                            "pt-BR",
-                          );
-                        })
-                        .map((entrega) => {
-                          const statusInfo = getStatusTexto(entrega.status);
-                          return (
-                            <tr
-                              key={entrega.id}
-                              className={`border-b border-gray-100 transition-colors last:border-b-0 ${isProduction() ? "" : "hover:bg-blue-50 cursor-pointer"}`}
-                              onClick={
-                                isProduction()
-                                  ? undefined
-                                  : () => handleVerEntregaDetalhes(entrega)
-                              }
-                            >
-                              <td className="py-3 px-6 text-gray-900 text-sm">
-                                {entrega.nome}
-                              </td>
-                              <td className="py-3 px-6 text-gray-900 text-sm text-center">
-                                {formatDatePtBr(entrega.prazo_estimado)}
-                              </td>
-                              <td
-                                className="py-3 px-6"
-                                onClick={(e) => e.stopPropagation()}
+                          <Plus className="h-4 w-4 mr-2" />
+                          Criar primeira entrega
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-400">
+                        Este projeto ainda não possui entregas cadastradas.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-blue-600">
+                          <th
+                            className="text-left py-4 px-6 text-white font-semibold text-sm"
+                            style={{ width: "26%" }}
+                          >
+                            Nome da Entrega
+                          </th>
+                          <th
+                            className="text-center py-4 px-6 text-white font-semibold text-sm"
+                            style={{ width: "13%" }}
+                          >
+                            Prazo Estimado
+                          </th>
+                          <th
+                            className="text-center py-4 px-6 text-white font-semibold text-sm"
+                            style={{ width: "16%" }}
+                          >
+                            Status
+                          </th>
+                          <th
+                            className="text-center py-4 px-6 text-white font-semibold text-sm"
+                            style={{ width: "14%" }}
+                          >
+                            Data de Conclusão
+                          </th>
+                          <th
+                            className="text-center py-4 px-6 text-white font-semibold text-sm"
+                            style={{ width: "19%" }}
+                          >
+                            Evidências
+                          </th>
+                          <th
+                            className="text-center py-4 px-6 text-white font-semibold text-sm"
+                            style={{ width: "12%" }}
+                          >
+                            Ações
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...entregas]
+                          .filter((e) =>
+                            (e.nome || "")
+                              .toLowerCase()
+                              .includes(buscaEntrega.trim().toLowerCase()),
+                          )
+                          .sort((a, b) => {
+                            // Ordena por prazo_estimado crescente; entregas sem prazo vão pro fim.
+                            // Critério de desempate: nome.
+                            const pa = a.prazo_estimado
+                              ? String(a.prazo_estimado).slice(0, 10)
+                              : "";
+                            const pb = b.prazo_estimado
+                              ? String(b.prazo_estimado).slice(0, 10)
+                              : "";
+                            if (pa && pb) {
+                              if (pa !== pb) return pa.localeCompare(pb);
+                            } else if (pa) {
+                              return -1;
+                            } else if (pb) {
+                              return 1;
+                            }
+                            return (a.nome || "").localeCompare(
+                              b.nome || "",
+                              "pt-BR",
+                            );
+                          })
+                          .map((entrega) => {
+                            return (
+                              <tr
+                                key={entrega.id}
+                                className={`border-b border-gray-100 transition-colors last:border-b-0 ${isProduction() ? "" : "hover:bg-blue-50 cursor-pointer"}`}
+                                onClick={
+                                  isProduction()
+                                    ? undefined
+                                    : () => handleVerEntregaDetalhes(entrega)
+                                }
                               >
-                                <div
-                                  className="w-[160px]"
-                                  style={{
-                                    marginLeft: "60%",
-                                    transform: "translateX(-50%)",
-                                  }}
+                                <td className="py-3 px-6 text-gray-900 text-sm">
+                                  {entrega.nome}
+                                </td>
+                                <td className="py-3 px-6 text-gray-900 text-sm text-center">
+                                  {formatDatePtBr(entrega.prazo_estimado)}
+                                </td>
+                                <td
+                                  className="py-3 px-6"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  <Select
-                                    value={entrega.status || "nao_iniciada"}
-                                    onValueChange={(v) =>
-                                      handleAlterarStatusEntrega(entrega.id, v)
-                                    }
+                                  {/* Status não é editável: ele acompanha a evidência + a data de
+                                    conclusão anexadas na coluna ao lado. */}
+                                  <div
+                                    className="w-[160px]"
+                                    style={{
+                                      marginLeft: "60%",
+                                      transform: "translateX(-50%)",
+                                    }}
                                   >
-                                    <SelectTrigger className="h-8 w-[160px] bg-white text-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`w-2 h-2 rounded-full flex-shrink-0 ${entrega.status === "concluida"
-                                              ? "bg-green-500"
-                                              : entrega.status === "em_andamento"
-                                                ? "bg-orange-500"
-                                                : "bg-gray-400"
-                                            }`}
-                                        />
-                                        <SelectValue />
-                                      </div>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="nao_iniciada">
-                                        Não Iniciada
-                                      </SelectItem>
-                                      <SelectItem value="em_andamento">
-                                        Em Andamento
-                                      </SelectItem>
-                                      <SelectItem value="concluida">
-                                        Concluída
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </td>
-                              <td className="py-3 px-6 text-gray-900 text-sm text-center">
-                                {entrega.status === "concluida" &&
-                                entrega.data_conclusao
-                                  ? formatDatePtBr(entrega.data_conclusao)
-                                  : "—"}
-                              </td>
-                              <td
-                                className="py-3 px-4 text-center"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div className="flex items-center justify-center gap-1">
-                                  {uploadingEvidencia === entrega.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                                  ) : entrega.evidencia_filename ? (
-                                    <>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-9 w-9 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                        onClick={() =>
-                                          window.open(
-                                            cadastrosProjetosApi.getEvidenciaDownloadUrl(
-                                              entrega.id,
-                                            ),
-                                            "_blank",
-                                          )
-                                        }
-                                        title={entrega.evidencia_filename}
-                                      >
-                                        <FileDown className="h-5 w-5" />
-                                      </Button>
-                                      {podeEditarEntregas && (
+                                    <span
+                                      title={
+                                        entregaConcluida(entrega.status)
+                                          ? "Concluída pela evidência anexada"
+                                          : "Fica concluída ao anexar a evidência e a data"
+                                      }
+                                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${entregaStatusClasse(
+                                        entrega.status,
+                                      )}`}
+                                    >
+                                      <span
+                                        className={`h-2 w-2 flex-shrink-0 rounded-full ${entregaStatusPonto(
+                                          entrega.status,
+                                        )}`}
+                                      />
+                                      {entregaStatusLabel(entrega.status)}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-6 text-gray-900 text-sm text-center">
+                                  {entrega.status === "concluida" &&
+                                  entrega.data_conclusao
+                                    ? formatDatePtBr(entrega.data_conclusao)
+                                    : "—"}
+                                </td>
+                                <td
+                                  className="py-3 px-4 text-center"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="flex items-center justify-center gap-1">
+                                    {uploadingEvidencia === entrega.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                                    ) : entrega.evidencia_filename ? (
+                                      <>
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                          className="h-9 w-9 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                           onClick={() =>
-                                            handleDeleteEvidencia(entrega.id)
+                                            window.open(
+                                              cadastrosProjetosApi.getEvidenciaDownloadUrl(
+                                                entrega.id,
+                                              ),
+                                              "_blank",
+                                            )
                                           }
-                                          title="Remover evidência"
+                                          title={entrega.evidencia_filename}
                                         >
-                                          <X className="h-3 w-3" />
+                                          <FileDown className="h-5 w-5" />
                                         </Button>
-                                      )}
-                                    </>
-                                  ) : podeEditarEntregas ? (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 px-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 gap-1"
-                                      onClick={() =>
-                                        handleAbrirConcluirEntrega(entrega)
-                                      }
-                                      title="Concluir entrega (data + PDF de evidência)"
-                                    >
-                                      <Upload className="h-4 w-4" />
-                                      <span className="text-xs">PDF</span>
-                                    </Button>
+                                        {podeEditarEntregas && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                            onClick={() =>
+                                              handleDeleteEvidencia(entrega.id)
+                                            }
+                                            title="Remover evidência"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </>
+                                    ) : podeEditarEntregas ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 px-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 gap-1"
+                                        onClick={() =>
+                                          handleAbrirConcluirEntrega(entrega)
+                                        }
+                                        title="Concluir entrega (data + PDF de evidência)"
+                                      >
+                                        <Upload className="h-4 w-4" />
+                                        <span className="text-xs">PDF</span>
+                                      </Button>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">
+                                        —
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td
+                                  className="py-3 px-4 text-center"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {podeEditarEntregas ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        onClick={() =>
+                                          handleAbrirEditEntrega(entrega)
+                                        }
+                                        title="Editar entrega"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        onClick={() => {
+                                          setItemParaDeletar({
+                                            tipo: "entrega",
+                                            id: entrega.id,
+                                            nome: entrega.nome,
+                                          });
+                                          setModalConfirmDeleteOpen(true);
+                                        }}
+                                        title="Excluir entrega"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   ) : (
                                     <span className="text-xs text-gray-400">
                                       —
                                     </span>
                                   )}
-                                </div>
-                              </td>
-                              <td
-                                className="py-3 px-4 text-center"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {podeEditarEntregas ? (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                      onClick={() =>
-                                        handleAbrirEditEntrega(entrega)
-                                      }
-                                      title="Editar entrega"
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      onClick={() => {
-                                        setItemParaDeletar({
-                                          tipo: "entrega",
-                                          id: entrega.id,
-                                          nome: entrega.nome,
-                                        });
-                                        setModalConfirmDeleteOpen(true);
-                                      }}
-                                      title="Excluir entrega"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400">
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </>
-              )}
-            </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* BLOCO 3 — Encerramento (Termo de Encerramento de Projeto / TEP) */}
@@ -3948,9 +3805,9 @@ export function EscritorioProjetos() {
                 max={
                   projetoDetalhes?.data_prevista_conclusao
                     ? String(projetoDetalhes.data_prevista_conclusao).slice(
-                      0,
-                      10,
-                    )
+                        0,
+                        10,
+                      )
                     : undefined
                 }
               />
@@ -3965,7 +3822,7 @@ export function EscritorioProjetos() {
               {novaEntregaPrazo &&
                 projetoDetalhes?.data_prevista_conclusao &&
                 new Date(novaEntregaPrazo) >
-                new Date(projetoDetalhes.data_prevista_conclusao) && (
+                  new Date(projetoDetalhes.data_prevista_conclusao) && (
                   <p className="text-xs text-red-600 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
                     Prazo posterior à conclusão prevista do projeto. Ajuste a
@@ -3995,7 +3852,7 @@ export function EscritorioProjetos() {
                 (!!novaEntregaPrazo &&
                   !!projetoDetalhes?.data_prevista_conclusao &&
                   new Date(novaEntregaPrazo) >
-                  new Date(projetoDetalhes.data_prevista_conclusao))
+                    new Date(projetoDetalhes.data_prevista_conclusao))
               }
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -4049,9 +3906,9 @@ export function EscritorioProjetos() {
                 max={
                   projetoDetalhes?.data_prevista_conclusao
                     ? String(projetoDetalhes.data_prevista_conclusao).slice(
-                      0,
-                      10,
-                    )
+                        0,
+                        10,
+                      )
                     : undefined
                 }
               />
@@ -4066,7 +3923,7 @@ export function EscritorioProjetos() {
               {editEntregaPrazo &&
                 projetoDetalhes?.data_prevista_conclusao &&
                 new Date(editEntregaPrazo) >
-                new Date(projetoDetalhes.data_prevista_conclusao) && (
+                  new Date(projetoDetalhes.data_prevista_conclusao) && (
                   <p className="text-xs text-red-600 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
                     Prazo posterior à conclusão prevista do projeto. Ajuste a
@@ -4094,7 +3951,7 @@ export function EscritorioProjetos() {
                 (!!editEntregaPrazo &&
                   !!projetoDetalhes?.data_prevista_conclusao &&
                   new Date(editEntregaPrazo) >
-                  new Date(projetoDetalhes.data_prevista_conclusao))
+                    new Date(projetoDetalhes.data_prevista_conclusao))
               }
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -4253,21 +4110,18 @@ export function EscritorioProjetos() {
                 <div className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-2 h-2 rounded-full ${entregaSelecionada.status === "concluida" ||
+                      className={`w-2 h-2 rounded-full ${entregaStatusPonto(
+                        entregaConcluida(entregaSelecionada.status) ||
                           temEvidenciaPdf
-                          ? "bg-green-500"
-                          : entregaSelecionada.status === "em_andamento"
-                            ? "bg-orange-500"
-                            : "bg-gray-400"
-                        }`}
+                          ? "concluida"
+                          : "pendente",
+                      )}`}
                     />
                     <span>
-                      {entregaSelecionada.status === "concluida" ||
-                        temEvidenciaPdf
+                      {entregaConcluida(entregaSelecionada.status) ||
+                      temEvidenciaPdf
                         ? "Concluída"
-                        : entregaSelecionada.status === "em_andamento"
-                          ? "Em Andamento"
-                          : "Não Iniciada"}
+                        : "Pendente"}
                     </span>
                   </div>
                 </div>
@@ -4513,25 +4367,25 @@ export function EscritorioProjetos() {
             )}
             {(instrumentoDetalhes.periodo_vigencia_inicio ||
               instrumentoDetalhes.periodo_vigencia_fim) && (
-                <div>
-                  <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
-                    Vigência
-                  </p>
-                  <p className="text-gray-900 text-base">
-                    {instrumentoDetalhes.periodo_vigencia_inicio
-                      ? new Date(
+              <div>
+                <p className="text-gray-500 text-sm uppercase tracking-wider mb-1 font-bold">
+                  Vigência
+                </p>
+                <p className="text-gray-900 text-base">
+                  {instrumentoDetalhes.periodo_vigencia_inicio
+                    ? new Date(
                         instrumentoDetalhes.periodo_vigencia_inicio,
                       ).toLocaleDateString("pt-BR")
-                      : "?"}
-                    {" → "}
-                    {instrumentoDetalhes.periodo_vigencia_fim
-                      ? new Date(
+                    : "?"}
+                  {" → "}
+                  {instrumentoDetalhes.periodo_vigencia_fim
+                    ? new Date(
                         instrumentoDetalhes.periodo_vigencia_fim,
                       ).toLocaleDateString("pt-BR")
-                      : "?"}
-                  </p>
-                </div>
-              )}
+                    : "?"}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Botão Exibir informações completas */}
@@ -4604,7 +4458,7 @@ export function EscritorioProjetos() {
                             >
                               {
                                 statusProjetoLabels[
-                                projeto.status || "planejado"
+                                  projeto.status || "planejado"
                                 ]
                               }
                             </Badge>
@@ -5218,14 +5072,14 @@ export function EscritorioProjetos() {
                     <p className="text-gray-900">
                       {instrumentoDetalhes.periodo_vigencia_inicio
                         ? new Date(
-                          instrumentoDetalhes.periodo_vigencia_inicio,
-                        ).toLocaleDateString("pt-BR")
+                            instrumentoDetalhes.periodo_vigencia_inicio,
+                          ).toLocaleDateString("pt-BR")
                         : "Não definido"}
                       {" → "}
                       {instrumentoDetalhes.periodo_vigencia_fim
                         ? new Date(
-                          instrumentoDetalhes.periodo_vigencia_fim,
-                        ).toLocaleDateString("pt-BR")
+                            instrumentoDetalhes.periodo_vigencia_fim,
+                          ).toLocaleDateString("pt-BR")
                         : "Não definido"}
                     </p>
                   </div>
@@ -5563,8 +5417,8 @@ export function EscritorioProjetos() {
                       <p className="text-gray-900">
                         {projetoDetalhes.data_prevista_inicio
                           ? new Date(
-                            projetoDetalhes.data_prevista_inicio,
-                          ).toLocaleDateString("pt-BR")
+                              projetoDetalhes.data_prevista_inicio,
+                            ).toLocaleDateString("pt-BR")
                           : "Não definido"}
                       </p>
                     </div>
@@ -5575,8 +5429,8 @@ export function EscritorioProjetos() {
                       <p className="text-gray-900">
                         {projetoDetalhes.data_prevista_conclusao
                           ? new Date(
-                            projetoDetalhes.data_prevista_conclusao,
-                          ).toLocaleDateString("pt-BR")
+                              projetoDetalhes.data_prevista_conclusao,
+                            ).toLocaleDateString("pt-BR")
                           : "Não definido"}
                       </p>
                     </div>
@@ -5605,26 +5459,6 @@ export function EscritorioProjetos() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                        Prioridade
-                      </p>
-                      <p className="text-gray-900">
-                        {prioridadeLabels[projetoDetalhes.prioridade] ||
-                          projetoDetalhes.prioridade}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                        Complexidade
-                      </p>
-                      <p className="text-gray-900">
-                        {complexidadeLabels[projetoDetalhes.complexidade] ||
-                          projetoDetalhes.complexidade}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
                         Haverá Contratação?
                       </p>
                       <Badge
@@ -5645,11 +5479,11 @@ export function EscritorioProjetos() {
                         <p className="text-gray-900 font-medium">
                           {projetoDetalhes.valor_estimado_contratacao != null
                             ? Number(
-                              projetoDetalhes.valor_estimado_contratacao,
-                            ).toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })
+                                projetoDetalhes.valor_estimado_contratacao,
+                              ).toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })
                             : "Não informado"}
                         </p>
                       </div>
@@ -5675,12 +5509,13 @@ export function EscritorioProjetos() {
                     </p>
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-3 h-3 rounded-full ${projetoDetalhes.saude === "verde"
+                        className={`w-3 h-3 rounded-full ${
+                          projetoDetalhes.saude === "verde"
                             ? "bg-green-500"
                             : projetoDetalhes.saude === "amarelo"
                               ? "bg-yellow-500"
                               : "bg-red-500"
-                          }`}
+                        }`}
                       />
                       <span className="font-medium">
                         {saudeLabels[projetoDetalhes.saude] ||
@@ -5735,68 +5570,68 @@ export function EscritorioProjetos() {
             {/* SEÇÃO: ESCOPO */}
             {(projetoDetalhes.escopo_sintetico ||
               projetoDetalhes.fora_do_escopo) && (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-cyan-50 px-4 py-3 flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-cyan-600" />
-                    <span className="font-semibold text-cyan-900">Escopo</span>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    {projetoDetalhes.escopo_sintetico && (
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                          Escopo Sintético
-                        </p>
-                        <p className="text-gray-900 whitespace-pre-wrap">
-                          {projetoDetalhes.escopo_sintetico}
-                        </p>
-                      </div>
-                    )}
-                    {projetoDetalhes.fora_do_escopo && (
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                          Fora do Escopo
-                        </p>
-                        <p className="text-gray-900 whitespace-pre-wrap">
-                          {projetoDetalhes.fora_do_escopo}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-cyan-50 px-4 py-3 flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-cyan-600" />
+                  <span className="font-semibold text-cyan-900">Escopo</span>
                 </div>
-              )}
+                <div className="p-4 space-y-3">
+                  {projetoDetalhes.escopo_sintetico && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                        Escopo Sintético
+                      </p>
+                      <p className="text-gray-900 whitespace-pre-wrap">
+                        {projetoDetalhes.escopo_sintetico}
+                      </p>
+                    </div>
+                  )}
+                  {projetoDetalhes.fora_do_escopo && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                        Fora do Escopo
+                      </p>
+                      <p className="text-gray-900 whitespace-pre-wrap">
+                        {projetoDetalhes.fora_do_escopo}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* SEÇÃO: ANCORAGEM ESTRATÉGICA */}
             {(projetoDetalhes.ancoragem_estrategica_plano_gestao ||
               projetoDetalhes.ancoragem_estrategica_pep ||
               projetoDetalhes.ancoragem_estrategica_programa_x) && (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-indigo-50 px-4 py-3 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-indigo-600" />
-                    <span className="font-semibold text-indigo-900">
-                      Ancoragem Estratégica
-                    </span>
-                  </div>
-                  <div className="p-4">
-                    <div className="flex flex-wrap gap-2">
-                      {projetoDetalhes.ancoragem_estrategica_plano_gestao && (
-                        <Badge className="bg-indigo-100 text-indigo-700 border-0">
-                          Plano de Gestão
-                        </Badge>
-                      )}
-                      {projetoDetalhes.ancoragem_estrategica_pep && (
-                        <Badge className="bg-indigo-100 text-indigo-700 border-0">
-                          PEP
-                        </Badge>
-                      )}
-                      {projetoDetalhes.ancoragem_estrategica_programa_x && (
-                        <Badge className="bg-indigo-100 text-indigo-700 border-0">
-                          Programa X
-                        </Badge>
-                      )}
-                    </div>
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-indigo-50 px-4 py-3 flex items-center gap-2">
+                  <Target className="h-4 w-4 text-indigo-600" />
+                  <span className="font-semibold text-indigo-900">
+                    Ancoragem Estratégica
+                  </span>
+                </div>
+                <div className="p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {projetoDetalhes.ancoragem_estrategica_plano_gestao && (
+                      <Badge className="bg-indigo-100 text-indigo-700 border-0">
+                        Plano de Gestão
+                      </Badge>
+                    )}
+                    {projetoDetalhes.ancoragem_estrategica_pep && (
+                      <Badge className="bg-indigo-100 text-indigo-700 border-0">
+                        PEP
+                      </Badge>
+                    )}
+                    {projetoDetalhes.ancoragem_estrategica_programa_x && (
+                      <Badge className="bg-indigo-100 text-indigo-700 border-0">
+                        Programa X
+                      </Badge>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
             {/* SEÇÃO: TAP — STATUS DETALHADO */}
             {projetoDetalhes.tap_id && (
@@ -5824,8 +5659,8 @@ export function EscritorioProjetos() {
                       <p className="text-gray-900">
                         {projetoDetalhes.tap_gerado_em
                           ? new Date(
-                            projetoDetalhes.tap_gerado_em,
-                          ).toLocaleString("pt-BR")
+                              projetoDetalhes.tap_gerado_em,
+                            ).toLocaleString("pt-BR")
                           : "-"}
                       </p>
                     </div>
@@ -5850,8 +5685,8 @@ export function EscritorioProjetos() {
                       >
                         {projetoDetalhes.tap_validado_gestor_em
                           ? new Date(
-                            projetoDetalhes.tap_validado_gestor_em,
-                          ).toLocaleString("pt-BR")
+                              projetoDetalhes.tap_validado_gestor_em,
+                            ).toLocaleString("pt-BR")
                           : "Pendente"}
                       </p>
                     </div>
@@ -5866,8 +5701,8 @@ export function EscritorioProjetos() {
                       >
                         {projetoDetalhes.tap_validado_diretor_em
                           ? new Date(
-                            projetoDetalhes.tap_validado_diretor_em,
-                          ).toLocaleString("pt-BR")
+                              projetoDetalhes.tap_validado_diretor_em,
+                            ).toLocaleString("pt-BR")
                           : "Pendente"}
                       </p>
                     </div>
@@ -5882,8 +5717,8 @@ export function EscritorioProjetos() {
                       >
                         {projetoDetalhes.tap_validado_patrocinador_em
                           ? new Date(
-                            projetoDetalhes.tap_validado_patrocinador_em,
-                          ).toLocaleString("pt-BR")
+                              projetoDetalhes.tap_validado_patrocinador_em,
+                            ).toLocaleString("pt-BR")
                           : "Pendente"}
                       </p>
                     </div>
@@ -5937,8 +5772,8 @@ export function EscritorioProjetos() {
                     <p className="text-gray-900 text-sm">
                       {projetoDetalhes.created_at
                         ? new Date(projetoDetalhes.created_at).toLocaleString(
-                          "pt-BR",
-                        )
+                            "pt-BR",
+                          )
                         : "-"}
                     </p>
                   </div>
@@ -5949,8 +5784,8 @@ export function EscritorioProjetos() {
                     <p className="text-gray-900 text-sm">
                       {projetoDetalhes.updated_at
                         ? new Date(projetoDetalhes.updated_at).toLocaleString(
-                          "pt-BR",
-                        )
+                            "pt-BR",
+                          )
                         : "-"}
                     </p>
                   </div>
@@ -6060,7 +5895,7 @@ export function EscritorioProjetos() {
                           <Button
                             size="sm"
                             className="bg-blue-600 hover:bg-blue-700 text-white"
-                            onClick={() => { }}
+                            onClick={() => {}}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Gestor
@@ -6088,7 +5923,7 @@ export function EscritorioProjetos() {
                         <Button
                           size="sm"
                           className="bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={() => { }}
+                          onClick={() => {}}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como
                           Diretor
@@ -6116,7 +5951,7 @@ export function EscritorioProjetos() {
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => { }}
+                            onClick={() => {}}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Patrocinador
@@ -6239,7 +6074,7 @@ export function EscritorioProjetos() {
                           <Button
                             size="sm"
                             className="bg-blue-600 hover:bg-blue-700 text-white"
-                            onClick={() => { }}
+                            onClick={() => {}}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Gestor
@@ -6265,7 +6100,7 @@ export function EscritorioProjetos() {
                         <Button
                           size="sm"
                           className="bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={() => { }}
+                          onClick={() => {}}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Validar como
                           Diretor
@@ -6291,7 +6126,7 @@ export function EscritorioProjetos() {
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => { }}
+                            onClick={() => {}}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Validar
                             como Patrocinador

@@ -98,6 +98,11 @@ import {
   permissoesTapApi,
   type MinhaPermissaoTap,
 } from "@/services/permissoesTapApi";
+import {
+  entregaConcluida,
+  entregaStatusLabel,
+  entregaStatusPonto,
+} from "@/utils/entregaStatus";
 
 // ============================================================
 // HELPERS
@@ -152,18 +157,6 @@ const saudeLabels: Record<string, string> = {
   vermelho: "Crítico",
 };
 
-const prioridadeLabels: Record<string, string> = {
-  alta: "Alta",
-  media: "Média",
-  baixa: "Baixa",
-};
-
-const complexidadeLabels: Record<string, string> = {
-  baixa: "Baixa",
-  media: "Média",
-  alta: "Alta",
-};
-
 const abrangenciaLabels: Record<string, string> = {
   uma_unidade: "Uma Unidade",
   multiplas_unidades: "Múltiplas Unidades",
@@ -205,8 +198,6 @@ function getTapStatus(projeto: Projeto): {
     projeto.fora_do_escopo &&
     hasEntregas &&
     hasInstrumentos &&
-    projeto.prioridade &&
-    projeto.complexidade &&
     projeto.abrangencia
   );
 
@@ -923,7 +914,7 @@ export default function Cadastros() {
           nome: novaEntrega.nome.trim(),
           area_responsavel_id: novaEntrega.area_responsavel_id,
           prazo_estimado: novaEntrega.prazo_estimado || null,
-          status: "nao_iniciada",
+          status: "pendente",
           ordem: entregasParaSalvar.length,
           areas_responsaveis: [],
         });
@@ -1047,7 +1038,7 @@ export default function Cadastros() {
     const novaEntregaObj = {
       ...novaEntrega,
       prazo_estimado: novaEntrega.prazo_estimado || null,
-      status: "nao_iniciada" as const,
+      status: "pendente" as const,
       ordem: tempEntregas.length,
       areas_responsaveis: [],
     };
@@ -1076,7 +1067,7 @@ export default function Cadastros() {
               projeto_id: 0,
               nome: e.nome,
               descricao: null,
-              status: "nao_iniciada" as const,
+              status: "pendente" as const,
               quantidade_sprints: 0,
               ordem: i,
               area_responsavel_id: e.area_responsavel_id,
@@ -1308,22 +1299,6 @@ export default function Cadastros() {
     }
   };
 
-  // ============================================================
-  // HELPER - CÁLCULO AUTOMÁTICO DE STATUS DA ENTREGA
-  // ============================================================
-
-  const calcularStatusEntrega = (tarefas: TarefaEntrega[]): string => {
-    if (tarefas.length === 0) return "nao_iniciada";
-
-    const todasAFazer = tarefas.every((t) => t.status === "a_fazer");
-    const todasFeitas = tarefas.every((t) => t.status === "feito");
-
-    if (todasAFazer) return "nao_iniciada";
-    if (todasFeitas) return "concluida";
-    return "em_andamento";
-  };
-
-  // Carregar tarefas quando abrir uma entrega
   const loadTarefasEntrega = async (entregaId: number) => {
     try {
       setLoadingTarefas(true);
@@ -1346,20 +1321,8 @@ export default function Cadastros() {
     }
   }, [viewingEntrega?.id]);
 
-  // Atualizar status da entrega automaticamente quando tarefas mudam
-  // Nota: O backend já recalcula o status, mas mantemos para UX imediato
-  useEffect(() => {
-    if (!viewingEntrega || loadingTarefas) return;
-
-    const novoStatus = calcularStatusEntrega(tarefasEntrega);
-
-    if (viewingEntrega.status !== novoStatus) {
-      setViewingEntrega((prev: any) =>
-        prev ? { ...prev, status: novoStatus } : prev,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tarefasEntrega, viewingEntrega?.id, loadingTarefas]);
+  // As tarefas NÃO definem mais o status da entrega: concluir passou a exigir evidência + data de
+  // conclusão anexadas, e antes bastava marcar as tarefas como feitas — sem comprovação nenhuma.
 
   // ============================================================
   // HANDLERS - TAREFAS DE ENTREGA
@@ -1547,7 +1510,7 @@ export default function Cadastros() {
         nome: newEntregaNome.trim(),
         area_responsavel_id: newEntregaAreaId,
         prazo_estimado: newEntregaPrazo || null,
-        status: "nao_iniciada",
+        status: "pendente",
         ordem: viewingProject.entregas?.length || 0,
       });
 
@@ -1625,31 +1588,12 @@ export default function Cadastros() {
 
     const entregas = viewingProject.entregas || [];
     const total = entregas.length;
-    const planejado = entregas.filter(
-      (e) => e.status === "nao_iniciada",
-    ).length;
-    const emExecucao = entregas.filter(
-      (e) => e.status === "em_andamento",
-    ).length;
+    const concluido = entregas.filter((e) => entregaConcluida(e.status)).length;
+    // Com dois status, tudo que não está concluído é pendente.
+    const planejado = total - concluido;
+    const emExecucao = 0;
     const suspenso = 0; // Adicionar campo quando disponível no backend
-    const concluido = entregas.filter((e) => e.status === "concluida").length;
     const progresso = total > 0 ? Math.round((concluido / total) * 100) : 0;
-
-    // Função para obter o texto do status sem dropdown
-    const getStatusTexto = (status: string) => {
-      const labels: Record<string, { text: string; className: string }> = {
-        nao_iniciada: { text: "Não Iniciada", className: "text-gray-600" },
-        em_andamento: {
-          text: "Em Andamento",
-          className: "text-orange-600 font-medium",
-        },
-        concluida: {
-          text: "Concluída",
-          className: "text-green-600 font-medium",
-        },
-      };
-      return labels[status] || labels["nao_iniciada"];
-    };
 
     return (
       <div className="space-y-6">
@@ -2242,7 +2186,6 @@ export default function Cadastros() {
                     </thead>
                     <tbody>
                       {entregas.map((entrega) => {
-                        const statusInfo = getStatusTexto(entrega.status);
                         const tarefasDisabled = isProduction();
                         return (
                           <tr
@@ -2268,20 +2211,12 @@ export default function Cadastros() {
                               >
                                 <div className="flex items-center gap-2">
                                   <div
-                                    className={`w-2 h-2 rounded-full ${
-                                      entrega.status === "concluida"
-                                        ? "bg-green-500"
-                                        : entrega.status === "em_andamento"
-                                          ? "bg-orange-500"
-                                          : "bg-gray-400"
-                                    }`}
+                                    className={`w-2 h-2 rounded-full ${entregaStatusPonto(
+                                      entrega.status,
+                                    )}`}
                                   />
                                   <span>
-                                    {entrega.status === "nao_iniciada"
-                                      ? "Não Iniciada"
-                                      : entrega.status === "em_andamento"
-                                        ? "Em Andamento"
-                                        : "Concluída"}
+                                    {entregaStatusLabel(entrega.status)}
                                   </span>
                                 </div>
                               </div>
@@ -2599,21 +2534,11 @@ export default function Cadastros() {
                 <div className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-2 h-2 rounded-full ${
-                        viewingEntrega.status === "concluida"
-                          ? "bg-green-500"
-                          : viewingEntrega.status === "em_andamento"
-                            ? "bg-orange-500"
-                            : "bg-gray-400"
-                      }`}
+                      className={`w-2 h-2 rounded-full ${entregaStatusPonto(
+                        viewingEntrega.status,
+                      )}`}
                     />
-                    <span>
-                      {viewingEntrega.status === "nao_iniciada"
-                        ? "Não Iniciada"
-                        : viewingEntrega.status === "em_andamento"
-                          ? "Em Andamento"
-                          : "Concluída"}
-                    </span>
+                    <span>{entregaStatusLabel(viewingEntrega.status)}</span>
                   </div>
                 </div>
               </div>
@@ -4139,87 +4064,11 @@ export default function Cadastros() {
                   <AccordionTrigger className="bg-amber-50 px-4 rounded-t">
                     <div className="flex items-center gap-2">
                       <Target className="h-4 w-4" />
-                      Classificação para Gestão do Portfólio
+                      Contratação
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="p-4 border border-t-0 rounded-b">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div>
-                        <Label
-                          className={
-                            isTapFieldMissing("prioridade")
-                              ? "text-red-600"
-                              : ""
-                          }
-                        >
-                          Prioridade Institucional
-                        </Label>
-                        <Select
-                          value={formData.prioridade}
-                          onValueChange={(v) => {
-                            setFormData({ ...formData, prioridade: v });
-                            setTapMissingFields((prev) =>
-                              prev.filter(
-                                (f) => tapFieldMap[f] !== "prioridade",
-                              ),
-                            );
-                          }}
-                          disabled={modalMode === "view"}
-                        >
-                          <SelectTrigger
-                            className={
-                              isTapFieldMissing("prioridade")
-                                ? "border-red-500"
-                                : ""
-                            }
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="alta">Alta</SelectItem>
-                            <SelectItem value="media">Média</SelectItem>
-                            <SelectItem value="baixa">Baixa</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label
-                          className={
-                            isTapFieldMissing("complexidade")
-                              ? "text-red-600"
-                              : ""
-                          }
-                        >
-                          Complexidade do Projeto
-                        </Label>
-                        <Select
-                          value={formData.complexidade}
-                          onValueChange={(v) => {
-                            setFormData({ ...formData, complexidade: v });
-                            setTapMissingFields((prev) =>
-                              prev.filter(
-                                (f) => tapFieldMap[f] !== "complexidade",
-                              ),
-                            );
-                          }}
-                          disabled={modalMode === "view"}
-                        >
-                          <SelectTrigger
-                            className={
-                              isTapFieldMissing("complexidade")
-                                ? "border-red-500"
-                                : ""
-                            }
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="baixa">Baixa</SelectItem>
-                            <SelectItem value="media">Média</SelectItem>
-                            <SelectItem value="alta">Alta</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                       <div className="col-span-1 md:col-span-2 lg:col-span-4">
                         <Label>Haverá Contratação?</Label>
                         <div className="flex items-center gap-4 mt-2">
