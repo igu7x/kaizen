@@ -186,8 +186,8 @@ export function RevisaoItens({
       item_pca: item.code || item.item_pca,
       tipo: item.contract_type || item.tipo || "Contratação",
       area_demandante: item.directory_acronym || item.area_demandante,
-      id_diretoria: item.id_diretoria,
-      id_area_demandante: item.id_area_demandante,
+      id_diretoria: item.cadastros_areas_id ?? item.cadastrosAreasId ?? undefined,
+      id_area_demandante: item.cadastros_unidades_id ?? item.cadastrosUnidadesId ?? undefined,
       objeto: item.object_name || item.objeto,
       valor_estimado: item.estimated_value_cents ? item.estimated_value_cents / 100 : item.valor_estimado,
       valor_formalizado: item.valor_formalizado || 0,
@@ -334,8 +334,6 @@ export function RevisaoItens({
                     </span>
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span>Status: {typeof item.status === "string" ? item.status : "Não Iniciada"}</span>
-                      <span>•</span>
-                      <span>Etapa: {normalizeStep(item.step) || "Não informada"}</span>
                     </div>
                   </div>
                 </div>
@@ -344,8 +342,8 @@ export function RevisaoItens({
                   <span className="text-sm font-bold text-gray-900">
                     {formatValueBRL(item.valor_estimado)}
                   </span>
-                  <span className="text-xs text-gray-500">
-                    {item.data_estimada_contratacao || "Data não definida"}
+                  <span className="text-xs text-slate-500 mt-1">
+                    Prazo: {item.data_estimada_contratacao || "Não definido"}
                   </span>
                 </div>
 
@@ -425,7 +423,7 @@ export function RevisaoItens({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="data_estimada">Data Estimada *</Label>
+                <Label htmlFor="data_estimada">Prazo Estimado (Mês) *</Label>
                 <Select
                   value={formData.data_estimada_contratacao || ""}
                   onValueChange={(value) => setFormData({ ...formData, data_estimada_contratacao: value })}
@@ -518,8 +516,8 @@ export function RevisaoItens({
               />
             </div>
 
-            {/* Linha Recurso / Prioridade / Etapa */}
-            <div className="grid grid-cols-3 gap-4">
+            {/* Linha Recurso / Prioridade */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de Recurso</Label>
                 <Select
@@ -544,20 +542,6 @@ export function RevisaoItens({
                     <SelectItem value="Alto">Alto</SelectItem>
                     <SelectItem value="Médio">Médio</SelectItem>
                     <SelectItem value="Baixo">Baixo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Etapa</Label>
-                <Select
-                  value={formData.step || undefined}
-                  onValueChange={(value) => setFormData({ ...formData, step: value })}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Planejamento da Contratação">Planejamento da Contratação</SelectItem>
-                    <SelectItem value="Seleção de Fornecedor">Seleção de Fornecedor</SelectItem>
-                    <SelectItem value="Gestão do Contrato">Gestão do Contrato</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

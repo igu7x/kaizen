@@ -24,7 +24,7 @@ import {
   type JanelaRevisaoResumo,
 } from "@/services/cicloOrcamentarioApi";
 import { carregarCalendarioRevisao } from "@/services/parametrosCicloApi";
-import { getPcaComparison, getPcaVersoesInfo } from "@/services/pcaApi";
+import { getPcaComparison, getPcaVersoesInfo, getPcaItems } from "@/services/pcaApi";
 import { generateRevisaoPcaPDF } from "@/utils/generateRevisaoPcaPDF";
 import { AtasComitesPanel } from "@/components/contratacoes/ciclo/AtasComitesPanel";
 import { EditoresPanel } from "@/components/contratacoes/ciclo/EditoresPanel";
@@ -133,10 +133,12 @@ function EsteiraControls({
         Aguardando: <b className="text-slate-700">{ATOR_ESTADO[ciclo.estado] ?? "—"}</b>
       </span>
       <div className="ml-auto flex gap-2">
-        <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          {RETORNAR_LABELS[ciclo.estado] || "Retornar"}
-        </Button>
+        {ciclo.estado !== "em_consulta_1" && (
+          <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            {RETORNAR_LABELS[ciclo.estado] || "Retornar"}
+          </Button>
+        )}
         {podeAvancarFinal && (
           <Button
             size="sm"
@@ -180,7 +182,7 @@ export default function RevisaoPca() {
   const tags = user?.tags_acesso ?? [];
   const isSuperadmin = (user as any)?.is_superadmin;
   const temModificacaoEspecial = tags.includes("PCA_RN_MODIFICACAO_ESPECIAL") || tags.includes("PCA_RN_MODIFICACAO_CCA");
-  
+
   const podeEditarItem = isSuperadmin || tags.includes("PCA_RN_MODIFICAR_ITEM") || temModificacaoEspecial;
   const podeAdicionar = isSuperadmin || ((ciclo?.estado === "em_consulta_1" || ciclo?.estado === "em_consulta_2") && podeEditarItem);
 
@@ -250,16 +252,13 @@ export default function RevisaoPca() {
   const gerarRevisaoPdf = async () => {
     if (!ciclo) return;
     try {
-      const versoes = await getPcaVersoesInfo(anoVigente).catch(() => []);
-      const ultima = versoes.length ? Math.max(...versoes.map((v) => v.versao)) : undefined;
-      const cmp = await getPcaComparison(anoVigente, undefined, ultima);
+      const versaoAExportar = ciclo.versaoGerada ?? janela.calendario.versao;
+      const itens = await getPcaItems(anoVigente);
       generateRevisaoPcaPDF({
         ano: anoVigente,
-        versao: ciclo.versaoGerada ?? janela.calendario.versao,
+        versao: versaoAExportar,
         proad: ciclo.proad,
-        incluidos: cmp.incluidos,
-        alterados: cmp.alterados,
-        excluidos: cmp.excluidos,
+        itens: itens,
       });
     } catch {
       toast.error("Não foi possível gerar a Proposta de Revisão.");
@@ -304,7 +303,7 @@ export default function RevisaoPca() {
                   {estadoLabel(ciclo.estado)}
                 </span>
               )}
-              {ciclo && (
+              {ciclo && ciclo.estado === "remessa_dg" && (
                 <Button variant="outline" size="sm" onClick={gerarRevisaoPdf}>
                   <FileDown className="h-4 w-4 mr-1.5" />
                   Proposta de Revisão
@@ -323,9 +322,6 @@ export default function RevisaoPca() {
                     pernas={nosRevisao(janela.calendario)}
                     activeIndex={ciclo ? IDX_REVISAO[ciclo.estado] ?? 0 : 0}
                   />
-                  <p className="text-xs text-slate-400">
-                    Rito ágil: dias 07 → 15 → 20 do mês de apuração (RF-70/RF-78).
-                  </p>
 
                   {ciclo && !temAcessoFaseAtual ? (
                     <div className="mt-8 rounded-xl border border-amber-100 bg-amber-50/50 p-6 shadow-sm text-center">
@@ -340,7 +336,7 @@ export default function RevisaoPca() {
                     <>
                       {ciclo.estado === "em_comites" ? (
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mt-4">
-                          <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-3 flex-wrap mb-6">
                             <h3 className="text-sm font-semibold text-slate-800">
                               Proposta de Revisão
                             </h3>
