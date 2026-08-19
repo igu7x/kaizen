@@ -144,6 +144,52 @@
   }
 }
 
+/* Entrada da faixa de cabeçalho: ela se revela da esquerda para a direita enquanto sobe.
+   O clip-path é o que dá a sensação de "desenhar" a faixa, em vez de só aparecer. */
+@keyframes faixa-entrada {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+    clip-path: inset(0 100% 0 0 round 12px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0 round 12px);
+  }
+}
+
+/* Brilho que atravessa a faixa uma única vez, logo depois que ela se revela. */
+@keyframes faixa-brilho {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(220%);
+    opacity: 0;
+  }
+}
+
+/* Conteúdo da faixa entra logo atrás dela, com um respiro. */
+@keyframes faixa-conteudo {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes fade-in-up {
   0% {
     opacity: 0;
@@ -222,9 +268,40 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+.faixa-entrada {
+  animation: faixa-entrada 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.faixa-brilho {
+  animation: faixa-brilho 1.1s cubic-bezier(0.4, 0, 0.2, 1) 0.45s both;
+}
+
+.faixa-conteudo {
+  animation: faixa-conteudo 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+}
+
+/* Quem pediu menos movimento no sistema vê tudo já no estado final. */
+@media (prefers-reduced-motion: reduce) {
+  .faixa-entrada,
+  .faixa-brilho,
+  .faixa-conteudo,
+  .animate-shimmer {
+    animation: none;
+  }
+
+  .faixa-brilho {
+    display: none;
+  }
 }
 
 .animate-fade-in-up {

@@ -157,18 +157,6 @@ const saudeLabels: Record<string, string> = {
   vermelho: "Crítico",
 };
 
-const prioridadeLabels: Record<string, string> = {
-  alta: "Alta",
-  media: "Média",
-  baixa: "Baixa",
-};
-
-const complexidadeLabels: Record<string, string> = {
-  baixa: "Baixa",
-  media: "Média",
-  alta: "Alta",
-};
-
 const abrangenciaLabels: Record<string, string> = {
   uma_unidade: "Uma Unidade",
   multiplas_unidades: "Múltiplas Unidades",
@@ -210,8 +198,6 @@ function getTapStatus(projeto: Projeto): {
     projeto.fora_do_escopo &&
     hasEntregas &&
     hasInstrumentos &&
-    projeto.prioridade &&
-    projeto.complexidade &&
     projeto.abrangencia
   );
 
@@ -4078,87 +4064,11 @@ export default function Cadastros() {
                   <AccordionTrigger className="bg-amber-50 px-4 rounded-t">
                     <div className="flex items-center gap-2">
                       <Target className="h-4 w-4" />
-                      Classificação para Gestão do Portfólio
+                      Contratação
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="p-4 border border-t-0 rounded-b">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div>
-                        <Label
-                          className={
-                            isTapFieldMissing("prioridade")
-                              ? "text-red-600"
-                              : ""
-                          }
-                        >
-                          Prioridade Institucional
-                        </Label>
-                        <Select
-                          value={formData.prioridade}
-                          onValueChange={(v) => {
-                            setFormData({ ...formData, prioridade: v });
-                            setTapMissingFields((prev) =>
-                              prev.filter(
-                                (f) => tapFieldMap[f] !== "prioridade",
-                              ),
-                            );
-                          }}
-                          disabled={modalMode === "view"}
-                        >
-                          <SelectTrigger
-                            className={
-                              isTapFieldMissing("prioridade")
-                                ? "border-red-500"
-                                : ""
-                            }
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="alta">Alta</SelectItem>
-                            <SelectItem value="media">Média</SelectItem>
-                            <SelectItem value="baixa">Baixa</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label
-                          className={
-                            isTapFieldMissing("complexidade")
-                              ? "text-red-600"
-                              : ""
-                          }
-                        >
-                          Complexidade do Projeto
-                        </Label>
-                        <Select
-                          value={formData.complexidade}
-                          onValueChange={(v) => {
-                            setFormData({ ...formData, complexidade: v });
-                            setTapMissingFields((prev) =>
-                              prev.filter(
-                                (f) => tapFieldMap[f] !== "complexidade",
-                              ),
-                            );
-                          }}
-                          disabled={modalMode === "view"}
-                        >
-                          <SelectTrigger
-                            className={
-                              isTapFieldMissing("complexidade")
-                                ? "border-red-500"
-                                : ""
-                            }
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="baixa">Baixa</SelectItem>
-                            <SelectItem value="media">Média</SelectItem>
-                            <SelectItem value="alta">Alta</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                       <div className="col-span-1 md:col-span-2 lg:col-span-4">
                         <Label>Haverá Contratação?</Label>
                         <div className="flex items-center gap-4 mt-2">

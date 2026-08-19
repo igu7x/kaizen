@@ -26,8 +26,7 @@ export function validateTAPFields(projeto: Projeto): {
     missingFields.push("Entregas (pelo menos 1)");
   if (!projeto.instrumentos || projeto.instrumentos.length === 0)
     missingFields.push("Ancoragem Estratégica (pelo menos 1)");
-  if (!projeto.prioridade) missingFields.push("Prioridade");
-  if (!projeto.complexidade) missingFields.push("Complexidade");
+  // Prioridade e Complexidade saíram do TAP — não bloqueiam mais a geração.
 
   return { valid: missingFields.length === 0, missingFields };
 }
@@ -84,24 +83,6 @@ function formatCurrency(value: number | null): string {
     style: "currency",
     currency: "BRL",
   }).format(value);
-}
-
-function translatePrioridade(p: string): string {
-  const map: Record<string, string> = {
-    alta: "Alta",
-    media: "Média",
-    baixa: "Baixa",
-  };
-  return map[p] || p;
-}
-
-function translateComplexidade(c: string): string {
-  const map: Record<string, string> = {
-    alta: "Alta",
-    media: "Média",
-    baixa: "Baixa",
-  };
-  return map[c] || c;
 }
 
 function addFooter(
@@ -879,21 +860,10 @@ export function generateTAPPdf(projeto: Projeto) {
   y = drawMultilineContent(doc, projeto.fora_do_escopo || "", y, 22);
   y += 6;
 
-  // SEÇÃO 9 - Classificação
+  // SEÇÃO 9 - Contratação (antes "Classificação", com Prioridade Institucional e Complexidade
+  // do Projeto — ambas removidas do TAP a pedido da área).
   y = checkPageBreak(doc, y, 30);
-  y = drawNumberedSectionHeader(doc, 9, "Classificação", y);
-  y = drawLabelValueRow(
-    doc,
-    "Prioridade Institucional",
-    translatePrioridade(projeto.prioridade),
-    y,
-  );
-  y = drawLabelValueRow(
-    doc,
-    "Complexidade do Projeto",
-    translateComplexidade(projeto.complexidade),
-    y,
-  );
+  y = drawNumberedSectionHeader(doc, 9, "Contratação", y);
   y = drawLabelValueRow(
     doc,
     "Haverá contratação?",

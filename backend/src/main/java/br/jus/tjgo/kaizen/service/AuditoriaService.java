@@ -74,8 +74,19 @@ public class AuditoriaService {
      * Monta o trecho de WHERE compartilhado entre a contagem e a listagem, acumulando os binds em
      * {@code args}. Sempre começa com {@code 1 = 1} pra concatenação ficar uniforme.
      */
-    private String filtros(String acao, String tabela, String busca, List<Object> args) {
+    private String filtros(String acao, String tabela, String busca,
+                           String de, String ate, List<Object> args) {
         StringBuilder w = new StringBuilder("1 = 1 ");
+        // Período por DATA (YYYY-MM-DD), comparando no fuso local: created_at é timestamptz, e
+        // comparar direto excluiria o próprio dia informado em "até".
+        if (de != null && !de.isBlank()) {
+            w.append("AND a.created_at >= ?::date ");
+            args.add(de.trim());
+        }
+        if (ate != null && !ate.isBlank()) {
+            w.append("AND a.created_at < (?::date + INTERVAL '1 day') ");
+            args.add(ate.trim());
+        }
         if (acao != null && !acao.isBlank()) {
             w.append("AND a.action = ? ");
             args.add(acao.trim());
@@ -112,15 +123,18 @@ public class AuditoriaService {
     /**
      * Lista a trilha filtrada, do mais recente pro mais antigo.
      *
+     * @param de      data inicial do período (YYYY-MM-DD), inclusive; null = sem limite
+     * @param ate     data final do período (YYYY-MM-DD), inclusive; null = sem limite
      * @param pagina  página 0-based (null = 0)
      * @param tamanho quantos por página; {@code <= 0} traz TODOS os registros do filtro
      * @return {@code {total, pagina, tamanho, itens}} — {@code total} é a contagem completa do
      *         filtro, independente da página, pra tela saber quanto ainda falta carregar.
      */
     public Map<String, Object> listar(String acao, String tabela, String busca,
+                                      String de, String ate,
                                       Integer pagina, Integer tamanho) {
         List<Object> args = new ArrayList<>();
-        String where = filtros(acao, tabela, busca, args);
+        String where = filtros(acao, tabela, busca, de, ate, args);
 
         Long total = jdbc.queryForObject(
                 "SELECT count(*) FROM audit_log a LEFT JOIN users u ON u.id = a.user_id WHERE " + where,

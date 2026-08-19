@@ -117,8 +117,6 @@ const tapFieldMap: Record<string, string> = {
   "Fora do Escopo": "fora_do_escopo",
   "Entregas (pelo menos 1)": "entregas",
   "Ancoragem Estratégica (pelo menos 1)": "instrumentos",
-  Prioridade: "prioridade",
-  Complexidade: "complexidade",
 };
 
 // ============================================================
@@ -170,8 +168,7 @@ export function ProjetoFormDialog({
   // Campos "destacados" (Nome do Projeto, toda a Governança e Responsáveis, Prioridade,
   // Complexidade, Saúde e Justificativa da Saúde) só podem ser alterados por superadmin ao
   // EDITAR um projeto existente. Na criação seguem liberados para quem cria (ADMIN/Gestor).
-  const camposRestritos =
-    mode === "view" || (mode === "edit" && !isSuperadmin);
+  const camposRestritos = mode === "view" || (mode === "edit" && !isSuperadmin);
 
   // Estado da validação TAP
   const [validandoCamadaTAP, setValidandoCamadaTAP] = useState<number | null>(
@@ -216,7 +213,7 @@ export function ProjetoFormDialog({
     const ids = (selectedProjeto as { areas_vinculadas_ids?: number[] } | null)
       ?.areas_vinculadas_ids;
     const firstId = ids && ids.length > 0 ? ids[0] : null;
-    return firstId ? diretorias.find((d) => d.id === firstId) ?? null : null;
+    return firstId ? (diretorias.find((d) => d.id === firstId) ?? null) : null;
   })();
   const camada2DiretorUserId =
     camada2Area?.gestor_user_id ??
@@ -1216,9 +1213,9 @@ export function ProjetoFormDialog({
               <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-blue-900">
                 Para gerar uma <strong>nova versão</strong> do TAP, altere as
-                informações do projeto pelo botão{" "}
-                <strong>Revisar TAP</strong>. As mudanças vão reiniciar o ciclo
-                de validação (gestor → diretor → patrocinador).
+                informações do projeto pelo botão <strong>Revisar TAP</strong>.
+                As mudanças vão reiniciar o ciclo de validação (gestor → diretor
+                → patrocinador).
               </p>
             </div>
           )}
@@ -2033,87 +2030,11 @@ export function ProjetoFormDialog({
                     <AccordionTrigger className="bg-amber-50 px-4 rounded-t">
                       <div className="flex items-center gap-2">
                         <Target className="h-4 w-4" />
-                        Classificação para Gestão do Portfólio
+                        Contratação
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-4 border border-t-0 rounded-b">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                          <Label
-                            className={
-                              isTapFieldMissing("prioridade")
-                                ? "text-red-600"
-                                : ""
-                            }
-                          >
-                            Prioridade Institucional
-                          </Label>
-                          <Select
-                            value={formData.prioridade}
-                            onValueChange={(v) => {
-                              setFormData({ ...formData, prioridade: v });
-                              setTapMissingFields((prev) =>
-                                prev.filter(
-                                  (f) => tapFieldMap[f] !== "prioridade",
-                                ),
-                              );
-                            }}
-                            disabled={camposRestritos}
-                          >
-                            <SelectTrigger
-                              className={
-                                isTapFieldMissing("prioridade")
-                                  ? "border-red-500"
-                                  : ""
-                              }
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="alta">Alta</SelectItem>
-                              <SelectItem value="media">Média</SelectItem>
-                              <SelectItem value="baixa">Baixa</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label
-                            className={
-                              isTapFieldMissing("complexidade")
-                                ? "text-red-600"
-                                : ""
-                            }
-                          >
-                            Complexidade do Projeto
-                          </Label>
-                          <Select
-                            value={formData.complexidade}
-                            onValueChange={(v) => {
-                              setFormData({ ...formData, complexidade: v });
-                              setTapMissingFields((prev) =>
-                                prev.filter(
-                                  (f) => tapFieldMap[f] !== "complexidade",
-                                ),
-                              );
-                            }}
-                            disabled={camposRestritos}
-                          >
-                            <SelectTrigger
-                              className={
-                                isTapFieldMissing("complexidade")
-                                  ? "border-red-500"
-                                  : ""
-                              }
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="baixa">Baixa</SelectItem>
-                              <SelectItem value="media">Média</SelectItem>
-                              <SelectItem value="alta">Alta</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
                         <div className="col-span-1 md:col-span-2 lg:col-span-4">
                           <Label>Haverá Contratação?</Label>
                           <div className="flex items-center gap-4 mt-2">
@@ -2125,9 +2046,7 @@ export function ProjetoFormDialog({
                                     ...formData,
                                     havera_contratacao: !!checked,
                                     // Ao desmarcar, limpa o item do PCA vinculado.
-                                    ...(checked
-                                      ? {}
-                                      : { pcas_id: undefined }),
+                                    ...(checked ? {} : { pcas_id: undefined }),
                                   })
                                 }
                                 disabled={mode === "view"}
@@ -2147,14 +2066,12 @@ export function ProjetoFormDialog({
                                       : "");
                                 const q = buscaPca.trim().toLowerCase();
                                 const pcaFiltrados = pcaItens
-                                  .filter(
-                                    (item) => {
-                                      if (!q) return true;
-                                      return labelPcaItem(item)
-                                        .toLowerCase()
-                                        .includes(q);
-                                    }
-                                  )
+                                  .filter((item) => {
+                                    if (!q) return true;
+                                    return labelPcaItem(item)
+                                      .toLowerCase()
+                                      .includes(q);
+                                  })
                                   .slice(0, 50);
                                 return (
                                   <div className="relative flex-1 min-w-[220px]">
@@ -2214,7 +2131,12 @@ export function ProjetoFormDialog({
                                           className="w-[var(--radix-popover-trigger-width)] max-w-[80vw] max-h-60 overflow-y-auto p-0 z-[80]"
                                           onInteractOutside={(e) => {
                                             const target = e.target as Element;
-                                            if (target && target.closest(".pca-picker-input-inline")) {
+                                            if (
+                                              target &&
+                                              target.closest(
+                                                ".pca-picker-input-inline",
+                                              )
+                                            ) {
                                               e.preventDefault();
                                             }
                                           }}
