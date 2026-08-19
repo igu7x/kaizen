@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,15 +38,20 @@ public class AuditoriaController {
         return null;
     }
 
+    /**
+     * Listagem paginada da trilha. Sem teto: o cliente pagina até o fim ({@code total} vem na
+     * resposta) ou pede {@code tamanho=0} pra receber todos os registros do filtro de uma vez.
+     */
     @GetMapping
     public ResponseEntity<?> listar(
             @RequestParam(required = false) String acao,
             @RequestParam(required = false) String tabela,
             @RequestParam(required = false) String busca,
-            @RequestParam(required = false) Integer limite) {
+            @RequestParam(required = false) Integer pagina,
+            @RequestParam(required = false) Integer tamanho) {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
-        return ResponseEntity.ok(auditoria.listar(acao, tabela, busca, limite));
+        return ResponseEntity.ok(auditoria.listar(acao, tabela, busca, pagina, tamanho));
     }
 
     @GetMapping("/facetas")
@@ -53,5 +59,17 @@ public class AuditoriaController {
         ResponseEntity<?> g = guard();
         if (g != null) return g;
         return ResponseEntity.ok(auditoria.facetas());
+    }
+
+    /** Registro completo (inclui old_values/new_values) — alimenta o "o que mudou" da tela. */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> detalhe(@PathVariable long id) {
+        ResponseEntity<?> g = guard();
+        if (g != null) return g;
+        Map<String, Object> reg = auditoria.buscarPorId(id);
+        if (reg == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Registro de auditoria não encontrado."));
+        }
+        return ResponseEntity.ok(reg);
     }
 }
