@@ -1458,9 +1458,9 @@ export default function EscritorioProcessos({
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/60">
                 Gestão Estratégica
               </p>
-              <h1 className="flex flex-wrap items-center gap-3 text-2xl font-bold text-white">
+              <h1 className="flex flex-wrap items-center gap-8 text-2xl font-bold text-white">
                 Escritório de Processos
-                <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25">
+                <span className="inline-flex -translate-y-[3px] items-center rounded-full bg-white/25 px-4 py-1 text-base font-bold tracking-wide text-white shadow-sm ring-1 ring-white/40">
                   {grupoLabel}
                 </span>
               </h1>
