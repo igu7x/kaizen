@@ -799,15 +799,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             borderBottomWidth: "1px",
           }}
         >
-          <div className="relative flex items-center justify-center p-3">
+          <div className="relative flex items-center py-2">
+            {/* Alinhado à esquerda com o mesmo px-4/gap-2 dos itens do menu, pra ficar na
+                mesma coluna dos ícones em vez de centralizado. */}
             <Link
               to="/"
               onClick={onClose}
               aria-label="Ir para o Início"
-              className="flex items-center justify-center gap-2 rounded-md px-3 py-2 text-white transition-colors hover:bg-white/10"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
             >
-              <Home className="h-5 w-5" />
-              <span className="text-sm font-medium">Início</span>
+              <Home className="h-4 w-4 flex-shrink-0" />
+              <span>Início</span>
             </Link>
 
             <Button

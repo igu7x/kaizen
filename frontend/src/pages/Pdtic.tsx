@@ -48,6 +48,10 @@ const PCA_VERSAO: number | undefined = undefined;
 const KR2_ALVO = 25;
 // Meta fixa do KR-3: nº de processos revisados a atingir.
 const KR3_ALVO = 40;
+// Escala dos gauges: o arco vai de 0 até o TOTAL do KR (não até a meta), e a meta aparece como um
+// marcador em cima do arco. O total sai sempre da mesma fonte do primeiro card do KR (ações,
+// demandas do PCA e processos vigentes), pra card e ficha nunca divergirem.
+const KR1_META = 80; // ações a concluir no prazo
 // KR-3: mede quantos processos de negócio de TI VIGENTES são Modelo K1 (base) sobre o total de
 // vigentes (alvo). Grupo "ti" = Escritório de Processos / Tecnologia da Informação.
 const PROCESSOS_GRUPO_TI = "ti";
@@ -146,7 +150,7 @@ export default function Pdtic() {
   const [pcaItens, setPcaItens] = useState<PcaItem[]>([]);
   const [pcaItensLoading, setPcaItensLoading] = useState(false);
   const [pcaItensCarregado, setPcaItensCarregado] = useState(false);
-  // Filtro dentro do KR-2: "todos" (card Alvo) ou "concluidos" (card Concluída).
+  // Filtro dentro do KR-2: "todos" (card Total de Demandas) ou "concluidos" (card Concluída).
   const [pcaFiltro, setPcaFiltro] = useState<"todos" | "concluidos">("todos");
   const pcaConcluidos = useMemo(
     () =>
@@ -155,7 +159,7 @@ export default function Pdtic() {
       ),
     [pcaItens],
   );
-  // Lista exibida na tabela do KR-2, respeitando o card-filtro (Alvo/Concluída).
+  // Lista exibida na tabela do KR-2, respeitando o card-filtro (Total de Demandas/Concluída).
   const pcaTabela = useMemo(
     () => (pcaFiltro === "concluidos" ? pcaItens.filter(pcaConcluido) : pcaItens),
     [pcaItens, pcaFiltro],
@@ -254,13 +258,24 @@ export default function Pdtic() {
     const kr2Pct = pctd(kr2Base, KR2_ALVO);
     const kr3Pct = pctd(kr3Base, KR3_ALVO); // progresso rumo à meta de 40 revisados
     return {
-      kr1: { base: kr1Base, alvo: kr1Alvo, pct: kr1Pct },
-      kr2: { base: kr2Base, alvo: KR2_ALVO, pct: kr2Pct },
-      kr3: { base: kr3Base, alvo: KR3_ALVO, pct: kr3Pct },
+      // `escala` = o total do KR (fundo do gauge e linha "Total de …"); `alvo` = a meta.
+      kr1: { base: kr1Base, alvo: kr1Alvo, escala: kr1Alvo, pct: kr1Pct },
+      kr2: {
+        base: kr2Base,
+        alvo: KR2_ALVO,
+        escala: pca?.total ?? 0,
+        pct: kr2Pct,
+      },
+      kr3: {
+        base: kr3Base,
+        alvo: KR3_ALVO,
+        escala: processosVigentes.length,
+        pct: kr3Pct,
+      },
       // Atingimento Geral do PDTIC = média simples dos 3 KRs.
       geral: Math.round((kr1Pct + kr2Pct + kr3Pct) / 3),
     };
-  }, [stats.concluidas, stats.total, pca, processosK1]);
+  }, [stats.concluidas, stats.total, pca, processosK1, processosVigentes]);
 
   // Os cards funcionam como filtro: a tabela respeita o status escolhido (os cards seguem
   // mostrando os totais reais, independentemente do filtro ativo).
@@ -423,7 +438,9 @@ export default function Pdtic() {
               icon={<Target className="h-6 w-6" />}
               titulo="Cumprir 80% das Ações Planejadas dentro do prazo de conclusão definido no quadro de ações"
               gaugeColor="#2563eb"
-              pct={krs.kr1.pct}
+              valor={krs.kr1.base}
+              escala={krs.kr1.escala}
+              meta={KR1_META}
               onClick={handleKr1}
               active={krAtivo === "kr1"}
               activeRing="ring-blue-400"
@@ -431,8 +448,9 @@ export default function Pdtic() {
                 ["Mensurado", "% de ações concluídas"],
                 ["Fonte", "Painel de Ações"],
                 ["Frequência", "Anual"],
-                ["Base", String(krs.kr1.base)],
-                ["Alvo", String(krs.kr1.alvo)],
+                ["Total de Ações", String(krs.kr1.escala)],
+                ["Meta", String(KR1_META)],
+                ["Realizado", String(krs.kr1.base)],
               ]}
             />
             <KrCard
@@ -442,7 +460,9 @@ export default function Pdtic() {
               icon={<ShoppingCart className="h-6 w-6" />}
               titulo="Concluir 25 demandas de aquisições de TIC do plano de contratação anual vigente"
               gaugeColor="#16a34a"
-              pct={krs.kr2.pct}
+              valor={krs.kr2.base}
+              escala={krs.kr2.escala}
+              meta={KR2_ALVO}
               onClick={handleKr2}
               active={krAtivo === "kr2"}
               activeRing="ring-emerald-400"
@@ -450,8 +470,9 @@ export default function Pdtic() {
                 ["Mensurado", "% de contratos assinados"],
                 ["Fonte", "Plano de Contratações"],
                 ["Frequência", "Semestral"],
-                ["Base", String(krs.kr2.base)],
-                ["Alvo", String(krs.kr2.alvo)],
+                ["Total de Demandas", String(krs.kr2.escala)],
+                ["Meta", String(KR2_ALVO)],
+                ["Realizado", String(krs.kr2.base)],
               ]}
             />
             <KrCard
@@ -461,28 +482,31 @@ export default function Pdtic() {
               icon={<ShieldCheck className="h-6 w-6" />}
               titulo="Manter 95% de compliance quanto à transparência, aprovação e revisão dos planejamentos táticos e processos e planos de negócio em TIC"
               gaugeColor="#7c3aed"
-              pct={krs.kr3.pct}
+              valor={krs.kr3.base}
+              escala={krs.kr3.escala}
+              meta={KR3_ALVO}
               onClick={handleKr3}
               active={krAtivo === "kr3"}
               activeRing="ring-violet-400"
               linhas={[
-                ["Mensurado", "% de processos revisados (meta 40)"],
+                ["Mensurado", "% de processos revisados"],
                 ["Fonte", "Escritório de Processos (TI)"],
                 ["Frequência", "Anual"],
-                ["Base", String(krs.kr3.base)],
-                ["Alvo", String(krs.kr3.alvo)],
+                ["Total de Processos", String(krs.kr3.escala)],
+                ["Meta", String(KR3_ALVO)],
+                ["Realizado", String(krs.kr3.base)],
               ]}
             />
             <AtingimentoGeralCard pct={krs.geral} />
           </div>
 
-          {/* Cards — KR-2 ativo mostra Alvo/Concluída do PCA; senão, os totais das ações */}
+          {/* Cards — KR-2 ativo mostra Total de Demandas/Concluída do PCA; senão, os totais das ações */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {krAtivo === "kr2" ? (
               <>
                 <StatCard
-                  titulo="Alvo"
-                  valor={krs.kr2.alvo}
+                  titulo="Total de Demandas"
+                  valor={krs.kr2.escala}
                   icon={<Target className="h-6 w-6" />}
                   cor="blue"
                   active={pcaFiltro === "todos"}
@@ -756,46 +780,92 @@ function formatReais(valor?: string | null): string {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-/** Gauge circular (270°) com o percentual no centro. */
-function KrGauge({ pct, color }: { pct: number; color: string }) {
-  const v = Math.max(0, Math.min(100, Math.round(pct)));
-  const size = 128;
-  const stroke = 12;
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const track = circ * 0.75; // arco de 270°, com a abertura embaixo
-  const filled = track * (v / 100);
+/**
+ * Gauge semicircular em escala absoluta: o arco cobre de 0 até `escala`, o preenchimento é o
+ * `valor` realizado e a `meta` entra como um tique marcado sobre o arco. O número no centro é a
+ * posição na escala (valor/escala), não o atingimento da meta.
+ */
+function KrGauge({
+  valor,
+  escala,
+  meta,
+  color,
+}: {
+  valor: number;
+  escala: number;
+  meta: number;
+  color: string;
+}) {
+  // viewBox largo o bastante pro rótulo "Meta" caber quando a meta fica quase no fim da escala.
+  const cx = 120;
+  const cy = 88;
+  const r = 64;
+  const stroke = 14;
+  const arco = Math.PI * r; // comprimento do semicírculo
+  const clamp = (n: number) => Math.max(0, Math.min(1, n));
+  const fValor = escala > 0 ? clamp(valor / escala) : 0;
+  const fMeta = escala > 0 ? clamp(meta / escala) : 0;
+  const pct = Math.round(fValor * 100);
+  const trilho = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+
+  // Ponto sobre o arco no ângulo da meta (0 = ponta esquerda, 1 = ponta direita).
+  const ang = Math.PI * (1 - fMeta);
+  const ponto = (raio: number) =>
+    [cx + raio * Math.cos(ang), cy - raio * Math.sin(ang)] as const;
+  const [x1, y1] = ponto(r - stroke / 2 - 2);
+  const [x2, y2] = ponto(r + stroke / 2 + 5);
+  const [xt, yt] = ponto(r + stroke / 2 + 13);
+
   return (
-    <div className="relative flex h-28 w-28 items-center justify-center">
-      <svg
-        viewBox={`0 0 ${size} ${size}`}
-        className="h-28 w-28"
-        style={{ transform: "rotate(135deg)" }}
+    <svg
+      viewBox="0 0 240 104"
+      className="h-24 w-56"
+      role="img"
+      aria-label={`${valor} de ${escala}, meta ${meta}`}
+    >
+      <path
+        d={trilho}
+        fill="none"
+        stroke="#e2e8f0"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+      />
+      <path
+        d={trilho}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeLinecap={fValor > 0 ? "round" : "butt"}
+        strokeDasharray={`${arco * fValor} ${arco}`}
+        className="transition-[stroke-dasharray] duration-500"
+      />
+      <line
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke="#0f172a"
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+      <text
+        x={xt}
+        y={yt}
+        textAnchor={fMeta >= 0.5 ? "start" : "end"}
+        dominantBaseline="middle"
+        className="fill-slate-800 text-[11px] font-bold"
       >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="#e5e7eb"
-          strokeWidth={stroke}
-          strokeDasharray={`${track} ${circ}`}
-          strokeLinecap="round"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeDasharray={`${filled} ${circ}`}
-          strokeLinecap="round"
-          className="transition-[stroke-dasharray] duration-500"
-        />
-      </svg>
-      <span className="absolute text-2xl font-bold text-slate-900">{v}%</span>
-    </div>
+        Meta
+      </text>
+      <text
+        x={cx}
+        y={cy - 8}
+        textAnchor="middle"
+        className="fill-slate-900 text-[26px] font-bold"
+      >
+        {pct}%
+      </text>
+    </svg>
   );
 }
 
@@ -807,7 +877,9 @@ function KrCard({
   icon,
   titulo,
   gaugeColor,
-  pct,
+  valor,
+  escala,
+  meta,
   linhas,
   onClick,
   active = false,
@@ -819,7 +891,9 @@ function KrCard({
   icon: React.ReactNode;
   titulo: string;
   gaugeColor: string;
-  pct: number;
+  valor: number;
+  escala: number;
+  meta: number;
   linhas: [string, string][];
   onClick?: () => void;
   active?: boolean;
@@ -855,7 +929,12 @@ function KrCard({
         </div>
       </div>
       <div className="my-3 flex justify-center">
-        <KrGauge pct={pct} color={gaugeColor} />
+        <KrGauge
+          valor={valor}
+          escala={escala}
+          meta={meta}
+          color={gaugeColor}
+        />
       </div>
       <table className="w-full text-xs">
         <tbody>
