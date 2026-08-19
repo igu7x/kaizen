@@ -202,7 +202,8 @@ export interface Entrega {
   projeto_id: number;
   nome: string;
   descricao: string | null;
-  status: "nao_iniciada" | "em_andamento" | "concluida";
+  /** Dois estados apenas; legados podem trazer "nao_iniciada"/"em_andamento", lidos como pendente. */
+  status: "pendente" | "concluida" | "nao_iniciada" | "em_andamento";
   quantidade_sprints: number;
   ordem: number;
   area_responsavel_id?: number | null;

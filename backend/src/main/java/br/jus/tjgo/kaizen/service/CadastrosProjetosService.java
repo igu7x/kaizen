@@ -46,6 +46,14 @@ public class CadastrosProjetosService {
     private static final Set<String> STATUS_MANUAIS = Set.of("concluido", "cancelado", "suspenso");
 
     /**
+     * Entregas têm apenas DOIS status, e nenhum deles é escolhido à mão: a entrega nasce
+     * {@code pendente} e só vira {@code concluida} quando a evidência e a data de conclusão são
+     * anexadas (ver {@code uploadEvidencia}); remover a evidência devolve para pendente.
+     */
+    public static final String STATUS_ENTREGA_PENDENTE = "pendente";
+    public static final String STATUS_ENTREGA_CONCLUIDA = "concluida";
+
+    /**
      * Colunas nao-texto de cadastros_projetos (integer / bigint / numeric) no UPDATE.
      * O Jackson serializa numeric (BigDecimal) e bigint (Long) como STRING, por paridade com o
      * driver pg do Node; o front devolve essas strings no PUT. O pgjdbc binda String como VARCHAR
@@ -537,13 +545,12 @@ public class CadastrosProjetosService {
 
     public int calcularProgresso(long projetoId) {
         Map<String, Object> row = jdbc.queryForMap(
-                "SELECT COUNT(*) FILTER (WHERE status = 'concluida') AS concluidas, " +
-                        "COUNT(*) FILTER (WHERE status = 'em_andamento') AS em_andamento, " +
-                        "COUNT(*) FILTER (WHERE status = 'nao_iniciada') AS nao_iniciadas, " +
+                "SELECT COUNT(*) FILTER (WHERE status = '" + STATUS_ENTREGA_CONCLUIDA + "') AS concluidas, " +
                         "COUNT(*) AS total FROM cadastros_projetos_entregas WHERE projeto_id = ? AND ativo = TRUE",
                 projetoId);
         int concluidas = toInt(row.get("concluidas"));
-        int naoIniciadas = toInt(row.get("nao_iniciadas"));
+        // Com dois status, "nenhuma concluída" é o que caracteriza o projeto ainda planejado.
+        int naoIniciadas = toInt(row.get("total")) - concluidas;
         int total = toInt(row.get("total"));
 
         var ctx = jdbc.queryForList("SELECT status FROM cadastros_projetos WHERE id = ?", projetoId);
@@ -699,7 +706,7 @@ public class CadastrosProjetosService {
                             "ordem, area_responsavel_id, prazo_estimado, ativo, created_by, updated_by) " +
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?) RETURNING *",
                     projetoId, data.get("nome"), emptyToNull(str(data.get("descricao"))),
-                    orDefault(str(data.get("status")), "nao_iniciada"),
+                    STATUS_ENTREGA_PENDENTE,
                     data.get("quantidade_sprints") != null ? data.get("quantidade_sprints") : 1,
                     data.get("ordem") != null ? data.get("ordem") : 0,
                     numOrNull(data.get("area_responsavel_id")),
@@ -710,7 +717,7 @@ public class CadastrosProjetosService {
                             "ordem, prazo_estimado, ativo, created_by, updated_by) " +
                             "VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?) RETURNING *",
                     projetoId, data.get("nome"), emptyToNull(str(data.get("descricao"))),
-                    orDefault(str(data.get("status")), "nao_iniciada"),
+                    STATUS_ENTREGA_PENDENTE,
                     data.get("quantidade_sprints") != null ? data.get("quantidade_sprints") : 1,
                     data.get("ordem") != null ? data.get("ordem") : 0,
                     DateHelper.toSqlDate(data.get("prazo_estimado")), userId, userId);
@@ -739,18 +746,9 @@ public class CadastrosProjetosService {
             fields.add("descricao = ?");
             values.add(data.get("descricao"));
         }
-        // Status manual: entregas SEM tarefas têm o status definido diretamente (dropdown). Entregas
-        // COM tarefas têm o status derivado das tarefas no frontend, que também envia por aqui.
-        if (data.containsKey("status")) {
-            fields.add("status = ?");
-            values.add(data.get("status"));
-            // Data de Conclusão: carimba ao concluir; limpa ao voltar para outro status.
-            if ("concluida".equals(String.valueOf(data.get("status")))) {
-                fields.add("data_conclusao = COALESCE(data_conclusao, CURRENT_DATE)");
-            } else {
-                fields.add("data_conclusao = NULL");
-            }
-        }
+        // O status da entrega NÃO é editável: ele é consequência da evidência + data de conclusão
+        // (ver updateEntregaStatus, chamado só pelo upload/remoção de evidência). Um "status" que
+        // venha no payload é ignorado de propósito — inclusive de clientes antigos.
         if (data.containsKey("quantidade_sprints")) {
             fields.add("quantidade_sprints = ?");
             values.add(data.get("quantidade_sprints"));
@@ -1014,23 +1012,12 @@ public class CadastrosProjetosService {
         return affected > 0;
     }
 
+    /**
+     * Mexer nas tarefas de uma entrega NÃO muda mais o status dela: concluir uma entrega passou a
+     * exigir evidência + data de conclusão, e antes uma tarefa marcada como "feito" concluía a
+     * entrega sem nenhuma comprovação anexada. Só o progresso do projeto é reprocessado.
+     */
     public void recalcularStatusEntrega(long entregaId) {
-        var tarefas = getTarefasByEntregaId(entregaId);
-        if (tarefas.isEmpty()) {
-            jdbc.update("UPDATE cadastros_projetos_entregas SET status = 'nao_iniciada', data_conclusao = NULL, updated_at = NOW() WHERE id = ?", entregaId);
-            return;
-        }
-        boolean todasAFazer = tarefas.stream().allMatch(t -> "a_fazer".equals(t.get("status")));
-        boolean todasFeitas = tarefas.stream().allMatch(t -> "feito".equals(t.get("status")));
-        String novoStatus = "em_andamento";
-        if (todasAFazer) {
-            novoStatus = "nao_iniciada";
-        } else if (todasFeitas) {
-            novoStatus = "concluida";
-        }
-        jdbc.update("UPDATE cadastros_projetos_entregas SET status = ?, " +
-                "data_conclusao = CASE WHEN ? = 'concluida' THEN COALESCE(data_conclusao, CURRENT_DATE) ELSE NULL END, " +
-                "updated_at = NOW() WHERE id = ?", novoStatus, novoStatus, entregaId);
         Map<String, Object> entrega = getEntregaById(entregaId);
         if (entrega != null) {
             calcularProgresso(((Number) entrega.get("projeto_id")).longValue());

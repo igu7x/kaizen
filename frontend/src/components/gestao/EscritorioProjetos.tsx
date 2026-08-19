@@ -129,6 +129,12 @@ import {
   permissoesTapApi,
   type MinhaPermissaoTap,
 } from "@/services/permissoesTapApi";
+import {
+  entregaConcluida,
+  entregaStatusClasse,
+  entregaStatusLabel,
+  entregaStatusPonto,
+} from "@/utils/entregaStatus";
 
 const tipoLabels: Record<string, string> = {
   plano: "Plano",
@@ -1451,16 +1457,6 @@ export function EscritorioProjetos() {
       }));
       setTarefasEntrega(tarefas);
 
-      // Recalcular o status a partir das tarefas SOMENTE quando há tarefas. Sem tarefas, o status
-      // da entrega é manual (dropdown da tabela) e não deve ser sobrescrito.
-      if (tarefas.length > 0) {
-        const statusCorreto = calcularStatusEntrega(tarefas);
-        if (entrega.status !== statusCorreto) {
-          setEntregaSelecionada((prev) =>
-            prev ? { ...prev, status: statusCorreto as any } : prev,
-          );
-        }
-      }
     } catch (error) {
       // Em caso de erro, manter o estado vazio
       setTarefasPorEntrega((prev) => ({
@@ -1471,62 +1467,9 @@ export function EscritorioProjetos() {
     }
   };
 
-  // ============================================================
-  // HELPER - CÁLCULO AUTOMÁTICO DE STATUS DA ENTREGA
-  // ============================================================
-
-  const calcularStatusEntrega = (tarefas: any[]): string => {
-    if (!tarefas || tarefas.length === 0) return "nao_iniciada";
-
-    const statuses = tarefas.map((t) => t.status || t.progresso || "a_fazer");
-    const total = statuses.length;
-    const feitos = statuses.filter((s) => s === "feito").length;
-    const aFazer = statuses.filter((s) => s === "a_fazer").length;
-    const emAndamento = statuses.filter(
-      (s) => s === "fazendo" || s === "em_andamento",
-    ).length;
-
-    // Regra 1: APENAS se todas as tarefas tiverem concluídas
-    if (feitos === total) {
-      return "concluida";
-    }
-
-    // Regra 2: APENAS se todas as tarefas estiverem marcadas como a fazer
-    if (aFazer === total) {
-      return "nao_iniciada";
-    }
-
-    // Regra 3: se pelo menos uma estiver concluida ou em andamento
-    if (feitos > 0 || emAndamento > 0) {
-      return "em_andamento";
-    }
-
-    return "nao_iniciada";
-  };
-
-  // Atualizar status da entrega automaticamente quando tarefas mudam
-  useEffect(() => {
-    if (!entregaSelecionada) return;
-
-    // Usar tarefasPorEntrega como fonte de verdade
-    const tarefasParaCalculo = tarefasPorEntrega[entregaSelecionada.id] || [];
-    // Sem tarefas, o status da entrega é manual — não recalcular/sobrescrever.
-    if (tarefasParaCalculo.length === 0) return;
-    const novoStatus = calcularStatusEntrega(tarefasParaCalculo);
-
-    if (entregaSelecionada.status !== novoStatus) {
-      setEntregaSelecionada((prev: any) =>
-        prev ? { ...prev, status: novoStatus } : prev,
-      );
-
-      // Atualizar no backend também
-      if (entregaSelecionada.projeto_id) {
-        cadastrosProjetosApi
-          .updateEntrega(entregaSelecionada.id, { status: novoStatus })
-          .catch(console.error);
-      }
-    }
-  }, [tarefasPorEntrega, entregaSelecionada?.id, entregaSelecionada?.status]);
+  // O status da entrega NÃO é mais derivado das tarefas nem editável: ele é consequência da
+  // evidência + data de conclusão anexadas. Marcar tarefas como feitas concluía a entrega sem
+  // nenhuma comprovação, que é justamente o que a nova regra impede.
 
   // ============================================================
   // HANDLERS - TAREFAS DE ENTREGA (dados de exemplo)
@@ -1732,7 +1675,7 @@ export function EscritorioProjetos() {
       await cadastrosProjetosApi.createEntrega(projetoDetalhes.id, {
         nome: novaEntregaNome.trim(),
         area_responsavel_id: novaEntregaAreaId,
-        status: "nao_iniciada",
+        status: "pendente",
         ordem: projetoDetalhes.entregas?.length || 0,
         prazo_estimado: novaEntregaPrazo || null,
       });
@@ -3002,52 +2945,6 @@ export function EscritorioProjetos() {
     return <span className={config.className}>{config.label}</span>;
   };
 
-  // Altera manualmente o status de uma entrega na tabela de Entregas do detalhe.
-  const handleAlterarStatusEntrega = async (
-    entregaId: number,
-    novoStatus: string,
-  ) => {
-    // "Concluída" exige informar a Data de Conclusão e anexar a evidência (PDF). Não muda o
-    // status direto: abre o diálogo; o backend altera para "Concluída" após o upload.
-    if (novoStatus === "concluida") {
-      const entrega = (projetoDetalhes?.entregas || []).find(
-        (e) => e.id === entregaId,
-      );
-      if (entrega) handleAbrirConcluirEntrega(entrega);
-      return;
-    }
-    try {
-      await cadastrosProjetosApi.updateEntrega(entregaId, {
-        status: novoStatus,
-      });
-      setProjetoDetalhes((prev) =>
-        prev
-          ? {
-              ...prev,
-              entregas: (prev.entregas || []).map((e) =>
-                e.id === entregaId ? { ...e, status: novoStatus } : e,
-              ),
-            }
-          : prev,
-      );
-      toast({
-        title: "Status atualizado",
-        description: `Entrega marcada como ${
-          novoStatus === "concluida"
-            ? "Concluída"
-            : novoStatus === "em_andamento"
-              ? "Em Andamento"
-              : "Não Iniciada"
-        }`,
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível alterar o status da entrega.",
-      });
-    }
-  };
-
   // ============================================================
   // RENDER - TELA DE DETALHES DO PROJETO
   // ============================================================
@@ -3057,31 +2954,12 @@ export function EscritorioProjetos() {
 
     const entregas = projetoDetalhes.entregas || [];
     const total = entregas.length;
-    const planejado = entregas.filter(
-      (e) => e.status === "nao_iniciada",
-    ).length;
-    const emExecucao = entregas.filter(
-      (e) => e.status === "em_andamento",
-    ).length;
+    const concluido = entregas.filter((e) => entregaConcluida(e.status)).length;
+    // Com dois status, tudo que não está concluído é pendente.
+    const planejado = total - concluido;
+    const emExecucao = 0;
     const suspenso = 0; // Adicionar campo quando disponível no backend
-    const concluido = entregas.filter((e) => e.status === "concluida").length;
     const progresso = total > 0 ? Math.round((concluido / total) * 100) : 0;
-
-    // Função para obter o texto do status sem dropdown
-    const getStatusTexto = (status: string) => {
-      const labels: Record<string, { text: string; className: string }> = {
-        nao_iniciada: { text: "Não Iniciada", className: "text-gray-600" },
-        em_andamento: {
-          text: "Em Andamento",
-          className: "text-orange-600 font-medium",
-        },
-        concluida: {
-          text: "Concluída",
-          className: "text-green-600 font-medium",
-        },
-      };
-      return labels[status] || labels["nao_iniciada"];
-    };
 
     // ── EAP (Estrutura Analítica de Projeto) — derivados dos 2 blocos clicáveis ──
     const tapVigenteProjeto = !!projetoDetalhes.tap_validado_patrocinador_em;
@@ -3605,7 +3483,6 @@ export function EscritorioProjetos() {
                           );
                         })
                         .map((entrega) => {
-                          const statusInfo = getStatusTexto(entrega.status);
                           return (
                             <tr
                               key={entrega.id}
@@ -3626,6 +3503,8 @@ export function EscritorioProjetos() {
                                 className="py-3 px-6"
                                 onClick={(e) => e.stopPropagation()}
                               >
+                                {/* Status não é editável: ele acompanha a evidência + a data de
+                                    conclusão anexadas na coluna ao lado. */}
                                 <div
                                   className="w-[160px]"
                                   style={{
@@ -3633,37 +3512,23 @@ export function EscritorioProjetos() {
                                     transform: "translateX(-50%)",
                                   }}
                                 >
-                                  <Select
-                                    value={entrega.status || "nao_iniciada"}
-                                    onValueChange={(v) =>
-                                      handleAlterarStatusEntrega(entrega.id, v)
+                                  <span
+                                    title={
+                                      entregaConcluida(entrega.status)
+                                        ? "Concluída pela evidência anexada"
+                                        : "Fica concluída ao anexar a evidência e a data"
                                     }
+                                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${entregaStatusClasse(
+                                      entrega.status,
+                                    )}`}
                                   >
-                                    <SelectTrigger className="h-8 w-[160px] bg-white text-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`w-2 h-2 rounded-full flex-shrink-0 ${entrega.status === "concluida"
-                                              ? "bg-green-500"
-                                              : entrega.status === "em_andamento"
-                                                ? "bg-orange-500"
-                                                : "bg-gray-400"
-                                            }`}
-                                        />
-                                        <SelectValue />
-                                      </div>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="nao_iniciada">
-                                        Não Iniciada
-                                      </SelectItem>
-                                      <SelectItem value="em_andamento">
-                                        Em Andamento
-                                      </SelectItem>
-                                      <SelectItem value="concluida">
-                                        Concluída
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                    <span
+                                      className={`h-2 w-2 flex-shrink-0 rounded-full ${entregaStatusPonto(
+                                        entrega.status,
+                                      )}`}
+                                    />
+                                    {entregaStatusLabel(entrega.status)}
+                                  </span>
                                 </div>
                               </td>
                               <td className="py-3 px-6 text-gray-900 text-sm text-center">
@@ -4253,21 +4118,18 @@ export function EscritorioProjetos() {
                 <div className="h-8 w-[160px] bg-gray-100 text-slate-700 font-medium rounded-md flex items-center px-3 gap-2 text-sm cursor-default border border-gray-200/50">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-2 h-2 rounded-full ${entregaSelecionada.status === "concluida" ||
+                      className={`w-2 h-2 rounded-full ${entregaStatusPonto(
+                        entregaConcluida(entregaSelecionada.status) ||
                           temEvidenciaPdf
-                          ? "bg-green-500"
-                          : entregaSelecionada.status === "em_andamento"
-                            ? "bg-orange-500"
-                            : "bg-gray-400"
-                        }`}
+                          ? "concluida"
+                          : "pendente",
+                      )}`}
                     />
                     <span>
-                      {entregaSelecionada.status === "concluida" ||
-                        temEvidenciaPdf
+                      {entregaConcluida(entregaSelecionada.status) ||
+                      temEvidenciaPdf
                         ? "Concluída"
-                        : entregaSelecionada.status === "em_andamento"
-                          ? "Em Andamento"
-                          : "Não Iniciada"}
+                        : "Pendente"}
                     </span>
                   </div>
                 </div>

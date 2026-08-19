@@ -4,8 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
   Target,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   X,
   Settings,
@@ -41,12 +39,6 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { getModulosPermitidosMenu, Diretoria } from "@/services/permissoesApi";
 import { areasApi, Area } from "@/services/areasApi";
 import { isDomainRoot, getUserDominio } from "@/utils/domain";
@@ -84,12 +76,8 @@ interface MenuItem {
 }
 
 // Menu completo com códigos de permissão
+// "Início" não entra aqui: ele já é o atalho fixo no topo do menu (com ícone e rótulo).
 const menuItemsCompleto: MenuItem[] = [
-  {
-    title: "Início",
-    icon: Home,
-    path: "/",
-  },
   {
     title: "Estratégia",
     icon: Target,
@@ -382,7 +370,7 @@ const menuItemsCompleto: MenuItem[] = [
 interface MenuItemComponentProps {
   item: MenuItem;
   onNavigate?: () => void;
-  isMinimized?: boolean;
+
   expandedMenus: string[];
   toggleMenu: (title: string) => void;
   permissoesSet: Set<string>;
@@ -392,7 +380,7 @@ interface MenuItemComponentProps {
 function MenuItemComponent({
   item,
   onNavigate,
-  isMinimized = false,
+
   expandedMenus,
   toggleMenu,
   permissoesSet,
@@ -475,24 +463,19 @@ function MenuItemComponent({
           className={cn(
             "w-full flex items-center gap-2 px-4 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors",
             isActive && "bg-white/10 text-white",
-            isMinimized && "justify-center",
           )}
         >
           {item.icon && <item.icon className="h-4 w-4 flex-shrink-0" />}
-          {!isMinimized && (
-            <>
-              <span className="flex-1 text-left">{item.title}</span>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform duration-200",
-                  isExpanded && "rotate-180",
-                )}
-              />
-            </>
-          )}
+          <span className="flex-1 text-left">{item.title}</span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 transition-transform duration-200",
+              isExpanded && "rotate-180",
+            )}
+          />
         </button>
 
-        {!isMinimized && isExpanded && (
+        {isExpanded && (
           <div className="bg-black/20">
             {filteredChildren?.map((child, idx) => {
               const hasSubChildren =
@@ -573,81 +556,6 @@ function MenuItemComponent({
       </div>
     );
 
-    if (isMinimized && item.icon) {
-      return (
-        <TooltipProvider>
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggleMenu(item.title)}
-                className={cn(
-                  "w-full flex items-center justify-center px-4 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors",
-                  isActive && "bg-white/10 text-white",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="p-0">
-              <div className="bg-[#002547] rounded-md shadow-lg border border-white/20 min-w-[180px]">
-                <div className="px-3 py-2 border-b border-white/10 font-medium text-white text-sm">
-                  {item.title}
-                </div>
-                {filteredChildren?.map((child, idx) => {
-                  const hasSubChildren =
-                    child.children && child.children.length > 0;
-                  const isSubActive = child.path
-                    ? location.pathname === child.path
-                    : false;
-                  return (
-                    <div key={idx}>
-                      <Link
-                        to={child.path || "#"}
-                        onClick={(e) => {
-                          if (hasSubChildren) e.preventDefault();
-                          else if (onNavigate) onNavigate();
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors",
-                          isSubActive && "bg-white/15 text-white",
-                        )}
-                      >
-                        {child.icon && <child.icon className="h-3.5 w-3.5" />}
-                        <span className={hasSubChildren ? "font-semibold" : ""}>
-                          {child.title}
-                        </span>
-                      </Link>
-                      {hasSubChildren && (
-                        <div className="pl-4 pb-1">
-                          {child.children?.map((subChild, subIdx) => {
-                            const isSubSubActive =
-                              location.pathname === subChild.path;
-                            return (
-                              <Link
-                                key={`sub-${idx}-${subIdx}`}
-                                to={subChild.path}
-                                // onClick={onNavigate}
-                                className={cn(
-                                  "flex items-center gap-2 px-3 py-1.5 text-xs text-white/70 hover:text-white transition-colors",
-                                  isSubSubActive && "text-white font-medium",
-                                )}
-                              >
-                                <span>{subChild.title}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-
     return menuContent;
   }
 
@@ -658,26 +566,12 @@ function MenuItemComponent({
       className={cn(
         "flex items-center gap-2 px-4 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors",
         isActive && "bg-white/20 text-white border-r-4 border-white",
-        isMinimized && "justify-center",
       )}
     >
       {item.icon && <item.icon className="h-4 w-4 flex-shrink-0" />}
-      {!isMinimized && <span>{item.title}</span>}
+      <span>{item.title}</span>
     </Link>
   );
-
-  if (isMinimized && item.icon) {
-    return (
-      <TooltipProvider>
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>{content}</TooltipTrigger>
-          <TooltipContent side="right">
-            <p>{item.title}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
 
   return content;
 }
@@ -724,11 +618,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       return item;
     });
   }, [modelo]);
-
-  const [isMinimized, setIsMinimized] = useState(() => {
-    const saved = localStorage.getItem("sidebar-minimized");
-    return saved === "true";
-  });
 
   const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
     const currentPath = location.pathname;
@@ -840,10 +729,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   );
 
   useEffect(() => {
-    localStorage.setItem("sidebar-minimized", String(isMinimized));
-  }, [isMinimized]);
-
-  useEffect(() => {
     const currentPath = location.pathname;
 
     menuItemsCompleto.forEach((item) => {
@@ -880,10 +765,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     });
   }, [location.pathname]);
 
-  const toggleMinimize = () => {
-    setIsMinimized(!isMinimized);
-  };
-
   const toggleMenu = (title: string) => {
     setExpandedMenus((prev) =>
       prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title],
@@ -904,7 +785,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           "fixed lg:relative left-0 z-50 h-screen lg:h-full overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out flex-shrink-0",
           "top-0",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          isMinimized ? "w-16" : "w-64",
+          "w-64",
         )}
         style={{
           backgroundColor: "#002547",
@@ -918,29 +799,22 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             borderBottomWidth: "1px",
           }}
         >
-          <div className="flex items-center justify-between p-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleMinimize}
-              className="hidden lg:flex text-white hover:bg-white/10"
-              title={isMinimized ? "Expandir menu" : "Minimizar menu"}
+          <div className="relative flex items-center justify-center p-3">
+            <Link
+              to="/"
+              onClick={onClose}
+              aria-label="Ir para o Início"
+              className="flex items-center justify-center gap-2 rounded-md px-3 py-2 text-white transition-colors hover:bg-white/10"
             >
-              {isMinimized ? (
-                <ChevronRight className="h-5 w-5" />
-              ) : (
-                <>
-                  <ChevronLeft className="h-5 w-5 mr-2" />
-                  <span className="text-xs">Minimizar</span>
-                </>
-              )}
-            </Button>
+              <Home className="h-5 w-5" />
+              <span className="text-sm font-medium">Início</span>
+            </Link>
 
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="lg:hidden ml-auto text-white hover:bg-white/10"
+              className="absolute right-3 lg:hidden text-white hover:bg-white/10"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -954,7 +828,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 key={index}
                 item={item}
                 onNavigate={onClose}
-                isMinimized={isMinimized}
                 expandedMenus={expandedMenus}
                 toggleMenu={toggleMenu}
                 permissoesSet={permissoesSet}

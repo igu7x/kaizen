@@ -570,7 +570,7 @@ export function ProjetoFormDialog({
     const novaEntregaObj: CreateEntregaDto = {
       ...novaEntrega,
       prazo_estimado: novaEntrega.prazo_estimado || null,
-      status: "nao_iniciada",
+      status: "pendente",
       ordem: tempEntregas.length,
       areas_responsaveis: [],
     };
@@ -701,7 +701,7 @@ export function ProjetoFormDialog({
           nome: novaEntrega.nome.trim(),
           area_responsavel_id: novaEntrega.area_responsavel_id,
           prazo_estimado: novaEntrega.prazo_estimado || null,
-          status: "nao_iniciada",
+          status: "pendente",
           ordem: entregasParaSalvar.length,
           areas_responsaveis: [],
         });
@@ -786,7 +786,7 @@ export function ProjetoFormDialog({
               projeto_id: 0,
               nome: e.nome,
               descricao: null,
-              status: "nao_iniciada" as const,
+              status: "pendente" as const,
               quantidade_sprints: 0,
               ordem: i,
               area_responsavel_id: e.area_responsavel_id,
