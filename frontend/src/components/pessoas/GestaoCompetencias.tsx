@@ -1670,8 +1670,12 @@ export function GestaoCompetencias({
       });
     }
 
-    // Avaliação do Gestor — só quando há autoavaliações validadas ou já preenchidas
-    if (temAvgestorEquipe && (isGestorDeUnidade || isSGJTAdmin)) {
+    // Avaliação do Gestor — o gestor da unidade sempre preenche. NÃO exigir
+    // `temAvgestorEquipe` aqui: essa flag diz que JÁ existe avaliação da equipe, então
+    // usá-la como porta deixava o card invisível justamente enquanto não havia nenhuma —
+    // o gestor nunca conseguia criar a primeira. Mesma correção já aplicada no inventário
+    // do gestor. SGJT admin só acompanha, e só se houver dados.
+    if (isGestorDeUnidade || (isSGJTAdmin && temAvgestorEquipe)) {
       itensInvEquipe.push({
         key: "avgestor_equipe",
         titulo: "Avaliação do Gestor",

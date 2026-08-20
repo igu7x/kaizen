@@ -562,13 +562,24 @@ public class CompetenciasGestorService {
                             "FROM cadastros_unidades cu " +
                             "LEFT JOIN users u ON u.cadastros_unidades_id = cu.id AND u.id = ? AND u.is_deleted = FALSE " +
                             "WHERE (cu.ativo IS NOT FALSE) " +
-                            "  AND (u.id IS NOT NULL OR cu.responsavel_user_id = ?) " +
+                            // O vínculo do colaborador com a unidade é mantido em
+                            // cadastros_pessoas — é o que a tela de cadastro da unidade edita e
+                            // o que `eh-colaborador-equipe` consulta. users.cadastros_unidades_id
+                            // é um espelho que nem sempre acompanha, então sozinho ele deixava o
+                            // colaborador sem nenhuma unidade pra escolher na autoavaliação.
+                            "  AND (u.id IS NOT NULL " +
+                            "       OR cu.responsavel_user_id = ? " +
+                            "       OR EXISTS ( " +
+                            "         SELECT 1 FROM cadastros_pessoas cp " +
+                            "         WHERE cp.unidade_id = cu.id AND cp.user_id = ? " +
+                            "           AND COALESCE(cp.ativo, TRUE) = TRUE " +
+                            "       )) " +
                             "  AND EXISTS ( " +
                             "    SELECT 1 FROM competencias_gestor_formularios cgf " +
                             "    WHERE cgf.unidade_id = cu.id AND cgf.is_deleted = FALSE " +
                             "  ) " +
                             "ORDER BY cu.nome",
-                    userId, userId);
+                    userId, userId, userId);
         } catch (Exception ex) {
             return jdbc.queryForList(
                     "SELECT DISTINCT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
