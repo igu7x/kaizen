@@ -1653,7 +1653,7 @@ export function GestaoCompetencias({
         key: "resultado_final_equipe_meu",
         titulo: "Meu Resultado Final",
         descricao:
-          "Sua nota final: 70% da avaliação do gestor + 30% da sua autoavaliação.",
+          "Sua nota final, calculada a partir da avaliação do gestor e da sua autoavaliação.",
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
         badge: `${integradaEquipePend.length} resultado${integradaEquipePend.length > 1 ? "s" : ""} disponível${integradaEquipePend.length > 1 ? "eis" : ""}`,
@@ -1710,7 +1710,7 @@ export function GestaoCompetencias({
         key: "resultado_final_equipe",
         titulo: "Resultado Final",
         descricao:
-          "Calculado: 70% da avaliação do gestor + 30% da autoavaliação do colaborador.",
+          "Calculado a partir da avaliação do gestor e da autoavaliação do colaborador.",
         icon: <Scale className="h-5 w-5" />,
         cor: "violet",
         relacao: (
@@ -1802,7 +1802,7 @@ export function GestaoCompetencias({
         key: "resultado_final_gestor_meu",
         titulo: "Meu Resultado Final",
         descricao:
-          "Sua nota final: 70% da avaliação da liderança + 30% da sua autoavaliação.",
+          "Sua nota final, calculada a partir da avaliação da liderança e da sua autoavaliação.",
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
         badge: `${integradaGestorPend.length} resultado${integradaGestorPend.length > 1 ? "s" : ""} disponível${integradaGestorPend.length > 1 ? "eis" : ""}`,
@@ -1862,7 +1862,7 @@ export function GestaoCompetencias({
         key: "resultado_final_gestor",
         titulo: "Resultado Final",
         descricao:
-          "Calculado: 70% da avaliação da liderança + 30% da autoavaliação do gestor.",
+          "Calculado a partir da avaliação da liderança e da autoavaliação do gestor.",
         icon: <Scale className="h-5 w-5" />,
         cor: "violet",
         relacao: (

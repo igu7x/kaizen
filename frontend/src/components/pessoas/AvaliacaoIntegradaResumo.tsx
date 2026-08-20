@@ -80,12 +80,12 @@ function RespostaCard({
   // terceiro e 30 pra autoavaliação.
   const rotuloAuto =
     tipoInventario === "gestor"
-      ? "Autoavaliação do gestor (30%)"
-      : "Autoavaliação do colaborador (30%)";
+      ? "Autoavaliação do gestor"
+      : "Autoavaliação do colaborador";
   const rotuloAvaliador =
     tipoInventario === "gestor"
-      ? "Avaliação da liderança (70%)"
-      : "Avaliação do gestor (70%)";
+      ? "Avaliação da liderança"
+      : "Avaliação do gestor";
   const labelsMap: Record<string, Record<number, string>> = {
     tecnica: NOTA_TECNICA_LABELS,
     comportamental: NOTA_COMPORTAMENTAL_LABELS,

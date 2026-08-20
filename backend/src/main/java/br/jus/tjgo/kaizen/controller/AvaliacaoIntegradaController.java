@@ -133,8 +133,8 @@ public class AvaliacaoIntegradaController {
     // as duas avaliacoes de origem sao validadas. As rotas de escrita ficam recusando, pra
     // nenhum cliente antigo conseguir gravar nota a mao.
     private static final String SOMENTE_CALCULADO =
-            "O Resultado Final e calculado automaticamente a partir da autoavaliacao (30%) e da "
-                    + "avaliacao do gestor/lideranca (70%). Nao ha preenchimento nem validacao manual.";
+            "O Resultado Final e calculado automaticamente a partir da autoavaliacao e da "
+                    + "avaliacao do gestor/lideranca. Nao ha preenchimento nem validacao manual.";
 
     // POST /api/avaliacao-integrada
     @PostMapping
