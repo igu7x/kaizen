@@ -1,18 +1,15 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
   BookOpen,
   Users,
   UserCog,
-  Eye,
   ClipboardCheck,
   UserCheck,
   Scale,
   GitCompare,
   ShieldAlert,
-  ChevronDown,
   ChevronRight,
   Plus,
   RefreshCw,
@@ -51,150 +48,181 @@ import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
-import { Settings, Wrench } from "lucide-react";
+import { Wrench } from "lucide-react";
 
-/** Corpo colapsável animado (grid-rows 0fr→1fr para transição de altura suave). */
-function Collapsible({ open, children }: { open: boolean; children: ReactNode }) {
-  return (
-    <div
-      className={`grid transition-all duration-300 ease-out ${
-        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-      }`}
-    >
-      <div className="overflow-hidden">{children}</div>
-    </div>
-  );
-}
-
-/** Seção principal do hub (módulo que se desdobra). */
-function HubSection({
-  open,
-  onToggle,
-  icon,
-  iconBg,
-  title,
-  children,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  icon: ReactNode;
-  iconBg: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-4 p-5 text-left hover:bg-gray-50 transition-colors"
-      >
-        <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}
-        >
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-gray-900 text-lg">{title}</h3>
-        </div>
-        <ChevronDown
-          className={`h-5 w-5 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
-            open ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-      <Collapsible open={open}>
-        <div className="px-5 pb-5">{children}</div>
-      </Collapsible>
-    </div>
-  );
-}
-
-/** Sub-seção do hub (nível aninhado dentro de uma seção). */
-function HubSubSection({
-  open,
-  onToggle,
-  icon,
-  iconBg,
-  title,
-  children,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  icon: ReactNode;
-  iconBg: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50/60 overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-100/70 transition-colors"
-      >
-        <div
-          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg}`}
-        >
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-gray-800">{title}</h4>
-        </div>
-        <ChevronDown
-          className={`h-4 w-4 text-gray-400 transition-transform duration-300 flex-shrink-0 ${
-            open ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-      <Collapsible open={open}>
-        <div className="p-4 pt-0">{children}</div>
-      </Collapsible>
-    </div>
-  );
-}
-
-// Paleta dos cards. Azul é o padrão; as demais cores ficam só nos 3 cards do
-// Inventário de Competências do Gestor.
-const CARD_CORES = {
-  blue: "bg-blue-100 text-blue-600",
-  teal: "bg-teal-100 text-teal-600",
-  amber: "bg-amber-100 text-amber-600",
-  violet: "bg-violet-100 text-violet-600",
+// Paleta dos módulos e itens do hub. Cada ação mantém a cor que já tinha nas telas antigas.
+const HUB_CORES = {
+  blue: {
+    icone: "bg-blue-100 text-blue-600",
+    anel: "ring-blue-400",
+    texto: "text-blue-700",
+  },
+  emerald: {
+    icone: "bg-emerald-100 text-emerald-600",
+    anel: "ring-emerald-400",
+    texto: "text-emerald-700",
+  },
+  amber: {
+    icone: "bg-amber-100 text-amber-600",
+    anel: "ring-amber-400",
+    texto: "text-amber-700",
+  },
+  violet: {
+    icone: "bg-violet-100 text-violet-600",
+    anel: "ring-violet-400",
+    texto: "text-violet-700",
+  },
+  teal: {
+    icone: "bg-teal-100 text-teal-600",
+    anel: "ring-teal-400",
+    texto: "text-teal-700",
+  },
 } as const;
 
-/** Card padronizado do hub: mesmo layout, tamanho, espaçamento e fontes em todos. */
-function HubCard({
+type CorHub = keyof typeof HUB_CORES;
+
+/**
+ * Item de um módulo do hub. Vira um card-filtro: clicar seleciona e a `relacao`
+ * aparece no painel abaixo, sem trocar de tela. Itens com `aoAbrir` fogem disso e
+ * abrem uma tela dedicada (catálogos e formulários longos).
+ */
+type ItemHub = {
+  key: string;
+  titulo: string;
+  descricao: string;
+  icon: ReactNode;
+  cor: CorHub;
+  /** Selo curto no card (ex.: "3 aguardando sua validação"). */
+  badge?: string;
+  /** Botões do painel (preencher/revisar) — abrem o formulário em tela cheia. */
+  acoes?: ReactNode;
+  /** Tabela exibida no painel abaixo dos cards. */
+  relacao?: ReactNode;
+  /** Quando definido, clicar no card abre uma tela dedicada em vez de selecionar. */
+  aoAbrir?: () => void;
+};
+
+type ModuloHub = {
+  key: string;
+  titulo: string;
+  descricao: string;
+  icon: ReactNode;
+  cor: CorHub;
+  itens: ItemHub[];
+};
+
+/** Caixa de módulo (topo do hub). Fica sempre visível; a selecionada ganha anel. */
+function ModuloBox({
   icon,
-  cor = "blue",
-  title,
-  description,
+  cor,
+  titulo,
+  descricao,
+  resumo,
+  ativo,
   onClick,
 }: {
   icon: ReactNode;
-  cor?: keyof typeof CARD_CORES;
-  title: string;
-  description: string;
+  cor: CorHub;
+  titulo: string;
+  descricao: string;
+  resumo: string;
+  ativo: boolean;
   onClick: () => void;
 }) {
+  const c = HUB_CORES[cor];
   return (
     <button
       type="button"
       onClick={onClick}
-      className="h-full w-full text-left rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group flex items-start gap-4"
+      aria-pressed={ativo}
+      className={`flex h-full w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition-shadow hover:shadow-md ${
+        ativo ? `ring-2 ring-offset-1 ${c.anel}` : ""
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${c.icone}`}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold text-gray-900">{titulo}</h3>
+          <p className="mt-0.5 text-xs leading-snug text-gray-500">
+            {descricao}
+          </p>
+        </div>
+      </div>
+      <p className={`mt-3 text-sm font-semibold ${c.texto}`}>{resumo}</p>
+    </button>
+  );
+}
+
+/** Card de item: funciona como filtro do que aparece no painel abaixo. */
+function ItemCard({
+  item,
+  ativo,
+  onClick,
+}: {
+  item: ItemHub;
+  ativo: boolean;
+  onClick: () => void;
+}) {
+  const c = HUB_CORES[item.cor];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativo}
+      className={`flex h-full w-full items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-gray-300 hover:shadow-sm ${
+        ativo ? `ring-2 ring-offset-1 ${c.anel}` : ""
+      }`}
     >
       <div
-        className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${CARD_CORES[cor]}`}
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${c.icone}`}
       >
-        {icon}
+        {item.icon}
       </div>
       <div className="min-w-0">
-        <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-          {title}
-        </h3>
-        <p className="text-sm text-gray-500 mt-1 leading-snug">{description}</p>
+        <h4 className="text-sm font-semibold text-gray-800">{item.titulo}</h4>
+        <p className="mt-0.5 text-xs leading-snug text-gray-500">
+          {item.descricao}
+        </p>
+        {item.badge && (
+          <span
+            className={`mt-2 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold ${c.texto}`}
+          >
+            {item.badge}
+          </span>
+        )}
+        {item.aoAbrir && (
+          <span className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+            <ChevronRight className="h-3.5 w-3.5" />
+            Abre em tela própria
+          </span>
+        )}
       </div>
     </button>
+  );
+}
+
+/** Painel abaixo dos cards: título, ações do item e a relação (tabela). */
+function PainelItem({
+  titulo,
+  acoes,
+  children,
+}: {
+  titulo: string;
+  acoes?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h3 className="text-lg font-bold text-gray-900">{titulo}</h3>
+        {acoes && <div className="ml-auto flex items-center gap-2">{acoes}</div>}
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -278,19 +306,12 @@ export function GestaoCompetencias() {
   const [temReferencialGerenciavel, setTemReferencialGerenciavel] =
     useState(false);
 
-  // Estado do acordeão do hub. Persiste enquanto o componente estiver montado,
-  // então voltar de um formulário mantém a seção aberta. Tudo aberto por padrão:
-  // é uma página única onde os módulos já vêm desdobrados.
-  const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(["matriz", "inventario", "inv_equipe", "inv_gestor"]),
-  );
-  const toggleSection = (key: string) =>
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  // Seleção do hub: qual módulo está aberto e, dentro dele, qual item alimenta o
+  // painel de baixo. Persiste enquanto o componente estiver montado, então voltar de
+  // um formulário em tela cheia devolve o usuário exatamente onde ele estava.
+  // `null` = ainda não escolheu; o render cai no primeiro módulo/item disponível.
+  const [moduloAtivo, setModuloAtivo] = useState<string | null>(null);
+  const [itemAtivo, setItemAtivo] = useState<Record<string, string>>({});
 
   // Verificar se há elegíveis para avaliação integrada (1 chamada ao backend)
   const checkElegiveis = async () => {
@@ -1360,45 +1381,6 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Matriz de Competências (cards padronizados, azul; clique vai para a tabela de Respostas) ──
-  const matrizCards = (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-      <HubCard
-        icon={<Users className="h-6 w-6" />}
-        title="Competências da Equipe"
-        description="Mapeamento de competências dos colaboradores"
-        onClick={() => setCurrentView("equipe_respostas")}
-      />
-
-      {(isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) && (
-        <HubCard
-          icon={<UserCog className="h-6 w-6" />}
-          title="Competências do Gestor"
-          description="Mapeamento de competências dos gestores"
-          onClick={() => setCurrentView("gestor_respostas")}
-        />
-      )}
-
-      {(isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) && (
-        <HubCard
-          icon={<BookOpen className="h-6 w-6" />}
-          title="Competências Padrão"
-          description="Catálogo de competências padrão"
-          onClick={() => setCurrentView("competencias_padrao_view")}
-        />
-      )}
-
-      {/* Gerenciar Competências Técnicas — só superadmin, com referenciais preenchidos */}
-      {isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled() && (
-        <HubCard
-          icon={<Wrench className="h-6 w-6" />}
-          title="Gerenciar Competências Técnicas"
-          description="Editar competências técnicas das suas unidades"
-          onClick={() => setCurrentView("competencias_tecnicas_admin")}
-        />
-      )}
-    </div>
-  );
 
   // ── Visualizar Competências Padrão (read-only) ─────────────────
   if (currentView === "competencias_padrao_view") {
@@ -1412,661 +1394,7 @@ export function GestaoCompetencias() {
   }
 
   // ── Inventário de Competências — HOME (2 cards) ─────────────────
-  // ── Inventário → Matriz de Competências da Equipe (cards) ──────────────
-  const invEquipeCards = (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Autoavaliação do Colaborador — apenas viewers (e admins/managers colaboradores de unidade que NÃO sejam gestor de unidade nem avaliador da liderança); SGJT admins têm card próprio */}
-          {(!isAdminOrManager || (temUnidadeColaborador && !isSGJTAdmin)) &&
-            !isGestorDeUnidade &&
-            !isAvaliadorLideranca && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("autoavaliacao")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
-                      <ClipboardCheck className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-                        Autoavaliação do Colaborador
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Registre sua autoavaliação das competências para a sua
-                        função.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          {isSGJTAdmin && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("autoavaliacao_respostas")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
-                    <ClipboardCheck className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-                      Autoavaliação do Colaborador
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Registre sua autoavaliação das competências para a sua
-                      função.
-                    </p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </span>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* Avaliação Integrada — colaborador visualiza/valida quando o gestor já validou (apenas tipo equipe) */}
-          {(() => {
-            const integradaPendentesEquipe = integradaPendentes.filter(
-              (p) => (p.tipo_inventario || "equipe") === "equipe",
-            );
-            return integradaPendentesEquipe.length > 0 && !isGestorDeUnidade;
-          })() &&
-            (() => {
-              const integradaPendentesEquipe = integradaPendentes.filter(
-                (p) => (p.tipo_inventario || "equipe") === "equipe",
-              );
-              const pendentes = integradaPendentesEquipe.filter(
-                (p) => !p.validado_colaborador_em,
-              );
-              const todasValidadas = pendentes.length === 0;
-              return (
-                <Card
-                  className={`shadow-sm hover:shadow-md transition-all group cursor-pointer ${
-                    todasValidadas
-                      ? "bg-emerald-50 border border-emerald-300 hover:border-emerald-500"
-                      : "bg-violet-50 border border-violet-300 hover:border-violet-500"
-                  }`}
-                  onClick={async () => {
-                    const target = pendentes[0] || integradaPendentesEquipe[0];
-                    try {
-                      const fullForm = await avaliacaoIntegradaApi.getById(
-                        target.id,
-                      );
-                      setIntegradaResumo(fullForm);
-                      setCurrentView("integrada_resumo");
-                    } catch {
-                      setIntegradaResumo(target);
-                      setCurrentView("integrada_resumo");
-                    }
-                  }}
-                >
-                  <CardContent className="p-6 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                          todasValidadas
-                            ? "bg-emerald-100 group-hover:bg-emerald-200"
-                            : "bg-violet-100 group-hover:bg-violet-200"
-                        }`}
-                      >
-                        <Scale
-                          className={`h-5 w-5 ${todasValidadas ? "text-emerald-700" : "text-violet-700"}`}
-                        />
-                      </div>
-                      <div>
-                        <h3
-                          className={`font-bold text-lg transition-colors ${
-                            todasValidadas
-                              ? "text-gray-800 group-hover:text-emerald-700"
-                              : "text-gray-800 group-hover:text-violet-700"
-                          }`}
-                        >
-                          Avaliação Integrada
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-0.5">
-                          {todasValidadas
-                            ? `Validada — ${integradaPendentesEquipe.length} avaliação${integradaPendentesEquipe.length > 1 ? "ões" : ""} concluída${integradaPendentesEquipe.length > 1 ? "s" : ""}.`
-                            : `Você tem ${pendentes.length} avaliação${pendentes.length > 1 ? "ões" : ""} aguardando sua validação.`}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })()}
-
-          {/* Avaliação do Gestor — só aparece quando há autoavaliações validadas ou já preenchidas */}
-          {isGestorDeUnidade && temAvgestorEquipe && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("avgestor")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-                      Avaliação do Gestor
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Registre as avaliações de competências dos colaboradores
-                      sob sua gestão.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentView("avgestor_respostas");
-                  }}
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
-                >
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </button>
-              </CardContent>
-            </Card>
-          )}
-          {isSGJTAdmin && !isGestorDeUnidade && temAvgestorEquipe && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("avgestor_respostas")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-                      Avaliação do Gestor
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Registre as avaliações de competências dos colaboradores
-                      sob sua gestão.
-                    </p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </span>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Avaliação Integrada — visualizar respostas quando já preenchida (sem novos elegíveis) */}
-          {isGestorDeUnidade &&
-            temElegiveisEquipe &&
-            !temNovosElegiveisEquipe && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("integrada_respostas")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-                        Avaliação Integrada
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Avaliação de Consenso.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </span>
-                </CardContent>
-              </Card>
-            )}
-
-          {/* Avaliação Integrada — preencher quando há novos elegíveis */}
-          {isGestorDeUnidade &&
-            temElegiveisEquipe &&
-            temNovosElegiveisEquipe && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("integrada")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-                        Avaliação Integrada
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Avaliação de Consenso.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentView("integrada_respostas");
-                    }}
-                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </button>
-                </CardContent>
-              </Card>
-            )}
-          {isSGJTAdmin && !isGestorDeUnidade && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("integrada_respostas")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                    <Scale className="h-5 w-5 text-violet-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-blue-600 transition-colors">
-                      Avaliação Integrada
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Avaliação de Consenso.
-                    </p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-blue-200">
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </span>
-              </CardContent>
-            </Card>
-          )}
-    </div>
-  );
-
-  // ── Inventário → Matriz de Competências do Gestor (cards) ──────────────
-  const invGestorCards = (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Autoavaliação do Gestor — gestor de unidade SEMPRE preenche (mesmo se também for avaliador da liderança); admin/manager preenche se não for avaliador da liderança; SGJT admins só visualizam */}
-          {((isAdminOrManager && !isAvaliadorLideranca) || isGestorDeUnidade) &&
-            !isSGJTAdmin && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("inv_gestor_auto")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
-                      <ClipboardCheck className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                        Autoavaliação do Gestor
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Registre sua autoavaliação das competências de gestão.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          {isSGJTAdmin && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inv_gestor_auto_respostas")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
-                    <ClipboardCheck className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                      Autoavaliação do Gestor
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Registre sua autoavaliação das competências de gestão.
-                    </p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </span>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Avaliação Integrada (Gestor) — quando o gestor da unidade já validou e o gestor avaliado precisa validar */}
-          {(() => {
-            const integradaPendentesGestor = integradaPendentes.filter(
-              (p) => (p.tipo_inventario || "equipe") === "gestor",
-            );
-            return integradaPendentesGestor.length > 0;
-          })() &&
-            (() => {
-              const integradaPendentesGestor = integradaPendentes.filter(
-                (p) => (p.tipo_inventario || "equipe") === "gestor",
-              );
-              const pendentes = integradaPendentesGestor.filter(
-                (p) => !p.validado_colaborador_em,
-              );
-              const todasValidadas = pendentes.length === 0;
-              return (
-                <Card
-                  className={`shadow-sm hover:shadow-md transition-all group cursor-pointer ${
-                    todasValidadas
-                      ? "bg-emerald-50 border border-emerald-300 hover:border-emerald-500"
-                      : "bg-violet-50 border border-violet-300 hover:border-violet-500"
-                  }`}
-                  onClick={async () => {
-                    const target = pendentes[0] || integradaPendentesGestor[0];
-                    try {
-                      const fullForm = await avaliacaoIntegradaApi.getById(
-                        target.id,
-                      );
-                      setIntegradaResumo(fullForm);
-                      setCurrentView("inv_gestor_integrada_resumo");
-                    } catch {
-                      setIntegradaResumo(target);
-                      setCurrentView("inv_gestor_integrada_resumo");
-                    }
-                  }}
-                >
-                  <CardContent className="p-6 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                          todasValidadas
-                            ? "bg-emerald-100 group-hover:bg-emerald-200"
-                            : "bg-violet-100 group-hover:bg-violet-200"
-                        }`}
-                      >
-                        <Scale
-                          className={`h-5 w-5 ${todasValidadas ? "text-emerald-700" : "text-violet-700"}`}
-                        />
-                      </div>
-                      <div>
-                        <h3
-                          className={`font-bold text-lg transition-colors ${
-                            todasValidadas
-                              ? "text-gray-800 group-hover:text-emerald-700"
-                              : "text-gray-800 group-hover:text-violet-700"
-                          }`}
-                        >
-                          Avaliação Integrada
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-0.5">
-                          {todasValidadas
-                            ? `Validada — ${integradaPendentesGestor.length} avaliação${integradaPendentesGestor.length > 1 ? "ões" : ""} concluída${integradaPendentesGestor.length > 1 ? "s" : ""}.`
-                            : `Você tem ${pendentes.length} avaliação${pendentes.length > 1 ? "ões" : ""} aguardando sua validação.`}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })()}
-
-          {/* Avaliação da Liderança — gestores/subdiretores de macroárea preenchem.
-              Sem exigir temAvgestorGestor: o avaliador pode avaliar o gestor da unidade ANTES
-              da autoavaliação existir (o form lista o gestor da unidade). */}
-          {isAvaliadorLideranca && !isSGJTAdmin && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inv_gestor_lideranca")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <ShieldAlert className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                      Avaliação da Liderança
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Registre as avaliações de competências dos líderes sob sua
-                      gestão.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentView("inv_gestor_lideranca_respostas");
-                  }}
-                  className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
-                >
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </button>
-              </CardContent>
-            </Card>
-          )}
-          {isAvaliadorLideranca && isSGJTAdmin && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inv_gestor_lideranca")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <ShieldAlert className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                      Avaliação da Liderança
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Registre as avaliações de competências dos líderes sob sua
-                      gestão.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentView("inv_gestor_lideranca_respostas");
-                  }}
-                  className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
-                >
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </button>
-              </CardContent>
-            </Card>
-          )}
-          {isSGJTAdmin && !isAvaliadorLideranca && temAvgestorGestor && (
-            <Card
-              className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => setCurrentView("inv_gestor_lideranca_respostas")}
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                    <ShieldAlert className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                      Avaliação da Liderança
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Registre as avaliações de competências dos líderes sob sua
-                      gestão.
-                    </p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
-                  <Eye className="h-4 w-4" />
-                  Visualizar respostas
-                </span>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Avaliação Integrada — superusuários preenchem, gestores validam, SGJT admins só visualizam */}
-          {/* Esconde quando há pendentes tipo gestor (já há o card novo) */}
-          {(() => {
-            const temIntegradaGestorPendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "gestor",
-            );
-            return !temIntegradaGestorPendente && temElegiveisGestor;
-          })() &&
-            isAdminOrManager &&
-            !isSGJTAdmin &&
-            !isAvaliadorLideranca && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("inv_gestor_integrada_respostas")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                        Avaliação Integrada
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Avaliação de Consenso — visualize e valide.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
-                    <Eye className="h-4 w-4" />
-                    Visualizar e validar
-                  </span>
-                </CardContent>
-              </Card>
-            )}
-          {(() => {
-            const temIntegradaGestorPendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "gestor",
-            );
-            return !temIntegradaGestorPendente && temElegiveisGestor;
-          })() &&
-            isAvaliadorLideranca &&
-            !isSGJTAdmin && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("inv_gestor_integrada")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                        Avaliação Integrada
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Avaliação de Consenso.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentView("inv_gestor_integrada_respostas");
-                    }}
-                    className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </button>
-                </CardContent>
-              </Card>
-            )}
-          {(() => {
-            const temIntegradaGestorPendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "gestor",
-            );
-            return !temIntegradaGestorPendente && temElegiveisGestor;
-          })() &&
-            isAvaliadorLideranca &&
-            isSGJTAdmin && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("inv_gestor_integrada")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                        Avaliação Integrada
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Avaliação de Consenso.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentView("inv_gestor_integrada_respostas");
-                    }}
-                    className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </button>
-                </CardContent>
-              </Card>
-            )}
-          {(() => {
-            const temIntegradaGestorPendente = integradaPendentes.some(
-              (p) => (p.tipo_inventario || "equipe") === "gestor",
-            );
-            return !temIntegradaGestorPendente && temElegiveisGestor;
-          })() &&
-            isSGJTAdmin &&
-            !isAvaliadorLideranca && (
-              <Card
-                className="bg-gray-50 border border-gray-300 shadow-sm hover:border-teal-400 hover:shadow-md transition-all group cursor-pointer"
-                onClick={() => setCurrentView("inv_gestor_integrada_respostas")}
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
-                      <Scale className="h-5 w-5 text-violet-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-base group-hover:text-teal-600 transition-colors">
-                        Avaliação Integrada
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Avaliação de Consenso.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-all ml-10 border border-transparent hover:border-teal-200">
-                    <Eye className="h-4 w-4" />
-                    Visualizar respostas
-                  </span>
-                </CardContent>
-              </Card>
-            )}
-    </div>
-  );
 
   // ── Competências Padrão (tela unificada) ─────────────────────
   if (currentView === "competencias_padrao_admin") {
@@ -2121,6 +1449,458 @@ export function GestaoCompetencias() {
     isGestorDeUnidade ||
     temIntegradaGestorPendente;
 
+  // ── Itens de cada módulo ───────────────────────────────────────────────
+  // As condições abaixo são EXATAMENTE as mesmas dos cards antigos: cada item só
+  // entra na lista se o gate do perfil permitir. Quem preenche ganha o botão de
+  // ação; quem só acompanha recebe apenas a relação.
+
+  // Matriz de Competências
+  const itensMatriz: ItemHub[] = [];
+  if (showMatriz) {
+    itensMatriz.push({
+      key: "matriz_equipe",
+      titulo: "Competências da Equipe",
+      descricao: "Mapeamento de competências dos colaboradores",
+      icon: <Users className="h-5 w-5" />,
+      cor: "blue",
+      acoes: (
+        <>
+          <Button
+            variant="outline"
+            onClick={() => setCurrentView("equipe")}
+            className="border-blue-200 text-blue-700 hover:bg-blue-50"
+          >
+            <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+          </Button>
+          <Button
+            onClick={() => setCurrentView("equipe")}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+          </Button>
+        </>
+      ),
+      relacao: (
+        <CompetenciasGestorRespostas
+          tipo="equipe"
+          diretoria={diretoriaUsuario}
+          isDomainRoot={isDomainRoot}
+          onViewFormulario={(f) => {
+            setFormularioResumo(f);
+            setCurrentView("equipe_resumo");
+          }}
+          onEditFormulario={(f) => {
+            setFormularioEdit(f);
+            setValidarCamadaEdit(null);
+            setCurrentView("equipe_edit");
+          }}
+        />
+      ),
+    });
+
+    if (isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) {
+      itensMatriz.push({
+        key: "matriz_gestor",
+        titulo: "Competências do Gestor",
+        descricao: "Mapeamento de competências dos gestores",
+        icon: <UserCog className="h-5 w-5" />,
+        cor: "blue",
+        acoes: (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setCurrentView("gestor")}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
+            </Button>
+            <Button
+              onClick={() => setCurrentView("gestor")}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Nova Matriz
+            </Button>
+          </>
+        ),
+        relacao: (
+          <CompetenciasGestorRespostas
+            tipo="gestor"
+            diretoria={diretoriaUsuario}
+            isDomainRoot={isDomainRoot}
+            onViewFormulario={(f) => {
+              setFormularioResumo(f);
+              setCurrentView("gestor_resumo");
+            }}
+            onEditFormulario={(f) => {
+              setFormularioEdit(f);
+              setValidarCamadaEdit(null);
+              setCurrentView("gestor_edit");
+            }}
+          />
+        ),
+      });
+    }
+
+    if (isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) {
+      itensMatriz.push({
+        key: "matriz_padrao",
+        titulo: "Competências Padrão",
+        descricao: "Catálogo de competências padrão",
+        icon: <BookOpen className="h-5 w-5" />,
+        cor: "blue",
+        aoAbrir: () => setCurrentView("competencias_padrao_view"),
+      });
+    }
+
+    // Gerenciar Competências Técnicas — só superadmin, com referenciais preenchidos
+    if (isSGJT && temReferencialGerenciavel && isCompetenciasPadraoEnabled()) {
+      itensMatriz.push({
+        key: "matriz_tecnicas",
+        titulo: "Gerenciar Competências Técnicas",
+        descricao: "Editar competências técnicas das suas unidades",
+        icon: <Wrench className="h-5 w-5" />,
+        cor: "blue",
+        aoAbrir: () => setCurrentView("competencias_tecnicas_admin"),
+      });
+    }
+  }
+
+  // Inventário de Competências da Equipe
+  const itensInvEquipe: ItemHub[] = [];
+  if (showInvEquipe) {
+    // Autoavaliação do Colaborador — apenas viewers (e admins/managers colaboradores de
+    // unidade que NÃO sejam gestor de unidade nem avaliador da liderança); SGJT admins
+    // só acompanham a relação.
+    const autoEquipePreenche =
+      (!isAdminOrManager || (temUnidadeColaborador && !isSGJTAdmin)) &&
+      !isGestorDeUnidade &&
+      !isAvaliadorLideranca;
+    if (autoEquipePreenche || isSGJTAdmin) {
+      itensInvEquipe.push({
+        key: "auto_equipe",
+        titulo: "Autoavaliação do Colaborador",
+        descricao:
+          "Registre sua autoavaliação das competências para a sua função.",
+        icon: <ClipboardCheck className="h-5 w-5" />,
+        cor: "emerald",
+        acoes: autoEquipePreenche ? (
+          <Button
+            onClick={() => setCurrentView("autoavaliacao")}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Preencher autoavaliação
+          </Button>
+        ) : undefined,
+        relacao: isSGJTAdmin ? (
+          <AutoavaliacaoRespostas
+            diretoria={diretoriaUsuario}
+            isDomainRoot={isDomainRoot}
+            tipoInventario="equipe"
+            onViewFormulario={(f) => {
+              setAutoavaliacaoResumo(f);
+              setCurrentView("autoavaliacao_resumo");
+            }}
+          />
+        ) : undefined,
+      });
+    }
+
+    // Avaliação Integrada — colaborador visualiza/valida quando o gestor já validou
+    const integradaEquipePend = integradaPendentes.filter(
+      (p) => (p.tipo_inventario || "equipe") === "equipe",
+    );
+    if (integradaEquipePend.length > 0 && !isGestorDeUnidade) {
+      const pendentes = integradaEquipePend.filter(
+        (p) => !p.validado_colaborador_em,
+      );
+      const todasValidadas = pendentes.length === 0;
+      itensInvEquipe.push({
+        key: "integrada_equipe_pendente",
+        titulo: "Avaliação Integrada",
+        descricao: "Avaliação de Consenso.",
+        icon: <Scale className="h-5 w-5" />,
+        cor: todasValidadas ? "emerald" : "violet",
+        badge: todasValidadas
+          ? `Validada — ${integradaEquipePend.length} concluída${integradaEquipePend.length > 1 ? "s" : ""}`
+          : `${pendentes.length} aguardando sua validação`,
+        aoAbrir: async () => {
+          const target = pendentes[0] || integradaEquipePend[0];
+          try {
+            const fullForm = await avaliacaoIntegradaApi.getById(target.id);
+            setIntegradaResumo(fullForm);
+          } catch {
+            setIntegradaResumo(target);
+          }
+          setCurrentView("integrada_resumo");
+        },
+      });
+    }
+
+    // Avaliação do Gestor — só quando há autoavaliações validadas ou já preenchidas
+    if (temAvgestorEquipe && (isGestorDeUnidade || isSGJTAdmin)) {
+      itensInvEquipe.push({
+        key: "avgestor_equipe",
+        titulo: "Avaliação do Gestor",
+        descricao:
+          "Registre as avaliações de competências dos colaboradores sob sua gestão.",
+        icon: <UserCheck className="h-5 w-5" />,
+        cor: "amber",
+        acoes: isGestorDeUnidade ? (
+          <Button
+            onClick={() => setCurrentView("avgestor")}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Preencher avaliação
+          </Button>
+        ) : undefined,
+        relacao: (
+          <AvaliacaoGestorRespostas
+            diretoria={diretoriaUsuario}
+            isDomainRoot={isDomainRoot}
+            tipoInventario="equipe"
+            onViewFormulario={(f) => {
+              setAvGestorResumo(f);
+              setCurrentView("avgestor_resumo");
+            }}
+          />
+        ),
+      });
+    }
+
+    // Avaliação Integrada (consenso da equipe)
+    if (
+      (isGestorDeUnidade && temElegiveisEquipe) ||
+      (isSGJTAdmin && !isGestorDeUnidade)
+    ) {
+      const podePreencher =
+        isGestorDeUnidade && temElegiveisEquipe && temNovosElegiveisEquipe;
+      itensInvEquipe.push({
+        key: "integrada_equipe",
+        titulo: "Avaliação Integrada",
+        descricao: "Avaliação de Consenso.",
+        icon: <Scale className="h-5 w-5" />,
+        cor: "violet",
+        acoes: podePreencher ? (
+          <Button
+            onClick={() => setCurrentView("integrada")}
+            className="bg-violet-600 hover:bg-violet-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Preencher avaliação
+          </Button>
+        ) : undefined,
+        relacao: (
+          <AvaliacaoIntegradaRespostas
+            diretoria={diretoriaUsuario}
+            isDomainRoot={isDomainRoot}
+            tipoInventario="equipe"
+            onViewFormulario={(f) => {
+              setIntegradaResumo(f);
+              setCurrentView("integrada_resumo");
+            }}
+          />
+        ),
+      });
+    }
+  }
+
+  // Inventário de Competências do Gestor
+  const itensInvGestor: ItemHub[] = [];
+  if (showInvGestor) {
+    // Autoavaliação do Gestor — gestor de unidade SEMPRE preenche; admin/manager preenche
+    // se não for avaliador da liderança; SGJT admins só acompanham.
+    const autoGestorPreenche =
+      ((isAdminOrManager && !isAvaliadorLideranca) || isGestorDeUnidade) &&
+      !isSGJTAdmin;
+    if (autoGestorPreenche || isSGJTAdmin) {
+      itensInvGestor.push({
+        key: "auto_gestor",
+        titulo: "Autoavaliação do Gestor",
+        descricao: "Registre sua autoavaliação das competências de gestão.",
+        icon: <ClipboardCheck className="h-5 w-5" />,
+        cor: "emerald",
+        acoes: autoGestorPreenche ? (
+          <Button
+            onClick={() => setCurrentView("inv_gestor_auto")}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Preencher autoavaliação
+          </Button>
+        ) : undefined,
+        relacao: isSGJTAdmin ? (
+          <AutoavaliacaoRespostas
+            diretoria={diretoriaUsuario}
+            isDomainRoot={isDomainRoot}
+            tipoInventario="gestor"
+            onViewFormulario={(f) => {
+              setAutoavaliacaoResumo(f);
+              setCurrentView("inv_gestor_auto_resumo");
+            }}
+          />
+        ) : undefined,
+      });
+    }
+
+    // Avaliação Integrada (Gestor) — o gestor avaliado precisa validar
+    const integradaGestorPend = integradaPendentes.filter(
+      (p) => (p.tipo_inventario || "equipe") === "gestor",
+    );
+    if (integradaGestorPend.length > 0) {
+      const pendentes = integradaGestorPend.filter(
+        (p) => !p.validado_colaborador_em,
+      );
+      const todasValidadas = pendentes.length === 0;
+      itensInvGestor.push({
+        key: "integrada_gestor_pendente",
+        titulo: "Avaliação Integrada",
+        descricao: "Avaliação de Consenso.",
+        icon: <Scale className="h-5 w-5" />,
+        cor: todasValidadas ? "emerald" : "violet",
+        badge: todasValidadas
+          ? `Validada — ${integradaGestorPend.length} concluída${integradaGestorPend.length > 1 ? "s" : ""}`
+          : `${pendentes.length} aguardando sua validação`,
+        aoAbrir: async () => {
+          const target = pendentes[0] || integradaGestorPend[0];
+          try {
+            const fullForm = await avaliacaoIntegradaApi.getById(target.id);
+            setIntegradaResumo(fullForm);
+          } catch {
+            setIntegradaResumo(target);
+          }
+          setCurrentView("inv_gestor_integrada_resumo");
+        },
+      });
+    }
+
+    // Avaliação da Liderança — gestores/subdiretores de macroárea preenchem.
+    // Sem exigir temAvgestorGestor: o avaliador pode avaliar o gestor da unidade ANTES
+    // da autoavaliação existir. SGJT admin sem esse papel só acompanha, e só se houver dados.
+    if (isAvaliadorLideranca || (isSGJTAdmin && temAvgestorGestor)) {
+      itensInvGestor.push({
+        key: "lideranca_gestor",
+        titulo: "Avaliação da Liderança",
+        descricao:
+          "Registre as avaliações de competências dos líderes sob sua gestão.",
+        icon: <ShieldAlert className="h-5 w-5" />,
+        cor: "amber",
+        acoes: isAvaliadorLideranca ? (
+          <Button
+            onClick={() => setCurrentView("inv_gestor_lideranca")}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Preencher avaliação
+          </Button>
+        ) : undefined,
+        relacao: (
+          <AvaliacaoGestorRespostas
+            diretoria={diretoriaUsuario}
+            isDomainRoot={isDomainRoot}
+            tipoInventario="gestor"
+            onViewFormulario={(f) => {
+              setAvGestorResumo(f);
+              setCurrentView("inv_gestor_lideranca_resumo");
+            }}
+          />
+        ),
+      });
+    }
+
+    // Avaliação Integrada (consenso dos gestores) — escondida quando há pendente acima
+    if (
+      integradaGestorPend.length === 0 &&
+      temElegiveisGestor &&
+      (isAdminOrManager || isAvaliadorLideranca || isSGJTAdmin)
+    ) {
+      itensInvGestor.push({
+        key: "integrada_gestor",
+        titulo: "Avaliação Integrada",
+        descricao: isAvaliadorLideranca
+          ? "Avaliação de Consenso."
+          : "Avaliação de Consenso — visualize e valide.",
+        icon: <Scale className="h-5 w-5" />,
+        cor: "violet",
+        acoes: isAvaliadorLideranca ? (
+          <Button
+            onClick={() => setCurrentView("inv_gestor_integrada")}
+            className="bg-violet-600 hover:bg-violet-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Preencher avaliação
+          </Button>
+        ) : undefined,
+        relacao: (
+          <AvaliacaoIntegradaRespostas
+            diretoria={diretoriaUsuario}
+            isDomainRoot={isDomainRoot}
+            tipoInventario="gestor"
+            onViewFormulario={(f) => {
+              setIntegradaResumo(f);
+              setCurrentView("inv_gestor_integrada_resumo");
+            }}
+          />
+        ),
+      });
+    }
+  }
+
+  // ── Módulos visíveis (mesmos gates de antes; módulo sem item não aparece) ──
+  const modulos: ModuloHub[] = ([
+    showMatriz && {
+      key: "matriz",
+      titulo: "Matriz de Competências",
+      descricao: "Mapeamento e catálogo de competências",
+      icon: <BookOpen className="h-6 w-6" />,
+      cor: "blue" as CorHub,
+      itens: itensMatriz,
+    },
+    showInvEquipe && {
+      key: "inv_equipe",
+      titulo: "Inventário da Equipe",
+      descricao: "Autoavaliação, avaliação do gestor e consenso dos colaboradores",
+      icon: <Users className="h-6 w-6" />,
+      cor: "teal" as CorHub,
+      itens: itensInvEquipe,
+    },
+    showInvGestor && {
+      key: "inv_gestor",
+      titulo: "Inventário do Gestor",
+      descricao: "Autoavaliação, avaliação da liderança e consenso dos gestores",
+      icon: <UserCog className="h-6 w-6" />,
+      cor: "violet" as CorHub,
+      itens: itensInvGestor,
+    },
+  ] as (ModuloHub | false)[]).filter(
+    (m): m is ModuloHub => !!m && m.itens.length > 0,
+  );
+
+  // Seleção resolvida no render: os gates chegam por chamadas assíncronas, então a
+  // escolha do usuário só vale enquanto o módulo/item continuar disponível pra ele.
+  const moduloSel =
+    modulos.find((m) => m.key === moduloAtivo) ?? modulos[0] ?? null;
+  const itensDoModulo = moduloSel?.itens ?? [];
+  /** Item que abre painel abaixo (os com `aoAbrir` vão pra tela dedicada). */
+  const selecionavel = (i: ItemHub): boolean => !i.aoAbrir;
+  const itemSel = moduloSel
+    ? (itensDoModulo.find(
+        (i) => i.key === itemAtivo[moduloSel.key] && selecionavel(i),
+      ) ??
+      itensDoModulo.find(selecionavel) ??
+      null)
+    : null;
+
+  const clicarItem = (item: ItemHub) => {
+    if (item.aoAbrir) {
+      item.aoAbrir();
+      return;
+    }
+    if (!moduloSel) return;
+    setItemAtivo((prev) => ({ ...prev, [moduloSel.key]: item.key }));
+  };
+
+  const resumoModulo = (m: ModuloHub) => {
+    const acoes = `${m.itens.length} ${m.itens.length === 1 ? "ação disponível" : "ações disponíveis"}`;
+    const pendentes = m.itens.filter((i) => i.badge).length;
+    return pendentes > 0 ? `${acoes} · ${pendentes} com pendência` : acoes;
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div>
@@ -2128,64 +1908,58 @@ export function GestaoCompetencias() {
           Gestão por Competências
         </h2>
         <p className="text-sm text-gray-500 mt-2 pl-5">
-          Selecione um módulo para expandir e acessar as ações disponíveis para
-          o seu perfil.
+          Escolha um módulo para ver as ações do seu perfil e a relação
+          correspondente logo abaixo.
         </p>
       </div>
 
-      <div className="space-y-4">
-        {/* Matriz de Competências — só para quem tem permissão ou SGJT */}
-        {showMatriz && (
-          <HubSection
-            open={openSections.has("matriz")}
-            onToggle={() => toggleSection("matriz")}
-            icon={<BookOpen className="h-6 w-6 text-blue-600" />}
-            iconBg="bg-blue-100"
-            title="Matriz de Competências"
-          >
-            {matrizCards}
-          </HubSection>
-        )}
-
-        {/* Inventário de Competências */}
-        <HubSection
-          open={openSections.has("inventario")}
-          onToggle={() => toggleSection("inventario")}
-          icon={<ClipboardCheck className="h-6 w-6 text-blue-600" />}
-          iconBg="bg-blue-100"
-          title="Inventário de Competências"
-        >
-          <div className="space-y-4">
-            {showInvEquipe && (
-              <HubSubSection
-                open={openSections.has("inv_equipe")}
-                onToggle={() => toggleSection("inv_equipe")}
-                icon={<Users className="h-5 w-5 text-blue-600" />}
-                iconBg="bg-blue-100"
-                title="Inventário de Competências da Equipe"
-              >
-                {invEquipeCards}
-              </HubSubSection>
-            )}
-            {showInvGestor && (
-              <HubSubSection
-                open={openSections.has("inv_gestor")}
-                onToggle={() => toggleSection("inv_gestor")}
-                icon={<UserCog className="h-5 w-5 text-blue-600" />}
-                iconBg="bg-blue-100"
-                title="Inventário de Competências do Gestor"
-              >
-                {invGestorCards}
-              </HubSubSection>
-            )}
-            {!showInvEquipe && !showInvGestor && (
-              <p className="text-sm text-gray-500 px-1 py-2">
-                Nenhum inventário disponível para o seu perfil no momento.
-              </p>
-            )}
+      {modulos.length === 0 ? (
+        <p className="text-sm text-gray-500">
+          Nenhum módulo de competências disponível para o seu perfil no momento.
+        </p>
+      ) : (
+        <>
+          {/* Módulos — sempre visíveis; o selecionado fica com anel */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {modulos.map((m) => (
+              <ModuloBox
+                key={m.key}
+                icon={m.icon}
+                cor={m.cor}
+                titulo={m.titulo}
+                descricao={m.descricao}
+                resumo={resumoModulo(m)}
+                ativo={moduloSel?.key === m.key}
+                onClick={() => setModuloAtivo(m.key)}
+              />
+            ))}
           </div>
-        </HubSection>
-      </div>
+
+          {/* Itens do módulo ativo — funcionam como filtro do painel abaixo */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {itensDoModulo.map((item) => (
+              <ItemCard
+                key={item.key}
+                item={item}
+                ativo={itemSel?.key === item.key}
+                onClick={() => clicarItem(item)}
+              />
+            ))}
+          </div>
+
+          {/* Relação do item selecionado */}
+          {itemSel && (
+            <PainelItem titulo={itemSel.titulo} acoes={itemSel.acoes}>
+              {itemSel.relacao ?? (
+                <p className="text-sm text-gray-500">
+                  Não há relação para acompanhar aqui — use a ação acima para
+                  preencher o formulário.
+                </p>
+              )}
+            </PainelItem>
+          )}
+        </>
+      )}
     </div>
   );
 }
