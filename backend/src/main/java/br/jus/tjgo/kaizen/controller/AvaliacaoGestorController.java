@@ -78,7 +78,7 @@ public class AvaliacaoGestorController {
 
     // GET /api/avaliacao-gestor/colaboradores-da-unidade/:unidadeId — avaliáveis da equipe,
     // com ou sem autoavaliação preenchida
-    @GetMapping("/colaboradores-da-unidade/{unidadeId:\d+}")
+    @GetMapping("/colaboradores-da-unidade/{unidadeId:\\d+}")
     public List<Map<String, Object>> colaboradoresDaUnidade(
             @PathVariable long unidadeId,
             @RequestParam(value = "tipo_inventario", required = false, defaultValue = "equipe") String tipoInventario) {
