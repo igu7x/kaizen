@@ -30,7 +30,12 @@ import {
 import { competenciasPadraoApi } from "@/services/competenciasPadraoApi";
 import { areasApi, Area } from "@/services/areasApi";
 
-const VALIDADORES_FINAIS = ["gmpdmaciel@tjgo.jus.br"];
+// Mantido em sincronia com Validadores.FINAIS no backend.
+const VALIDADORES_FINAIS = [
+  "gmpdmaciel@tjgo.jus.br",
+  // Acesso de teste do fluxo completo da matriz em staging.
+  "ifccteixeira@tjgo.jus.br",
+];
 const isValidadorFinal = (email: string) =>
   VALIDADORES_FINAIS.some(
     (v) => v.toLowerCase() === email.toLowerCase().trim(),

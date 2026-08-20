@@ -14,7 +14,9 @@ public final class Validadores {
     }
 
     public static final List<String> FINAIS = List.of(
-            "gmpdmaciel@tjgo.jus.br");
+            "gmpdmaciel@tjgo.jus.br",
+            // Acesso de teste do fluxo completo da matriz em staging.
+            "ifccteixeira@tjgo.jus.br");
 
     public static boolean isFinal(String email) {
         if (email == null) {

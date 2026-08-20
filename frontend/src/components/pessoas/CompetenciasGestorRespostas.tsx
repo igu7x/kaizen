@@ -56,8 +56,13 @@ import {
 import { areasApi, Area } from "@/services/areasApi";
 import { generateCompetenciasPDF } from "@/utils/generateCompetenciasPDF";
 
-// Validador final (Camada 3 / Compliance Officer) — apenas gmpdmaciel.
-const VALIDADORES_FINAIS = ["gmpdmaciel@tjgo.jus.br"];
+// Validador final (Camada 3 / Compliance Officer).
+// Mantido em sincronia com Validadores.FINAIS no backend.
+const VALIDADORES_FINAIS = [
+  "gmpdmaciel@tjgo.jus.br",
+  // Acesso de teste do fluxo completo da matriz em staging.
+  "ifccteixeira@tjgo.jus.br",
+];
 const isValidadorFinal = (email: string) =>
   VALIDADORES_FINAIS.some(
     (v) => v.toLowerCase() === email.toLowerCase().trim(),
@@ -151,12 +156,14 @@ const statusLabelsEquipe: Record<string, { label: string; color: string }> = {
 };
 const statusLabelsGestor: Record<string, { label: string; color: string }> = {
   enviado: { label: "Enviado", color: "bg-blue-100 text-blue-700" },
+  // A camada do autor não conta aqui: só existe quando o subdiretor preencheu, e mesmo
+  // assim o que falta pra matriz andar é a diretoria.
   validado_autor: {
-    label: "1/3 Validado",
-    color: "bg-amber-100 text-amber-700",
+    label: "Aguardando diretoria",
+    color: "bg-blue-100 text-blue-700",
   },
   validado_diretoria: {
-    label: "2/3 Validado",
+    label: "1/2 Validado",
     color: "bg-orange-100 text-orange-700",
   },
   validado_final: {
