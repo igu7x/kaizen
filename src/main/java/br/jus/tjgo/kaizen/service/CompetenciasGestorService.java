@@ -687,11 +687,16 @@ public class CompetenciasGestorService {
 
         boolean preenchidoPorSubdiretor = isGestor && subdiretorId != null && equalsId(autorUserId, subdiretorId);
         boolean requerValidacaoAutor = !isGestor || preenchidoPorSubdiretor;
-        String statusValido = requerValidacaoAutor ? "validado_autor" : "enviado";
-        if (!statusValido.equals(status)) {
+        // Quando a camada do autor não faz parte do fluxo (matriz do gestor não preenchida pelo
+        // subdiretor), \"validado_autor\" também serve: a tela do autor permitia validar a própria
+        // camada e, exigindo só \"enviado\" aqui, a matriz ficava sem saída — nunca mais avançava.
+        boolean statusOk = requerValidacaoAutor
+                ? "validado_autor".equals(status)
+                : ("enviado".equals(status) || "validado_autor".equals(status));
+        if (!statusOk) {
             throw new IllegalStateException(requerValidacaoAutor
                     ? "Formulário precisa ter validação do autor primeiro"
-                    : "Formulário precisa estar com status \"enviado\"");
+                    : "Formulário precisa estar com status \"enviado\" ou \"validado_autor\"");
         }
         if (userId != gestorMacroId) {
             throw new IllegalStateException("Apenas o gestor da diretoria pode validar nesta etapa");
