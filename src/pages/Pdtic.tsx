@@ -985,10 +985,25 @@ function AtingimentoGeralCard({ pct }: { pct: number }) {
 
 // A API do PCA responde em snake_case; a interface PcaItem mistura nomes, então lemos os campos
 // reais de forma defensiva (item_pca, area_demandante) sem depender dos apelidos camelCase.
-type PcaRow = PcaItem & { item_pca?: string; area_demandante?: string };
+type PcaRow = PcaItem & {
+  item_pca?: string;
+  area_demandante?: string;
+  unidade_sigla?: string;
+  area_sigla?: string;
+};
 const codPca = (p: PcaItem) => (p as PcaRow).item_pca ?? p.itemPca ?? "";
+/** Nome completo da área/unidade demandante (vai no title da célula). */
 const areaPca = (p: PcaItem) =>
   (p as PcaRow).area_demandante ?? p.areaSigla ?? p.areaNome ?? "";
+/**
+ * Versão curta pra coluna estreita: a sigla da unidade/área quando existe. Sem isso,
+ * nomes como "CITEC - Coordenadoria de Infraestrutura Tecnológica" quebram em 4 linhas
+ * e esticam a altura de todas as linhas da tabela.
+ */
+const areaPcaCurta = (p: PcaItem) => {
+  const r = p as PcaRow;
+  return r.unidade_sigla || r.area_sigla || areaPca(p);
+};
 
 /** Um item do PCA está concluído quando o status começa com "Conclu" (Concluída/Concluído). */
 const pcaConcluido = (p: PcaItem) =>
@@ -1040,8 +1055,8 @@ function PcaItensTabela({
         <div className="w-16 shrink-0 text-center">Tipo</div>
         <div className="min-w-0 flex-1">PCA / Objeto</div>
         <div className="hidden shrink-0 items-center gap-6 md:flex">
-          <div className="w-32 text-center">Área</div>
-          <div className="w-32 text-right">Valor estimado</div>
+          <div className="w-24 text-center">Área</div>
+          <div className="w-36 text-right">Valor estimado</div>
           <div className="w-28 text-center">Status</div>
         </div>
       </div>
@@ -1088,17 +1103,23 @@ function PcaItensTabela({
               <p className="truncate text-base font-semibold text-slate-900">
                 {cod ? (num ? `PCA ${num}` : cod) : "—"}
               </p>
-              <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
+              <p
+                className="mt-0.5 line-clamp-2 text-xs text-slate-500"
+                title={p.objeto || undefined}
+              >
                 {p.objeto || "—"}
               </p>
             </div>
 
             {/* Colunas (desktop): área · valor · status */}
             <div className="hidden shrink-0 items-center gap-6 md:flex">
-              <div className="w-32 text-center text-sm text-slate-700">
-                {areaPca(p) || "—"}
+              <div
+                className="w-24 truncate text-center text-sm text-slate-700"
+                title={areaPca(p) || undefined}
+              >
+                {areaPcaCurta(p) || "—"}
               </div>
-              <div className="w-32 text-right text-sm font-bold text-emerald-700">
+              <div className="w-36 text-right text-sm font-bold text-emerald-700">
                 {formatCurrency(Number(p.valor_estimado || 0))}
               </div>
               <div className="flex w-28 justify-center">
