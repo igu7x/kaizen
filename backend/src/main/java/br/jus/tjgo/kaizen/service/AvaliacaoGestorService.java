@@ -171,6 +171,39 @@ public class AvaliacaoGestorService {
         return out;
     }
 
+    /**
+     * Colaboradores da unidade como avaliáveis, tenham ou não autoavaliação. Simétrico ao
+     * {@link #gestorDaUnidade}: o gestor precisa poder avaliar antes de o colaborador se
+     * autoavaliar, do mesmo jeito que o diretor avalia o gestor antes da autoavaliação dele.
+     * Quando a autoavaliação existe, devolve o id dela — daí a avaliação já nasce vinculada
+     * (pessoa_id) e a integração casa sem depender do backfill.
+     * O responsável pela unidade fica de fora: ele é avaliado no inventário do gestor.
+     */
+    public List<Map<String, Object>> colaboradoresDaUnidade(long unidadeId, String tipoInventario) {
+        return jdbc.queryForList(
+                "SELECT cp.user_id AS pessoa_user_id, " +
+                        "       COALESCE(NULLIF(TRIM(cp.nome), ''), u.name) AS nome, " +
+                        "       COALESCE(NULLIF(TRIM(cp.cargo_efetivo), ''), NULLIF(TRIM(cp.cc_fc), '')) AS cargo, " +
+                        "       COALESCE(af.email_institucional, cp.email, u.email) AS email, " +
+                        "       af.id AS autoavaliacao_id " +
+                        "FROM cadastros_pessoas cp " +
+                        "JOIN users u ON u.id = cp.user_id AND u.is_deleted = FALSE " +
+                        "LEFT JOIN LATERAL ( " +
+                        "  SELECT a.id, a.email_institucional FROM autoavaliacao_formularios a " +
+                        "  WHERE a.user_id = cp.user_id AND a.unidade_id = cp.unidade_id " +
+                        "    AND COALESCE(a.tipo_inventario, 'equipe') = ? AND a.is_deleted = FALSE " +
+                        "  ORDER BY a.created_at DESC LIMIT 1 " +
+                        ") af ON TRUE " +
+                        "WHERE cp.unidade_id = ? " +
+                        "  AND COALESCE(cp.ativo, TRUE) = TRUE " +
+                        "  AND cp.user_id IS NOT NULL " +
+                        "  AND cp.user_id IS DISTINCT FROM ( " +
+                        "        SELECT cu.responsavel_user_id FROM cadastros_unidades cu WHERE cu.id = cp.unidade_id " +
+                        "      ) " +
+                        "ORDER BY 2",
+                tipoInventario, unidadeId);
+    }
+
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipoInv = data.get("tipo_inventario") != null ? str(data.get("tipo_inventario")) : "equipe";

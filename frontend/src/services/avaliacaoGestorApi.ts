@@ -98,6 +98,20 @@ export const avaliacaoGestorApi = {
   },
 
   /**
+   * Colaboradores da unidade como avaliáveis, com ou sem autoavaliação preenchida.
+   * Simétrico ao `getGestorDaUnidade`: o gestor pode avaliar antes de o colaborador
+   * se autoavaliar. `autoavaliacao_id` vem preenchido quando ela já existe.
+   */
+  getColaboradoresDaUnidade(
+    unidadeId: number,
+    tipoInventario: string = "equipe",
+  ): Promise<GestorDaUnidade[]> {
+    return apiClient.request<GestorDaUnidade[]>(
+      `${BASE_URL}/colaboradores-da-unidade/${unidadeId}?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
+    );
+  },
+
+  /**
    * Buscar avaliação existente por pessoa+unidade (para auto-detecção em modo edição).
    * `by="user"` → `pessoaId` é o user_id da pessoa (gestor sem autoavaliação).
    * `null` quando não existe — o backend responde com corpo vazio.

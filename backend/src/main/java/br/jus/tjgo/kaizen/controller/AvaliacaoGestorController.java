@@ -76,6 +76,15 @@ public class AvaliacaoGestorController {
         return ResponseEntity.ok(service.gestorDaUnidade(unidadeId, tipoInventario));
     }
 
+    // GET /api/avaliacao-gestor/colaboradores-da-unidade/:unidadeId — avaliáveis da equipe,
+    // com ou sem autoavaliação preenchida
+    @GetMapping("/colaboradores-da-unidade/{unidadeId:\d+}")
+    public List<Map<String, Object>> colaboradoresDaUnidade(
+            @PathVariable long unidadeId,
+            @RequestParam(value = "tipo_inventario", required = false, defaultValue = "equipe") String tipoInventario) {
+        return service.colaboradoresDaUnidade(unidadeId, tipoInventario);
+    }
+
     // GET /api/avaliacao-gestor/:id/versoes
     @GetMapping("/{id:\\d+}/versoes")
     public List<Map<String, Object>> versoes(@PathVariable long id) {
