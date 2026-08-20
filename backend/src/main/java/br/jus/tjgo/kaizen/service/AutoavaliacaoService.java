@@ -170,7 +170,7 @@ public class AutoavaliacaoService {
             jdbc.update(
                     "UPDATE autoavaliacao_formularios SET " +
                             "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
-                            "  cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
+                            "  cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', " +
                             "  competencias_versao = ?, versao_anterior = ?, update_keys = ?::jsonb, " +
                             "  tecnicas_versao = ?, " +
@@ -178,7 +178,7 @@ public class AutoavaliacaoService {
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                    str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
+                    str(data.get("email_institucional")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
                     competenciasVersao, versaoAnterior, updateKeysJson, tecnicasVersao, userId, formularioId);
             // Salvaguarda anti-perda: só apaga as respostas existentes se o payload REALMENTE
             // trouxer respostas. Um save com lista vazia/ausente (bug de client, autosave prematuro)
@@ -189,11 +189,11 @@ public class AutoavaliacaoService {
         } else {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO autoavaliacao_formularios " +
-                            "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, cadastros_areas_id, unidade_id, pessoa_id, tipo_inventario, status, competencias_versao, versao_anterior, update_keys, tecnicas_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
+                            "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, cadastros_areas_id, diretoria, unidade_id, pessoa_id, tipo_inventario, status, competencias_versao, versao_anterior, update_keys, tecnicas_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
                             "RETURNING id",
                     userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                    str(data.get("email_institucional")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
+                    str(data.get("email_institucional")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
                     competenciasVersao, versaoAnterior, updateKeysJson, tecnicasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
