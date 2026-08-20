@@ -42,7 +42,6 @@ import { AutoavaliacaoRespostas } from "./AutoavaliacaoRespostas";
 import { AvaliacaoGestorForm } from "./AvaliacaoGestorForm";
 import { AvaliacaoGestorResumo } from "./AvaliacaoGestorResumo";
 import { AvaliacaoGestorRespostas } from "./AvaliacaoGestorRespostas";
-import { AvaliacaoIntegradaForm } from "./AvaliacaoIntegradaForm";
 import { AvaliacaoIntegradaResumo } from "./AvaliacaoIntegradaResumo";
 import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
@@ -283,8 +282,6 @@ export function GestaoCompetencias() {
     useState<AvaliacaoGestorFormulario | null>(null);
   const [integradaResumo, setIntegradaResumo] =
     useState<AvaliacaoIntegradaFormulario | null>(null);
-  const [integradaEdit, setIntegradaEdit] =
-    useState<AvaliacaoIntegradaFormulario | null>(null);
   const [diretoriaUsuario, setDiretoriaUsuario] = useState("");
   const [isDomainRoot, setIsDomainRoot] = useState(false);
   const [referencialAutorizado, setReferencialAutorizado] = useState<
@@ -313,7 +310,7 @@ export function GestaoCompetencias() {
   const [moduloAtivo, setModuloAtivo] = useState<string | null>(null);
   const [itemAtivo, setItemAtivo] = useState<Record<string, string>>({});
 
-  // Verificar se há elegíveis para avaliação integrada (1 chamada ao backend)
+  // Verificar se há elegíveis para resultado final (1 chamada ao backend)
   const checkElegiveis = async () => {
     try {
       const result = await avaliacaoIntegradaApi.temElegiveis();
@@ -380,7 +377,7 @@ export function GestaoCompetencias() {
 
     (async () => {
       try {
-        // Avaliação Integrada
+        // Resultado Final
         if (integradaIdRaw) {
           const id = Number(integradaIdRaw);
           if (!Number.isFinite(id)) return;
@@ -1014,35 +1011,7 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Avaliação Integrada ──────────────────────────────────
-
-  if (currentView === "integrada") {
-    return (
-      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario_equipe_home")}
-            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Avaliação Integrada
-          </h2>
-        </div>
-        <AvaliacaoIntegradaForm
-          formularioEdit={integradaEdit || undefined}
-          onSubmitted={(formulario) => {
-            setIntegradaEdit(null);
-            setIntegradaResumo(formulario);
-            setCurrentView("integrada_resumo");
-          }}
-        />
-      </div>
-    );
-  }
+  // ── Resultado Final ──────────────────────────────────
 
   if (currentView === "integrada_resumo" && integradaResumo) {
     return (
@@ -1057,21 +1026,11 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Avaliação Integrada
+            Resultado Final
           </h2>
         </div>
         <AvaliacaoIntegradaResumo
           formulario={integradaResumo}
-          onValidated={(f) => {
-            setIntegradaResumo(f);
-            setIntegradaPendentes((prev) =>
-              prev.map((p) => (p.id === f.id ? f : p)),
-            );
-          }}
-          onEdit={(f) => {
-            setIntegradaEdit(f);
-            setCurrentView("integrada");
-          }}
           currentUserId={currentUserId}
         />
       </div>
@@ -1091,7 +1050,7 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Avaliação Integrada
+            Resultado Final
           </h2>
         </div>
         <AvaliacaoIntegradaRespostas
@@ -1287,36 +1246,7 @@ export function GestaoCompetencias() {
     );
   }
 
-  // ── Avaliação Integrada do Gestor (Inventário Gestor) ──────────
-  if (currentView === "inv_gestor_integrada") {
-    return (
-      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentView("inventario_gestor_home")}
-            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Avaliação Integrada
-          </h2>
-        </div>
-        <AvaliacaoIntegradaForm
-          tipoInventario="gestor"
-          formularioEdit={integradaEdit || undefined}
-          onSubmitted={(formulario) => {
-            setIntegradaEdit(null);
-            setIntegradaResumo(formulario);
-            setCurrentView("inv_gestor_integrada_resumo");
-          }}
-        />
-      </div>
-    );
-  }
-
+  // ── Resultado Final do Gestor (Inventário Gestor) ──────────
   if (currentView === "inv_gestor_integrada_resumo" && integradaResumo) {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
@@ -1330,21 +1260,11 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Avaliação Integrada
+            Resultado Final
           </h2>
         </div>
         <AvaliacaoIntegradaResumo
           formulario={integradaResumo}
-          onValidated={(f) => {
-            setIntegradaResumo(f);
-            setIntegradaPendentes((prev) =>
-              prev.map((p) => (p.id === f.id ? f : p)),
-            );
-          }}
-          onEdit={(f) => {
-            setIntegradaEdit(f);
-            setCurrentView("inv_gestor_integrada");
-          }}
           tipoInventario="gestor"
           currentUserId={currentUserId}
         />
@@ -1365,7 +1285,7 @@ export function GestaoCompetencias() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Respostas — Avaliação Integrada
+            Resultado Final
           </h2>
         </div>
         <AvaliacaoIntegradaRespostas
@@ -1605,26 +1525,21 @@ export function GestaoCompetencias() {
       });
     }
 
-    // Avaliação Integrada — colaborador visualiza/valida quando o gestor já validou
+    // Resultado Final do próprio colaborador — não há mais validação, é só consulta.
     const integradaEquipePend = integradaPendentes.filter(
       (p) => (p.tipo_inventario || "equipe") === "equipe",
     );
     if (integradaEquipePend.length > 0 && !isGestorDeUnidade) {
-      const pendentes = integradaEquipePend.filter(
-        (p) => !p.validado_colaborador_em,
-      );
-      const todasValidadas = pendentes.length === 0;
       itensInvEquipe.push({
-        key: "integrada_equipe_pendente",
-        titulo: "Avaliação Integrada",
-        descricao: "Avaliação de Consenso.",
+        key: "resultado_final_equipe_meu",
+        titulo: "Meu Resultado Final",
+        descricao:
+          "Sua nota final: 70% da avaliação do gestor + 30% da sua autoavaliação.",
         icon: <Scale className="h-5 w-5" />,
-        cor: todasValidadas ? "emerald" : "violet",
-        badge: todasValidadas
-          ? `Validada — ${integradaEquipePend.length} concluída${integradaEquipePend.length > 1 ? "s" : ""}`
-          : `${pendentes.length} aguardando sua validação`,
+        cor: "emerald",
+        badge: `${integradaEquipePend.length} resultado${integradaEquipePend.length > 1 ? "s" : ""} disponível${integradaEquipePend.length > 1 ? "eis" : ""}`,
         aoAbrir: async () => {
-          const target = pendentes[0] || integradaEquipePend[0];
+          const target = integradaEquipePend[0];
           try {
             const fullForm = await avaliacaoIntegradaApi.getById(target.id);
             setIntegradaResumo(fullForm);
@@ -1667,27 +1582,18 @@ export function GestaoCompetencias() {
       });
     }
 
-    // Avaliação Integrada (consenso da equipe)
+    // Resultado Final (consenso da equipe)
     if (
       (isGestorDeUnidade && temElegiveisEquipe) ||
       (isSGJTAdmin && !isGestorDeUnidade)
     ) {
-      const podePreencher =
-        isGestorDeUnidade && temElegiveisEquipe && temNovosElegiveisEquipe;
       itensInvEquipe.push({
-        key: "integrada_equipe",
-        titulo: "Avaliação Integrada",
-        descricao: "Avaliação de Consenso.",
+        key: "resultado_final_equipe",
+        titulo: "Resultado Final",
+        descricao:
+          "Calculado: 70% da avaliação do gestor + 30% da autoavaliação do colaborador.",
         icon: <Scale className="h-5 w-5" />,
         cor: "violet",
-        acoes: podePreencher ? (
-          <Button
-            onClick={() => setCurrentView("integrada")}
-            className="bg-violet-600 hover:bg-violet-700 text-white"
-          >
-            <Plus className="h-4 w-4 mr-1.5" /> Preencher avaliação
-          </Button>
-        ) : undefined,
         relacao: (
           <AvaliacaoIntegradaRespostas
             diretoria={diretoriaUsuario}
@@ -1740,26 +1646,21 @@ export function GestaoCompetencias() {
       });
     }
 
-    // Avaliação Integrada (Gestor) — o gestor avaliado precisa validar
+    // Resultado Final (Gestor) — o gestor avaliado precisa validar
     const integradaGestorPend = integradaPendentes.filter(
       (p) => (p.tipo_inventario || "equipe") === "gestor",
     );
     if (integradaGestorPend.length > 0) {
-      const pendentes = integradaGestorPend.filter(
-        (p) => !p.validado_colaborador_em,
-      );
-      const todasValidadas = pendentes.length === 0;
       itensInvGestor.push({
-        key: "integrada_gestor_pendente",
-        titulo: "Avaliação Integrada",
-        descricao: "Avaliação de Consenso.",
+        key: "resultado_final_gestor_meu",
+        titulo: "Meu Resultado Final",
+        descricao:
+          "Sua nota final: 70% da avaliação da liderança + 30% da sua autoavaliação.",
         icon: <Scale className="h-5 w-5" />,
-        cor: todasValidadas ? "emerald" : "violet",
-        badge: todasValidadas
-          ? `Validada — ${integradaGestorPend.length} concluída${integradaGestorPend.length > 1 ? "s" : ""}`
-          : `${pendentes.length} aguardando sua validação`,
+        cor: "emerald",
+        badge: `${integradaGestorPend.length} resultado${integradaGestorPend.length > 1 ? "s" : ""} disponível${integradaGestorPend.length > 1 ? "eis" : ""}`,
         aoAbrir: async () => {
-          const target = pendentes[0] || integradaGestorPend[0];
+          const target = integradaGestorPend[0];
           try {
             const fullForm = await avaliacaoIntegradaApi.getById(target.id);
             setIntegradaResumo(fullForm);
@@ -1804,28 +1705,19 @@ export function GestaoCompetencias() {
       });
     }
 
-    // Avaliação Integrada (consenso dos gestores) — escondida quando há pendente acima
+    // Resultado Final (consenso dos gestores) — escondida quando há pendente acima
     if (
       integradaGestorPend.length === 0 &&
       temElegiveisGestor &&
       (isAdminOrManager || isAvaliadorLideranca || isSGJTAdmin)
     ) {
       itensInvGestor.push({
-        key: "integrada_gestor",
-        titulo: "Avaliação Integrada",
-        descricao: isAvaliadorLideranca
-          ? "Avaliação de Consenso."
-          : "Avaliação de Consenso — visualize e valide.",
+        key: "resultado_final_gestor",
+        titulo: "Resultado Final",
+        descricao:
+          "Calculado: 70% da avaliação da liderança + 30% da autoavaliação do gestor.",
         icon: <Scale className="h-5 w-5" />,
         cor: "violet",
-        acoes: isAvaliadorLideranca ? (
-          <Button
-            onClick={() => setCurrentView("inv_gestor_integrada")}
-            className="bg-violet-600 hover:bg-violet-700 text-white"
-          >
-            <Plus className="h-4 w-4 mr-1.5" /> Preencher avaliação
-          </Button>
-        ) : undefined,
         relacao: (
           <AvaliacaoIntegradaRespostas
             diretoria={diretoriaUsuario}

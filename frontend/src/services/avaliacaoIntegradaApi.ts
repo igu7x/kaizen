@@ -69,6 +69,8 @@ export interface AvaliacaoIntegradaFormulario {
   unidade_nome?: string;
   tipo_inventario?: "equipe" | "gestor";
   status: string;
+  /** Quando o Resultado Final foi calculado (media ponderada 70/30). */
+  calculado_em?: string;
   respostas?: RespostaIntegradaItem[];
   total_respostas?: number;
   validado_gestor_id?: number;
@@ -93,17 +95,6 @@ export interface VersaoHistoricoIntegrada {
   created_at: string;
 }
 
-export interface CreateAvaliacaoIntegradaDto {
-  autoavaliacao_id: number;
-  avaliacao_gestor_id: number;
-  pessoa_id: number;
-  pessoa_nome: string;
-  avaliador_nome: string;
-  diretoria: string;
-  unidade_id?: number;
-  tipo_inventario?: "equipe" | "gestor";
-  respostas: RespostaIntegradaItem[];
-}
 
 const BASE_URL = "/api/avaliacao-integrada";
 
@@ -189,23 +180,8 @@ export const avaliacaoIntegradaApi = {
     );
   },
 
-  create(
-    data: CreateAvaliacaoIntegradaDto,
-  ): Promise<AvaliacaoIntegradaFormulario> {
-    return apiClient.post<AvaliacaoIntegradaFormulario>(BASE_URL, data);
-  },
-
-  validarGestor(id: number): Promise<AvaliacaoIntegradaFormulario> {
-    return apiClient.patch<AvaliacaoIntegradaFormulario>(
-      `${BASE_URL}/${id}/validar-gestor`,
-    );
-  },
-
-  validarColaborador(id: number): Promise<AvaliacaoIntegradaFormulario> {
-    return apiClient.patch<AvaliacaoIntegradaFormulario>(
-      `${BASE_URL}/${id}/validar-colaborador`,
-    );
-  },
+  // Sem create/validar: o Resultado Final e calculado no backend quando as duas
+  // avaliacoes de origem sao validadas. Essas rotas respondem 410.
 
   remove(id: number): Promise<void> {
     return apiClient.delete(`${BASE_URL}/${id}`);

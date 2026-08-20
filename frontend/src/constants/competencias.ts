@@ -1,4 +1,4 @@
-// Constantes compartilhadas entre Autoavaliação, Avaliação do Gestor e Avaliação Integrada
+// Constantes compartilhadas entre Autoavaliação, Avaliação do Gestor e Resultado Final
 
 /**
  * Quebra uma label de escala (ex.: "1 — Adequado: Apresenta o comportamento...")

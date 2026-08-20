@@ -53,7 +53,7 @@ export const TABELA_LABEL: Record<string, string> = {
   pca_items: "Contratações — Itens do PCA",
   autoavaliacao_formularios: "Pessoas — Autoavaliação",
   avaliacao_gestor_formularios: "Pessoas — Avaliação do Gestor",
-  avaliacao_integrada_formularios: "Pessoas — Avaliação Integrada",
+  avaliacao_integrada_formularios: "Pessoas — Resultado Final",
   competencias_gestor_formularios: "Pessoas — Matriz de Competências",
   // SGSI
   sgsi_emissao: "SGSI — Emissões",
@@ -618,7 +618,7 @@ export const TABELA_ITEM: Record<string, string> = {
   competencias_gestor_itens: "o item da matriz de competências",
   autoavaliacao_formularios: "a autoavaliação",
   avaliacao_gestor_formularios: "a avaliação do gestor",
-  avaliacao_integrada_formularios: "a avaliação integrada",
+  avaliacao_integrada_formularios: "a resultado final",
   // Contratações
   pcas: "o PCA",
   pca_items: "o item do PCA",
