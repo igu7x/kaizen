@@ -35,7 +35,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Send, Info, AlertCircle } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  Info,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 
 interface RespostaState {
   competencia_unidade_id: number;
@@ -303,6 +309,17 @@ export function AvaliacaoGestorForm({
   // banner de "atualização requisitada" e habilitar a lógica de campos travados.
   const [avaliacaoExistente, setAvaliacaoExistente] =
     useState<AvaliacaoGestorFormulario | null>(null);
+
+  /**
+   * A pessoa+unidade selecionada JÁ tem avaliação enviada. Só `atualizacao_requisitada`
+   * reabre o preenchimento; nos demais status é preciso bloquear, senão o create do backend
+   * insere uma linha nova (o dedup de lá só reaproveita formulário ainda não validado) e o
+   * mesmo gestor termina com duas avaliações.
+   */
+  const jaAvaliado =
+    !isEditMode &&
+    !!avaliacaoExistente &&
+    avaliacaoExistente.status !== "atualizacao_requisitada";
 
   // Dispatcher do dropdown: "auto:<id>" = a partir de uma autoavaliação; "user:<userId>" = o gestor
   // da unidade (sem autoavaliação).
@@ -898,6 +915,11 @@ export function AvaliacaoGestorForm({
 
   const handleSubmit = async () => {
     // Validacao
+    if (jaAvaliado) {
+      return toast.error(
+        `${form.pessoa_nome || "Esta pessoa"} já tem avaliação enviada nesta unidade.`,
+      );
+    }
     if (!form.unidade_id) return toast.error("Selecione a unidade.");
     if (!form.pessoa_id && !form.pessoa_user_id)
       return toast.error("Selecione o colaborador a ser avaliado.");
@@ -1267,6 +1289,26 @@ export function AvaliacaoGestorForm({
                   </div>
                 )}
               </>
+            )}
+
+            {/* Avaliação já enviada para esta pessoa+unidade: avisa e trava o envio. */}
+            {jaAvaliado && (
+              <div className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg mt-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-emerald-800 space-y-1">
+                  <p className="font-semibold">
+                    {form.pessoa_nome || "Esta pessoa"} já foi avaliado nesta
+                    unidade.
+                  </p>
+                  <p className="text-emerald-700">
+                    {avaliacaoExistente?.validado_em
+                      ? `Avaliação validada em ${new Date(avaliacaoExistente.validado_em).toLocaleDateString("pt-BR")}.`
+                      : "A avaliação já foi enviada e aguarda validação."}{" "}
+                    Para preencher de novo, é preciso que a avaliação seja
+                    recusada ou tenha atualização requisitada.
+                  </p>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1714,7 +1756,7 @@ export function AvaliacaoGestorForm({
         <div className="flex justify-end pb-6">
           <Button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || jaAvaliado}
             className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 text-base"
           >
             {saving ? (
