@@ -53,7 +53,7 @@ public class PcaService {
             "SELECT p.id, p.code as item_pca, " +
             "CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
             "CASE WHEN p.cadastros_unidades_id IS NOT NULL THEN cadastro_unidades.nome " +
-            "ELSE COALESCE(cadastro_areas.sigla, cadastro_areas.nome) END as area_demandante, p.object_name as objeto, " +
+            "ELSE COALESCE(cadastro_areas.sigla, cadastro_areas.nome) END as area_demandante, cadastro_unidades.sigla as unidade_sigla, cadastro_areas.sigla as area_sigla, p.object_name as objeto, " +
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.cadastros_areas_id, p.cadastros_unidades_id, " +
@@ -66,7 +66,7 @@ public class PcaService {
             "SELECT p.original_pca_id as id, p.code as item_pca, " +
             "CASE WHEN p.contract_type = 'RENOVACAO' THEN 'Renovação' WHEN p.contract_type = 'NOVA_CONTRATACAO' THEN 'Contratação' ELSE 'Contratação' END as tipo, " +
             "CASE WHEN p.cadastros_unidades_id IS NOT NULL THEN cadastro_unidades.nome " +
-            "ELSE COALESCE(cadastro_areas.sigla, cadastro_areas.nome) END as area_demandante, p.object_name as objeto, " +
+            "ELSE COALESCE(cadastro_areas.sigla, cadastro_areas.nome) END as area_demandante, cadastro_unidades.sigla as unidade_sigla, cadastro_areas.sigla as area_sigla, p.object_name as objeto, " +
             "p.estimated_value_cents / 100.0 as valor_estimado, " +
             "COALESCE(p.formalized_value_cents, 0) / 100.0 as valor_formalizado, " +
             "p.cadastros_areas_id, p.cadastros_unidades_id, " +
