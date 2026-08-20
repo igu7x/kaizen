@@ -26,6 +26,7 @@ public class AvaliacaoGestorService {
     private final JdbcTemplate jdbc;
     private final br.jus.tjgo.kaizen.service.notificacao.AvaliacoesNotificacoes avaliacoesNotificacoes;
     private final ObjectMapper objectMapper;
+    private final AvaliacaoIntegradaService avaliacaoIntegradaService;
 
     public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
         String where = "f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])";
@@ -329,6 +330,9 @@ public class AvaliacaoGestorService {
         } catch (Exception err) {
             log.error("[validar] Erro ao cascatear atualização para avaliação integrada: {}", err.getMessage());
         }
+
+        // Resultado Final: com a autoavaliacao do par ja validada, fecha a nota 70/30.
+        avaliacaoIntegradaService.gerarPorAvaliacaoGestor(id);
 
         avaliacoesNotificacoes.aoAvaliacaoGestorValidada(id);
         return formularioCompleto;

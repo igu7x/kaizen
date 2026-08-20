@@ -37,6 +37,72 @@ public class AvaliacaoIntegradaService {
         return jdbc.queryForList(listSql(where), params.toArray());
     }
 
+    /**
+     * Resultado Final com a visibilidade do negócio: no inventário da equipe quem vê é o
+     * gestor da unidade (cadastros_unidades.responsavel_user_id) e o próprio colaborador
+     * avaliado; no inventário do gestor, o diretor/sub-diretor da área
+     * (cadastros_areas.gestor_user_id / subdiretor_user_id) e o próprio gestor avaliado.
+     * Superadmin continua enxergando tudo do domínio, como nas demais telas do módulo.
+     */
+    public List<Map<String, Object>> findVisiveis(
+            List<Long> areasIds, String tipoInventario, long userId, boolean isSuperadmin) {
+        if (isSuperadmin) {
+            return findAllByDomain(areasIds, tipoInventario);
+        }
+        String where = "f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])";
+        List<Object> params = new ArrayList<>();
+        params.add(bigintArray(areasIds));
+        if (tipoInventario != null) {
+            params.add(tipoInventario);
+            where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
+        }
+        where += " AND ( af.user_id = ? " +
+                "   OR ( COALESCE(f.tipo_inventario, 'equipe') = 'equipe' AND EXISTS ( " +
+                "        SELECT 1 FROM cadastros_unidades cu2 " +
+                "        WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) ) " +
+                "   OR ( COALESCE(f.tipo_inventario, 'equipe') = 'gestor' AND EXISTS ( " +
+                "        SELECT 1 FROM cadastros_areas ca2 " +
+                "        WHERE ca2.id = f.cadastros_areas_id " +
+                "          AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ) )";
+        params.add(userId);
+        params.add(userId);
+        params.add(userId);
+        params.add(userId);
+        return jdbc.queryForList(listSql(where), params.toArray());
+    }
+
+    /** Mesma regra de visibilidade da listagem, para um registro só. */
+    public boolean podeVer(long id, long userId, boolean isSuperadmin) {
+        if (isSuperadmin) {
+            return true;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT 1 FROM avaliacao_integrada_formularios f " +
+                        "LEFT JOIN autoavaliacao_formularios af ON af.id = f.autoavaliacao_id " +
+                        "WHERE f.id = ? AND f.is_deleted = FALSE AND ( af.user_id = ? " +
+                        "   OR ( COALESCE(f.tipo_inventario, 'equipe') = 'equipe' AND EXISTS ( " +
+                        "        SELECT 1 FROM cadastros_unidades cu2 " +
+                        "        WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) ) " +
+                        "   OR ( COALESCE(f.tipo_inventario, 'equipe') = 'gestor' AND EXISTS ( " +
+                        "        SELECT 1 FROM cadastros_areas ca2 " +
+                        "        WHERE ca2.id = f.cadastros_areas_id " +
+                        "          AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ) ) LIMIT 1",
+                id, userId, userId, userId, userId);
+        return !rows.isEmpty();
+    }
+
+    /** Resultados Finais do próprio avaliado (colaborador ou gestor), já calculados. */
+    public List<Map<String, Object>> findMeus(long userId) {
+        return jdbc.queryForList(
+                "SELECT f.*, cu.nome as unidade_nome, af.user_id as colaborador_user_id " +
+                        "FROM avaliacao_integrada_formularios f " +
+                        "JOIN autoavaliacao_formularios af ON af.id = f.autoavaliacao_id " +
+                        "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "WHERE f.is_deleted = FALSE AND af.user_id = ? " +
+                        "ORDER BY COALESCE(f.calculado_em, f.created_at) DESC",
+                userId);
+    }
+
     public List<Map<String, Object>> findAll(String diretoria, String tipoInventario) {
         String where = "f.is_deleted = FALSE";
         List<Object> params = new ArrayList<>();
@@ -467,6 +533,215 @@ public class AvaliacaoIntegradaService {
         jdbc.update(
                 "UPDATE avaliacao_integrada_formularios SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? WHERE id = ?",
                 userId, id);
+    }
+
+    // ============================================================
+    // Resultado Final (antiga "Avaliação Integrada")
+    // ============================================================
+    // A nota deixou de ser consenso digitado: agora é média ponderada entre a avaliação
+    // de quem avalia (gestor da unidade, no inventário da equipe; liderança, no inventário
+    // do gestor) com peso 70, e a autoavaliação do avaliado, com peso 30.
+
+    private static final int PESO_AVALIADOR = 7;
+    private static final int PESO_AUTO = 3;
+
+    /**
+     * Média ponderada 70/30 arredondada para inteiro. O ,5 exato desce (decisão do negócio:
+     * só arredonda pra cima ACIMA de ,5). A conta é feita em inteiros — 7*avaliador + 3*auto
+     * é a nota multiplicada por 10 — pra não depender de ponto flutuante num limite de
+     * arredondamento. Nota faltando de um lado devolve a do outro; sem nenhuma, devolve null.
+     */
+    public static Integer calcularNotaFinal(Integer notaAuto, Integer notaAvaliador) {
+        if (notaAuto == null && notaAvaliador == null) {
+            return null;
+        }
+        if (notaAuto == null) {
+            return notaAvaliador;
+        }
+        if (notaAvaliador == null) {
+            return notaAuto;
+        }
+        int decimos = PESO_AVALIADOR * notaAvaliador + PESO_AUTO * notaAuto;
+        int inteiro = Math.floorDiv(decimos, 10);
+        int resto = Math.floorMod(decimos, 10);
+        return resto > 5 ? inteiro + 1 : inteiro;
+    }
+
+    /** Gera/atualiza o Resultado Final do par, se as duas avaliações já estiverem validadas. */
+    @Transactional
+    public Map<String, Object> gerarPorPar(long autoavaliacaoId, long avaliacaoGestorId) {
+        List<Map<String, Object>> afRows = jdbc.queryForList(
+                "SELECT * FROM autoavaliacao_formularios WHERE id = ? AND is_deleted = FALSE AND validado_em IS NOT NULL",
+                autoavaliacaoId);
+        List<Map<String, Object>> agRows = jdbc.queryForList(
+                "SELECT * FROM avaliacao_gestor_formularios WHERE id = ? AND is_deleted = FALSE AND validado_em IS NOT NULL",
+                avaliacaoGestorId);
+        if (afRows.isEmpty() || agRows.isEmpty()) {
+            // Ainda falta uma das pontas — nada a gerar (não é erro).
+            return null;
+        }
+        Map<String, Object> af = afRows.get(0);
+        Map<String, Object> ag = agRows.get(0);
+
+        List<Map<String, Object>> respAuto = jdbc.queryForList(
+                "SELECT * FROM autoavaliacao_respostas WHERE formulario_id = ? ORDER BY ordem", autoavaliacaoId);
+        List<Map<String, Object>> respAvaliador = jdbc.queryForList(
+                "SELECT * FROM avaliacao_gestor_respostas WHERE formulario_id = ? ORDER BY ordem", avaliacaoGestorId);
+
+        // A avaliação do avaliador manda na ordem e no conjunto de competências; o que só
+        // existir na autoavaliação entra no fim, pra nenhuma competência sumir do resultado.
+        Map<String, Map<String, Object>> autoPorChave = new LinkedHashMap<>();
+        for (Map<String, Object> r : respAuto) {
+            autoPorChave.put(chaveCompetencia(r), r);
+        }
+
+        List<Map<String, Object>> linhas = new ArrayList<>();
+        for (Map<String, Object> r : respAvaliador) {
+            Map<String, Object> auto = autoPorChave.remove(chaveCompetencia(r));
+            linhas.add(linhaResultado(r, auto));
+        }
+        for (Map<String, Object> auto : autoPorChave.values()) {
+            linhas.add(linhaResultado(null, auto));
+        }
+
+        String tipoInv = ag.get("tipo_inventario") != null ? str(ag.get("tipo_inventario")) : "equipe";
+        Long unidadeId = asLong(ag.get("unidade_id"));
+        Long avaliadorUserId = asLong(ag.get("avaliador_user_id"));
+
+        List<Map<String, Object>> existing = jdbc.queryForList(
+                "SELECT id FROM avaliacao_integrada_formularios " +
+                        "WHERE autoavaliacao_id = ? AND avaliacao_gestor_id = ? AND is_deleted = FALSE " +
+                        "ORDER BY id DESC LIMIT 1",
+                autoavaliacaoId, avaliacaoGestorId);
+
+        long formularioId;
+        if (!existing.isEmpty()) {
+            formularioId = ((Number) existing.get(0).get("id")).longValue();
+            jdbc.update(
+                    "UPDATE avaliacao_integrada_formularios SET " +
+                            "  pessoa_id = ?, pessoa_nome = ?, avaliador_user_id = ?, avaliador_nome = ?, " +
+                            "  cadastros_areas_id = ?, diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  status = 'calculado', calculado_em = NOW(), " +
+                            "  tecnicas_versao = ?, competencias_versao = ?, updated_at = NOW() " +
+                            "WHERE id = ?",
+                    asLong(ag.get("pessoa_id")), str(ag.get("pessoa_nome")), avaliadorUserId,
+                    str(ag.get("avaliador_nome")), asLong(ag.get("cadastros_areas_id")), str(ag.get("diretoria")),
+                    unidadeId, tipoInv, numOrOne(ag.get("tecnicas_versao")), numOrOne(ag.get("competencias_versao")),
+                    formularioId);
+        } else {
+            Map<String, Object> ins = jdbc.queryForMap(
+                    "INSERT INTO avaliacao_integrada_formularios " +
+                            "  (autoavaliacao_id, avaliacao_gestor_id, pessoa_id, pessoa_nome, avaliador_user_id, avaliador_nome, " +
+                            "   cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, calculado_em, " +
+                            "   tecnicas_versao, competencias_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'calculado', NOW(), ?, ?, ?, ?) " +
+                            "RETURNING id",
+                    autoavaliacaoId, avaliacaoGestorId, asLong(ag.get("pessoa_id")), str(ag.get("pessoa_nome")),
+                    avaliadorUserId, str(ag.get("avaliador_nome")), asLong(ag.get("cadastros_areas_id")),
+                    str(ag.get("diretoria")), unidadeId, tipoInv,
+                    numOrOne(ag.get("tecnicas_versao")), numOrOne(ag.get("competencias_versao")),
+                    avaliadorUserId, avaliadorUserId);
+            formularioId = ((Number) ins.get("id")).longValue();
+        }
+
+        jdbc.update("DELETE FROM avaliacao_integrada_respostas WHERE formulario_id = ?", formularioId);
+        for (int i = 0; i < linhas.size(); i++) {
+            Map<String, Object> l = linhas.get(i);
+            jdbc.update(
+                    "INSERT INTO avaliacao_integrada_respostas " +
+                            "  (formulario_id, competencia_unidade_id, competencia_nome, competencia_descricao, " +
+                            "   nota_autoavaliacao, nota_gestor, nota_integrada, tipo, ordem) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    formularioId, l.get("competencia_unidade_id"), l.get("competencia_nome"),
+                    l.get("competencia_descricao"), l.get("nota_autoavaliacao"), l.get("nota_gestor"),
+                    l.get("nota_integrada"), l.get("tipo"), i + 1);
+        }
+
+        log.info("[resultadoFinal] gerado formulario={} par=({},{}) competencias={}",
+                formularioId, autoavaliacaoId, avaliacaoGestorId, linhas.size());
+        return findById(formularioId);
+    }
+
+    /** Gatilho: chamado ao validar uma autoavaliação. Gera o Resultado Final se o par fechou. */
+    public void gerarPorAutoavaliacao(long autoavaliacaoId) {
+        List<Map<String, Object>> pares = jdbc.queryForList(
+                "SELECT id FROM avaliacao_gestor_formularios " +
+                        "WHERE pessoa_id = ? AND is_deleted = FALSE AND validado_em IS NOT NULL",
+                autoavaliacaoId);
+        for (Map<String, Object> p : pares) {
+            gerarComLog(autoavaliacaoId, ((Number) p.get("id")).longValue());
+        }
+    }
+
+    /** Gatilho: chamado ao validar uma avaliação do gestor/liderança. */
+    public void gerarPorAvaliacaoGestor(long avaliacaoGestorId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT pessoa_id FROM avaliacao_gestor_formularios WHERE id = ? AND is_deleted = FALSE",
+                avaliacaoGestorId);
+        if (rows.isEmpty() || rows.get(0).get("pessoa_id") == null) {
+            return;
+        }
+        gerarComLog(asLong(rows.get(0).get("pessoa_id")), avaliacaoGestorId);
+    }
+
+    /**
+     * O Resultado Final é efeito colateral da validação: se ele falhar, a validação em si
+     * (que é o ato do usuário) não pode ser desfeita — por isso o erro é logado, não propagado.
+     */
+    private void gerarComLog(long autoavaliacaoId, long avaliacaoGestorId) {
+        try {
+            gerarPorPar(autoavaliacaoId, avaliacaoGestorId);
+        } catch (Exception err) {
+            log.error("[resultadoFinal] falha ao gerar par=({},{}): {}",
+                    autoavaliacaoId, avaliacaoGestorId, err.getMessage(), err);
+        }
+    }
+
+    /** Casa a competência entre os dois formulários: id da competência da unidade + tipo. */
+    private static String chaveCompetencia(Map<String, Object> r) {
+        Object id = r.get("competencia_unidade_id");
+        String tipo = r.get("tipo") != null ? String.valueOf(r.get("tipo")) : "tecnica";
+        // Sem id (competência avulsa), o nome normalizado é o que resta pra parear.
+        String base = id != null
+                ? "id:" + id
+                : "nome:" + String.valueOf(r.get("competencia_nome")).trim().toLowerCase();
+        return base + "|" + tipo;
+    }
+
+    private static Map<String, Object> linhaResultado(
+            Map<String, Object> doAvaliador, Map<String, Object> daAutoavaliacao) {
+        Map<String, Object> base = doAvaliador != null ? doAvaliador : daAutoavaliacao;
+        Integer notaAvaliador = asInt(doAvaliador != null ? doAvaliador.get("nota") : null);
+        Integer notaAuto = asInt(daAutoavaliacao != null ? daAutoavaliacao.get("nota") : null);
+
+        Map<String, Object> l = new LinkedHashMap<>();
+        l.put("competencia_unidade_id", base.get("competencia_unidade_id"));
+        l.put("competencia_nome", str(base.get("competencia_nome")));
+        l.put("competencia_descricao", orNull(base.get("competencia_descricao")));
+        l.put("nota_autoavaliacao", notaAuto);
+        l.put("nota_gestor", notaAvaliador);
+        l.put("nota_integrada", calcularNotaFinal(notaAuto, notaAvaliador));
+        l.put("tipo", base.get("tipo") != null ? str(base.get("tipo")) : "tecnica");
+        return l;
+    }
+
+    private static Integer asInt(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Number n) {
+            return n.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static int numOrOne(Object v) {
+        Integer n = asInt(v);
+        return n == null ? 1 : n;
     }
 
     // ============================================================
