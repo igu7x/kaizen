@@ -62,11 +62,22 @@ public class AvaliacaoGestorService {
                 "LEFT JOIN users u ON u.id = f.avaliador_user_id " +
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
                 "WHERE " + whereClauses + " " +
+                // Mantém só a avaliação mais recente por pessoa avaliada. A identidade é o
+                // pessoa_id quando há autoavaliação vinculada; senão é a chave estável
+                // (pessoa_user_id + unidade), que é o estado normal quando o diretor avalia o
+                // gestor ANTES de existir autoavaliação (ver 6bbdac7). Sem o segundo ramo,
+                // `f2.pessoa_id = f.pessoa_id` vira NULL = NULL, nunca é verdadeiro, e a
+                // avaliação simplesmente some da relação.
                 "  AND f.id = ( " +
                 "    SELECT f2.id FROM avaliacao_gestor_formularios f2 " +
-                "    WHERE f2.pessoa_id = f.pessoa_id " +
-                "      AND f2.is_deleted = FALSE " +
+                "    WHERE f2.is_deleted = FALSE " +
                 "      AND COALESCE(f2.tipo_inventario, 'equipe') = COALESCE(f.tipo_inventario, 'equipe') " +
+                "      AND ( " +
+                "            (f.pessoa_id IS NOT NULL AND f2.pessoa_id = f.pessoa_id) " +
+                "         OR (f.pessoa_id IS NULL AND f2.pessoa_id IS NULL " +
+                "             AND f2.pessoa_user_id IS NOT DISTINCT FROM f.pessoa_user_id " +
+                "             AND f2.unidade_id IS NOT DISTINCT FROM f.unidade_id) " +
+                "      ) " +
                 "    ORDER BY f2.created_at DESC " +
                 "    LIMIT 1 " +
                 "  ) " +
