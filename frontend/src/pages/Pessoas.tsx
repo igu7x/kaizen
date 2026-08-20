@@ -42,7 +42,13 @@ export default function Pessoas() {
 
   return (
     <Layout>
-      <div className="-mt-2 mb-2">
+      {/* Em Competências o hub é centralizado num max-w-7xl; o breadcrumb usa o mesmo
+          container pra não ficar desalinhado à esquerda. As demais views são full width. */}
+      <div
+        className={`-mt-2 mb-2 ${
+          isCompetencias ? "mx-auto w-full max-w-7xl px-6" : ""
+        }`}
+      >
         <Breadcrumbs items={breadcrumbItems} />
       </div>
       <div
