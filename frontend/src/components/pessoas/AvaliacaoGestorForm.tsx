@@ -321,6 +321,16 @@ export function AvaliacaoGestorForm({
     !!avaliacaoExistente &&
     avaliacaoExistente.status !== "atualizacao_requisitada";
 
+  /**
+   * Só faz sentido renderizar a matriz de competências e o envio quando há alguém pendente
+   * de avaliação. Com a pessoa já avaliada, a tela fica só com o aviso — sem escala, sem
+   * lista de competências e sem botão.
+   */
+  const mostrarCompetencias =
+    !jaAvaliado &&
+    !!form.unidade_id &&
+    (!!form.pessoa_id || !!form.pessoa_user_id);
+
   // Dispatcher do dropdown: "auto:<id>" = a partir de uma autoavaliação; "user:<userId>" = o gestor
   // da unidade (sem autoavaliação).
   const handleAvaliavelSelect = (key: string) => {
@@ -1317,7 +1327,7 @@ export function AvaliacaoGestorForm({
       {/* Secao 5 - Competencias Tecnicas */}
       {/* pessoa_id OU pessoa_user_id: no fluxo de avaliar o gestor sem autoavaliacao so ha
           pessoa_user_id, e a secao (com a matriz da unidade) precisa aparecer igual. */}
-      {form.unidade_id && (form.pessoa_id || form.pessoa_user_id) && (
+      {mostrarCompetencias && (
         <>
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-8">
             <div className="flex gap-4">
@@ -1444,7 +1454,7 @@ export function AvaliacaoGestorForm({
       )}
 
       {/* Secao 6 - Competencias Comportamentais */}
-      {form.respostas.length > 0 && (
+      {mostrarCompetencias && form.respostas.length > 0 && (
         <>
           <div className="rounded-xl bg-violet-50 border border-violet-200 p-8">
             <div className="flex gap-4">
@@ -1545,6 +1555,7 @@ export function AvaliacaoGestorForm({
 
       {/* Secao 7 - Competencias Estrategicas (apenas gestor) */}
       {tipoInventario === "gestor" &&
+        mostrarCompetencias &&
         form.respostas.length > 0 &&
         form.respostas_estrategicas.length > 0 && (
           <>
@@ -1649,6 +1660,7 @@ export function AvaliacaoGestorForm({
 
       {/* Secao 8 - Competencias Gerenciais (apenas gestor) */}
       {tipoInventario === "gestor" &&
+        mostrarCompetencias &&
         form.respostas.length > 0 &&
         form.respostas_gerenciais.length > 0 && (
           <>
@@ -1752,7 +1764,7 @@ export function AvaliacaoGestorForm({
         )}
 
       {/* Botao Enviar */}
-      {form.respostas.length > 0 && (
+      {mostrarCompetencias && form.respostas.length > 0 && (
         <div className="flex justify-end pb-6">
           <Button
             onClick={handleSubmit}
