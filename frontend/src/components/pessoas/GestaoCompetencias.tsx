@@ -261,9 +261,30 @@ type View =
   | "competencias_tecnicas_admin"
   | "competencias_padrao_view";
 
-export function GestaoCompetencias() {
+/**
+ * Views que caem no hub (nenhum return antecipado as intercepta). Qualquer outra é uma
+ * tela dedicada, que ocupa a largura toda — a página usa isso pra alinhar o breadcrumb.
+ */
+const VIEWS_HUB: View[] = [
+  "inventario",
+  "referencial_home",
+  "inventario_home",
+  "inventario_equipe_home",
+  "inventario_gestor_home",
+];
+
+export function GestaoCompetencias({
+  onTelaCheiaChange,
+}: {
+  /** Avisa a página quando sai do hub (centralizado) para uma tela dedicada (full width). */
+  onTelaCheiaChange?: (emTelaCheia: boolean) => void;
+} = {}) {
   const { user } = useAuth();
   const [currentView, setCurrentView] = useState<View>("inventario");
+
+  useEffect(() => {
+    onTelaCheiaChange?.(!VIEWS_HUB.includes(currentView));
+  }, [currentView, onTelaCheiaChange]);
   const [formularioResumo, setFormularioResumo] =
     useState<FormularioCompetencias | null>(null);
   const [formularioEdit, setFormularioEdit] =
