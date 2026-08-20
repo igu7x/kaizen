@@ -473,9 +473,11 @@ export function AvaliacaoIntegradaRespostas({
                       v{v.versao}
                     </span>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Validado em{" "}
-                      {new Date(v.validado_em).toLocaleDateString("pt-BR")}
-                      {v.validado_nome ? ` por ${v.validado_nome}` : ""}
+                      {/* Sem nome = versão do cálculo automático. Com nome = formulário
+                          antigo, de quando a nota era validada à mão. */}
+                      {v.validado_nome
+                        ? `Validado em ${new Date(v.validado_em).toLocaleDateString("pt-BR")} por ${v.validado_nome}`
+                        : `Calculado em ${new Date(v.validado_em).toLocaleDateString("pt-BR")}`}
                     </p>
                   </div>
                   <Button
