@@ -3,7 +3,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, Plus, ExternalLink, CheckCheck, Pencil, Trash2, Link as LinkIcon, AlertTriangle, Check, X, Info, FileText, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, Plus, ExternalLink, CheckCheck, Pencil, Trash2, Link as LinkIcon, AlertTriangle, Check, X, Info, FileText, Upload, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { CicloTimeline } from "@/components/contratacoes/ciclo/CicloTimeline";
@@ -20,6 +20,7 @@ import { getAreaLabel } from "@/utils/formatters";
 import { DialogNovoIfo } from "@/components/ciclo/DialogNovoIfo";
 import { DialogEditarIfo } from "@/components/ciclo/DialogEditarIfo";
 import { DialogVincularContratos } from "@/components/ciclo/DialogVincularContratos";
+import { DialogCriarIfoViaContrato } from "@/components/ciclo/DialogCriarIfoViaContrato";
 import { DialogImportarPca } from "@/components/ciclo/DialogImportarPca";
 import { DialogEditarValorContratoIfo } from "@/components/ciclo/DialogEditarValorContratoIfo";
 import { DialogMotivoNaoRenovacao } from "@/components/ciclo/DialogMotivoNaoRenovacao";
@@ -69,23 +70,23 @@ const TAG_POR_ESTADO: Record<string, string> = {
 
 const TAGS_ACESSO_POR_ESTADO: Record<string, string[]> = {
   aguardando_proad: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
-    "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_DELETAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD"],
+    "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD"],
   aberto: ["PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
-    "PCA_FOR_MODIFICAR_IFO_ABERTO", "PCA_FOR_DELETAR_IFO_ABERTO", "PCA_FOR_VINCULAR_CONTRATOS_ABERTO"],
+    "PCA_FOR_MODIFICAR_IFO_ABERTO", "PCA_FOR_VINCULAR_CONTRATOS_ABERTO"],
   em_consulta_1: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
-    "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_1", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_1", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_1"],
+    "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_1", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_1"],
   em_consulta_2: ["PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
-    "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_2", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_2", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_2"],
+    "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_2", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_2"],
   consolidacao_cca: ["PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT",
-    "PCA_FOR_MODIFICAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_DELETAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_VINCULAR_CONTRATOS_CONSOLIDACAO_CCA"],
+    "PCA_FOR_MODIFICAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_VINCULAR_CONTRATOS_CONSOLIDACAO_CCA"],
   validacao_gejut: ["PCA_FOR_ENCAMINHAR_SGJT",
-    "PCA_FOR_MODIFICAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_DELETAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_VINCULAR_CONTRATOS_VALIDACAO_GEJUT"],
+    "PCA_FOR_MODIFICAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_VINCULAR_CONTRATOS_VALIDACAO_GEJUT"],
   apreciacao_sgjt: ["PCA_FOR_PAUTAR_COMITES",
-    "PCA_FOR_MODIFICAR_IFO_APRECIACAO_SGJT", "PCA_FOR_DELETAR_IFO_APRECIACAO_SGJT", "PCA_FOR_VINCULAR_CONTRATOS_APRECIACAO_SGJT"],
+    "PCA_FOR_MODIFICAR_IFO_APRECIACAO_SGJT", "PCA_FOR_VINCULAR_CONTRATOS_APRECIACAO_SGJT"],
   em_comites: ["PCA_FOR_AUTORIZAR_COMITES",
-    "PCA_FOR_MODIFICAR_IFO_EM_COMITES", "PCA_FOR_DELETAR_IFO_EM_COMITES", "PCA_FOR_VINCULAR_CONTRATOS_EM_COMITES"],
+    "PCA_FOR_MODIFICAR_IFO_EM_COMITES", "PCA_FOR_VINCULAR_CONTRATOS_EM_COMITES"],
   remessa_dg: ["PCA_FOR_REMETER_DG",
-    "PCA_FOR_MODIFICAR_IFO_REMESSA_DG", "PCA_FOR_DELETAR_IFO_REMESSA_DG", "PCA_FOR_VINCULAR_CONTRATOS_REMESSA_DG"],
+    "PCA_FOR_MODIFICAR_IFO_REMESSA_DG", "PCA_FOR_VINCULAR_CONTRATOS_REMESSA_DG"],
   publicado: [], // Sem restrição
 };
 
@@ -96,6 +97,7 @@ function EsteiraControls({
   disabled,
   podeAvancar = true,
   hideRetornar = false,
+  leftActions,
 }: {
   ciclo: Ciclo;
   onAvancar: () => void;
@@ -103,6 +105,7 @@ function EsteiraControls({
   disabled?: boolean;
   podeAvancar?: boolean;
   hideRetornar?: boolean;
+  leftActions?: React.ReactNode;
 }) {
   const { user } = useAuth();
   const tags = user?.tags_acesso ?? [];
@@ -114,29 +117,25 @@ function EsteiraControls({
 
   const labelBotaoAvancar = PROXIMO_ATOR_LABELS[ciclo.estado] || "Encaminhar ao próximo ator";
   return (
-    <div className="flex items-center gap-4 py-2 border-t mt-4">
-      <span className="text-sm font-medium text-slate-700">
-        Próxima ação:
-      </span>
-      <div className="ml-auto flex gap-2">
-        {!hideRetornar && (
-          <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
-            <ArrowLeft className="h-4 w-4 mr-1.5" />
-            Retornar
-          </Button>
-        )}
-        {podeAvancarFinal && (
-          <Button
-            size="sm"
-            onClick={onAvancar}
-            disabled={disabled}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <ArrowRight className="h-4 w-4 mr-1.5" />
-            {labelBotaoAvancar}
-          </Button>
-        )}
-      </div>
+    <div className="flex justify-end gap-2 mt-4">
+      {leftActions}
+      {!hideRetornar && (
+        <Button variant="outline" size="sm" onClick={onRetroceder} disabled={disabled}>
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          Retornar
+        </Button>
+      )}
+      {podeAvancarFinal && (
+        <Button
+          size="sm"
+          onClick={onAvancar}
+          disabled={disabled}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <ArrowRight className="h-4 w-4 mr-1.5" />
+          {labelBotaoAvancar}
+        </Button>
+      )}
     </div>
   );
 }
@@ -163,6 +162,39 @@ export default function FormacaoPca() {
   const [ifos, setIfos] = useState<Ifo[]>([]);
   const [loadingBlocos, setLoadingBlocos] = useState(false);
   const [isNovoIfoOpen, setIsNovoIfoOpen] = useState(false);
+  const [criarIfoBloco, setCriarIfoBloco] = useState<string | null>(null);
+  const [blocosAbertos, setBlocosAbertos] = useState<Record<string, boolean>>({});
+  
+  const toggleBloco = (b: string) => setBlocosAbertos(prev => ({...prev, [b]: !prev[b]}));
+
+  const orfaosPorBloco = useMemo(() => {
+    const result: Record<string, number> = { plurianual: 0, renovacao: 0, encerramento: 0 };
+    if (!allContracts.length) return result;
+    
+    const todosIfos = [...ifosEncerramento, ...ifosRenovacao, ...ifosPlurianual, ...ifos];
+    const linkedIds = new Set(todosIfos.flatMap(i => (i.contratos || []).map(String)));
+    
+    allContracts.forEach(c => {
+      if (!c.limitDate) return;
+      const limitAno = new Date(c.limitDate).getFullYear();
+      if (limitAno < anoFormacao) return;
+      if (linkedIds.has(String(c.id))) return;
+      
+      if (c.endDate) {
+        const fimAno = new Date(c.endDate).getFullYear();
+        if (fimAno > anoFormacao) {
+          result.plurianual++;
+        } else if (new Date(c.limitDate) > new Date(c.endDate)) {
+          result.renovacao++;
+        } else {
+          result.encerramento++;
+        }
+      } else {
+         result.plurianual++;
+      }
+    });
+    return result;
+  }, [allContracts, ifos, ifosEncerramento, ifosRenovacao, ifosPlurianual, anoFormacao]);
   const [isImportarPcaOpen, setIsImportarPcaOpen] = useState(false);
   const [minhaDelegacao, setMinhaDelegacao] = useState<MinhaDelegacaoResponse | null>(null);
 
@@ -172,7 +204,7 @@ export default function FormacaoPca() {
   const [ifoDeleting, setIfoDeleting] = useState<Ifo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingContractVal, setEditingContractVal] = useState<{ ifoId: number; contractId: number; initialValue: number | null } | null>(null);
-  
+
   // Justificativa
   const [isMotivoDialogOpen, setIsMotivoDialogOpen] = useState(false);
   const [motivoContractId, setMotivoContractId] = useState<number | null>(null);
@@ -357,14 +389,14 @@ export default function FormacaoPca() {
     if (!formacaoEstado) return false;
     if (formacaoEstado === "publicado") return false;
     if ((user as any)?.is_superadmin) return true;
-    
+
     if (formacaoEstado === "apreciacao_sgjt" || formacaoEstado === "em_comites" || formacaoEstado === "remessa_dg") {
       return false;
     }
 
     // Caminho 1: Herança por tag de transição
     if (minhaDelegacao?.tem_tag_transicao) return true;
-    
+
     // Caminho 2: Delegação ativa
     if (minhaDelegacao?.tem_delegacao) {
       if (minhaDelegacao.tipo === 'especial' && (prefix === 'MODIFICAR_IFO' || prefix === 'VINCULAR_CONTRATOS')) return true;
@@ -377,9 +409,9 @@ export default function FormacaoPca() {
     return user?.tags_acesso?.includes(tagNecessaria) ?? false;
   };
 
-  const temModificacaoEspecial = 
+  const temModificacaoEspecial =
     (formacaoEstado !== "apreciacao_sgjt" && formacaoEstado !== "em_comites" && formacaoEstado !== "remessa_dg") && (
-      user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") || 
+      user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_ESPECIAL") ||
       user?.tags_acesso?.includes("PCA_FOR_MODIFICACAO_CCA") ||
       minhaDelegacao?.tipo === "especial"
     );
@@ -411,6 +443,22 @@ export default function FormacaoPca() {
     } catch {
       toast.error("Erro ao registrar interesse na renovação do contrato.");
     }
+  };
+
+  const renderPainelDelegacao = () => {
+    if (!ciclo) return null;
+    const isSuper = (user as any)?.is_superadmin;
+    const isFaseBloqueada = ciclo.estado === "em_comites" || ciclo.estado === "remessa_dg";
+    const podeDelegar = isSuper || (!isFaseBloqueada && minhaDelegacao?.tem_tag_transicao);
+
+    if (!podeDelegar) return null;
+    return (
+      <PainelDelegacaoEdicao
+        cicloId={ciclo.id}
+        estado={ciclo.estado}
+        onDelegacaoChanged={loadBlocos}
+      />
+    );
   };
 
   return (
@@ -529,21 +577,6 @@ export default function FormacaoPca() {
                               <X className="h-4 w-4 mr-2" /> Rejeitar
                             </Button>
                           </div>
-                          {/* Delegar Edição — alinhado à direita */}
-                          {(() => {
-                            const isSuper = (user as any)?.is_superadmin;
-                            const podeDelegar = isSuper || minhaDelegacao?.tem_tag_transicao;
-                            if (!podeDelegar) return null;
-                            return (
-                              <div className="ml-auto">
-                                <PainelDelegacaoEdicao
-                                  cicloId={ciclo.id}
-                                  estado={ciclo.estado}
-                                  onDelegacaoChanged={loadBlocos}
-                                />
-                              </div>
-                            );
-                          })()}
                         </div>
                       </div>
                     )}
@@ -579,15 +612,7 @@ export default function FormacaoPca() {
                           <div className="mt-4 p-4 border rounded-lg bg-slate-50">
                             <h4 className="text-sm font-semibold text-slate-800 mb-3">Inserir Ata</h4>
                             <div className="flex flex-col gap-3">
-                              <CampoLinkProad
-                                cicloId={ciclo.id}
-                                campo="proad_ata_comites"
-                                valorOriginal={ciclo.proadAtaComites}
-                                estadoAtual={formacaoEstado}
-                                estadoEditavel="em_comites"
-                                label="PROAD da Ata dos Comitês (Link)"
-                                onSaved={(c) => setCiclo(c)}
-                              />
+
 
                               <AtasComitesPanel cicloId={ciclo.id} />
                             </div>
@@ -612,186 +637,171 @@ export default function FormacaoPca() {
                     )}
 
                     {formacaoEstado === "apreciacao_sgjt" ? (
-                      validacaoDfd && (
-                        <div className="flex items-center gap-4 py-2 border-t mt-4">
-                          <span className="text-sm font-medium text-slate-700">
-                            Próxima ação:
-                          </span>
-                          <div className="ml-auto flex gap-2">
-                            {validacaoDfd === 'V' && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <FileText className="h-4 w-4 mr-1.5" />
-                                    Baixar Proposta de DFD TIC
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => {
-                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank");
-                                    setDfdBaixado(true);
-                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
-                                  }}>
-                                    PDF
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank");
-                                    setDfdBaixado(true);
-                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
-                                  }}>
-                                    Planilha (xlsx)
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-
-                            {validacaoDfd === 'X' && (
-                              <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
-                                <ArrowLeft className="h-4 w-4 mr-1.5" />
-                                Retornar à Consolidação
+                      <div className="flex justify-end gap-2 mt-4">
+                        {renderPainelDelegacao()}
+                        {validacaoDfd === 'V' && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <FileText className="h-4 w-4 mr-1.5" />
+                                Baixar Proposta de DFD TIC
                               </Button>
-                            )}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
+                                window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank");
+                                setDfdBaixado(true);
+                                localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                              }}>
+                                Documento PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank");
+                                setDfdBaixado(true);
+                                localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                              }}>
+                                Planilha (.xlsx)
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
 
-                            {validacaoDfd === 'V' && (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span tabIndex={!dfdBaixado ? 0 : undefined}>
-                                      <Button
-                                        size="sm"
-                                        onClick={avancarEsteira}
-                                        disabled={acaoEmCurso || !dfdBaixado}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                                      >
-                                        <ArrowRight className="h-4 w-4 mr-1.5" />
-                                        Encaminhar aos Comitês
-                                      </Button>
-                                    </span>
-                                  </TooltipTrigger>
-                                  {!dfdBaixado && (
-                                    <TooltipContent>
-                                      Baixe a Proposta de DFD TIC antes de encaminhar
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    ) : formacaoEstado === "em_comites" ? (
-                      validacaoComites && (
-                        <div className="flex items-center gap-4 py-2 border-t mt-4">
-                          <span className="text-sm font-medium text-slate-700">
-                            Próxima ação:
-                          </span>
-                          <div className="ml-auto flex gap-2">
-                            {validacaoComites === 'X' && (
-                              <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
-                                <ArrowLeft className="h-4 w-4 mr-1.5" />
-                                Encaminhar à SGJT
-                              </Button>
-                            )}
+                        {validacaoDfd === 'X' && (
+                          <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
+                            <ArrowLeft className="h-4 w-4 mr-1.5" />
+                            Retornar à Consolidação
+                          </Button>
+                        )}
 
-                            {validacaoComites === 'V' && (
-                              <Button
-                                size="sm"
-                                onClick={avancarEsteira}
-                                disabled={acaoEmCurso}
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                              >
-                                <ArrowRight className="h-4 w-4 mr-1.5" />
-                                Encaminhar ao CCA
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    ) : formacaoEstado === "remessa_dg" ? (
-                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mt-4">
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">
-                          Validação da Diretoria-Geral
-                        </h3>
-                        <div className="space-y-4">
-                          {/* Baixar Proposta de DFD TIC — visível até validação = 'V' */}
-                          {validacaoDg !== 'V' && (
-                            <div>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <FileText className="h-4 w-4 mr-1.5" />
-                                    Baixar Proposta de DFD TIC
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                  <DropdownMenuItem onClick={() => {
-                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank");
-                                    setDfdBaixado(true);
-                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
-                                    setValidacaoDg(null);
-                                  }}>
-                                    PDF
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank");
-                                    setDfdBaixado(true);
-                                    localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
-                                    setValidacaoDg(null);
-                                  }}>
-                                    Planilha (xlsx)
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          )}
-
-                          {/* Validação DG — aparece após download */}
-                          {dfdBaixado && (
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <span className="text-sm font-medium text-slate-700">Validado pela DG?</span>
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={() => setValidacaoDg('V')}
-                                  variant={validacaoDg === 'V' ? 'default' : 'outline'}
-                                  className={validacaoDg === 'V' ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" : "text-emerald-700 border-emerald-200 hover:bg-emerald-50"}
-                                  size="sm"
-                                >
-                                  <Check className="h-4 w-4 mr-1.5" /> Sim
-                                </Button>
-                                <Button
-                                  onClick={() => setValidacaoDg('X')}
-                                  variant={validacaoDg === 'X' ? 'default' : 'outline'}
-                                  className={validacaoDg === 'X' ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600" : "text-rose-700 border-rose-200 hover:bg-rose-50"}
-                                  size="sm"
-                                >
-                                  <X className="h-4 w-4 mr-1.5" /> Não
-                                </Button>
-                              </div>
-                              {/* Ações pós-validação na mesma linha */}
-                              {validacaoDg === 'X' && (
-                                <div className="ml-auto">
-                                  <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
-                                    <ArrowLeft className="h-4 w-4 mr-1.5" />
-                                    Retornar aos Comitês
-                                  </Button>
-                                </div>
-                              )}
-                              {validacaoDg === 'V' && (
-                                <div className="ml-auto">
+                        {validacaoDfd === 'V' && (
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span tabIndex={!dfdBaixado ? 0 : undefined}>
                                   <Button
                                     size="sm"
-                                    onClick={() => setIsImportarPcaOpen(true)}
+                                    onClick={avancarEsteira}
+                                    disabled={acaoEmCurso || !dfdBaixado}
                                     className="bg-blue-600 hover:bg-blue-700 text-white"
                                   >
-                                    <Upload className="h-4 w-4 mr-1.5" />
-                                    Importar PCA
+                                    <ArrowRight className="h-4 w-4 mr-1.5" />
+                                    Encaminhar aos Comitês
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              {!dfdBaixado && (
+                                <TooltipContent>
+                                  Baixe a Proposta de DFD TIC antes de encaminhar
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    ) : formacaoEstado === "em_comites" ? (
+                      <div className="flex justify-end gap-2 mt-4">
+                        {renderPainelDelegacao()}
+                        {validacaoComites === 'X' && (
+                          <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
+                            <ArrowLeft className="h-4 w-4 mr-1.5" />
+                            Encaminhar à SGJT
+                          </Button>
+                        )}
+
+                        {validacaoComites === 'V' && (
+                          <Button
+                            size="sm"
+                            onClick={avancarEsteira}
+                            disabled={acaoEmCurso}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            <ArrowRight className="h-4 w-4 mr-1.5" />
+                            Encaminhar ao CCA
+                          </Button>
+                        )}
+                      </div>
+                    ) : formacaoEstado === "remessa_dg" ? (
+                      <>
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mt-4">
+                          <h3 className="text-sm font-semibold text-slate-800 mb-4">
+                            Validação da Diretoria-Geral
+                          </h3>
+                          <div className="space-y-4">
+                            {/* Validação DG — aparece após download */}
+                            {dfdBaixado && (
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <span className="text-sm font-medium text-slate-700">Validado pela DG?</span>
+                                <div className="flex gap-2">
+                                  <Button
+                                    onClick={() => setValidacaoDg('V')}
+                                    variant={validacaoDg === 'V' ? 'default' : 'outline'}
+                                    className={validacaoDg === 'V' ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" : "text-emerald-700 border-emerald-200 hover:bg-emerald-50"}
+                                    size="sm"
+                                  >
+                                    <Check className="h-4 w-4 mr-1.5" /> Sim
+                                  </Button>
+                                  <Button
+                                    onClick={() => setValidacaoDg('X')}
+                                    variant={validacaoDg === 'X' ? 'default' : 'outline'}
+                                    className={validacaoDg === 'X' ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600" : "text-rose-700 border-rose-200 hover:bg-rose-50"}
+                                    size="sm"
+                                  >
+                                    <X className="h-4 w-4 mr-1.5" /> Não
                                   </Button>
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-4">
+                          {renderPainelDelegacao()}
+                          {validacaoDg !== 'V' && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <FileText className="h-4 w-4 mr-1.5" />
+                                  Baixar DFD TIC
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
+                                  window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/pdf`, "_blank");
+                                  setDfdBaixado(true);
+                                  localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                                  setValidacaoDg(null);
+                                }}>
+                                  Documento PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  window.open(`${getApiBaseUrl()}/api/ciclo-orcamentario/formacao/${anoFormacao}/xlsx`, "_blank");
+                                  setDfdBaixado(true);
+                                  localStorage.setItem(`dfdBaixado_${anoFormacao}`, "true");
+                                  setValidacaoDg(null);
+                                }}>
+                                  Planilha (.xlsx)
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                          {validacaoDg === 'X' && (
+                            <Button variant="outline" size="sm" onClick={retrocederEsteira} disabled={acaoEmCurso}>
+                              <ArrowLeft className="h-4 w-4 mr-1.5" />
+                              Retornar aos Comitês
+                            </Button>
+                          )}
+                          {validacaoDg === 'V' && (
+                            <Button
+                              size="sm"
+                              onClick={() => setIsImportarPcaOpen(true)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <Upload className="h-4 w-4 mr-1.5" />
+                              Importar PCA
+                            </Button>
                           )}
                         </div>
-                      </div>
+                      </>
                     ) : formacaoEstado === "publicado" ? null : (
                       <EsteiraControls
                         ciclo={ciclo}
@@ -800,26 +810,9 @@ export default function FormacaoPca() {
                         disabled={acaoEmCurso}
                         podeAvancar={podeAvancarParaConsulta}
                         hideRetornar={formacaoEstado === "aguardando_proad" || formacaoEstado === "aberto"}
+                        leftActions={renderPainelDelegacao()}
                       />
                     )}
-                    
-                    {/* Painel de Delegação de Edição — exibido fora da Apreciação SGJT (que já contém o botão inline) */}
-                    {formacaoEstado !== "apreciacao_sgjt" && (() => {
-                      const isSuper = (user as any)?.is_superadmin;
-                      const isFaseBloqueada = ciclo.estado === "em_comites" || ciclo.estado === "remessa_dg";
-                      const podeDelegar = isSuper || (!isFaseBloqueada && minhaDelegacao?.tem_tag_transicao);
-                      
-                      if (!podeDelegar) return null;
-                      return (
-                        <div className="mt-4 flex justify-end">
-                          <PainelDelegacaoEdicao
-                            cicloId={ciclo.id}
-                            estado={ciclo.estado}
-                            onDelegacaoChanged={loadBlocos}
-                          />
-                        </div>
-                      );
-                    })()}
                   </>
                 )}
               </>
@@ -854,21 +847,40 @@ export default function FormacaoPca() {
                 ifosList: Ifo[],
                 corTexto: string,
                 corBg: string,
+                blocoId: string,
                 isNovaContratacao?: boolean
-              ) => (
+              ) => {
+                const isOpen = !!blocosAbertos[blocoId];
+                const qtdOrfaos = orfaosPorBloco[blocoId] || 0;
+                const hasEmptyIfo = ifosList.some(ifo => !ifo.contratos || ifo.contratos.length === 0);
+                
+                return (
                 <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-                  <div className="flex items-center justify-between border-b bg-slate-50 px-5 py-3">
+                  <div 
+                    className="flex items-center justify-between border-b bg-slate-50 px-5 py-3 cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                    onClick={() => toggleBloco(blocoId)}
+                  >
                     <div className="flex items-center gap-3">
                       <span className={`text-sm font-semibold ${corTexto} ${corBg} px-2 py-0.5 rounded`}>
                         Bloco {numeroBloco}
                       </span>
                       <h2 className="text-base font-semibold text-slate-800">{titulo}</h2>
                     </div>
-                    <span className="text-sm text-slate-500 font-medium">
-                      {ifosList.length} {ifosList.length === 1 ? 'IFO' : 'IFOs'}
-                    </span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-slate-500 font-medium">
+                        {ifosList.length} {ifosList.length === 1 ? 'IFO' : 'IFOs'}
+                      </span>
+                      <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </div>
                   </div>
+                  {isOpen && (
                   <div className="p-0">
+                    {qtdOrfaos > 0 && (
+                      <div className="bg-amber-50 px-5 py-3 border-b border-amber-100 flex items-center gap-2 text-amber-700 text-sm font-medium">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span><strong>Atenção:</strong> Existem {qtdOrfaos} contrato(s) com perfil deste bloco que ainda não estão vinculados a nenhum IFO.</span>
+                      </div>
+                    )}
                     {loadingBlocos ? (
                       <div className="p-8 flex justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
@@ -891,7 +903,7 @@ export default function FormacaoPca() {
                                 <span className="font-semibold text-slate-800">{formatCurrency(ifo.valorEstimado || 0)}</span>
                                 <div className="flex items-center gap-1">
 
-                                  {podeVincularContratos && (
+                                  {podeVincularContratos && ifo.bloco !== "nova_contratacao" && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-blue-600" onClick={() => setIfoLinking(ifo)}>
                                       <LinkIcon className="h-4 w-4" />
                                     </Button>
@@ -901,7 +913,7 @@ export default function FormacaoPca() {
                                       <Pencil className="h-4 w-4" />
                                     </Button>
                                   )}
-                                  {podeDeletarIfo && (
+                                  {podeDeletarIfo && ifo.bloco === "nova_contratacao" && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-red-600" onClick={() => setIfoDeleting(ifo)}>
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -909,13 +921,20 @@ export default function FormacaoPca() {
                                 </div>
                               </div>
                             </div>
+                            
+                            {(!ifo.contratos || ifo.contratos.length === 0) && ifo.bloco !== "nova_contratacao" && (
+                              <div className="bg-amber-50 px-4 py-2 border-b border-amber-100 flex items-center gap-2 text-amber-700 text-sm font-medium">
+                                <AlertTriangle className="h-4 w-4" />
+                                <span>Este IFO será removido automaticamente ao avançar a etapa por não possuir contratos vinculados.</span>
+                              </div>
+                            )}
+
                             {ifo.contratos && ifo.contratos.length > 0 && (
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left">
                                   <thead className="bg-white border-b text-slate-500">
                                     <tr>
                                       <th className="px-4 py-2 font-medium">Contrato</th>
-                                      <th className="px-4 py-2 font-medium">Natureza</th>
                                       <th className="px-4 py-2 font-medium">Nat. despesa</th>
                                       <th className="px-4 py-2 font-medium text-right">Valor anual</th>
                                       <th className="px-4 py-2 font-medium">Vigência</th>
@@ -934,12 +953,12 @@ export default function FormacaoPca() {
 
                                       return (
                                         <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                                          <td 
-                                              className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono"
-                                              onClick={() => navigate(`/contratos-ti/${c.id}`)}
-                                            >
+                                          <td
+                                            className="px-4 py-2 font-medium text-blue-600 cursor-pointer hover:underline font-mono"
+                                            onClick={() => navigate(`/contratos-ti/${c.id}`)}
+                                          >
                                             <div className="flex items-center gap-1.5">
-                                              {c.noticeNumber ? `CT ${c.noticeNumber}` : `CT ${c.id}`}
+                                              {`${c.noticeNumber} - ${c.objectName}`}
                                               {ifo.bloco === "encerramento" && formacaoEstado && ["consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg", "publicado"].includes(formacaoEstado) && interesseRenovacao === false && (
                                                 <TooltipProvider delayDuration={200}>
                                                   <Tooltip>
@@ -949,14 +968,15 @@ export default function FormacaoPca() {
                                                       </div>
                                                     </TooltipTrigger>
                                                     <TooltipContent side="top" className="max-w-[300px] text-xs text-center break-words break-all whitespace-normal">
-                                                      <strong>Sem interesse na renovação. Motivo: </strong>{detalhe?.motivoReclassificacao}
+                                                      <strong>Sem interesse na renovação. Motivo: </strong>
+                                                      <br />
+                                                      {detalhe?.motivoReclassificacao}
                                                     </TooltipContent>
                                                   </Tooltip>
                                                 </TooltipProvider>
                                               )}
                                             </div>
                                           </td>
-                                          <td className="px-4 py-2 text-slate-600">{ifo.bloco === "nova_contratacao" ? (ifo.natureza || "pontual") : "continuada"}</td>
                                           <td className="px-4 py-2 text-slate-600">{(c as any).expenseNature || "-"}</td>
                                           <td className="px-4 py-2 text-right text-slate-700 font-medium whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-2">
@@ -1038,16 +1058,30 @@ export default function FormacaoPca() {
                         </Button>
                       </div>
                     )}
+                    {!isNovaContratacao && podeEditarIfo && !hasEmptyIfo && (
+                      <div className="p-4 bg-slate-50/50 border-t border-slate-200">
+                        <Button
+                          variant="outline"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                          onClick={() => setCriarIfoBloco(blocoId)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Novo IFO
+                        </Button>
+                      </div>
+                    )}
                   </div>
+                  )}
                 </div>
               );
+            };
 
               return (
                 <>
-                  {renderBlocoContinuado("Encerramento", 1, ifosEncerramento, "text-red-700", "bg-red-100")}
-                  {renderBlocoContinuado("Renovação", 2, ifosRenovacao, "text-blue-700", "bg-blue-100")}
-                  {renderBlocoContinuado("Plurianual", 3, ifosPlurianual, "text-purple-700", "bg-purple-100")}
-                  {renderBlocoContinuado("Nova Contratação", 4, ifos, "text-emerald-700", "bg-emerald-100", true)}
+                  {renderBlocoContinuado("Encerramento", 1, ifosEncerramento, "text-red-700", "bg-red-100", "encerramento")}
+                  {renderBlocoContinuado("Renovação", 2, ifosRenovacao, "text-blue-700", "bg-blue-100", "renovacao")}
+                  {renderBlocoContinuado("Plurianual", 3, ifosPlurianual, "text-purple-700", "bg-purple-100", "plurianual")}
+                  {renderBlocoContinuado("Nova Contratação", 4, ifos, "text-emerald-700", "bg-emerald-100", "nova_contratacao", true)}
                 </>
               );
             })()}
@@ -1091,6 +1125,16 @@ export default function FormacaoPca() {
         open={!!ifoLinking}
         onOpenChange={(open) => !open && setIfoLinking(null)}
         ifo={ifoLinking}
+        allContracts={allContracts}
+        onSuccess={loadBlocos}
+      />
+
+      <DialogCriarIfoViaContrato
+        open={!!criarIfoBloco}
+        onOpenChange={(open) => !open && setCriarIfoBloco(null)}
+        bloco={criarIfoBloco as any}
+        ano={anoFormacao}
+        cicloId={ciclo?.id || 0}
         allContracts={allContracts}
         onSuccess={loadBlocos}
       />
