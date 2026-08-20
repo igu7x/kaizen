@@ -122,74 +122,10 @@ public class CompetenciasPendenciaProvider implements PendenciaProvider {
             log.warn("[home] matrizes: {}", e.getMessage());
         }
 
-        // ── Avaliação integrada — colaborador (é o user) ──
-        try {
-            List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT aif.id, COALESCE(aif.tipo_inventario, 'equipe') AS tipo " +
-                            "FROM avaliacao_integrada_formularios aif " +
-                            "JOIN autoavaliacao_formularios aaf ON aaf.id = aif.autoavaliacao_id " +
-                            "WHERE aif.is_deleted = FALSE AND aaf.user_id = ? " +
-                            "  AND aif.status = 'validado_gestor' AND aif.validado_colaborador_em IS NULL " +
-                            "ORDER BY aif.created_at ASC",
-                    userId);
-            if (!rows.isEmpty()) {
-                int n = rows.size();
-                out.add(new Pendencia("integrada_colaborador",
-                        lbl(n, "1 avaliação integrada aguardando sua validação",
-                                " avaliações integradas aguardando sua validação"),
-                        n, linkIntegrada(rows.get(0)), "emerald",
-                        Pendencia.CAT_PESSOAS, Pendencia.PRIO_VALIDACAO));
-            }
-        } catch (Exception e) {
-            log.warn("[home] integrada colaborador: {}", e.getMessage());
-        }
-
-        // ── Avaliação integrada — gestor (user é o avaliador OU o gestor vinculado à avaliação do gestor) ──
-        try {
-            // Cobre o bloco 5 antigo (avaliador_user_id) E o caso em que o gestor legítimo (o avaliador
-            // da avaliação do gestor vinculada) difere de quem criou a integrada — antes esse gestor
-            // nunca via a pendência (validarGestor aceita ambos: AvaliacaoIntegradaService).
-            List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT aif.id, COALESCE(aif.tipo_inventario, 'equipe') AS tipo " +
-                            "FROM avaliacao_integrada_formularios aif " +
-                            "LEFT JOIN avaliacao_gestor_formularios ag ON ag.id = aif.avaliacao_gestor_id " +
-                            "WHERE aif.is_deleted = FALSE " +
-                            "  AND aif.status = 'enviado' AND aif.validado_gestor_em IS NULL " +
-                            "  AND (aif.avaliador_user_id = ? OR ag.avaliador_user_id = ?) " +
-                            "ORDER BY aif.created_at ASC",
-                    userId, userId);
-            if (!rows.isEmpty()) {
-                int n = rows.size();
-                out.add(new Pendencia("integrada_gestor",
-                        lbl(n, "1 avaliação integrada aguardando sua validação",
-                                " avaliações integradas aguardando sua validação"),
-                        n, linkIntegrada(rows.get(0)), "emerald",
-                        Pendencia.CAT_PESSOAS, Pendencia.PRIO_VALIDACAO));
-            }
-        } catch (Exception e) {
-            log.warn("[home] integrada gestor: {}", e.getMessage());
-        }
-
-        // ── Avaliação integrada — atualização requisitada (retrabalho devolvido ao avaliador) ──
-        try {
-            List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT id, COALESCE(tipo_inventario, 'equipe') AS tipo " +
-                            "FROM avaliacao_integrada_formularios " +
-                            "WHERE is_deleted = FALSE AND avaliador_user_id = ? " +
-                            "  AND status = 'atualizacao_requisitada' " +
-                            "ORDER BY updated_at ASC",
-                    userId);
-            if (!rows.isEmpty()) {
-                int n = rows.size();
-                out.add(new Pendencia("integrada_atualizacao",
-                        lbl(n, "1 avaliação integrada precisa ser atualizada e reenviada",
-                                " avaliações integradas precisam ser atualizadas e reenviadas"),
-                        n, linkIntegrada(rows.get(0)), "orange",
-                        Pendencia.CAT_PESSOAS, Pendencia.PRIO_DEVOLVIDO));
-            }
-        } catch (Exception e) {
-            log.warn("[home] integrada atualizacao: {}", e.getMessage());
-        }
+        // As pendências de "avaliação integrada" saíram: o Resultado Final não é mais
+        // preenchido nem validado por ninguém — ele é calculado (70/30) assim que as duas
+        // avaliações de origem estão validadas. As pendências que restam são as dessas
+        // duas origens, logo abaixo.
 
         // ── Autoavaliação — aguardando validação do próprio user ──
         try {
@@ -272,10 +208,6 @@ public class CompetenciasPendenciaProvider implements PendenciaProvider {
 
     private String linkMatriz(Map<String, Object> row) {
         return build(LINK_BASE, params("matrizId", row.get("id"), "tipo", row.get("tipo")));
-    }
-
-    private String linkIntegrada(Map<String, Object> row) {
-        return build(LINK_BASE, params("integradaId", row.get("id"), "tipo", row.get("tipo")));
     }
 
     private static String lbl(int n, String singular, String pluralSuffix) {

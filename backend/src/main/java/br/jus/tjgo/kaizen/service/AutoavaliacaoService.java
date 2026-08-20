@@ -28,6 +28,7 @@ public class AutoavaliacaoService {
     private final JdbcTemplate jdbc;
     private final br.jus.tjgo.kaizen.service.notificacao.AvaliacoesNotificacoes avaliacoesNotificacoes;
     private final ObjectMapper objectMapper;
+    private final AvaliacaoIntegradaService avaliacaoIntegradaService;
 
     /** Buscar todos os formulários filtrados por domínio (múltiplas diretorias). */
     public List<Map<String, Object>> findAllByDomain(List<Long> areasIds, String tipoInventario) {
@@ -280,6 +281,10 @@ public class AutoavaliacaoService {
         } catch (Exception err) {
             log.error("[validar] Erro ao cascatear atualização para avaliação do gestor: {}", err.getMessage());
         }
+
+        // Resultado Final: se a avaliacao do gestor/lideranca deste par ja estava validada,
+        // a nota final (70/30) ja pode ser calculada e gravada agora.
+        avaliacaoIntegradaService.gerarPorAutoavaliacao(id);
 
         avaliacoesNotificacoes.aoAutoavaliacaoValidada(id);
         return formularioCompleto;

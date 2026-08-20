@@ -31,25 +31,31 @@ public class AvaliacaoIntegradaController {
         return AuthContext.requestUserId();
     }
 
+    private boolean isSuperadmin() {
+        return AuthContext.getCurrentUser().map(u -> u.isSuperadmin()).orElse(false);
+    }
+
     // GET /api/avaliacao-integrada
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId,
                                            @RequestParam(value = "dominio", required = false) String dominio,
                                            @RequestParam(value = "tipo_inventario", required = false) String tipoInventario) {
+        long userId = currentUserId() != null ? currentUserId() : -1L;
+        boolean superadmin = isSuperadmin();
         if (cadastrosAreasId == null && dominio == null) {
             Long userAreaId = lookupUserAreaId(currentUserId());
             if (userAreaId != null) {
                 var domain = domainService.getDomainForArea(userAreaId);
-                return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
+                return service.findVisiveis(domain.areasIdInDomain(), tipoInventario, userId, superadmin);
             }
         }
         if (dominio != null) {
             var domain = domainService.getDomainForDiretoria(dominio);
-            return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
+            return service.findVisiveis(domain.areasIdInDomain(), tipoInventario, userId, superadmin);
         }
         if (cadastrosAreasId != null) {
             var domain = domainService.getDomainForArea(cadastrosAreasId);
-            return service.findAllByDomain(domain.areasIdInDomain(), tipoInventario);
+            return service.findVisiveis(domain.areasIdInDomain(), tipoInventario, userId, superadmin);
         }
         return service.findAll(null, tipoInventario);
     }
@@ -57,7 +63,9 @@ public class AvaliacaoIntegradaController {
     // GET /api/avaliacao-integrada/pendentes-colaborador
     @GetMapping("/pendentes-colaborador")
     public List<Map<String, Object>> pendentesColaborador() {
-        return service.findPendentesColaborador(currentUserId());
+        // Mantém a rota (o front consome), mas o sentido mudou: sem validação, o que o
+        // avaliado recebe aqui é o Resultado Final dele, já calculado.
+        return service.findMeus(currentUserId());
     }
 
     // GET /api/avaliacao-integrada/tem-elegiveis
@@ -121,41 +129,29 @@ public class AvaliacaoIntegradaController {
         return ResponseEntity.ok(formulario);
     }
 
+    // O Resultado Final nao e mais preenchido nem validado: ele e calculado (70/30) quando
+    // as duas avaliacoes de origem sao validadas. As rotas de escrita ficam recusando, pra
+    // nenhum cliente antigo conseguir gravar nota a mao.
+    private static final String SOMENTE_CALCULADO =
+            "O Resultado Final e calculado automaticamente a partir da autoavaliacao (30%) e da "
+                    + "avaliacao do gestor/lideranca (70%). Nao ha preenchimento nem validacao manual.";
+
     // POST /api/avaliacao-integrada
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
-        long userId = currentUserId();
-        if (body.get("autoavaliacao_id") == null || body.get("avaliacao_gestor_id") == null || body.get("pessoa_id") == null
-                || isBlank(body.get("pessoa_nome")) || isBlank(body.get("avaliador_nome")) || isBlank(body.get("diretoria"))
-                || isEmptyList(body.get("respostas"))) {
-            return ResponseEntity.status(400).body(Map.of("error", "Campos obrigatórios faltando"));
-        }
-        Map<String, Object> formulario = service.create(body, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(formulario);
+    public ResponseEntity<?> create(@RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of("error", SOMENTE_CALCULADO));
     }
 
     // PATCH /api/avaliacao-integrada/:id/validar-gestor
     @PatchMapping("/{id:\\d+}/validar-gestor")
     public ResponseEntity<?> validarGestor(@PathVariable long id) {
-        long userId = currentUserId();
-        String userName = lookupUserName(userId);
-        Map<String, Object> result = service.validarGestor(id, userId, userName);
-        if (result != null && result.containsKey("error")) {
-            return ResponseEntity.status(403).body(Map.of("error", result.get("error")));
-        }
-        return ResponseEntity.ok(result);
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of("error", SOMENTE_CALCULADO));
     }
 
     // PATCH /api/avaliacao-integrada/:id/validar-colaborador
     @PatchMapping("/{id:\\d+}/validar-colaborador")
     public ResponseEntity<?> validarColaborador(@PathVariable long id) {
-        long userId = currentUserId();
-        String userName = lookupUserName(userId);
-        Map<String, Object> result = service.validarColaborador(id, userId, userName);
-        if (result != null && result.containsKey("error")) {
-            return ResponseEntity.status(403).body(Map.of("error", result.get("error")));
-        }
-        return ResponseEntity.ok(result);
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of("error", SOMENTE_CALCULADO));
     }
 
     // DELETE /api/avaliacao-integrada/:id (ADMIN)
