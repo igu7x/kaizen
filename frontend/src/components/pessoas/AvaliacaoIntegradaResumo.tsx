@@ -184,8 +184,8 @@ export function AvaliacaoIntegradaResumo({
   // Quem entra com os 70% muda conforme o inventario.
   const rotuloOrigem =
     tipoInventario === "gestor"
-      ? "a avaliação da liderança"
-      : "a avaliação do gestor";
+      ? "da avaliação da liderança"
+      : "da avaliação do gestor";
 
   // Sem validacao em camadas: o Resultado Final ja nasce pronto. O que resta e o aviso
   // de retrabalho, quando uma das origens mudou e o resultado ainda nao foi recalculado.
@@ -282,11 +282,7 @@ export function AvaliacaoIntegradaResumo({
               Resultado calculado automaticamente
             </p>
             <p className="mt-0.5 text-sm text-emerald-700">
-              Média ponderada de {rotuloOrigem} (70%) com a autoavaliação (30%),
-              arredondada para o inteiro mais próximo — o ,5 exato desce.
-              {formulario.calculado_em
-                ? ` Calculado em ${formatDate(formulario.calculado_em)}.`
-                : ""}
+              Média ponderada {rotuloOrigem} com a autoavaliação.
             </p>
           </div>
         </div>
