@@ -1902,7 +1902,7 @@ export function GestaoCompetencias() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-7xl space-y-6 p-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
           Gestão por Competências
