@@ -4,8 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   CheckCircle2,
-  ShieldCheck,
-  Loader2,
   Clock,
   Lock,
   FileDown,
@@ -13,7 +11,6 @@ import {
 import {
   AvaliacaoIntegradaFormulario,
   RespostaIntegradaItem,
-  avaliacaoIntegradaApi,
 } from "@/services/avaliacaoIntegradaApi";
 import {
   NOTA_COLORS,
@@ -28,7 +25,6 @@ import { generateAvaliacaoIntegradaPDF } from "@/utils/generateAvaliacaoIntegrad
 
 interface AvaliacaoIntegradaResumoProps {
   formulario: AvaliacaoIntegradaFormulario;
-  onValidated?: (formulario: AvaliacaoIntegradaFormulario) => void;
   onEdit?: (formulario: AvaliacaoIntegradaFormulario) => void;
   tipoInventario?: "equipe" | "gestor";
   currentUserId?: number;
@@ -71,13 +67,25 @@ function RespostaCard({
   resposta,
   index,
   tipo,
+  tipoInventario,
   descOverride,
 }: {
   resposta: RespostaIntegradaItem;
   index: number;
   tipo: "tecnica" | "comportamental" | "estrategica" | "gerencial";
+  tipoInventario: "equipe" | "gestor";
   descOverride?: string;
 }) {
+  // Quem avalia muda conforme o inventário, mas o peso é o mesmo: 70 pra avaliação de
+  // terceiro e 30 pra autoavaliação.
+  const rotuloAuto =
+    tipoInventario === "gestor"
+      ? "Autoavaliação do gestor (30%)"
+      : "Autoavaliação do colaborador (30%)";
+  const rotuloAvaliador =
+    tipoInventario === "gestor"
+      ? "Avaliação da liderança (70%)"
+      : "Avaliação do gestor (70%)";
   const labelsMap: Record<string, Record<number, string>> = {
     tecnica: NOTA_TECNICA_LABELS,
     comportamental: NOTA_COMPORTAMENTAL_LABELS,
@@ -118,17 +126,19 @@ function RespostaCard({
           <div className="space-y-2">
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
               <span className="text-sm font-medium text-gray-700">
-                Autoavaliação:
+                {rotuloAuto}
               </span>
               <NotaBadge nota={resposta.nota_autoavaliacao} labels={labels} />
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <span className="text-sm font-medium text-gray-700">Gestor:</span>
+              <span className="text-sm font-medium text-gray-700">
+                {rotuloAvaliador}
+              </span>
               <NotaBadge nota={resposta.nota_gestor} labels={labels} />
             </div>
             <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-              <span className="text-sm font-medium text-gray-700">
-                Integrada (consenso):
+              <span className="text-sm font-bold text-gray-800">
+                Resultado Final:
               </span>
               <NotaBadge nota={resposta.nota_integrada} labels={labels} />
             </div>
@@ -150,14 +160,10 @@ function RespostaCard({
 
 export function AvaliacaoIntegradaResumo({
   formulario,
-  onValidated,
   onEdit,
   tipoInventario = "equipe",
   currentUserId,
 }: AvaliacaoIntegradaResumoProps) {
-  const [validando, setValidando] = useState<"gestor" | "colaborador" | null>(
-    null,
-  );
   const [descAtual, setDescAtual] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -175,60 +181,17 @@ export function AvaliacaoIntegradaResumo({
       .catch(() => {});
   }, []);
 
-  const labelCamada1 =
+  // Quem entra com os 70% muda conforme o inventario.
+  const rotuloOrigem =
     tipoInventario === "gestor"
-      ? "Validação da Liderança"
-      : "Validação do Gestor";
-  const labelCamada2 =
-    tipoInventario === "gestor"
-      ? "Validação do Gestor"
-      : "Validação do Colaborador";
-  const labelCamada2Pendente =
-    tipoInventario === "gestor"
-      ? "Aguardando validação do gestor"
-      : "Aguardando validação do colaborador";
+      ? "da avaliação da liderança"
+      : "da avaliação do gestor";
 
-  const gestorValidado = !!formulario.validado_gestor_em;
-  const colaboradorValidado = !!formulario.validado_colaborador_em;
+  // Sem validacao em camadas: o Resultado Final ja nasce pronto. O que resta e o aviso
+  // de retrabalho, quando uma das origens mudou e o resultado ainda nao foi recalculado.
   const isAtualizacaoRequisitada =
     formulario.status === "atualizacao_requisitada";
 
-  // Camada 1: quem preencheu a avaliação integrada (avaliador) pode validar
-  const canValidateCamada1 =
-    !currentUserId || formulario.avaliador_user_id === currentUserId;
-  // Camada 2: o colaborador/gestor avaliado pode validar
-  const canValidateCamada2 =
-    !currentUserId || (formulario as any).colaborador_user_id === currentUserId;
-
-  const handleValidarGestor = async () => {
-    if (validando) return;
-    setValidando("gestor");
-    try {
-      const updated = await avaliacaoIntegradaApi.validarGestor(formulario.id);
-
-      onValidated?.(updated);
-    } catch (err: any) {
-      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
-    } finally {
-      setValidando(null);
-    }
-  };
-
-  const handleValidarColaborador = async () => {
-    if (validando) return;
-    setValidando("colaborador");
-    try {
-      const updated = await avaliacaoIntegradaApi.validarColaborador(
-        formulario.id,
-      );
-
-      onValidated?.(updated);
-    } catch (err: any) {
-      /* erro já tratado pelo apiClient ou ignorado intencionalmente */
-    } finally {
-      setValidando(null);
-    }
-  };
   const respostasTecnicas = useMemo(
     () =>
       (formulario.respostas || []).filter(
@@ -263,7 +226,7 @@ export function AvaliacaoIntegradaResumo({
           </div>
           <div>
             <p className="text-gray-900 font-semibold">
-              Avaliação Integrada enviada com sucesso
+              Resultado Final enviada com sucesso
             </p>
             <p className="text-gray-500 text-sm">
               Enviado em {formatDate(formulario.created_at)}
@@ -309,148 +272,31 @@ export function AvaliacaoIntegradaResumo({
         </div>
       )}
 
-      {/* Botão Editar — apenas o avaliador que preencheu, antes de qualquer validação */}
-      {onEdit &&
-        !gestorValidado &&
-        !colaboradorValidado &&
-        !!currentUserId &&
-        formulario.avaliador_user_id === currentUserId && (
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => onEdit(formulario)}
-              className="border-gray-300"
-            >
-              Editar
-            </Button>
-          </div>
-        )}
 
-      {/* Status de Validação - 2 camadas */}
-      <div className="space-y-3">
-        {/* Camada 1: Validação do Gestor */}
-        <div
-          className={`rounded-xl border p-4 ${gestorValidado ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {gestorValidado ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              ) : (
-                <Clock className="h-5 w-5 text-amber-600" />
-              )}
-              <div>
-                <p
-                  className={`font-medium ${gestorValidado ? "text-emerald-800" : "text-amber-800"}`}
-                >
-                  1. {labelCamada1}
-                </p>
-                {gestorValidado ? (
-                  <p className="text-sm text-emerald-600">
-                    Validado por {formulario.validado_gestor_nome} em{" "}
-                    {formatDate(formulario.validado_gestor_em!)}
-                  </p>
-                ) : (
-                  <p className="text-sm text-amber-600">
-                    Pendente de validação
-                  </p>
-                )}
-              </div>
-            </div>
-            {!gestorValidado && canValidateCamada1 && (
-              <Button
-                onClick={handleValidarGestor}
-                disabled={!!validando}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {validando === "gestor" ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <ShieldCheck className="h-4 w-4 mr-2" />
-                )}
-                Validar
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Camada 2: Validação do Colaborador */}
-        <div
-          className={`rounded-xl border p-4 ${
-            colaboradorValidado
-              ? "bg-emerald-50 border-emerald-200"
-              : gestorValidado
-                ? "bg-amber-50 border-amber-200"
-                : "bg-gray-50 border-gray-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {colaboradorValidado ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              ) : gestorValidado ? (
-                <Clock className="h-5 w-5 text-amber-600" />
-              ) : (
-                <Lock className="h-5 w-5 text-gray-400" />
-              )}
-              <div>
-                <p
-                  className={`font-medium ${
-                    colaboradorValidado
-                      ? "text-emerald-800"
-                      : gestorValidado
-                        ? "text-amber-800"
-                        : "text-gray-500"
-                  }`}
-                >
-                  2. {labelCamada2}
-                </p>
-                {colaboradorValidado ? (
-                  <p className="text-sm text-emerald-600">
-                    Validado por {formulario.validado_colaborador_nome} em{" "}
-                    {formatDate(formulario.validado_colaborador_em!)}
-                  </p>
-                ) : gestorValidado ? (
-                  <p className="text-sm text-amber-600">
-                    Pendente de validação
-                  </p>
-                ) : (
-                  <p className="text-sm text-gray-400">
-                    {labelCamada2Pendente}
-                  </p>
-                )}
-              </div>
-            </div>
-            {gestorValidado && !colaboradorValidado && canValidateCamada2 && (
-              <Button
-                onClick={handleValidarColaborador}
-                disabled={!!validando}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {validando === "colaborador" ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <ShieldCheck className="h-4 w-4 mr-2" />
-                )}
-                Validar
-              </Button>
-            )}
+      {/* Como a nota saiu — o Resultado Final não é validado por ninguém, é calculado */}
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-medium text-emerald-800">
+              Resultado calculado automaticamente
+            </p>
+            <p className="mt-0.5 text-sm text-emerald-700">
+              Média ponderada {rotuloOrigem} com a autoavaliação.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Botão Gerar PDF — só aparece após ambas validações */}
-      {gestorValidado && colaboradorValidado && (
-        <div className="flex justify-end">
-          <Button
-            onClick={() => generateAvaliacaoIntegradaPDF(formulario)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
-          >
-            <FileDown className="h-4 w-4 mr-2" />
-            Gerar PDF
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => generateAvaliacaoIntegradaPDF(formulario)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
+        >
+          <FileDown className="h-4 w-4 mr-2" />
+          Gerar PDF
+        </Button>
+      </div>
 
       {/* Diretoria e Unidade */}
       <Card className="border border-gray-200 shadow-sm">
@@ -477,6 +323,7 @@ export function AvaliacaoIntegradaResumo({
               key={index}
               resposta={resp}
               index={index}
+              tipoInventario={tipoInventario}
               tipo="tecnica"
             />
           ))}
@@ -495,6 +342,7 @@ export function AvaliacaoIntegradaResumo({
               key={`comp-${index}`}
               resposta={resp}
               index={index}
+              tipoInventario={tipoInventario}
               tipo="comportamental"
               descOverride={descAtual.get(resp.competencia_nome)}
             />
@@ -514,6 +362,7 @@ export function AvaliacaoIntegradaResumo({
               key={`estr-${index}`}
               resposta={resp}
               index={index}
+              tipoInventario={tipoInventario}
               tipo="estrategica"
               descOverride={descAtual.get(resp.competencia_nome)}
             />
@@ -533,6 +382,7 @@ export function AvaliacaoIntegradaResumo({
               key={`ger-${index}`}
               resposta={resp}
               index={index}
+              tipoInventario={tipoInventario}
               tipo="gerencial"
               descOverride={descAtual.get(resp.competencia_nome)}
             />

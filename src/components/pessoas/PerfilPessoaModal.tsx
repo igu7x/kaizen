@@ -83,7 +83,7 @@ export default function PerfilPessoaModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
-  // Metadados da última avaliação integrada do colaborador, ou null se não houver.
+  // Metadados da última resultado final do colaborador, ou null se não houver.
   // O botão "Avaliação do Colaborador" só aparece quando isto está preenchido.
   const [integradaMeta, setIntegradaMeta] = useState<{
     id: number;
@@ -213,7 +213,7 @@ export default function PerfilPessoaModal({
 
             {/* Corpo: seções */}
             <div className="space-y-3 bg-slate-50 px-5 py-5 max-h-[60vh] overflow-y-auto">
-              {/* Atalho para a Avaliação Integrada — só aparece quando existe
+              {/* Atalho para a Resultado Final — só aparece quando existe
                   registro preenchido (consultado via /api/avaliacao-integrada/by-pessoa). */}
               {integradaMeta && (
                 <button

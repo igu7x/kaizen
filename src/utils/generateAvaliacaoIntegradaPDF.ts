@@ -415,7 +415,7 @@ export function generateAvaliacaoIntegradaPDF(
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text("Avaliação Integrada", MARGIN_LEFT + 5, 18, { maxWidth: leftMaxW });
+  doc.text("Resultado Final", MARGIN_LEFT + 5, 18, { maxWidth: leftMaxW });
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
@@ -570,7 +570,7 @@ export function generateAvaliacaoIntegradaPDF(
     formulario.versao_formulario && formulario.versao_formulario > 0
       ? `Versão ${formulario.versao_formulario}.0`
       : "";
-  const footerBase = `Avaliação Integrada — ${tipoLabel} — ${formulario.pessoa_nome || ""}`;
+  const footerBase = `Resultado Final — ${tipoLabel} — ${formulario.pessoa_nome || ""}`;
   const footerLabel = [footerBase, versionPart].filter(Boolean).join(" — ");
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);

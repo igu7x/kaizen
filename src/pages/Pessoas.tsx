@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { PainelColaboradores } from "@/components/pessoas/PainelColaboradores";
 import { AdminFormsView } from "@/components/pessoas/AdminFormsView";
@@ -11,10 +11,14 @@ export default function Pessoas() {
   const [isAnimating, setIsAnimating] = useState(false);
   // Força remount do conteúdo ao clicar no breadcrumb "Pessoas" (reseta estado interno)
   const [refreshKey, setRefreshKey] = useState(0);
+  // Competências centraliza o hub num max-w-7xl, mas suas telas dedicadas (formulários,
+  // resumos, catálogos) são full width — nelas o breadcrumb volta pra esquerda.
+  const [competenciasEmTelaCheia, setCompetenciasEmTelaCheia] = useState(false);
 
   // Trigger animation on route change
   useEffect(() => {
     setIsAnimating(true);
+    setCompetenciasEmTelaCheia(false);
     const timer = setTimeout(() => setIsAnimating(false), 400);
     return () => clearTimeout(timer);
   }, [location.pathname]);
@@ -24,13 +28,14 @@ export default function Pessoas() {
   const isCompetencias = location.pathname.includes("/competencias");
 
   const renderContent = () => {
-    if (isCompetencias) return <GestaoCompetencias />;
+    if (isCompetencias)
+      return <GestaoCompetencias onTelaCheiaChange={setCompetenciasEmTelaCheia} />;
     if (isFormularios) return <AdminFormsView />;
     return <PainelColaboradores />;
   };
 
   // "Pessoas" reseta a view atual (módulo painel não existe em produção)
-  const handleRefresh = () => setRefreshKey((k) => k + 1);
+  const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
   const breadcrumbItems = isCompetencias
     ? [
         { label: "Pessoas", onClick: handleRefresh },
@@ -42,7 +47,15 @@ export default function Pessoas() {
 
   return (
     <Layout>
-      <div className="-mt-2 mb-2">
+      {/* Em Competências o hub é centralizado num max-w-7xl; o breadcrumb usa o mesmo
+          container pra não ficar desalinhado à esquerda. As demais views são full width. */}
+      <div
+        className={`-mt-2 mb-2 ${
+          isCompetencias && !competenciasEmTelaCheia
+            ? "mx-auto w-full max-w-7xl px-6"
+            : ""
+        }`}
+      >
         <Breadcrumbs items={breadcrumbItems} />
       </div>
       <div
