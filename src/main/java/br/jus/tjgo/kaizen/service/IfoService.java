@@ -16,9 +16,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * IFO (Item de Formação do Orçamento) — cria e consulta as bandas-envelope da Formação. O código
- * IFO-{ano}-{NNNN} é gerado sequencialmente por ano (RF-49). O IFO agrupa 1:N contratos continuada
- * da DFD-Consulta (RF-10/11) e é enviado à CCA (RF-24/26). Na publicação vira código oficial de PCA.
+ * IFO (Item de Formação do Orçamento) — cria e consulta as bandas-envelope da
+ * Formação. O código
+ * IFO-{ano}-{NNNN} é gerado sequencialmente por ano (RF-49). O IFO agrupa 1:N
+ * contratos continuada
+ * da DFD-Consulta (RF-10/11) e é enviado à CCA (RF-24/26). Na publicação vira
+ * código oficial de PCA.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,34 +32,51 @@ public class IfoService {
     private final PermissoesAcoesService permissoesAcoesService;
     private final DelegacaoEdicaoService delegacaoEdicaoService;
 
-    // Domínios validados aqui no backend — os CHECK foram removidos do banco (migration 172).
-    private static final List<String> BLOCOS =
-            List.of("encerramento", "renovacao", "plurianual", "nova_contratacao");
+    // Domínios validados aqui no backend — os CHECK foram removidos do banco
+    // (migration 172).
+    private static final List<String> BLOCOS = List.of("encerramento", "renovacao", "plurianual", "nova_contratacao");
 
     private static final List<String> NATUREZAS = List.of("continuada", "pontual");
 
     private static final Map<String, List<String>> TAGS_ACESSO_POR_ESTADO = Map.ofEntries(
-        Map.entry("aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA", 
-            "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_DELETAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD")),
-        Map.entry("aberto_aguardando_proad", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
-            "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_DELETAR_IFO_AGUARDANDO_PROAD", "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD")),
-        Map.entry("aberto", List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
-            "PCA_FOR_MODIFICAR_IFO_ABERTO", "PCA_FOR_DELETAR_IFO_ABERTO", "PCA_FOR_VINCULAR_CONTRATOS_ABERTO")),
-        Map.entry("em_consulta_1", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
-            "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_1", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_1", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_1")),
-        Map.entry("em_consulta_2", List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA", "PCA_FOR_REMETER_PARTICAO",
-            "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_2", "PCA_FOR_DELETAR_IFO_EM_CONSULTA_2", "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_2")),
-        Map.entry("consolidacao_cca", List.of("PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT",
-            "PCA_FOR_MODIFICAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_DELETAR_IFO_CONSOLIDACAO_CCA", "PCA_FOR_VINCULAR_CONTRATOS_CONSOLIDACAO_CCA")),
-        Map.entry("validacao_gejut", List.of("PCA_FOR_ENCAMINHAR_SGJT",
-            "PCA_FOR_MODIFICAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_DELETAR_IFO_VALIDACAO_GEJUT", "PCA_FOR_VINCULAR_CONTRATOS_VALIDACAO_GEJUT")),
-        Map.entry("apreciacao_sgjt", List.of("PCA_FOR_PAUTAR_COMITES",
-            "PCA_FOR_MODIFICAR_IFO_APRECIACAO_SGJT", "PCA_FOR_DELETAR_IFO_APRECIACAO_SGJT", "PCA_FOR_VINCULAR_CONTRATOS_APRECIACAO_SGJT")),
-        Map.entry("em_comites", List.of("PCA_FOR_AUTORIZAR_COMITES",
-            "PCA_FOR_MODIFICAR_IFO_EM_COMITES", "PCA_FOR_DELETAR_IFO_EM_COMITES", "PCA_FOR_VINCULAR_CONTRATOS_EM_COMITES")),
-        Map.entry("remessa_dg", List.of("PCA_FOR_REMETER_DG",
-            "PCA_FOR_MODIFICAR_IFO_REMESSA_DG", "PCA_FOR_DELETAR_IFO_REMESSA_DG", "PCA_FOR_VINCULAR_CONTRATOS_REMESSA_DG")),
-        Map.entry("publicado", List.of()) // sem restrição
+            Map.entry("aguardando_proad",
+                    List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
+                            "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD",
+                            "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD")),
+            Map.entry("aberto_aguardando_proad",
+                    List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
+                            "PCA_FOR_MODIFICAR_IFO_AGUARDANDO_PROAD",
+                            "PCA_FOR_VINCULAR_CONTRATOS_AGUARDANDO_PROAD")),
+            Map.entry("aberto",
+                    List.of("PCA_FORMACAO_ABERTURA", "PCA_FOR_REGISTRAR_PROAD", "PCA_FOR_ENCAMINHAR_CONSULTA",
+                            "PCA_FOR_MODIFICAR_IFO_ABERTO",
+                            "PCA_FOR_VINCULAR_CONTRATOS_ABERTO")),
+            Map.entry("em_consulta_1",
+                    List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA",
+                            "PCA_FOR_REMETER_PARTICAO",
+                            "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_1",
+                            "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_1")),
+            Map.entry("em_consulta_2",
+                    List.of("PCA_FOR_VALIDAR_DEMANDA_1_CAMADA", "PCA_FOR_VALIDAR_DEMANDA_2_CAMADA",
+                            "PCA_FOR_REMETER_PARTICAO",
+                            "PCA_FOR_MODIFICAR_IFO_EM_CONSULTA_2",
+                            "PCA_FOR_VINCULAR_CONTRATOS_EM_CONSULTA_2")),
+            Map.entry("consolidacao_cca", List.of("PCA_FOR_CONSOLIDAR_ENCAMINHAR_GEJUT",
+                    "PCA_FOR_MODIFICAR_IFO_CONSOLIDACAO_CCA",
+                    "PCA_FOR_VINCULAR_CONTRATOS_CONSOLIDACAO_CCA")),
+            Map.entry("validacao_gejut", List.of("PCA_FOR_ENCAMINHAR_SGJT",
+                    "PCA_FOR_MODIFICAR_IFO_VALIDACAO_GEJUT",
+                    "PCA_FOR_VINCULAR_CONTRATOS_VALIDACAO_GEJUT")),
+            Map.entry("apreciacao_sgjt", List.of("PCA_FOR_PAUTAR_COMITES",
+                    "PCA_FOR_MODIFICAR_IFO_APRECIACAO_SGJT",
+                    "PCA_FOR_VINCULAR_CONTRATOS_APRECIACAO_SGJT")),
+            Map.entry("em_comites", List.of("PCA_FOR_AUTORIZAR_COMITES",
+                    "PCA_FOR_MODIFICAR_IFO_EM_COMITES",
+                    "PCA_FOR_VINCULAR_CONTRATOS_EM_COMITES")),
+            Map.entry("remessa_dg", List.of("PCA_FOR_REMETER_DG",
+                    "PCA_FOR_MODIFICAR_IFO_REMESSA_DG",
+                    "PCA_FOR_VINCULAR_CONTRATOS_REMESSA_DG")),
+            Map.entry("publicado", List.of()) // sem restrição
     );
 
     public String gerarCodigo(int ano) {
@@ -82,16 +102,19 @@ public class IfoService {
 
         var rows = jdbc.queryForList(
                 "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, objeto, " +
-                        "cadastros_unidades_id, cadastros_areas_id, estado, valor_estimado_cents, interesse_renovacao, " +
+                        "cadastros_unidades_id, cadastros_areas_id, estado, valor_estimado_cents, interesse_renovacao, "
+                        +
                         "strategic_objective, is_sustainable, is_shared_acquisition, quantity, " +
-                        "description, justification, process, financial_resource_type, contract_type, expense_nature, " +
+                        "description, justification, process, financial_resource_type, contract_type, expense_nature, "
+                        +
                         "formalized_value_cents, priority, estimated_date, " +
                         "created_by, updated_by) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 codigo, req.ano(), req.cicloId(), req.bloco(), req.natureza(), req.objeto(),
                 req.cadastrosUnidadesId(), req.cadastrosAreasId(), cents, req.interesseRenovacao(),
                 req.strategicObjective(), req.isSustainable(), req.isSharedAcquisition(), req.quantity(),
-                req.description(), req.justification(), req.process(), req.financialResourceType(), req.contractType(), req.expenseNature(),
+                req.description(), req.justification(), req.process(), req.financialResourceType(), req.contractType(),
+                req.expenseNature(),
                 req.formalizedValueCents(), req.priority(), req.estimatedDate(),
                 userId, userId);
 
@@ -101,21 +124,25 @@ public class IfoService {
     }
 
     private void verificarPermissaoEdicao(long ifoId, String prefixoAcao, Long userId) {
-        if (userId == null) throw new ApiException(403, "Usuário não identificado");
+        if (userId == null)
+            throw new ApiException(403, "Usuário não identificado");
         var info = jdbc.queryForList(
-            "SELECT i.estado as ifo_estado, c.estado as ciclo_estado, c.finalidade, i.ciclo_id " +
-            "FROM ifo i " +
-            "JOIN ciclo_orcamentario c ON i.ciclo_id = c.id " +
-            "WHERE i.id = ?", ifoId);
-        
-        if (info.isEmpty()) throw new ApiException(404, "IFO não encontrado");
-        
+                "SELECT i.estado as ifo_estado, c.estado as ciclo_estado, c.finalidade, i.ciclo_id " +
+                        "FROM ifo i " +
+                        "JOIN ciclo_orcamentario c ON i.ciclo_id = c.id " +
+                        "WHERE i.id = ?",
+                ifoId);
+
+        if (info.isEmpty())
+            throw new ApiException(404, "IFO não encontrado");
+
         String ifoEstado = (String) info.get(0).get("ifo_estado");
         String cicloEstado = (String) info.get(0).get("ciclo_estado");
         String finalidade = (String) info.get(0).get("finalidade");
         Long cicloId = info.get(0).get("ciclo_id") != null
-                ? ((Number) info.get(0).get("ciclo_id")).longValue() : null;
-        
+                ? ((Number) info.get(0).get("ciclo_id")).longValue()
+                : null;
+
         if (!"formacao".equals(finalidade)) {
             if (!"rascunho".equals(ifoEstado)) {
                 throw new ApiException(403, "Fora da Formação, apenas IFOs em rascunho podem ser editados.");
@@ -128,7 +155,8 @@ public class IfoService {
         }
 
         var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
-        if (optUser.isPresent() && optUser.get().isSuperadmin()) return;
+        if (optUser.isPresent() && optUser.get().isSuperadmin())
+            return;
 
         if (List.of("apreciacao_sgjt", "em_comites", "remessa_dg").contains(cicloEstado)) {
             throw new ApiException(403, "Nestas etapas a edição é permitida apenas para superadmin.");
@@ -137,14 +165,18 @@ public class IfoService {
         List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
 
         // Caminho 1: permissão de modificação especial (tag direta)
-        boolean isEspecial = (userTags.contains("PCA_FOR_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_FOR_MODIFICACAO_CCA")) && 
-            List.of("aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg").contains(cicloEstado);
-        
+        boolean isEspecial = (userTags.contains("PCA_FOR_MODIFICACAO_ESPECIAL")
+                || userTags.contains("PCA_FOR_MODIFICACAO_CCA")) &&
+                List.of("aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2",
+                        "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg")
+                        .contains(cicloEstado);
+
         if (isEspecial && ("MODIFICAR_IFO".equals(prefixoAcao) || "VINCULAR_CONTRATOS".equals(prefixoAcao))) {
             return;
         }
 
-        // Caminho 2: herança por tag de transição — quem pode transitar a etapa pode editar/excluir
+        // Caminho 2: herança por tag de transição — quem pode transitar a etapa pode
+        // editar/excluir
         if (cicloId != null && delegacaoEdicaoService.temTagTransicao(cicloEstado, userId)) {
             return;
         }
@@ -154,7 +186,8 @@ public class IfoService {
             String tipoDelegacao = delegacaoEdicaoService.tipoDelegacao(cicloId, cicloEstado, userId);
             if (tipoDelegacao != null) {
                 // Delegação 'especial' herda o bypass de campos restringidos
-                if ("especial".equals(tipoDelegacao) && ("MODIFICAR_IFO".equals(prefixoAcao) || "VINCULAR_CONTRATOS".equals(prefixoAcao))) {
+                if ("especial".equals(tipoDelegacao)
+                        && ("MODIFICAR_IFO".equals(prefixoAcao) || "VINCULAR_CONTRATOS".equals(prefixoAcao))) {
                     return;
                 }
                 // Delegação 'normal' permite edição e exclusão padrão
@@ -163,9 +196,10 @@ public class IfoService {
         }
 
         // Caminho 4: tag granular por estado (comportamento original)
-        String estadoMap = "aberto_aguardando_proad".equals(cicloEstado) ? "AGUARDANDO_PROAD" : cicloEstado.toUpperCase();
+        String estadoMap = "aberto_aguardando_proad".equals(cicloEstado) ? "AGUARDANDO_PROAD"
+                : cicloEstado.toUpperCase();
         String tagNecessaria = "PCA_FOR_" + prefixoAcao + "_" + estadoMap;
-        
+
         if (!userTags.contains(tagNecessaria)) {
             throw new ApiException(403, "Permissão negada. Ação exige a tag: " + tagNecessaria);
         }
@@ -174,39 +208,49 @@ public class IfoService {
     @Transactional
     public IfoDto atualizar(long id, AtualizarIfoRequest req, Long userId) {
         verificarPermissaoEdicao(id, "MODIFICAR_IFO", userId);
-        
-        if (req.bloco() == null || !BLOCOS.contains(req.bloco())) throw new ApiException(400, "Bloco inválido");
-        if (req.natureza() != null && !NATUREZAS.contains(req.natureza())) throw new ApiException(400, "Natureza inválida");
+
+        if (req.bloco() == null || !BLOCOS.contains(req.bloco()))
+            throw new ApiException(400, "Bloco inválido");
+        if (req.natureza() != null && !NATUREZAS.contains(req.natureza()))
+            throw new ApiException(400, "Natureza inválida");
 
         Long cents = req.valorEstimado() == null ? null : Math.round(req.valorEstimado() * 100);
 
         String currentBloco = jdbc.queryForObject("SELECT bloco FROM ifo WHERE id = ?", String.class, id);
 
-        var info = jdbc.queryForList("SELECT c.estado as ciclo_estado FROM ifo i JOIN ciclo_orcamentario c ON i.ciclo_id = c.id WHERE i.id = ?", id);
+        var info = jdbc.queryForList(
+                "SELECT c.estado as ciclo_estado FROM ifo i JOIN ciclo_orcamentario c ON i.ciclo_id = c.id WHERE i.id = ?",
+                id);
         String cicloEstado = info.isEmpty() ? "" : (String) info.get(0).get("ciclo_estado");
         List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
-        boolean isEspecial = (userTags.contains("PCA_FOR_MODIFICACAO_ESPECIAL") || userTags.contains("PCA_FOR_MODIFICACAO_CCA")) && 
-            List.of("aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg").contains(cicloEstado);
-        
+        boolean isEspecial = (userTags.contains("PCA_FOR_MODIFICACAO_ESPECIAL")
+                || userTags.contains("PCA_FOR_MODIFICACAO_CCA")) &&
+                List.of("aguardando_proad", "aberto_aguardando_proad", "aberto", "em_consulta_1", "em_consulta_2",
+                        "consolidacao_cca", "validacao_gejut", "apreciacao_sgjt", "em_comites", "remessa_dg")
+                        .contains(cicloEstado);
+
         var optUser = br.jus.tjgo.kaizen.auth.AuthContext.getCurrentUser();
         boolean isSuperAdmin = optUser.isPresent() && optUser.get().isSuperadmin();
 
         if (!isSuperAdmin && !isEspecial && List.of("plurianual", "encerramento", "renovacao").contains(currentBloco)) {
-            jdbc.update("UPDATE ifo SET valor_estimado_cents=?, is_sustainable=?, is_shared_acquisition=?, quantity=?, priority=?, financial_resource_type=?, updated_at=NOW(), updated_by=? WHERE id=?", 
-                cents, req.isSustainable(), req.isSharedAcquisition(), req.quantity(), req.priority(), req.financialResourceType(), userId, id);
+            jdbc.update(
+                    "UPDATE ifo SET valor_estimado_cents=?, is_sustainable=?, is_shared_acquisition=?, quantity=?, priority=?, financial_resource_type=?, updated_at=NOW(), updated_by=? WHERE id=?",
+                    cents, req.isSustainable(), req.isSharedAcquisition(), req.quantity(), req.priority(),
+                    req.financialResourceType(), userId, id);
         } else {
             jdbc.update(
-                "UPDATE ifo SET bloco=?, natureza=?, objeto=?, cadastros_unidades_id=?, cadastros_areas_id=?, " +
-                "valor_estimado_cents=?, interesse_renovacao=?, strategic_objective=?, is_sustainable=?, is_shared_acquisition=?, quantity=?, " +
-                "description=?, justification=?, process=?, " +
-                "financial_resource_type=?, contract_type=?, expense_nature=?, formalized_value_cents=?, " +
-                "priority=?, estimated_date=?, updated_at=NOW(), updated_by=? WHERE id=?",
-                req.bloco(), req.natureza(), req.objeto(), req.cadastrosUnidadesId(), req.cadastrosAreasId(),
-                cents, req.interesseRenovacao(), req.strategicObjective(), req.isSustainable(), req.isSharedAcquisition(), req.quantity(),
-                req.description(), req.justification(), req.process(),
-                req.financialResourceType(), req.contractType(), req.expenseNature(), req.formalizedValueCents(),
-                req.priority(), req.estimatedDate(), userId, id
-            );
+                    "UPDATE ifo SET bloco=?, natureza=?, objeto=?, cadastros_unidades_id=?, cadastros_areas_id=?, " +
+                            "valor_estimado_cents=?, interesse_renovacao=?, strategic_objective=?, is_sustainable=?, is_shared_acquisition=?, quantity=?, "
+                            +
+                            "description=?, justification=?, process=?, " +
+                            "financial_resource_type=?, contract_type=?, expense_nature=?, formalized_value_cents=?, " +
+                            "priority=?, estimated_date=?, updated_at=NOW(), updated_by=? WHERE id=?",
+                    req.bloco(), req.natureza(), req.objeto(), req.cadastrosUnidadesId(), req.cadastrosAreasId(),
+                    cents, req.interesseRenovacao(), req.strategicObjective(), req.isSustainable(),
+                    req.isSharedAcquisition(), req.quantity(),
+                    req.description(), req.justification(), req.process(),
+                    req.financialResourceType(), req.contractType(), req.expenseNature(), req.formalizedValueCents(),
+                    req.priority(), req.estimatedDate(), userId, id);
         }
 
         invalidarPorEdicao(id, userId);
@@ -217,9 +261,12 @@ public class IfoService {
     public IfoDto atualizarContratos(long id, List<Long> contratosIds, Long userId) {
         verificarPermissaoEdicao(id, "VINCULAR_CONTRATOS", userId);
 
-        // Salvaguarda anti-perda: diff em vez de "apagar tudo e recriar". Preserva os vínculos que
-        // permanecem — e com eles o valor_contrato_cents / interesse_renovacao / motivo_reclassificacao
-        // ajustados à mão (que o recreate zerava). Remove só os que saíram; vincularContratos insere
+        // Salvaguarda anti-perda: diff em vez de "apagar tudo e recriar". Preserva os
+        // vínculos que
+        // permanecem — e com eles o valor_contrato_cents / interesse_renovacao /
+        // motivo_reclassificacao
+        // ajustados à mão (que o recreate zerava). Remove só os que saíram;
+        // vincularContratos insere
         // só os novos (ON CONFLICT DO NOTHING não sobrescreve os que ficam).
         List<Long> manter = contratosIds == null ? List.of() : contratosIds;
         for (Long antigo : contratosDoIfo(id)) {
@@ -246,23 +293,29 @@ public class IfoService {
     }
 
     /**
-     * RF-41/49/75 — na publicação, converte 1:1 cada IFO não publicado do ano em código oficial de
-     * Item de PCA (numeração sequencial após o maior código já existente no PCA-TIC do ano, 
-     * ou usa os códigos enviados manualmente via importacoes) e marca o IFO como publicado. 
+     * RF-41/49/75 — na publicação, converte 1:1 cada IFO não publicado do ano em
+     * código oficial de
+     * Item de PCA (numeração sequencial após o maior código já existente no PCA-TIC
+     * do ano,
+     * ou usa os códigos enviados manualmente via importacoes) e marca o IFO como
+     * publicado.
      * Retorna quantos IFOs foram convertidos.
      */
     @Transactional
-    public int converterNaPublicacao(Integer ano, Long userId, List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes) {
-        if (ano == null) return 0;
+    public int converterNaPublicacao(Integer ano, Long userId,
+            List<br.jus.tjgo.kaizen.dto.ImportacaoPcaDto> importacoes) {
+        if (ano == null)
+            return 0;
         List<Map<String, Object>> ifos = jdbc.queryForList(
                 "SELECT * FROM ifo WHERE ano = ? AND estado <> 'publicado' ORDER BY codigo", ano);
-        if (ifos.isEmpty()) return 0;
+        if (ifos.isEmpty())
+            return 0;
         Integer base = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(CAST(NULLIF(regexp_replace(code, '[^0-9]', '', 'g'), '') AS INTEGER)), 0) " +
                         "FROM pcas WHERE year = ?",
                 Integer.class, String.valueOf(ano));
         int prox = (base == null ? 0 : base) + 1;
-        
+
         java.util.Map<Long, String> codigosManuais = new java.util.HashMap<>();
         if (importacoes != null) {
             for (br.jus.tjgo.kaizen.dto.ImportacaoPcaDto dto : importacoes) {
@@ -295,21 +348,24 @@ public class IfoService {
                 }
             }
 
-            // Verifica se o código já existe no banco antes de tentar inserir para evitar exceção feia
+            // Verifica se o código já existe no banco antes de tentar inserir para evitar
+            // exceção feia
             Integer exists = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM pcas WHERE code = ? AND year = ? AND is_deleted = false",
-                Integer.class, codigoOficial, String.valueOf(ano)
-            );
+                    "SELECT COUNT(*) FROM pcas WHERE code = ? AND year = ? AND is_deleted = false",
+                    Integer.class, codigoOficial, String.valueOf(ano));
             if (exists != null && exists > 0) {
-                throw new ApiException(400, "O código de PCA '" + codigoOficial + "' já está em uso para o ano " + ano + ".");
+                throw new ApiException(400,
+                        "O código de PCA '" + codigoOficial + "' já está em uso para o ano " + ano + ".");
             }
 
-            // RF-41/49/58 — materializa o IFO como Item de PCA oficial (linha viva em `pcas`) da versão
-            // que está sendo publicada. contract_type derivado do bloco (Renovação vs demais → Nova Contratação).
+            // RF-41/49/58 — materializa o IFO como Item de PCA oficial (linha viva em
+            // `pcas`) da versão
+            // que está sendo publicada. contract_type derivado do bloco (Renovação vs
+            // demais → Nova Contratação).
             String contractType = "renovacao".equals(str(row.get("bloco"))) ? "RENOVACAO" : "NOVA_CONTRATACAO";
             Long unidadeId = asLong(row.get("cadastros_unidades_id"));
             Long areaId = asLong(row.get("cadastros_areas_id"));
-            
+
             jdbc.update(
                     "INSERT INTO pcas (code, contract_type, object_name, estimated_value_cents, " +
                             "formalized_value_cents, estimated_date, status, year, " +
@@ -317,13 +373,13 @@ public class IfoService {
                             "cadastros_unidades_id, cadastros_areas_id, created_by) " +
                             "VALUES (?, ?, ?, COALESCE(?, 0), COALESCE(?, 0), CAST(? AS DATE), 'NAO_INICIADA', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     codigoOficial, contractType, str(row.get("objeto")),
-                    asLong(row.get("valor_estimado_cents")), asLong(row.get("formalized_value_cents")), 
+                    asLong(row.get("valor_estimado_cents")), asLong(row.get("formalized_value_cents")),
                     row.get("estimated_date"), String.valueOf(ano),
                     str(row.get("process")), str(row.get("description")), str(row.get("justification")),
-                    str(row.get("financial_resource_type")), 
+                    str(row.get("financial_resource_type")),
                     str(row.get("priority")),
                     unidadeId, areaId, userId);
-            
+
             jdbc.update(
                     "UPDATE ifo SET codigo_oficial = ?, estado = 'publicado', updated_at = NOW(), updated_by = ? WHERE id = ?",
                     codigoOficial, userId, id);
@@ -332,8 +388,10 @@ public class IfoService {
     }
 
     /**
-     * RF-07 — define o interesse na renovação de um IFO do bloco Renovação. "Não" reclassifica
-     * automaticamente para Encerramento, registrando o motivo em metadado; "Sim" mantém em Renovação.
+     * RF-07 — define o interesse na renovação de um IFO do bloco Renovação. "Não"
+     * reclassifica
+     * automaticamente para Encerramento, registrando o motivo em metadado; "Sim"
+     * mantém em Renovação.
      * Só atua sobre IFO em rascunho.
      */
     @Transactional
@@ -342,7 +400,7 @@ public class IfoService {
             throw new ApiException(400, "O motivo deve ter no máximo 128 caracteres");
         }
         verificarPermissaoEdicao(id, "MODIFICAR_IFO", userId);
-        
+
         IfoDto ifo = get(id);
         if (!"rascunho".equals(ifo.estado())) {
             throw new ApiException(400, "IFO já enviado à CCA não pode ser reclassificado");
@@ -352,28 +410,32 @@ public class IfoService {
         }
         if (interesse) {
             jdbc.update(
-                    "UPDATE ifo SET interesse_renovacao = TRUE, interesse_renovacao_confirmado = TRUE, bloco = 'renovacao', motivo_reclassificacao = NULL, " +
+                    "UPDATE ifo SET interesse_renovacao = TRUE, interesse_renovacao_confirmado = TRUE, bloco = 'renovacao', motivo_reclassificacao = NULL, "
+                            +
                             "updated_at = NOW(), updated_by = ? WHERE id = ?",
                     userId, id);
         } else {
             String m = (motivo == null || motivo.isBlank()) ? "Sem interesse na renovação" : motivo.trim();
             jdbc.update(
-                    "UPDATE ifo SET interesse_renovacao = FALSE, interesse_renovacao_confirmado = TRUE, bloco = 'encerramento', motivo_reclassificacao = ?, " +
+                    "UPDATE ifo SET interesse_renovacao = FALSE, interesse_renovacao_confirmado = TRUE, bloco = 'encerramento', motivo_reclassificacao = ?, "
+                            +
                             "updated_at = NOW(), updated_by = ? WHERE id = ?",
                     m, userId, id);
         }
-        // RN-GERAL-07 — alterar o bloco é edição de conteúdo: derruba validações da demanda.
+        // RN-GERAL-07 — alterar o bloco é edição de conteúdo: derruba validações da
+        // demanda.
         invalidarPorEdicao(id, userId);
         return get(id);
     }
 
     @Transactional
-    public IfoDto definirInteresseRenovacaoContrato(long ifoId, long contractId, boolean interesse, String motivo, Long userId) {
+    public IfoDto definirInteresseRenovacaoContrato(long ifoId, long contractId, boolean interesse, String motivo,
+            Long userId) {
         if (motivo != null && motivo.length() > 128) {
             throw new ApiException(400, "O motivo deve ter no máximo 128 caracteres");
         }
         verificarPermissaoEdicao(ifoId, "MODIFICAR_IFO", userId);
-        
+
         IfoDto ifo = get(ifoId);
         if (!"rascunho".equals(ifo.estado())) {
             throw new ApiException(400, "IFO já enviado à CCA não pode ser reclassificado");
@@ -381,14 +443,15 @@ public class IfoService {
         if (!"renovacao".equals(ifo.bloco()) && !"encerramento".equals(ifo.bloco())) {
             throw new ApiException(400, "Interesse na renovação só se aplica ao bloco Renovação");
         }
-        
+
         String m = (motivo == null || motivo.isBlank() || interesse) ? null : motivo.trim();
         jdbc.update(
                 "UPDATE ifo_contratos SET interesse_renovacao = ?, motivo_reclassificacao = ? " +
-                "WHERE ifo_id = ? AND contract_id = ?",
+                        "WHERE ifo_id = ? AND contract_id = ?",
                 interesse, m, ifoId, contractId);
-        
-        // RN-GERAL-07 — alterar o bloco/interesse é edição de conteúdo: derruba validações da demanda.
+
+        // RN-GERAL-07 — alterar o bloco/interesse é edição de conteúdo: derruba
+        // validações da demanda.
         invalidarPorEdicao(ifoId, userId);
         return get(ifoId);
     }
@@ -397,47 +460,53 @@ public class IfoService {
     public void processarNaoRenovacoes(long cicloId, Long userId) {
         // Encontra todos os IFOs que possuem contratos marcados como NÃO renovar.
         List<Map<String, Object>> ifosComNaoRenovados = jdbc.queryForList(
-            "SELECT DISTINCT ic.ifo_id " +
-            "FROM ifo_contratos ic " +
-            "JOIN ifo i ON ic.ifo_id = i.id " +
-            "WHERE i.ciclo_id = ? AND i.bloco = 'renovacao' AND ic.interesse_renovacao = FALSE", cicloId);
+                "SELECT DISTINCT ic.ifo_id " +
+                        "FROM ifo_contratos ic " +
+                        "JOIN ifo i ON ic.ifo_id = i.id " +
+                        "WHERE i.ciclo_id = ? AND i.bloco = 'renovacao' AND ic.interesse_renovacao = FALSE",
+                cicloId);
 
         for (Map<String, Object> rowIfo : ifosComNaoRenovados) {
             Long ifoId = asLong(rowIfo.get("ifo_id"));
-            
+
             // Busca os contratos não renovados e seus motivos para este IFO
             List<Map<String, Object>> contratosNaoRenovados = jdbc.queryForList(
-                "SELECT contract_id, motivo_reclassificacao " +
-                "FROM ifo_contratos " +
-                "WHERE ifo_id = ? AND interesse_renovacao = FALSE", ifoId);
-                
-            if (contratosNaoRenovados.isEmpty()) continue;
+                    "SELECT contract_id, motivo_reclassificacao " +
+                            "FROM ifo_contratos " +
+                            "WHERE ifo_id = ? AND interesse_renovacao = FALSE",
+                    ifoId);
+
+            if (contratosNaoRenovados.isEmpty())
+                continue;
 
             Long primeiroContractId = asLong(contratosNaoRenovados.get(0).get("contract_id"));
 
-            // Pega o primeiro contrato para derivar os dados descritivos, usando queryForList para fallback seguro
+            // Pega o primeiro contrato para derivar os dados descritivos, usando
+            // queryForList para fallback seguro
             var cList = jdbc.queryForList("SELECT object_name FROM contracts WHERE id = ?", primeiroContractId);
             var ifoOriginal = jdbc.queryForMap("SELECT * FROM ifo WHERE id = ?", ifoId);
             String objectName = cList.isEmpty() ? str(ifoOriginal.get("objeto")) : str(cList.get(0).get("object_name"));
-            
+
             String codigo = gerarCodigo(asInt(ifoOriginal.get("ano")));
-            
+
             // Buscar o valor total de todos os contratos não renovados em uma única query
             List<Long> contractIds = contratosNaoRenovados.stream().map(m -> asLong(m.get("contract_id"))).toList();
             String inSql = String.join(",", java.util.Collections.nCopies(contractIds.size(), "?"));
             Long cents = jdbc.queryForObject(
-                "SELECT SUM(total_value_cents) FROM contracts WHERE id IN (" + inSql + ")",
-                Long.class, contractIds.toArray());
-            if (cents == null) cents = 0L;
+                    "SELECT SUM(total_value_cents) FROM contracts WHERE id IN (" + inSql + ")",
+                    Long.class, contractIds.toArray());
+            if (cents == null)
+                cents = 0L;
 
             var inserted = jdbc.queryForList(
                     "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
-                    "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
-                    "created_by, updated_by) " +
-                    "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', FALSE, " +
-                    "?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
+                            "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
+                            "created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', FALSE, " +
+                            "?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
                     codigo, asInt(ifoOriginal.get("ano")), cicloId, "encerramento",
-                    objectName, asLong(ifoOriginal.get("cadastros_unidades_id")), asLong(ifoOriginal.get("cadastros_areas_id")), cents,
+                    objectName, asLong(ifoOriginal.get("cadastros_unidades_id")),
+                    asLong(ifoOriginal.get("cadastros_areas_id")), cents,
                     userId, userId);
 
             Long newIfoId = asLong(inserted.get(0).get("id"));
@@ -448,17 +517,21 @@ public class IfoService {
             for (Map<String, Object> contratoMap : contratosNaoRenovados) {
                 Long cid = asLong(contratoMap.get("contract_id"));
                 String motivo = str(contratoMap.get("motivo_reclassificacao"));
-                deleteBatchArgs.add(new Object[]{ifoId, cid});
-                insertBatchArgs.add(new Object[]{newIfoId, cid, false, motivo});
+                deleteBatchArgs.add(new Object[] { ifoId, cid });
+                insertBatchArgs.add(new Object[] { newIfoId, cid, false, motivo });
             }
-            
+
             jdbc.batchUpdate("DELETE FROM ifo_contratos WHERE ifo_id = ? AND contract_id = ?", deleteBatchArgs);
-            jdbc.batchUpdate("INSERT INTO ifo_contratos (ifo_id, contract_id, interesse_renovacao, motivo_reclassificacao) VALUES (?, ?, ?, ?)", insertBatchArgs);
+            jdbc.batchUpdate(
+                    "INSERT INTO ifo_contratos (ifo_id, contract_id, interesse_renovacao, motivo_reclassificacao) VALUES (?, ?, ?, ?)",
+                    insertBatchArgs);
 
             // Verifica se o IFO original ficou vazio
-            Integer remainingContracts = jdbc.queryForObject("SELECT COUNT(*) FROM ifo_contratos WHERE ifo_id = ?", Integer.class, ifoId);
+            Integer remainingContracts = jdbc.queryForObject("SELECT COUNT(*) FROM ifo_contratos WHERE ifo_id = ?",
+                    Integer.class, ifoId);
             if (remainingContracts != null && remainingContracts == 0) {
-                jdbc.update("UPDATE ifo SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? WHERE id = ?", userId, ifoId);
+                jdbc.update("UPDATE ifo SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? WHERE id = ?", userId,
+                        ifoId);
             }
         }
     }
@@ -466,9 +539,12 @@ public class IfoService {
     // ---------- validação por demanda (§8.4 / RN-GERAL-06/07/08) ----------
 
     /**
-     * Valida uma demanda (IFO) numa das 2 camadas. 1ª camada = Gestor Demandante; 2ª camada = Diretor
-     * de Área (RN-GERAL-06: a 2ª só habilita sobre demanda já em 1ª). Ambas são atos de Autoridade do
-     * escopo Demandante. Só atua sobre IFO em rascunho (ainda não remetido/congelado).
+     * Valida uma demanda (IFO) numa das 2 camadas. 1ª camada = Gestor Demandante;
+     * 2ª camada = Diretor
+     * de Área (RN-GERAL-06: a 2ª só habilita sobre demanda já em 1ª). Ambas são
+     * atos de Autoridade do
+     * escopo Demandante. Só atua sobre IFO em rascunho (ainda não
+     * remetido/congelado).
      */
     @Transactional
     public IfoDto validarDemanda(long id, int camada, Long userId) {
@@ -493,7 +569,10 @@ public class IfoService {
         return get(id);
     }
 
-    /** Devolve a demanda à edição (Autoridade Demandante), derrubando as validações (RN-GERAL-07). */
+    /**
+     * Devolve a demanda à edição (Autoridade Demandante), derrubando as validações
+     * (RN-GERAL-07).
+     */
     @Transactional
     public IfoDto devolverDemanda(long id, Long userId) {
         IfoDto ifo = get(id);
@@ -502,7 +581,10 @@ public class IfoService {
         return get(id);
     }
 
-    /** RN-GERAL-07 — reseta a validação da demanda (editar derruba as validações posteriores). */
+    /**
+     * RN-GERAL-07 — reseta a validação da demanda (editar derruba as validações
+     * posteriores).
+     */
     private void invalidarPorEdicao(long id, Long userId) {
         jdbc.update("UPDATE ifo SET validacao = 'em_edicao', validado_1a_por = NULL, validado_1a_em = NULL, " +
                 "validado_2a_por = NULL, validado_2a_em = NULL, updated_at = NOW(), updated_by = ? WHERE id = ?",
@@ -510,8 +592,10 @@ public class IfoService {
     }
 
     /**
-     * RN-GERAL-08 — remessa da partição (todos os IFO de uma unidade no ciclo) à CCA. Ato único da
-     * Autoridade Demandante (Diretor), só habilitado com TODAS as demandas em 2ª camada. Congela a
+     * RN-GERAL-08 — remessa da partição (todos os IFO de uma unidade no ciclo) à
+     * CCA. Ato único da
+     * Autoridade Demandante (Diretor), só habilitado com TODAS as demandas em 2ª
+     * camada. Congela a
      * partição (rascunho → enviado_cca). Retorna quantas demandas foram remetidas.
      */
     @Transactional
@@ -528,7 +612,10 @@ public class IfoService {
                 "WHERE ciclo_id = ? AND cadastros_unidades_id = ? AND estado = 'rascunho'", userId, cicloId, unidadeId);
     }
 
-    /** Devolução da partição pela CCA (Autoridade CCA) à área, reabrindo para edição. */
+    /**
+     * Devolução da partição pela CCA (Autoridade CCA) à área, reabrindo para
+     * edição.
+     */
     @Transactional
     public int devolverParticao(long cicloId, long unidadeId, Long userId) {
         papelService.exigirTransicao("cca", cicloId);
@@ -540,20 +627,36 @@ public class IfoService {
 
     @Transactional
     public void excluir(long id, Long userId) {
+        var ifoCheck = jdbc.queryForList("SELECT bloco, ano FROM ifo WHERE id = ?", id);
+        if (ifoCheck.isEmpty()) {
+            throw new ApiException(404, "IFO não encontrado");
+        }
+        String bloco = (String) ifoCheck.get(0).get("bloco");
+        Integer ano = (Integer) ifoCheck.get(0).get("ano");
+        if (!"nova_contratacao".equals(bloco)) {
+            throw new ApiException(403, "Apenas IFOs de Nova Contratação podem ser excluídos.");
+        }
+
         verificarPermissaoEdicao(id, "DELETAR_IFO", userId);
-        int n = jdbc.update("UPDATE ifo SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? WHERE id = ?", userId, id);
+        int n = jdbc.update("UPDATE ifo SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? WHERE id = ?", userId,
+                id);
         if (n == 0) {
             throw new ApiException(404, "IFO não encontrado");
+        }
+        if (ano != null) {
+            reordenarCodigos(ano);
         }
     }
 
     public IfoDto get(long id) {
         var rows = jdbc.queryForList(
-                "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome " +
-                "FROM ifo i " +
-                "LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
-                "LEFT JOIN cadastros_unidades cu ON i.cadastros_unidades_id = cu.id " +
-                "WHERE i.id = ?", id);
+                "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome "
+                        +
+                        "FROM ifo i " +
+                        "LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
+                        "LEFT JOIN cadastros_unidades cu ON i.cadastros_unidades_id = cu.id " +
+                        "WHERE i.id = ?",
+                id);
         if (rows.isEmpty()) {
             throw new ApiException(404, "IFO não encontrado");
         }
@@ -563,7 +666,8 @@ public class IfoService {
     public List<IfoDto> listar(Integer ano, Long cicloId, Boolean minhasDemandas, Long userId) {
         if (cicloId != null && userId != null) {
             try {
-                var cicloMap = jdbc.queryForMap("SELECT finalidade, estado FROM ciclo_orcamentario WHERE id = ?", cicloId);
+                var cicloMap = jdbc.queryForMap("SELECT finalidade, estado FROM ciclo_orcamentario WHERE id = ?",
+                        cicloId);
                 if ("formacao".equals(cicloMap.get("finalidade"))) {
                     String estado = (String) cicloMap.get("estado");
                     if (!"publicado".equals(estado)) {
@@ -573,15 +677,15 @@ public class IfoService {
                             List<String> tagsPermitidas = TAGS_ACESSO_POR_ESTADO.getOrDefault(estado, List.of());
                             List<String> userTags = permissoesAcoesService.buscarTagsDoUsuario(userId);
                             boolean temAcesso = tagsPermitidas.stream().anyMatch(userTags::contains);
-                            
+
                             // Verifica se há delegação (ou herança por transição)
                             if (!temAcesso && cicloId != null) {
-                                if (delegacaoEdicaoService.temTagTransicao(estado, userId) || 
-                                    delegacaoEdicaoService.tipoDelegacao(cicloId, estado, userId) != null) {
+                                if (delegacaoEdicaoService.temTagTransicao(estado, userId) ||
+                                        delegacaoEdicaoService.tipoDelegacao(cicloId, estado, userId) != null) {
                                     temAcesso = true;
                                 }
                             }
-                            
+
                             if (!temAcesso) {
                                 throw new ApiException(403, "Acesso restrito à fase atual do ciclo de formação.");
                             }
@@ -596,11 +700,12 @@ public class IfoService {
         }
 
         StringBuilder sql = new StringBuilder(
-                "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome " +
-                "FROM ifo i " +
-                "LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
-                "LEFT JOIN cadastros_unidades cu ON i.cadastros_unidades_id = cu.id " +
-                "WHERE i.is_deleted = FALSE");
+                "SELECT i.*, ca.sigla as area_sigla, ca.nome as area_nome, cu.sigla as unidade_sigla, cu.nome as unidade_nome "
+                        +
+                        "FROM ifo i " +
+                        "LEFT JOIN cadastros_areas ca ON i.cadastros_areas_id = ca.id " +
+                        "LEFT JOIN cadastros_unidades cu ON i.cadastros_unidades_id = cu.id " +
+                        "WHERE i.is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
         if (ano != null) {
             sql.append(" AND i.ano = ?");
@@ -614,12 +719,16 @@ public class IfoService {
             List<Long> userAreaIds = new ArrayList<>();
             List<Long> userUnidadeIds = new ArrayList<>();
             try {
-                var pessoas = jdbc.queryForList("SELECT area_id, unidade_id FROM cadastros_pessoas WHERE user_id = ?", userId);
+                var pessoas = jdbc.queryForList("SELECT area_id, unidade_id FROM cadastros_pessoas WHERE user_id = ?",
+                        userId);
                 for (var p : pessoas) {
-                    if (p.get("area_id") != null) userAreaIds.add(((Number) p.get("area_id")).longValue());
-                    if (p.get("unidade_id") != null) userUnidadeIds.add(((Number) p.get("unidade_id")).longValue());
+                    if (p.get("area_id") != null)
+                        userAreaIds.add(((Number) p.get("area_id")).longValue());
+                    if (p.get("unidade_id") != null)
+                        userUnidadeIds.add(((Number) p.get("unidade_id")).longValue());
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+            }
 
             if (userAreaIds.isEmpty()) {
                 try {
@@ -631,21 +740,26 @@ public class IfoService {
                         }
                     }
 
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                }
             }
-            
+
             if (userAreaIds.isEmpty() && userUnidadeIds.isEmpty()) {
                 sql.append(" AND 1 = 0"); // Força retornar vazio se não tiver área
             } else {
                 sql.append(" AND (");
                 if (!userAreaIds.isEmpty()) {
-                    sql.append("i.cadastros_areas_id IN (").append(userAreaIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
+                    sql.append("i.cadastros_areas_id IN (")
+                            .append(userAreaIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                            .append(")");
                 } else {
                     sql.append("1 = 0");
                 }
                 sql.append(" OR ");
                 if (!userUnidadeIds.isEmpty()) {
-                    sql.append("i.cadastros_unidades_id IN (").append(userUnidadeIds.stream().map(String::valueOf).collect(Collectors.joining(","))).append(")");
+                    sql.append("i.cadastros_unidades_id IN (")
+                            .append(userUnidadeIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                            .append(")");
                 } else {
                     sql.append("1 = 0");
                 }
@@ -657,29 +771,47 @@ public class IfoService {
     }
 
     private void vincularContratos(Long ifoId, List<Long> contratos, Long userId) {
-        if (contratos == null || contratos.isEmpty()) return;
-        
+        if (contratos == null || contratos.isEmpty())
+            return;
+
         Map<String, Object> ifoData = jdbc.queryForMap("SELECT ano, bloco FROM ifo WHERE id = ?", ifoId);
         Integer ifoAno = (Integer) ifoData.get("ano");
         String ifoBloco = (String) ifoData.get("bloco");
-        
+
         for (Long contractId : contratos) {
-            if (contractId == null) continue;
-            
+            if (contractId == null)
+                continue;
+
             Map<String, Object> contractData = null;
             try {
-                contractData = jdbc.queryForMap("SELECT end_date, limit_date, total_value_cents FROM contracts WHERE id = ?", contractId);
-            } catch (Exception e) {}
-            
+                contractData = jdbc.queryForMap(
+                        "SELECT end_date, limit_date, total_value_cents FROM contracts WHERE id = ?", contractId);
+            } catch (Exception e) {
+            }
+
             Long contractValue = null;
             if (contractData != null) {
                 if (contractData.get("total_value_cents") != null) {
                     contractValue = ((Number) contractData.get("total_value_cents")).longValue();
                 }
-                
+
                 java.sql.Date endDateSql = (java.sql.Date) contractData.get("end_date");
                 java.sql.Date limitDateSql = (java.sql.Date) contractData.get("limit_date");
-                
+
+                if (!"nova_contratacao".equals(ifoBloco)) {
+                    if (limitDateSql == null) {
+                        throw new ApiException(400, "Contrato ID " + contractId
+                                + " não pode ser vinculado a um bloco de continuidade pois não possui Data Limite preenchida.");
+                    }
+                    if (limitDateSql.toLocalDate().getYear() < ifoAno) {
+                        throw new ApiException(400,
+                                "Contrato ID " + contractId
+                                        + " não pode ser vinculado a um bloco de continuidade pois sua Data Limite ("
+                                        + limitDateSql.toLocalDate().getYear() + ") não alcança o ano de formação ("
+                                        + ifoAno + ").");
+                    }
+                }
+
                 String contractBloco = "plurianual";
                 if (endDateSql != null) {
                     java.time.LocalDate endDate = endDateSql.toLocalDate();
@@ -696,18 +828,28 @@ public class IfoService {
                         contractBloco = "encerramento";
                     }
                 }
-                
-                String linkedIfoCodigo = null;
-                try {
-                    linkedIfoCodigo = jdbc.queryForObject("SELECT i.codigo FROM ifo_contratos ic JOIN ifo i ON i.id = ic.ifo_id WHERE ic.contract_id = ? AND i.id != ? AND i.is_deleted = FALSE LIMIT 1", String.class, contractId, ifoId);
-                } catch (Exception e) {}
-                
-                if (linkedIfoCodigo != null) {
-                    throw new ApiException(400, "O contrato ID " + contractId + " não pode ser vinculado pois já pertence ao IFO " + linkedIfoCodigo + ".");
-                }
-                
+
                 if (!"nova_contratacao".equals(ifoBloco) && !ifoBloco.equals(contractBloco)) {
-                    throw new ApiException(400, "Contrato não pode ser vinculado a este IFO devido à incompatibilidade de bloco (" + contractBloco + " vs " + ifoBloco + ").");
+                    throw new ApiException(400,
+                            "Contrato não pode ser vinculado a este IFO devido à incompatibilidade de bloco ("
+                                    + contractBloco + " vs " + ifoBloco + ").");
+                }
+
+                Long linkedIfoId = null;
+                try {
+                    linkedIfoId = jdbc.queryForObject(
+                            "SELECT i.id FROM ifo_contratos ic JOIN ifo i ON i.id = ic.ifo_id WHERE ic.contract_id = ? AND i.id != ? AND i.is_deleted = FALSE AND i.ciclo_id = (SELECT ciclo_id FROM ifo WHERE id = ?) LIMIT 1",
+                            Long.class, contractId, ifoId, ifoId);
+                } catch (Exception e) {
+                }
+
+                if (linkedIfoId != null) {
+                    // Fazer update da vinculação anterior para preservar os valores já preenchidos
+                    // (como valor ajustado)
+                    jdbc.update("UPDATE ifo_contratos SET ifo_id = ? WHERE contract_id = ? AND ifo_id = ?", ifoId,
+                            contractId, linkedIfoId);
+                    recalcularValorIfo(linkedIfoId, userId);
+                    continue; // Pula o insert abaixo pois a linha já foi transferida
                 }
             }
 
@@ -731,15 +873,15 @@ public class IfoService {
     @Transactional
     public IfoDto atualizarValorContrato(long ifoId, long contractId, Long valorCents, Long userId) {
         verificarPermissaoEdicao(ifoId, "MODIFICAR_IFO", userId);
-        
+
         int rows = jdbc.update(
                 "UPDATE ifo_contratos SET valor_contrato_cents = ? WHERE ifo_id = ? AND contract_id = ?",
                 valorCents, ifoId, contractId);
-        
+
         if (rows == 0) {
             throw new ApiException(404, "Vínculo de contrato não encontrado neste IFO");
         }
-        
+
         recalcularValorIfo(ifoId, userId);
         invalidarPorEdicao(ifoId, userId);
         return get(ifoId);
@@ -758,8 +900,8 @@ public class IfoService {
                         rs.getLong("contract_id"),
                         rs.getObject("interesse_renovacao") != null ? rs.getBoolean("interesse_renovacao") : true,
                         rs.getString("motivo_reclassificacao"),
-                        rs.getObject("valor_contrato_cents") != null ? rs.getLong("valor_contrato_cents") : null
-                ), ifoId);
+                        rs.getObject("valor_contrato_cents") != null ? rs.getLong("valor_contrato_cents") : null),
+                ifoId);
     }
 
     private IfoDto toDto(Map<String, Object> r) {
@@ -805,15 +947,18 @@ public class IfoService {
     }
 
     /**
-     * Carrega os PCAs do ano atual (anoFormacao - 1) com contract_type = 'NOVA_CONTRATACAO'
-     * e os transforma em IFOs do bloco nova_contratacao. Idempotente: não duplica se já existem
+     * Carrega os PCAs do ano atual (anoFormacao - 1) com contract_type =
+     * 'NOVA_CONTRATACAO'
+     * e os transforma em IFOs do bloco nova_contratacao. Idempotente: não duplica
+     * se já existem
      * IFOs nova_contratacao para o ciclo.
      */
     @Transactional
     public void gerarIfosNovaContratacao(long cicloId, int anoFormacao, Long userId) {
         var check = jdbc.queryForList(
                 "SELECT id FROM ifo WHERE ciclo_id = ? AND bloco = 'nova_contratacao' LIMIT 1", cicloId);
-        if (!check.isEmpty()) return;
+        if (!check.isEmpty())
+            return;
 
         int anoAtual = anoFormacao - 1;
         String queryPcas = "SELECT id, code, year, description, justification, process, " +
@@ -844,19 +989,20 @@ public class IfoService {
             if (unidadeId == null && areaDemandanteText != null) {
                 var res = jdbc.queryForList(
                         "SELECT id FROM cadastros_unidades WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) " +
-                        "OR LOWER(TRIM(nome)) = LOWER(TRIM(?)) LIMIT 1",
+                                "OR LOWER(TRIM(nome)) = LOWER(TRIM(?)) LIMIT 1",
                         areaDemandanteText, areaDemandanteText);
-                if (!res.isEmpty()) unidadeId = asLong(res.get(0).get("id"));
+                if (!res.isEmpty())
+                    unidadeId = asLong(res.get(0).get("id"));
             }
 
             var inserted = jdbc.queryForList(
                     "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, " +
-                    "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
-                    "description, justification, process, financial_resource_type, contract_type, " +
-                    "formalized_value_cents, priority, estimated_date, " +
-                    "pca_origem_id, created_by, updated_by) " +
-                    "VALUES (?, ?, ?, 'nova_contratacao', 'pontual', 'rascunho', " +
-                    "?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                            "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
+                            "description, justification, process, financial_resource_type, contract_type, " +
+                            "formalized_value_cents, priority, estimated_date, " +
+                            "pca_origem_id, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, 'nova_contratacao', 'pontual', 'rascunho', " +
+                            "?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                     codigo, anoFormacao, cicloId,
                     str(pca.get("object_name")), unidadeId, areaId, asLong(pca.get("estimated_value_cents")),
                     str(pca.get("description")), str(pca.get("justification")),
@@ -866,27 +1012,19 @@ public class IfoService {
                     asLong(pca.get("id")), userId, userId);
 
             Long ifoId = asLong(inserted.get(0).get("id"));
-
-            // Copiar contratos vinculados ao PCA para ifo_contratos
-            List<Map<String, Object>> contratos = jdbc.queryForList(
-                    "SELECT contract_id FROM contracts_pcas WHERE pca_id = ?",
-                    asLong(pca.get("id")));
-            for (Map<String, Object> c : contratos) {
-                jdbc.update(
-                        "INSERT INTO ifo_contratos (ifo_id, contract_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
-                        ifoId, asLong(c.get("contract_id")));
-            }
         }
     }
 
     @Transactional
     public void gerarIfosRenovacao(long cicloId, int anoFormacao, Long userId) {
         var check = jdbc.queryForList("SELECT id FROM ifo WHERE ciclo_id = ? AND bloco = 'renovacao' LIMIT 1", cicloId);
-        if (!check.isEmpty()) return;
+        if (!check.isEmpty())
+            return;
 
         String queryContratos = "SELECT c.id as contract_id, c.object_name, c.total_value_cents, " +
                 "c.cadastros_unidades_id, c.cadastros_areas_id, cp.pca_id, " +
-                "c.start_date, c.limit_date, c.end_date, COALESCE(c.year_duration_standard, 10) as year_duration_standard " +
+                "c.start_date, c.limit_date, c.end_date, COALESCE(c.year_duration_standard, 10) as year_duration_standard "
+                +
                 "FROM contracts c " +
                 "LEFT JOIN contracts_pcas cp ON c.id = cp.contract_id " +
                 "WHERE EXTRACT(YEAR FROM c.limit_date) >= ? AND (c.is_deleted = FALSE OR c.is_deleted IS NULL) " +
@@ -899,46 +1037,44 @@ public class IfoService {
 
         for (Map<String, Object> c : contratosRenovacao) {
             String bloco = "renovacao"; // fallback
-            
+
             java.sql.Date sqlStartDate = (java.sql.Date) c.get("start_date");
             java.sql.Date sqlLimitDate = (java.sql.Date) c.get("limit_date");
             java.sql.Date sqlEndDate = (java.sql.Date) c.get("end_date");
-            
+
             if (sqlStartDate != null && sqlLimitDate != null && sqlEndDate != null) {
                 int startYear = sqlStartDate.toLocalDate().getYear();
                 int limitYear = sqlLimitDate.toLocalDate().getYear();
                 int endYear = sqlEndDate.toLocalDate().getYear();
                 int duration = ((Number) c.get("year_duration_standard")).intValue();
-            /**  
-                if (limitYear > anoFormacao + 2) {
-                    bloco = "plurianual";
-                }
-                else if (limitYear <= anoFormacao+1) {
-                    bloco = "encerramento";
-                }
-                else if (startYear + duration >= anoFormacao + 1) {
-                    bloco = "renovacao";
-                }
-            }
-             */
+                /**
+                 * if (limitYear > anoFormacao + 2) {
+                 * bloco = "plurianual";
+                 * }
+                 * else if (limitYear <= anoFormacao+1) {
+                 * bloco = "encerramento";
+                 * }
+                 * else if (startYear + duration >= anoFormacao + 1) {
+                 * bloco = "renovacao";
+                 * }
+                 * }
+                 */
                 if (endYear >= anoFormacao + 1) {
                     bloco = "plurianual";
-                } 
-                else if (limitYear <= anoFormacao) {
+                } else if (limitYear <= anoFormacao) {
                     bloco = "encerramento";
-                } 
-                else if (endYear <= anoFormacao && limitYear > anoFormacao) {
+                } else if (endYear <= anoFormacao && limitYear > anoFormacao) {
                     bloco = "renovacao";
                 }
             }
-            
+
             c.put("bloco_calculado", bloco);
 
             Long pcaId = asLong(c.get("pca_id"));
             if (pcaId != null) {
                 porPcaEBloco.computeIfAbsent(pcaId, k -> new java.util.LinkedHashMap<>())
-                            .computeIfAbsent(bloco, k -> new java.util.ArrayList<>())
-                            .add(c);
+                        .computeIfAbsent(bloco, k -> new java.util.ArrayList<>())
+                        .add(c);
             } else {
                 avulsos.add(c);
             }
@@ -949,13 +1085,15 @@ public class IfoService {
 
             var pcaRows = jdbc.queryForList(
                     "SELECT object_name, estimated_value_cents, cadastros_unidades_id, " +
-                    "cadastros_areas_id, priority, description, justification, " +
-                    "process, financial_resource_type, contract_type, formalized_value_cents " +
-                    "FROM pcas WHERE id = ?", pcaId);
+                            "cadastros_areas_id, priority, description, justification, " +
+                            "process, financial_resource_type, contract_type, formalized_value_cents " +
+                            "FROM pcas WHERE id = ?",
+                    pcaId);
 
-            if (pcaRows.isEmpty()) continue;
+            if (pcaRows.isEmpty())
+                continue;
             Map<String, Object> pca = pcaRows.get(0);
-            
+
             for (Map.Entry<String, List<Map<String, Object>>> blocoEntry : pcaEntry.getValue().entrySet()) {
                 String bloco = blocoEntry.getKey();
                 List<Map<String, Object>> contratosDoPca = blocoEntry.getValue();
@@ -964,22 +1102,24 @@ public class IfoService {
 
                 Long areaId = asLong(pca.get("cadastros_areas_id"));
                 Long unidadeId = asLong(pca.get("cadastros_unidades_id"));
-                
+
                 if (areaId == null || unidadeId == null) {
                     Map<String, Object> firstContract = contratosDoPca.isEmpty() ? null : contratosDoPca.get(0);
                     if (firstContract != null) {
-                        if (areaId == null) areaId = asLong(firstContract.get("cadastros_areas_id"));
-                        if (unidadeId == null) unidadeId = asLong(firstContract.get("cadastros_unidades_id"));
+                        if (areaId == null)
+                            areaId = asLong(firstContract.get("cadastros_areas_id"));
+                        if (unidadeId == null)
+                            unidadeId = asLong(firstContract.get("cadastros_unidades_id"));
                     }
                 }
 
                 var inserted = jdbc.queryForList(
                         "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
-                        "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
-                        "description, justification, process, financial_resource_type, contract_type, " +
-                        "formalized_value_cents, priority, created_by, updated_by) " +
-                        "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', TRUE, " +
-                        "?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                                "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
+                                "description, justification, process, financial_resource_type, contract_type, " +
+                                "formalized_value_cents, priority, created_by, updated_by) " +
+                                "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', TRUE, " +
+                                "?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                         codigo, anoFormacao, cicloId, bloco,
                         str(pca.get("object_name")), unidadeId, areaId,
                         asLong(pca.get("estimated_value_cents")),
@@ -991,8 +1131,12 @@ public class IfoService {
 
                 for (Map<String, Object> c : contratosDoPca) {
                     Long contractId = asLong(c.get("contract_id"));
-                    jdbc.update("INSERT INTO ifo_contratos (ifo_id, contract_id) VALUES (?, ?) ON CONFLICT DO NOTHING", ifoId, contractId);
+                    Long totalValue = asLong(c.get("total_value_cents"));
+                    jdbc.update(
+                            "INSERT INTO ifo_contratos (ifo_id, contract_id, valor_contrato_cents) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+                            ifoId, contractId, totalValue);
                 }
+                recalcularValorIfo(ifoId, userId);
             }
         }
 
@@ -1004,17 +1148,77 @@ public class IfoService {
 
             var inserted = jdbc.queryForList(
                     "INSERT INTO ifo (codigo, ano, ciclo_id, bloco, natureza, estado, interesse_renovacao, " +
-                    "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
-                    "created_by, updated_by) " +
-                    "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', TRUE, " +
-                    "?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
+                            "objeto, cadastros_unidades_id, cadastros_areas_id, valor_estimado_cents, " +
+                            "created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, 'continuada', 'rascunho', TRUE, " +
+                            "?, ?, ?, COALESCE(?, 0), ?, ?) RETURNING id",
                     codigo, anoFormacao, cicloId, bloco,
                     str(c.get("object_name")), unidadeId, areaId, asLong(c.get("total_value_cents")),
                     userId, userId);
 
             Long ifoId = asLong(inserted.get(0).get("id"));
             Long contractId = asLong(c.get("contract_id"));
-            jdbc.update("INSERT INTO ifo_contratos (ifo_id, contract_id) VALUES (?, ?) ON CONFLICT DO NOTHING", ifoId, contractId);
+            Long totalValue = asLong(c.get("total_value_cents"));
+            jdbc.update(
+                    "INSERT INTO ifo_contratos (ifo_id, contract_id, valor_contrato_cents) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+                    ifoId, contractId, totalValue);
+            recalcularValorIfo(ifoId, userId);
+        }
+    }
+
+    public void validarContratosSemIfo(long cicloId, int anoFormacao) {
+        // Apenas contratos de Continuidade (limit_date >= anoFormacao)
+        String queryContinuidade = "SELECT c.id as contract_id, c.object_name " +
+                "FROM contracts c " +
+                "WHERE EXTRACT(YEAR FROM c.limit_date) >= ? AND (c.is_deleted = FALSE OR c.is_deleted IS NULL) " +
+                "AND NOT EXISTS (SELECT 1 FROM ifo_contratos ic JOIN ifo i ON ic.ifo_id = i.id WHERE ic.contract_id = c.id AND i.ciclo_id = ? AND i.is_deleted = FALSE)";
+
+        List<Map<String, Object>> orfaosContinuidade = jdbc.queryForList(queryContinuidade, anoFormacao, cicloId);
+
+        if (!orfaosContinuidade.isEmpty()) {
+            int total = orfaosContinuidade.size();
+            throw new ApiException(409, "Avanço de fase bloqueado: Existem " + total
+                    + " contratos de continuidade ativos (com vigência ou margem de prorrogação no ano de formação) que não estão vinculados a nenhum IFO neste ciclo. Por favor, regularize os vínculos antes de avançar.");
+        }
+    }
+
+    public void limparIfosVazios(long cicloId, Long userId) {
+        // Remove IFOs que não são de 'nova_contratacao' e que não possuem nenhum
+        // contrato vinculado na tabela ifo_contratos
+        jdbc.update(
+                "UPDATE ifo SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ? " +
+                        "WHERE ciclo_id = ? AND is_deleted = FALSE AND bloco != 'nova_contratacao' " +
+                        "AND id NOT IN (SELECT ifo_id FROM ifo_contratos)",
+                userId, cicloId);
+                
+        var cicloInfo = jdbc.queryForList("SELECT ano FROM ciclo_orcamentario WHERE id = ?", cicloId);
+        if (!cicloInfo.isEmpty()) {
+            Integer ano = (Integer) cicloInfo.get(0).get("ano");
+            if (ano != null) {
+                reordenarCodigos(ano);
+            }
+        }
+    }
+
+    public void reordenarCodigos(int ano) {
+        // Libera os códigos dos IFOs deletados para evitar DuplicateKeyException (varchar(20))
+        jdbc.update(
+            "UPDATE ifo SET codigo = 'D' || id WHERE ano = ? AND is_deleted = TRUE AND codigo LIKE 'IFO-%'", 
+            ano
+        );
+
+        List<Map<String, Object>> ifos = jdbc.queryForList(
+            "SELECT id, codigo FROM ifo WHERE ano = ? AND is_deleted = FALSE ORDER BY CAST(SPLIT_PART(codigo, '-', 3) AS INTEGER) ASC", ano);
+        
+        // Move todos os IFOs ativos para um namespace temporário. 
+        // Isso zera completamente as chances de conflito de Unique Key (uq_ifo_codigo) durante a reatribuição.
+        jdbc.update("UPDATE ifo SET codigo = 'TEMP-' || id WHERE ano = ? AND is_deleted = FALSE", ano);
+
+        int sequencial = 1;
+        for (Map<String, Object> ifo : ifos) {
+            Long id = ((Number) ifo.get("id")).longValue();
+            String novoCodigo = String.format("IFO-%d-%04d", ano, sequencial++);
+            jdbc.update("UPDATE ifo SET codigo = ? WHERE id = ?", novoCodigo, id);
         }
     }
 

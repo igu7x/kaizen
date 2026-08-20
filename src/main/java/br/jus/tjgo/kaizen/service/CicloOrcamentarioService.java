@@ -326,6 +326,16 @@ public class CicloOrcamentarioService {
             return publicar(id, userId, null, null);
         }
 
+        if ("formacao".equals(ciclo.finalidade())) {
+            // Limpa IFOs de continuidade vazios ao avançar qualquer etapa da esteira
+            ifoService.limparIfosVazios(id, userId);
+            
+            java.util.List<String> etapasValidacao = java.util.List.of("aberto", "em_consulta_1", "em_consulta_2", "consolidacao_cca", "validacao_gejut");
+            if (etapasValidacao.contains(ciclo.estado())) {
+                ifoService.validarContratosSemIfo(id, ciclo.ano());
+            }
+        }
+
         CicloDto atualizado = atualizarEstado(id, proximo, userId);
         
         // Auto-revogar delegações da etapa anterior ao avançar
@@ -677,7 +687,6 @@ public class CicloOrcamentarioService {
     private static final Map<String, String> CAMPO_LINK_POR_ESTADO = Map.of(
         "proad_gejut",         "validacao_gejut",
         "proad_sgjt",          "apreciacao_sgjt",
-        "proad_ata_comites",   "em_comites",
         "proad_produto_final", "em_comites"
     );
 
@@ -744,7 +753,6 @@ public class CicloOrcamentarioService {
                 str(r.get("publicado_em")),
                 str(r.get("proad_gejut")),
                 str(r.get("proad_sgjt")),
-                str(r.get("proad_ata_comites")),
                 str(r.get("proad_produto_final")),
                 str(r.get("proad_publicacao")),
                 str(r.get("link_dou")),
