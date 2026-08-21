@@ -60,6 +60,7 @@ public class PcaService {
             "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_areas.nome as diretoria_nome, " +
+            "p.description, " +
             "cadastro_unidades.nome as area_demandante_nome, ";
 
     private static final String SELECT_COLUMNS_SNAPSHOT =
@@ -73,6 +74,7 @@ public class PcaService {
             "(SELECT string_agg(CAST(c.id AS TEXT) || ':' || COALESCE(c.notice_number, ''), ',') FROM contracts c JOIN contracts_pcas cp ON c.id = cp.contract_id WHERE cp.pca_id = p.original_pca_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)) as contract_ids, " +
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_areas.nome as diretoria_nome, " +
+            "p.description, " +
             "cadastro_unidades.nome as area_demandante_nome, ";
 
     private static final String FROM_JOINS =
