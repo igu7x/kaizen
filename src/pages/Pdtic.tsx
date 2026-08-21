@@ -800,7 +800,9 @@ function KrGauge({
   const cx = 120;
   const cy = 88;
   const r = 64;
-  const stroke = 14;
+  // Espessura da barra = extensão radial do tique da meta, para o marcador ficar rente ao arco em
+  // vez de ultrapassá-lo dos dois lados.
+  const stroke = 21;
   const arco = Math.PI * r; // comprimento do semicírculo
   const clamp = (n: number) => Math.max(0, Math.min(1, n));
   const fValor = escala > 0 ? clamp(valor / escala) : 0;
@@ -812,9 +814,10 @@ function KrGauge({
   const ang = Math.PI * (1 - fMeta);
   const ponto = (raio: number) =>
     [cx + raio * Math.cos(ang), cy - raio * Math.sin(ang)] as const;
-  const [x1, y1] = ponto(r - stroke / 2 - 2);
-  const [x2, y2] = ponto(r + stroke / 2 + 5);
-  const [xt, yt] = ponto(r + stroke / 2 + 13);
+  // O tique cobre exatamente a espessura da barra — os dois acompanham `stroke` juntos.
+  const [x1, y1] = ponto(r - stroke / 2);
+  const [x2, y2] = ponto(r + stroke / 2);
+  const [xt, yt] = ponto(r + stroke / 2 + 9);
 
   return (
     <svg
@@ -991,6 +994,11 @@ type PcaRow = PcaItem & {
   unidade_sigla?: string;
   area_sigla?: string;
 };
+/**
+ * Demanda da Unidade (`pcas.description`) — é o que a listagem mostra abaixo do código do PCA.
+ * O `objeto` continua disponível no title da célula.
+ */
+const demandaPca = (p: PcaItem) => p.description ?? "";
 const codPca = (p: PcaItem) => (p as PcaRow).item_pca ?? p.itemPca ?? "";
 /** Nome completo da área/unidade demandante (vai no title da célula). */
 const areaPca = (p: PcaItem) =>
@@ -1050,13 +1058,14 @@ function PcaItensTabela({
   }
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      {/* Cabeçalho — alinhado às colunas de cada linha (Tipo · PCA/Objeto · Área · Valor · Status) */}
+      {/* Cabeçalho — alinhado às colunas de cada linha
+          (Tipo · PCA/Demanda · Área demandante · Valor do ano · Status) */}
       <div className="flex items-center gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <div className="w-16 shrink-0 text-center">Tipo</div>
-        <div className="min-w-0 flex-1">PCA / Objeto</div>
+        <div className="min-w-0 flex-1">PCA / Demanda da Unidade</div>
         <div className="hidden shrink-0 items-center gap-6 md:flex">
-          <div className="w-24 text-center">Área</div>
-          <div className="w-36 text-right">Valor estimado</div>
+          <div className="w-40 text-center">Área Demandante</div>
+          <div className="w-36 text-right">Valor Ano de Referência</div>
           <div className="w-28 text-center">Status</div>
         </div>
       </div>
@@ -1098,29 +1107,31 @@ function PcaItensTabela({
               </span>
             </div>
 
-            {/* Número do PCA + objeto */}
+            {/* Número do PCA + demanda da unidade (o objeto vai no title, como referência) */}
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-semibold text-slate-900">
                 {cod ? (num ? `PCA ${num}` : cod) : "—"}
               </p>
               <p
                 className="mt-0.5 line-clamp-2 text-xs text-slate-500"
-                title={p.objeto || undefined}
+                title={demandaPca(p) || p.objeto || undefined}
               >
-                {p.objeto || "—"}
+                {demandaPca(p) || "—"}
               </p>
             </div>
 
-            {/* Colunas (desktop): área · valor · status */}
+            {/* Colunas (desktop): área demandante · valor do ano · status */}
             <div className="hidden shrink-0 items-center gap-6 md:flex">
+              {/* Nome completo da unidade, quebrando em até 3 linhas — a sigla sozinha não
+                  identificava a área demandante. */}
               <div
-                className="w-24 truncate text-center text-sm text-slate-700"
+                className="line-clamp-3 w-40 text-center text-xs leading-tight text-slate-700"
                 title={areaPca(p) || undefined}
               >
-                {areaPcaCurta(p) || "—"}
+                {areaPca(p) || areaPcaCurta(p) || "—"}
               </div>
               <div className="w-36 text-right text-sm font-bold text-emerald-700">
-                {formatCurrency(Number(p.valor_estimado || 0))}
+                {formatCurrency(Number(p.valor_formalizado || 0))}
               </div>
               <div className="flex w-28 justify-center">
                 <span
