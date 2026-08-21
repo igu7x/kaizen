@@ -69,12 +69,28 @@ export const autoavaliacaoApi = {
     return apiClient.request<AutoavaliacaoFormulario[]>(url);
   },
 
-  /** `null` quando o usuário ainda não preencheu — o backend responde com corpo vazio. */
+  /**
+   * `null` quando o usuário ainda não preencheu — o backend responde com corpo vazio.
+   * `unidadeId` recorta por unidade: a autoavaliação é uma por unidade, então quem é gestor de mais
+   * de uma precisa perguntar pela unidade certa. Sem ele, vem a mais recente.
+   */
   getMeu(
     tipoInventario: string = "equipe",
+    unidadeId?: number,
   ): Promise<AutoavaliacaoFormulario | null> {
+    const params = new URLSearchParams({ tipo_inventario: tipoInventario });
+    if (unidadeId) params.set("unidade_id", String(unidadeId));
     return apiClient.requestNullable<AutoavaliacaoFormulario>(
-      `${BASE_URL}/meu?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
+      `${BASE_URL}/meu?${params.toString()}`,
+    );
+  },
+
+  /** Uma entrada por unidade já preenchida — usado para saber quais unidades ainda faltam. */
+  getMeus(
+    tipoInventario: string = "equipe",
+  ): Promise<AutoavaliacaoFormulario[]> {
+    return apiClient.request<AutoavaliacaoFormulario[]>(
+      `${BASE_URL}/meus?tipo_inventario=${encodeURIComponent(tipoInventario)}`,
     );
   },
 

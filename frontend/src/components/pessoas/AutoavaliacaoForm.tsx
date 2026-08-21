@@ -360,32 +360,49 @@ export function AutoavaliacaoForm({
   useEffect(() => {
     const load = async () => {
       try {
-        // Verificar se usuário já preencheu autoavaliação para este tipo
-        let formularioExistente: AutoavaliacaoFormulario | null = null;
-        try {
-          formularioExistente = await autoavaliacaoApi.getMeu(
-            tipoInventario || "equipe",
-          );
-          if (formularioExistente && !editMode && !forceEditMode) {
-            setJaPreenchido(formularioExistente);
-            setLoadingUnidades(false);
-            return;
-          }
-        } catch {
-          /* erro já tratado pelo apiClient ou ignorado intencionalmente */
-        }
-
-        // Para autoavaliação tipo gestor: mostrar apenas a unidade onde o user é gestor (travada)
-        // Para autoavaliação tipo equipe: mostrar unidades do colaborador
+        // A autoavaliação é uma POR UNIDADE — cada unidade tem seu próprio referencial, logo outro
+        // conjunto de competências. Para o gestor de várias unidades, "já preencheu" vale por
+        // unidade: enquanto sobrar unidade sem formulário ele precisa continuar podendo preencher.
+        // Tipo gestor: TODAS as unidades onde ele é responsável (era só a primeira, e era essa a
+        // trava). Tipo equipe: as unidades do colaborador.
         const fetchUnidades =
           tipoInventario === "gestor"
-            ? competenciasGestorApi.getMinhaUnidadeGestor()
+            ? competenciasGestorApi.getMinhasUnidadesGestor()
             : competenciasGestorApi.getUnidadesAutorizadasInventario();
 
-        const [allAreas, autorizadas] = await Promise.all([
+        const [allAreas, autorizadas, meus] = await Promise.all([
           areasApi.getAll(),
           fetchUnidades,
+          autoavaliacaoApi
+            .getMeus(tipoInventario || "equipe")
+            .catch(() => [] as AutoavaliacaoFormulario[]),
         ]);
+
+        const idsComFormulario = new Set(
+          meus.map((f) => Number(f.unidade_id)).filter((id) => !!id),
+        );
+        const pendentes = autorizadas.filter(
+          (u) => !idsComFormulario.has(Number(u.id)),
+        );
+        // Em edição o formulário traz a própria unidade, que já tem formulário — filtrar aqui
+        // esvaziaria o seletor.
+        const selecionaveis = editMode || forceEditMode ? autorizadas : pendentes;
+        const formularioExistente: AutoavaliacaoFormulario | null =
+          [...meus].sort((a, b) =>
+            String(b.created_at || "").localeCompare(String(a.created_at || "")),
+          )[0] || null;
+
+        // Tela de bloqueio "já enviada": só quando NÃO sobrou unidade a preencher.
+        if (
+          formularioExistente &&
+          !editMode &&
+          !forceEditMode &&
+          pendentes.length === 0
+        ) {
+          setJaPreenchido(formularioExistente);
+          setLoadingUnidades(false);
+          return;
+        }
 
         if (allAreas.length > 0) {
           const userArea =
@@ -395,7 +412,7 @@ export function AutoavaliacaoForm({
           setDiretoriaUsuario(userArea?.sigla || userArea?.nome || "");
         }
 
-        setUnidadesAutorizadas(autorizadas);
+        setUnidadesAutorizadas(selecionaveis);
 
         // Em editMode: carregar dados do formulário existente no form
         if ((editMode || forceEditMode) && formularioExistente) {
@@ -558,9 +575,9 @@ export function AutoavaliacaoForm({
           return;
         }
 
-        // Auto-selecionar se só tem 1 unidade autorizada
-        if (autorizadas.length === 1) {
-          const u = autorizadas[0];
+        // Auto-selecionar se só tem 1 unidade a preencher
+        if (selecionaveis.length === 1) {
+          const u = selecionaveis[0];
           setForm((prev) => ({
             ...prev,
             unidade_id: String(u.id),

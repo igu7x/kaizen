@@ -111,14 +111,25 @@ public class AutoavaliacaoService {
     }
 
     public Map<String, Object> findByUserId(long userId, String tipoInventario) {
+        return findByUserId(userId, tipoInventario, null);
+    }
+
+    /**
+     * Autoavaliação do usuário. <code>unidadeId</code> é obrigatório para quem é gestor de mais de
+     * uma unidade: a autoavaliação é POR UNIDADE (cada unidade tem seu próprio referencial, logo
+     * outro conjunto de competências). Sem o filtro, a consulta devolvia sempre a mais recente e a
+     * tela tratava o gestor como "já preencheu", travando as demais unidades.
+     */
+    public Map<String, Object> findByUserId(long userId, String tipoInventario, Long unidadeId) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
                 "SELECT f.*, cu.nome as unidade_nome " +
                         "FROM autoavaliacao_formularios f " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
                         "WHERE f.user_id = ? AND f.is_deleted = FALSE " +
                         "  AND COALESCE(f.tipo_inventario, 'equipe') = ? " +
+                        "  AND (?::bigint IS NULL OR f.unidade_id = ?::bigint) " +
                         "ORDER BY f.created_at DESC LIMIT 1",
-                userId, tipoInventario);
+                userId, tipoInventario, unidadeId, unidadeId);
         if (formRows.isEmpty()) {
             return null;
         }
@@ -130,22 +141,42 @@ public class AutoavaliacaoService {
         return out;
     }
 
+    /**
+     * Todas as autoavaliações do usuário no inventário, uma por unidade. É o que a tela precisa para
+     * saber quais unidades ainda faltam — quem é gestor de várias unidades preenche uma para cada.
+     */
+    public List<Map<String, Object>> findMeus(long userId, String tipoInventario) {
+        return jdbc.queryForList(
+                "SELECT f.*, cu.nome as unidade_nome, " +
+                        "       (SELECT COUNT(*) FROM autoavaliacao_respostas r WHERE r.formulario_id = f.id) as total_respostas " +
+                        "FROM autoavaliacao_formularios f " +
+                        "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "WHERE f.user_id = ? AND f.is_deleted = FALSE " +
+                        "  AND COALESCE(f.tipo_inventario, 'equipe') = ? " +
+                        "ORDER BY cu.nome, f.created_at DESC",
+                userId, tipoInventario);
+    }
+
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipoInv = data.get("tipo_inventario") != null ? str(data.get("tipo_inventario")) : "equipe";
 
-        // Formulário existente reutilizável (não-validado ou em atualização requisitada).
+        Long unidadeId = asLong(data.get("unidade_id"));
+
+        // Formulário existente reutilizável (não-validado ou em atualização requisitada) DA MESMA
+        // UNIDADE. Sem o recorte por unidade, quem é gestor de mais de uma sobrescrevia a
+        // autoavaliação da primeira ao preencher a da segunda — cada unidade tem seu referencial.
         List<Map<String, Object>> existing = jdbc.queryForList(
                 "SELECT id FROM autoavaliacao_formularios " +
                         "WHERE user_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                        "  AND unidade_id IS NOT DISTINCT FROM ?::bigint " +
                         "  AND is_deleted = FALSE " +
                         "  AND (validado_em IS NULL OR status = 'atualizacao_requisitada') " +
                         "ORDER BY id DESC LIMIT 1",
-                userId, tipoInv);
+                userId, tipoInv, unidadeId);
 
         // Versão atual das técnicas para a unidade (só quando propagação concluída)
         int tecnicasVersao = 1;
-        Long unidadeId = asLong(data.get("unidade_id"));
         if (unidadeId != null) {
             List<Map<String, Object>> versaoRows = jdbc.queryForList(
                     "SELECT tecnicas_versao FROM competencias_gestor_formularios " +

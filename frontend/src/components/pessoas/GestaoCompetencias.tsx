@@ -319,6 +319,13 @@ export function GestaoCompetencias({
     useState<AutoavaliacaoFormulario | null>(null);
   const [minhaAutoGestor, setMinhaAutoGestor] =
     useState<AutoavaliacaoFormulario | null>(null);
+  // A autoavaliação do gestor é uma POR UNIDADE. Quem é gestor de mais de uma precisa ver todas as
+  // que já preencheu e continuar podendo preencher as que faltam — daí a lista e a contagem de
+  // unidades pendentes, em vez de um único formulário.
+  const [minhasAutoGestor, setMinhasAutoGestor] = useState<
+    AutoavaliacaoFormulario[]
+  >([]);
+  const [unidadesGestorPendentes, setUnidadesGestorPendentes] = useState(0);
   const [temUnidadeColaborador, setTemUnidadeColaborador] = useState(false);
   const [temElegiveisEquipe, setTemElegiveisEquipe] = useState(false);
   const [temElegiveisGestor, setTemElegiveisGestor] = useState(false);
@@ -562,13 +569,24 @@ export function GestaoCompetencias({
     if (!VIEWS_HUB.includes(currentView)) return;
     let cancelado = false;
     (async () => {
-      const [equipe, gestor] = await Promise.all([
+      const [equipe, gestor, todasGestor, unidadesGestor] = await Promise.all([
         autoavaliacaoApi.getMeu("equipe").catch(() => null),
         autoavaliacaoApi.getMeu("gestor").catch(() => null),
+        autoavaliacaoApi
+          .getMeus("gestor")
+          .catch(() => [] as AutoavaliacaoFormulario[]),
+        competenciasGestorApi.getMinhasUnidadesGestor().catch(() => []),
       ]);
       if (cancelado) return;
       setMinhaAutoEquipe(equipe);
       setMinhaAutoGestor(gestor);
+      setMinhasAutoGestor(todasGestor);
+      const preenchidas = new Set(
+        todasGestor.map((f) => Number(f.unidade_id)).filter((id) => !!id),
+      );
+      setUnidadesGestorPendentes(
+        unidadesGestor.filter((u) => !preenchidas.has(Number(u.id))).length,
+      );
     })();
     return () => {
       cancelado = true;
@@ -608,6 +626,44 @@ export function GestaoCompetencias({
     ) : undefined;
 
   /**
+   * Mesma relação, para o inventário do gestor: uma linha por unidade. Quem é gestor de várias
+   * unidades tem uma autoavaliação para cada, então mostrar só uma esconderia as demais.
+   */
+  const minhasAutoRelacao = (
+    forms: AutoavaliacaoFormulario[],
+    abrirResumo: (f: AutoavaliacaoFormulario) => void,
+  ) =>
+    forms.length > 0 ? (
+      <div className="space-y-3">
+        {forms.map((form) => (
+          <div
+            key={form.id}
+            className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-gray-200 p-4"
+          >
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-gray-900">
+                {form.unidade_nome || form.nome_completo}
+              </p>
+              <p className="text-xs text-gray-500">
+                {form.status === "atualizacao_requisitada"
+                  ? "Atualização solicitada — revise e envie de novo."
+                  : form.validado_em
+                    ? `Validada em ${new Date(form.validado_em).toLocaleDateString("pt-BR")}`
+                    : "Enviada — falta você validar."}
+                {form.total_respostas
+                  ? ` · ${form.total_respostas} competências`
+                  : ""}
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => abrirResumo(form)}>
+              Ver minhas respostas
+            </Button>
+          </div>
+        ))}
+      </div>
+    ) : undefined;
+
+  /**
    * Selo do card. Só sai quando há PENDÊNCIA — `resumoModulo` conta itens com badge como
    * "com pendência", então formulário já validado não pode emitir selo. O estado "validada"
    * aparece na relação abaixo.
@@ -618,6 +674,10 @@ export function GestaoCompetencias({
       : form.status === "atualizacao_requisitada"
         ? "Atualização solicitada"
         : "Aguardando sua validação";
+
+  /** Mesma regra sobre a lista do gestor: basta uma unidade pendente pra o card sinalizar. */
+  const minhasAutoBadge = (forms: AutoavaliacaoFormulario[]) =>
+    minhaAutoBadge(forms.find((f) => !f.validado_em) || null);
 
   const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSGJT = (user as any)?.is_superadmin === true;
@@ -1754,13 +1814,20 @@ export function GestaoCompetencias({
         descricao: "Registre sua autoavaliação das competências de gestão.",
         icon: <ClipboardCheck className="h-5 w-5" />,
         cor: "emerald",
-        badge: autoGestorPreenche ? minhaAutoBadge(minhaAutoGestor) : undefined,
+        badge: autoGestorPreenche
+          ? minhasAutoBadge(minhasAutoGestor)
+          : undefined,
         acoes: autoGestorPreenche ? (
           <Button
             onClick={() => {
-              // Formulário já enviado abre o resumo: reabrir o form cairia na tela de
-              // bloqueio "Autoavaliação já enviada". Só 'atualizacao_requisitada' reabre.
-              if (minhaAutoGestor && minhaAutoGestor.status !== "atualizacao_requisitada") {
+              // Sobrou unidade sem autoavaliação → abre o formulário (que só oferece as
+              // pendentes). Sem pendência, formulário já enviado abre o resumo: reabrir o form
+              // cairia na tela de bloqueio. Só 'atualizacao_requisitada' reabre.
+              if (
+                unidadesGestorPendentes === 0 &&
+                minhaAutoGestor &&
+                minhaAutoGestor.status !== "atualizacao_requisitada"
+              ) {
                 setAutoavaliacaoResumo(minhaAutoGestor);
                 setCurrentView("inv_gestor_auto_resumo");
               } else {
@@ -1769,11 +1836,14 @@ export function GestaoCompetencias({
             }}
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
-            {!minhaAutoGestor ? (
+            {unidadesGestorPendentes > 0 ? (
               <>
-                <Plus className="h-4 w-4 mr-1.5" /> Preencher autoavaliação
+                <Plus className="h-4 w-4 mr-1.5" />
+                {minhasAutoGestor.length > 0
+                  ? `Preencher autoavaliação (${unidadesGestorPendentes} unidade${unidadesGestorPendentes > 1 ? "s" : ""})`
+                  : "Preencher autoavaliação"}
               </>
-            ) : minhaAutoGestor.status === "atualizacao_requisitada" ? (
+            ) : minhaAutoGestor?.status === "atualizacao_requisitada" ? (
               <>
                 <RefreshCw className="h-4 w-4 mr-1.5" /> Atualizar autoavaliação
               </>
@@ -1796,7 +1866,7 @@ export function GestaoCompetencias({
             }}
           />
         ) : (
-          minhaAutoRelacao(minhaAutoGestor, (f) => {
+          minhasAutoRelacao(minhasAutoGestor, (f) => {
             setAutoavaliacaoResumo(f);
             setCurrentView("inv_gestor_auto_resumo");
           })
