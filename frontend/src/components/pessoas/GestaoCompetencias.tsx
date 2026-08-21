@@ -680,6 +680,74 @@ export function GestaoCompetencias({
     minhaAutoBadge(forms.find((f) => !f.validado_em) || null);
 
   /**
+   * Abre a autoavaliação em tela dedicada, buscando o formulário COMPLETO por id.
+   * `/meus` devolve só os metadados (sem `respostas`), diferente de `/meu` e `/:id` — abrir direto
+   * o item da lista renderizava o resumo sem competência nenhuma.
+   */
+  const abrirAutoavaliacao = async (
+    target: AutoavaliacaoFormulario,
+    view: View,
+  ) => {
+    try {
+      const fullForm = await autoavaliacaoApi.getById(target.id);
+      setAutoavaliacaoResumo(fullForm);
+    } catch {
+      setAutoavaliacaoResumo(target);
+    }
+    setCurrentView(view);
+  };
+
+  /** Abre o Resultado Final em tela dedicada, buscando o formulário completo. */
+  const abrirIntegrada = async (
+    target: AvaliacaoIntegradaFormulario,
+    view: View,
+  ) => {
+    try {
+      const fullForm = await avaliacaoIntegradaApi.getById(target.id);
+      setIntegradaResumo(fullForm);
+    } catch {
+      setIntegradaResumo(target);
+    }
+    setCurrentView(view);
+  };
+
+  /**
+   * Relação dos meus Resultados Finais — uma linha por unidade. Quem é gestor de mais de uma tem um
+   * resultado para cada; o card abria direto o primeiro (`aoAbrir`) e os demais ficavam
+   * inalcançáveis, por mais que a contagem os anunciasse.
+   */
+  const meusResultadosRelacao = (
+    forms: AvaliacaoIntegradaFormulario[],
+    abrir: (f: AvaliacaoIntegradaFormulario) => void,
+  ) => (
+    <div className="space-y-3">
+      {forms.map((form) => (
+        <div
+          key={form.id}
+          className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-gray-200 p-4"
+        >
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-gray-900">
+              {form.unidade_nome || form.pessoa_nome}
+            </p>
+            <p className="text-xs text-gray-500">
+              {form.calculado_em
+                ? `Calculado em ${new Date(form.calculado_em).toLocaleDateString("pt-BR")}`
+                : "Calculado"}
+              {form.total_respostas
+                ? ` · ${form.total_respostas} competências`
+                : ""}
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => abrir(form)}>
+            Ver resultado
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+
+  /**
    * Contagem do "Meu Resultado Final". Vai na DESCRIÇÃO, não em `badge`: o Resultado Final é
    * calculado automaticamente e não exige ação nenhuma do avaliado, e `resumoModulo` conta item com
    * badge como "N com pendência" — era isso que fazia o card anunciar pendência inexistente.
@@ -1730,16 +1798,17 @@ export function GestaoCompetencias({
         descricao: `Sua nota final, calculada a partir da avaliação do gestor e da sua autoavaliação. ${contagemResultados(integradaEquipePend.length)}`,
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
-        aoAbrir: async () => {
-          const target = integradaEquipePend[0];
-          try {
-            const fullForm = await avaliacaoIntegradaApi.getById(target.id);
-            setIntegradaResumo(fullForm);
-          } catch {
-            setIntegradaResumo(target);
-          }
-          setCurrentView("integrada_resumo");
-        },
+        // Um só abre direto; vários viram lista, senão os demais ficam inalcançáveis.
+        ...(integradaEquipePend.length === 1
+          ? {
+              aoAbrir: () =>
+                abrirIntegrada(integradaEquipePend[0], "integrada_resumo"),
+            }
+          : {
+              relacao: meusResultadosRelacao(integradaEquipePend, (f) =>
+                abrirIntegrada(f, "integrada_resumo"),
+              ),
+            }),
       });
     }
 
@@ -1823,44 +1892,49 @@ export function GestaoCompetencias({
         badge: autoGestorPreenche
           ? minhasAutoBadge(minhasAutoGestor)
           : undefined,
-        acoes: autoGestorPreenche ? (
-          <Button
-            onClick={() => {
-              // Sobrou unidade sem autoavaliação → abre o formulário (que só oferece as
-              // pendentes). Sem pendência, formulário já enviado abre o resumo: reabrir o form
-              // cairia na tela de bloqueio. Só 'atualizacao_requisitada' reabre.
-              if (
-                unidadesGestorPendentes === 0 &&
-                minhaAutoGestor &&
-                minhaAutoGestor.status !== "atualizacao_requisitada"
-              ) {
-                setAutoavaliacaoResumo(minhaAutoGestor);
-                setCurrentView("inv_gestor_auto_resumo");
-              } else {
-                setCurrentView("inv_gestor_auto");
-              }
-            }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {unidadesGestorPendentes > 0 ? (
-              <>
-                <Plus className="h-4 w-4 mr-1.5" />
-                {minhasAutoGestor.length > 0
-                  ? `Preencher autoavaliação (${unidadesGestorPendentes} unidade${unidadesGestorPendentes > 1 ? "s" : ""})`
-                  : "Preencher autoavaliação"}
-              </>
-            ) : minhaAutoGestor?.status === "atualizacao_requisitada" ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-1.5" /> Atualizar autoavaliação
-              </>
-            ) : (
-              <>
-                <ClipboardCheck className="h-4 w-4 mr-1.5" /> Ver minha
-                autoavaliação
-              </>
-            )}
-          </Button>
-        ) : undefined,
+        // Com várias unidades já preenchidas e nada pendente, não há "a minha" autoavaliação para
+        // um botão só abrir — a relação abaixo lista uma por unidade. Botão só quando há o que
+        // preencher/atualizar, ou quando existe exatamente uma.
+        acoes:
+          autoGestorPreenche &&
+          (unidadesGestorPendentes > 0 || minhasAutoGestor.length === 1) ? (
+            <Button
+              onClick={() => {
+                // Sobrou unidade sem autoavaliação → abre o formulário (que só oferece as
+                // pendentes). Sem pendência, formulário já enviado abre o resumo: reabrir o form
+                // cairia na tela de bloqueio. Só 'atualizacao_requisitada' reabre.
+                if (
+                  unidadesGestorPendentes === 0 &&
+                  minhaAutoGestor &&
+                  minhaAutoGestor.status !== "atualizacao_requisitada"
+                ) {
+                  abrirAutoavaliacao(minhaAutoGestor, "inv_gestor_auto_resumo");
+                } else {
+                  setCurrentView("inv_gestor_auto");
+                }
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {unidadesGestorPendentes > 0 ? (
+                <>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  {minhasAutoGestor.length > 0
+                    ? `Preencher autoavaliação (${unidadesGestorPendentes} unidade${unidadesGestorPendentes > 1 ? "s" : ""})`
+                    : "Preencher autoavaliação"}
+                </>
+              ) : minhaAutoGestor?.status === "atualizacao_requisitada" ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1.5" /> Atualizar
+                  autoavaliação
+                </>
+              ) : (
+                <>
+                  <ClipboardCheck className="h-4 w-4 mr-1.5" /> Ver minha
+                  autoavaliação
+                </>
+              )}
+            </Button>
+          ) : undefined,
         relacao: isSGJTAdmin ? (
           <AutoavaliacaoRespostas
             diretoria={diretoriaUsuario}
@@ -1872,10 +1946,9 @@ export function GestaoCompetencias({
             }}
           />
         ) : (
-          minhasAutoRelacao(minhasAutoGestor, (f) => {
-            setAutoavaliacaoResumo(f);
-            setCurrentView("inv_gestor_auto_resumo");
-          })
+          minhasAutoRelacao(minhasAutoGestor, (f) =>
+            abrirAutoavaliacao(f, "inv_gestor_auto_resumo"),
+          )
         ),
       });
     }
@@ -1891,16 +1964,20 @@ export function GestaoCompetencias({
         descricao: `Sua nota final, calculada a partir da avaliação da liderança e da sua autoavaliação. ${contagemResultados(integradaGestorPend.length)}`,
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
-        aoAbrir: async () => {
-          const target = integradaGestorPend[0];
-          try {
-            const fullForm = await avaliacaoIntegradaApi.getById(target.id);
-            setIntegradaResumo(fullForm);
-          } catch {
-            setIntegradaResumo(target);
-          }
-          setCurrentView("inv_gestor_integrada_resumo");
-        },
+        // Um só abre direto; vários viram lista, senão os demais ficam inalcançáveis.
+        ...(integradaGestorPend.length === 1
+          ? {
+              aoAbrir: () =>
+                abrirIntegrada(
+                  integradaGestorPend[0],
+                  "inv_gestor_integrada_resumo",
+                ),
+            }
+          : {
+              relacao: meusResultadosRelacao(integradaGestorPend, (f) =>
+                abrirIntegrada(f, "inv_gestor_integrada_resumo"),
+              ),
+            }),
       });
     }
 
