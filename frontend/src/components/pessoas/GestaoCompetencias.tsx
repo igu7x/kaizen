@@ -679,6 +679,14 @@ export function GestaoCompetencias({
   const minhasAutoBadge = (forms: AutoavaliacaoFormulario[]) =>
     minhaAutoBadge(forms.find((f) => !f.validado_em) || null);
 
+  /**
+   * Contagem do "Meu Resultado Final". Vai na DESCRIÇÃO, não em `badge`: o Resultado Final é
+   * calculado automaticamente e não exige ação nenhuma do avaliado, e `resumoModulo` conta item com
+   * badge como "N com pendência" — era isso que fazia o card anunciar pendência inexistente.
+   */
+  const contagemResultados = (n: number) =>
+    n > 1 ? `${n} resultados disponíveis.` : "1 resultado disponível.";
+
   const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSGJT = (user as any)?.is_superadmin === true;
   const isSGJTAdmin = isSGJT && user?.role === "ADMIN";
@@ -1719,11 +1727,9 @@ export function GestaoCompetencias({
       itensInvEquipe.push({
         key: "resultado_final_equipe_meu",
         titulo: "Meu Resultado Final",
-        descricao:
-          "Sua nota final, calculada a partir da avaliação do gestor e da sua autoavaliação.",
+        descricao: `Sua nota final, calculada a partir da avaliação do gestor e da sua autoavaliação. ${contagemResultados(integradaEquipePend.length)}`,
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
-        badge: `${integradaEquipePend.length} resultado${integradaEquipePend.length > 1 ? "s" : ""} disponível${integradaEquipePend.length > 1 ? "eis" : ""}`,
         aoAbrir: async () => {
           const target = integradaEquipePend[0];
           try {
@@ -1882,11 +1888,9 @@ export function GestaoCompetencias({
       itensInvGestor.push({
         key: "resultado_final_gestor_meu",
         titulo: "Meu Resultado Final",
-        descricao:
-          "Sua nota final, calculada a partir da avaliação da liderança e da sua autoavaliação.",
+        descricao: `Sua nota final, calculada a partir da avaliação da liderança e da sua autoavaliação. ${contagemResultados(integradaGestorPend.length)}`,
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
-        badge: `${integradaGestorPend.length} resultado${integradaGestorPend.length > 1 ? "s" : ""} disponível${integradaGestorPend.length > 1 ? "eis" : ""}`,
         aoAbrir: async () => {
           const target = integradaGestorPend[0];
           try {
