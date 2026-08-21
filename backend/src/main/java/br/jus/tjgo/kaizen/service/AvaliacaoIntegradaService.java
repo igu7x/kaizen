@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -590,15 +591,17 @@ public class AvaliacaoIntegradaService {
 
         // A avaliação do avaliador manda na ordem e no conjunto de competências; o que só
         // existir na autoavaliação entra no fim, pra nenhuma competência sumir do resultado.
+        List<String> chavesAuto = chavesDeOcorrencia(respAuto);
         Map<String, Map<String, Object>> autoPorChave = new LinkedHashMap<>();
-        for (Map<String, Object> r : respAuto) {
-            autoPorChave.put(chaveCompetencia(r), r);
+        for (int i = 0; i < respAuto.size(); i++) {
+            autoPorChave.put(chavesAuto.get(i), respAuto.get(i));
         }
 
+        List<String> chavesAvaliador = chavesDeOcorrencia(respAvaliador);
         List<Map<String, Object>> linhas = new ArrayList<>();
-        for (Map<String, Object> r : respAvaliador) {
-            Map<String, Object> auto = autoPorChave.remove(chaveCompetencia(r));
-            linhas.add(linhaResultado(r, auto));
+        for (int i = 0; i < respAvaliador.size(); i++) {
+            Map<String, Object> auto = autoPorChave.remove(chavesAvaliador.get(i));
+            linhas.add(linhaResultado(respAvaliador.get(i), auto));
         }
         for (Map<String, Object> auto : autoPorChave.values()) {
             linhas.add(linhaResultado(null, auto));
@@ -716,6 +719,28 @@ public class AvaliacaoIntegradaService {
             log.error("[resultadoFinal] falha ao gerar par=({},{}): {}",
                     autoavaliacaoId, avaliacaoGestorId, err.getMessage(), err);
         }
+    }
+
+    /**
+     * Chaves de pareamento de uma lista de respostas, numeradas por ocorrência.
+     *
+     * <p>Nomes repetidos são comuns no referencial e <code>competencia_unidade_id</code> quase nunca
+     * vem preenchido, então a chave caía no nome e TODAS as ocorrências do mesmo nome colidiam numa
+     * entrada só: a última vencia o <code>put</code>, a primeira competência pareava com a nota da
+     * última e as demais ficavam sem autoavaliação (a "Nota null" na tela e no PDF).
+     *
+     * <p>Numerar a ocorrência dentro de (nome, tipo) casa a n-ésima de um lado com a n-ésima do
+     * outro — que é a ordem em que os dois formulários foram gerados a partir do mesmo referencial.
+     * Para quem tem id, a chave já era única e o sufixo não muda nada.
+     */
+    private static List<String> chavesDeOcorrencia(List<Map<String, Object>> respostas) {
+        Map<String, Integer> ocorrencias = new HashMap<>();
+        List<String> chaves = new ArrayList<>(respostas.size());
+        for (Map<String, Object> r : respostas) {
+            String base = chaveCompetencia(r);
+            chaves.add(base + "#" + ocorrencias.merge(base, 1, Integer::sum));
+        }
+        return chaves;
     }
 
     /** Casa a competência entre os dois formulários: id da competência da unidade + tipo. */
