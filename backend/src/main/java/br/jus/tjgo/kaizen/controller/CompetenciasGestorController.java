@@ -36,25 +36,38 @@ public class CompetenciasGestorController {
         return AuthContext.requestUserId();
     }
 
+    private boolean isSuperadmin() {
+        return AuthContext.getCurrentUser().map(u -> u.isSuperadmin()).orElse(false);
+    }
+
+    /** Recorte de visibilidade da matriz — ver CompetenciasGestorService.podeVer. */
+    private boolean podeVer(long id) {
+        long userId = currentUserId() != null ? currentUserId() : -1L;
+        return service.podeVer(id, userId, isSuperadmin(), lookupUserEmail(userId));
+    }
+
     // GET /api/competencias-gestor
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(value = "cadastrosAreasId", required = false) Long cadastrosAreasId,
                                            @RequestParam(value = "dominio", required = false) String dominio,
                                            @RequestParam(value = "tipo", required = false) String tipo) {
+        long userId = currentUserId() != null ? currentUserId() : -1L;
+        boolean superadmin = isSuperadmin();
+        String email = lookupUserEmail(userId);
         if (cadastrosAreasId == null && dominio == null) {
             Long userAreaId = lookupUserAreaId(currentUserId());
             if (userAreaId != null) {
                 var domain = domainService.getDomainForArea(userAreaId);
-                return service.findAllByDomain(domain.areasIdInDomain(), tipo);
+                return service.findVisiveis(domain.areasIdInDomain(), tipo, userId, superadmin, email);
             }
         }
         if (dominio != null) {
             var domain = domainService.getDomainForDiretoria(dominio);
-            return service.findAllByDomain(domain.areasIdInDomain(), tipo);
+            return service.findVisiveis(domain.areasIdInDomain(), tipo, userId, superadmin, email);
         }
         if (cadastrosAreasId != null) {
             var domain = domainService.getDomainForArea(cadastrosAreasId);
-            return service.findAllByDomain(domain.areasIdInDomain(), tipo);
+            return service.findVisiveis(domain.areasIdInDomain(), tipo, userId, superadmin, email);
         }
         return service.findAll(null, tipo);
     }
@@ -334,13 +347,19 @@ public class CompetenciasGestorController {
 
     // GET /api/competencias-gestor/:id/versoes
     @GetMapping("/{id:\\d+}/versoes")
-    public List<Map<String, Object>> versoes(@PathVariable long id) {
-        return service.findVersoes(id);
+    public ResponseEntity<?> versoes(@PathVariable long id) {
+        if (!podeVer(id)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Sem permissão para ver este formulário"));
+        }
+        return ResponseEntity.ok(service.findVersoes(id));
     }
 
     // GET /api/competencias-gestor/:id/versoes/:versao
     @GetMapping("/{id:\\d+}/versoes/{versao:\\d+}")
     public ResponseEntity<?> versaoDados(@PathVariable long id, @PathVariable int versao) {
+        if (!podeVer(id)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Sem permissão para ver este formulário"));
+        }
         Object dados = service.findVersaoDados(id, versao);
         if (dados == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Versão não encontrada"));
@@ -351,6 +370,9 @@ public class CompetenciasGestorController {
     // GET /api/competencias-gestor/:id
     @GetMapping("/{id:\\d+}")
     public ResponseEntity<?> byId(@PathVariable long id) {
+        if (!podeVer(id)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Sem permissão para ver este formulário"));
+        }
         Map<String, Object> formulario = service.findById(id);
         if (formulario == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Formulário não encontrado"));
