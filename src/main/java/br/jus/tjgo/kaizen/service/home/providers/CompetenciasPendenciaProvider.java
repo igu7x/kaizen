@@ -44,10 +44,13 @@ public class CompetenciasPendenciaProvider implements PendenciaProvider {
                     "SELECT cgf.id, cgf.tipo FROM competencias_gestor_formularios cgf " +
                             "WHERE cgf.is_deleted = FALSE AND cgf.user_id = ? AND cgf.status = 'enviado' " +
                             "  AND cgf.recusado_em IS NULL " +
-                            "  AND (cgf.tipo = 'equipe' OR EXISTS ( " +
+                            // Matriz do gestor: a camada do autor existe para todo mundo que preenche
+                            // (gestor da unidade, sub-diretor) — menos para o próprio diretor da área,
+                            // cujo formulário vai direto para a camada de diretoria.
+                            "  AND (cgf.tipo = 'equipe' OR NOT EXISTS ( " +
                             "    SELECT 1 FROM cadastros_areas ca " +
                             "    WHERE LOWER(TRIM(ca.sigla)) = LOWER(TRIM(cgf.diretoria)) " +
-                            "      AND ca.subdiretor_user_id = cgf.user_id " +
+                            "      AND ca.gestor_user_id = cgf.user_id " +
                             "  )) " +
                             "ORDER BY cgf.created_at ASC",
                     userId);
@@ -85,9 +88,12 @@ public class CompetenciasPendenciaProvider implements PendenciaProvider {
                             "WHERE cgf.is_deleted = FALSE AND ca.gestor_user_id = ? " +
                             "  AND ( " +
                             "    (cgf.tipo = 'equipe' AND cgf.status = 'validado_autor') " +
+                            // Mesma regra de CompetenciasGestorService.validarDiretoria: a matriz do
+                            // gestor chega à diretoria já validada pelo autor, ou direto em 'enviado'
+                            // quando quem preencheu foi o próprio diretor (aí não há camada de autor).
                             "    OR (cgf.tipo = 'gestor' AND ( " +
-                            "      (cgf.user_id = ca.gestor_user_id AND cgf.status = 'enviado') OR " +
-                            "      (cgf.user_id = ca.subdiretor_user_id AND cgf.status = 'validado_autor') " +
+                            "      cgf.status = 'validado_autor' " +
+                            "      OR (cgf.status = 'enviado' AND cgf.user_id = ca.gestor_user_id) " +
                             "    )) " +
                             "  ) " +
                             "ORDER BY cgf.created_at ASC",
