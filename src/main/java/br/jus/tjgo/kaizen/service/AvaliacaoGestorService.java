@@ -62,11 +62,22 @@ public class AvaliacaoGestorService {
                 "LEFT JOIN users u ON u.id = f.avaliador_user_id " +
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
                 "WHERE " + whereClauses + " " +
+                // Mantém só a avaliação mais recente por pessoa avaliada. A identidade é o
+                // pessoa_id quando há autoavaliação vinculada; senão é a chave estável
+                // (pessoa_user_id + unidade), que é o estado normal quando o diretor avalia o
+                // gestor ANTES de existir autoavaliação (ver 6bbdac7). Sem o segundo ramo,
+                // `f2.pessoa_id = f.pessoa_id` vira NULL = NULL, nunca é verdadeiro, e a
+                // avaliação simplesmente some da relação.
                 "  AND f.id = ( " +
                 "    SELECT f2.id FROM avaliacao_gestor_formularios f2 " +
-                "    WHERE f2.pessoa_id = f.pessoa_id " +
-                "      AND f2.is_deleted = FALSE " +
+                "    WHERE f2.is_deleted = FALSE " +
                 "      AND COALESCE(f2.tipo_inventario, 'equipe') = COALESCE(f.tipo_inventario, 'equipe') " +
+                "      AND ( " +
+                "            (f.pessoa_id IS NOT NULL AND f2.pessoa_id = f.pessoa_id) " +
+                "         OR (f.pessoa_id IS NULL AND f2.pessoa_id IS NULL " +
+                "             AND f2.pessoa_user_id IS NOT DISTINCT FROM f.pessoa_user_id " +
+                "             AND f2.unidade_id IS NOT DISTINCT FROM f.unidade_id) " +
+                "      ) " +
                 "    ORDER BY f2.created_at DESC " +
                 "    LIMIT 1 " +
                 "  ) " +
@@ -158,6 +169,39 @@ public class AvaliacaoGestorService {
         out.put("autoavaliacao_id", auto.isEmpty() ? null : ((Number) auto.get(0).get("id")).longValue());
         out.put("email", auto.isEmpty() ? emailUser : str(auto.get(0).get("email_institucional")));
         return out;
+    }
+
+    /**
+     * Colaboradores da unidade como avaliáveis, tenham ou não autoavaliação. Simétrico ao
+     * {@link #gestorDaUnidade}: o gestor precisa poder avaliar antes de o colaborador se
+     * autoavaliar, do mesmo jeito que o diretor avalia o gestor antes da autoavaliação dele.
+     * Quando a autoavaliação existe, devolve o id dela — daí a avaliação já nasce vinculada
+     * (pessoa_id) e a integração casa sem depender do backfill.
+     * O responsável pela unidade fica de fora: ele é avaliado no inventário do gestor.
+     */
+    public List<Map<String, Object>> colaboradoresDaUnidade(long unidadeId, String tipoInventario) {
+        return jdbc.queryForList(
+                "SELECT cp.user_id AS pessoa_user_id, " +
+                        "       COALESCE(NULLIF(TRIM(cp.nome), ''), u.name) AS nome, " +
+                        "       COALESCE(NULLIF(TRIM(cp.cargo_efetivo), ''), NULLIF(TRIM(cp.cc_fc), '')) AS cargo, " +
+                        "       COALESCE(af.email_institucional, cp.email, u.email) AS email, " +
+                        "       af.id AS autoavaliacao_id " +
+                        "FROM cadastros_pessoas cp " +
+                        "JOIN users u ON u.id = cp.user_id AND u.is_deleted = FALSE " +
+                        "LEFT JOIN LATERAL ( " +
+                        "  SELECT a.id, a.email_institucional FROM autoavaliacao_formularios a " +
+                        "  WHERE a.user_id = cp.user_id AND a.unidade_id = cp.unidade_id " +
+                        "    AND COALESCE(a.tipo_inventario, 'equipe') = ? AND a.is_deleted = FALSE " +
+                        "  ORDER BY a.created_at DESC LIMIT 1 " +
+                        ") af ON TRUE " +
+                        "WHERE cp.unidade_id = ? " +
+                        "  AND COALESCE(cp.ativo, TRUE) = TRUE " +
+                        "  AND cp.user_id IS NOT NULL " +
+                        "  AND cp.user_id IS DISTINCT FROM ( " +
+                        "        SELECT cu.responsavel_user_id FROM cadastros_unidades cu WHERE cu.id = cp.unidade_id " +
+                        "      ) " +
+                        "ORDER BY 2",
+                tipoInventario, unidadeId);
     }
 
     @Transactional

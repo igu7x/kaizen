@@ -622,6 +622,8 @@ public class AvaliacaoIntegradaService {
                             "  pessoa_id = ?, pessoa_nome = ?, avaliador_user_id = ?, avaliador_nome = ?, " +
                             "  cadastros_areas_id = ?, diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
                             "  status = 'calculado', calculado_em = NOW(), " +
+                            // Cada recálculo (nova validação de uma das origens) é uma versão nova.
+                            "  versao_formulario = COALESCE(versao_formulario, 0) + 1, " +
                             "  tecnicas_versao = ?, competencias_versao = ?, updated_at = NOW() " +
                             "WHERE id = ?",
                     asLong(ag.get("pessoa_id")), str(ag.get("pessoa_nome")), avaliadorUserId,
@@ -633,8 +635,8 @@ public class AvaliacaoIntegradaService {
                     "INSERT INTO avaliacao_integrada_formularios " +
                             "  (autoavaliacao_id, avaliacao_gestor_id, pessoa_id, pessoa_nome, avaliador_user_id, avaliador_nome, " +
                             "   cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, calculado_em, " +
-                            "   tecnicas_versao, competencias_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'calculado', NOW(), ?, ?, ?, ?) " +
+                            "   versao_formulario, tecnicas_versao, competencias_versao, created_by, updated_by) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'calculado', NOW(), 1, ?, ?, ?, ?) " +
                             "RETURNING id",
                     autoavaliacaoId, avaliacaoGestorId, asLong(ag.get("pessoa_id")), str(ag.get("pessoa_nome")),
                     avaliadorUserId, str(ag.get("avaliador_nome")), asLong(ag.get("cadastros_areas_id")),
@@ -657,9 +659,28 @@ public class AvaliacaoIntegradaService {
                     l.get("nota_integrada"), l.get("tipo"), i + 1);
         }
 
+        // Snapshot da versão recém-calculada. É o que alimenta o histórico de versões e o PDF
+        // por versão na tela — sem ele o número apareceria sem nada por trás. Sem validador:
+        // `validado_em` recebe o instante do cálculo e o nome fica nulo.
+        Map<String, Object> formularioCompleto = findById(formularioId);
+        if (formularioCompleto != null) {
+            try {
+                int novaVersao = formularioCompleto.get("versao_formulario") != null
+                        ? ((Number) formularioCompleto.get("versao_formulario")).intValue() : 1;
+                jdbc.update(
+                        "INSERT INTO avaliacao_integrada_versoes (formulario_id, versao, dados, validado_em, validado_nome) " +
+                                "VALUES (?, ?, ?::jsonb, ?, NULL) " +
+                                "ON CONFLICT (formulario_id, versao) DO UPDATE SET dados = EXCLUDED.dados",
+                        formularioId, novaVersao, toJson(formularioCompleto),
+                        formularioCompleto.get("calculado_em"));
+            } catch (Exception err) {
+                log.error("[resultadoFinal] Erro ao salvar snapshot de versão: {}", err.getMessage());
+            }
+        }
+
         log.info("[resultadoFinal] gerado formulario={} par=({},{}) competencias={}",
                 formularioId, autoavaliacaoId, avaliacaoGestorId, linhas.size());
-        return findById(formularioId);
+        return formularioCompleto;
     }
 
     /** Gatilho: chamado ao validar uma autoavaliação. Gera o Resultado Final se o par fechou. */
