@@ -212,6 +212,11 @@ public class AvaliacaoGestorService {
         // autoavaliação existir — ver migration 178 e o backfill em AutoavaliacaoService.
         Long pessoaUserId = asLong(data.get("pessoa_user_id"));
         Long unidadeId = asLong(data.get("unidade_id"));
+        // Macroárea do formulário = a da UNIDADE AVALIADA. A tela manda a diretoria de QUEM AVALIA
+        // (às vezes a raiz do domínio), e gravar por ela punha o formulário na área errada — o
+        // diretor da área certa não enxergava nem a avaliação nem o Resultado Final derivado dela.
+        Long areaIdFormulario = areaIdDaUnidade(unidadeId, str(data.get("diretoria")));
+        String diretoriaFormulario = diretoriaDaUnidade(unidadeId, data.get("diretoria"));
 
         // Se avaliaram por pessoa_user_id (sem autoavaliação) mas já EXISTE uma autoavaliação da
         // pessoa nessa unidade/tipo, linka o pessoa_id agora — assim a integração já casa.
@@ -278,14 +283,14 @@ public class AvaliacaoGestorService {
                     "UPDATE avaliacao_gestor_formularios SET " +
                             "  pessoa_id = COALESCE(?, pessoa_id), pessoa_user_id = COALESCE(?, pessoa_user_id), " +
                             "  pessoa_nome = ?, pessoa_cargo = ?, pessoa_email = ?, " +
-                            "  avaliador_user_id = ?, avaliador_nome = ?, cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
+                            "  avaliador_user_id = ?, avaliador_nome = ?, cadastros_areas_id = ?, diretoria = ?, unidade_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', tecnicas_versao = ?, competencias_versao = ?, " +
                             "  validado_em = NULL, validado_por_id = NULL, validado_por_nome = NULL, " +
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     pessoaId, pessoaUserId,
                     str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    userId, str(data.get("avaliador_nome")), areaIdFormulario, diretoriaFormulario, unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, formularioId);
             // Salvaguarda anti-perda: só apaga as respostas existentes se o payload trouxer respostas.
             // Um save com lista vazia/ausente não pode zerar notas/comentários já gravados no rascunho.
@@ -296,10 +301,10 @@ public class AvaliacaoGestorService {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO avaliacao_gestor_formularios " +
                             "  (pessoa_id, pessoa_user_id, pessoa_nome, pessoa_cargo, pessoa_email, avaliador_user_id, avaliador_nome, cadastros_areas_id, diretoria, unidade_id, tipo_inventario, status, tecnicas_versao, competencias_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?, ?) " +
                             "RETURNING id",
                     pessoaId, pessoaUserId, str(data.get("pessoa_nome")), orNull(data.get("pessoa_cargo")), orNull(data.get("pessoa_email")),
-                    userId, str(data.get("avaliador_nome")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, tipoInv,
+                    userId, str(data.get("avaliador_nome")), areaIdFormulario, diretoriaFormulario, unidadeId, tipoInv,
                     tecnicasVersao, competenciasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
@@ -443,6 +448,44 @@ public class AvaliacaoGestorService {
         } catch (Exception e) {
             return "null";
         }
+    }
+
+    /**
+     * Macroárea do formulário: a da UNIDADE AVALIADA (<code>cadastros_unidades.area_id</code>), com
+     * a sigla enviada pela tela só como último recurso. A tela manda a diretoria de QUEM AVALIA — às
+     * vezes a raiz do domínio — e gravar por ela punha o formulário na macroárea errada: o diretor
+     * da área certa deixava de enxergar o Resultado Final gerado a partir dele. Mesmo raciocínio de
+     * CompetenciasGestorService.areaIdDaUnidade.
+     */
+    private Long areaIdDaUnidade(Long unidadeId, String diretoriaSigla) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT area_id FROM cadastros_unidades WHERE id = ? LIMIT 1", unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("area_id") != null) {
+                return asLong(rows.get(0).get("area_id"));
+            }
+        }
+        if (diretoriaSigla == null) {
+            return null;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT id FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) LIMIT 1", diretoriaSigla);
+        return rows.isEmpty() ? null : asLong(rows.get(0).get("id"));
+    }
+
+    /** Sigla legada correspondente — a coluna `diretoria` é NOT NULL, daí o fallback. */
+    private String diretoriaDaUnidade(Long unidadeId, Object fallback) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT a.sigla FROM cadastros_unidades u " +
+                            "JOIN cadastros_areas a ON a.id = u.area_id " +
+                            "WHERE u.id = ? LIMIT 1",
+                    unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("sigla") != null) {
+                return str(rows.get(0).get("sigla"));
+            }
+        }
+        return fallback != null ? str(fallback) : null;
     }
 
     private static Long asLong(Object v) {

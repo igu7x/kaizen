@@ -111,14 +111,25 @@ public class AutoavaliacaoService {
     }
 
     public Map<String, Object> findByUserId(long userId, String tipoInventario) {
+        return findByUserId(userId, tipoInventario, null);
+    }
+
+    /**
+     * Autoavaliação do usuário. <code>unidadeId</code> é obrigatório para quem é gestor de mais de
+     * uma unidade: a autoavaliação é POR UNIDADE (cada unidade tem seu próprio referencial, logo
+     * outro conjunto de competências). Sem o filtro, a consulta devolvia sempre a mais recente e a
+     * tela tratava o gestor como "já preencheu", travando as demais unidades.
+     */
+    public Map<String, Object> findByUserId(long userId, String tipoInventario, Long unidadeId) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
                 "SELECT f.*, cu.nome as unidade_nome " +
                         "FROM autoavaliacao_formularios f " +
                         "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
                         "WHERE f.user_id = ? AND f.is_deleted = FALSE " +
                         "  AND COALESCE(f.tipo_inventario, 'equipe') = ? " +
+                        "  AND (?::bigint IS NULL OR f.unidade_id = ?::bigint) " +
                         "ORDER BY f.created_at DESC LIMIT 1",
-                userId, tipoInventario);
+                userId, tipoInventario, unidadeId, unidadeId);
         if (formRows.isEmpty()) {
             return null;
         }
@@ -130,22 +141,47 @@ public class AutoavaliacaoService {
         return out;
     }
 
+    /**
+     * Todas as autoavaliações do usuário no inventário, uma por unidade. É o que a tela precisa para
+     * saber quais unidades ainda faltam — quem é gestor de várias unidades preenche uma para cada.
+     */
+    public List<Map<String, Object>> findMeus(long userId, String tipoInventario) {
+        return jdbc.queryForList(
+                "SELECT f.*, cu.nome as unidade_nome, " +
+                        "       (SELECT COUNT(*) FROM autoavaliacao_respostas r WHERE r.formulario_id = f.id) as total_respostas " +
+                        "FROM autoavaliacao_formularios f " +
+                        "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "WHERE f.user_id = ? AND f.is_deleted = FALSE " +
+                        "  AND COALESCE(f.tipo_inventario, 'equipe') = ? " +
+                        "ORDER BY cu.nome, f.created_at DESC",
+                userId, tipoInventario);
+    }
+
     @Transactional
     public Map<String, Object> create(Map<String, Object> data, long userId) {
         String tipoInv = data.get("tipo_inventario") != null ? str(data.get("tipo_inventario")) : "equipe";
 
-        // Formulário existente reutilizável (não-validado ou em atualização requisitada).
+        Long unidadeId = asLong(data.get("unidade_id"));
+        // Macroárea do formulário = a da UNIDADE, não a sigla que a tela mandou (que é a do usuário
+        // logado, às vezes a raiz do domínio). Gravar pela sigla punha o formulário na área errada e
+        // ele sumia das listagens filtradas por diretoria.
+        Long areaIdFormulario = areaIdDaUnidade(unidadeId, str(data.get("diretoria")));
+        String diretoriaFormulario = diretoriaDaUnidade(unidadeId, data.get("diretoria"));
+
+        // Formulário existente reutilizável (não-validado ou em atualização requisitada) DA MESMA
+        // UNIDADE. Sem o recorte por unidade, quem é gestor de mais de uma sobrescrevia a
+        // autoavaliação da primeira ao preencher a da segunda — cada unidade tem seu referencial.
         List<Map<String, Object>> existing = jdbc.queryForList(
                 "SELECT id FROM autoavaliacao_formularios " +
                         "WHERE user_id = ? AND COALESCE(tipo_inventario, 'equipe') = ? " +
+                        "  AND unidade_id IS NOT DISTINCT FROM ?::bigint " +
                         "  AND is_deleted = FALSE " +
                         "  AND (validado_em IS NULL OR status = 'atualizacao_requisitada') " +
                         "ORDER BY id DESC LIMIT 1",
-                userId, tipoInv);
+                userId, tipoInv, unidadeId);
 
         // Versão atual das técnicas para a unidade (só quando propagação concluída)
         int tecnicasVersao = 1;
-        Long unidadeId = asLong(data.get("unidade_id"));
         if (unidadeId != null) {
             List<Map<String, Object>> versaoRows = jdbc.queryForList(
                     "SELECT tecnicas_versao FROM competencias_gestor_formularios " +
@@ -170,7 +206,7 @@ public class AutoavaliacaoService {
             jdbc.update(
                     "UPDATE autoavaliacao_formularios SET " +
                             "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
-                            "  cadastros_areas_id = (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), diretoria = ?, unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
+                            "  cadastros_areas_id = ?, diretoria = ?, unidade_id = ?, pessoa_id = ?, tipo_inventario = ?, " +
                             "  status = 'enviado', " +
                             "  competencias_versao = ?, versao_anterior = ?, update_keys = ?::jsonb, " +
                             "  tecnicas_versao = ?, " +
@@ -178,7 +214,7 @@ public class AutoavaliacaoService {
                             "  updated_at = NOW(), updated_by = ? " +
                             "WHERE id = ?",
                     str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                    str(data.get("email_institucional")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
+                    str(data.get("email_institucional")), areaIdFormulario, diretoriaFormulario, unidadeId, pessoaId, tipoInv,
                     competenciasVersao, versaoAnterior, updateKeysJson, tecnicasVersao, userId, formularioId);
             // Salvaguarda anti-perda: só apaga as respostas existentes se o payload REALMENTE
             // trouxer respostas. Um save com lista vazia/ausente (bug de client, autosave prematuro)
@@ -190,10 +226,10 @@ public class AutoavaliacaoService {
             Map<String, Object> ins = jdbc.queryForMap(
                     "INSERT INTO autoavaliacao_formularios " +
                             "  (user_id, nome_completo, matricula, cargo_funcao, email_institucional, cadastros_areas_id, diretoria, unidade_id, pessoa_id, tipo_inventario, status, competencias_versao, versao_anterior, update_keys, tecnicas_versao, created_by, updated_by) " +
-                            "VALUES (?, ?, ?, ?, ?, (SELECT id FROM cadastros_areas WHERE sigla = ? LIMIT 1), ?, ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enviado', ?, ?, ?::jsonb, ?, ?, ?) " +
                             "RETURNING id",
                     userId, str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                    str(data.get("email_institucional")), str(data.get("diretoria")), str(data.get("diretoria")), unidadeId, pessoaId, tipoInv,
+                    str(data.get("email_institucional")), areaIdFormulario, diretoriaFormulario, unidadeId, pessoaId, tipoInv,
                     competenciasVersao, versaoAnterior, updateKeysJson, tecnicasVersao, userId, userId);
             formularioId = ((Number) ins.get("id")).longValue();
         }
@@ -351,6 +387,43 @@ public class AutoavaliacaoService {
         } catch (Exception e) {
             return "null";
         }
+    }
+
+    /**
+     * Macroárea do formulário: a da UNIDADE (<code>cadastros_unidades.area_id</code>), com a sigla
+     * enviada pela tela só como último recurso. Mesmo raciocínio de
+     * CompetenciasGestorService.areaIdDaUnidade — a coluna é o que as listagens usam para filtrar
+     * por diretoria, então tem que refletir a unidade e não quem preencheu.
+     */
+    private Long areaIdDaUnidade(Long unidadeId, String diretoriaSigla) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT area_id FROM cadastros_unidades WHERE id = ? LIMIT 1", unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("area_id") != null) {
+                return asLong(rows.get(0).get("area_id"));
+            }
+        }
+        if (diretoriaSigla == null) {
+            return null;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT id FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) LIMIT 1", diretoriaSigla);
+        return rows.isEmpty() ? null : asLong(rows.get(0).get("id"));
+    }
+
+    /** Sigla legada correspondente — a coluna `diretoria` é NOT NULL, daí o fallback. */
+    private String diretoriaDaUnidade(Long unidadeId, Object fallback) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT a.sigla FROM cadastros_unidades u " +
+                            "JOIN cadastros_areas a ON a.id = u.area_id " +
+                            "WHERE u.id = ? LIMIT 1",
+                    unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("sigla") != null) {
+                return str(rows.get(0).get("sigla"));
+            }
+        }
+        return fallback != null ? str(fallback) : null;
     }
 
     private static Long asLong(Object v) {

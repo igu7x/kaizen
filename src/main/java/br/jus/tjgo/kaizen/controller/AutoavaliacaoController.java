@@ -53,9 +53,18 @@ public class AutoavaliacaoController {
     }
 
     // GET /api/autoavaliacao/meu
+    // `unidade_id` recorta por unidade — necessário para quem é gestor de mais de uma, já que a
+    // autoavaliação é uma por unidade. Sem ele, devolve a mais recente (comportamento antigo).
     @GetMapping("/meu")
-    public Map<String, Object> meu(@RequestParam(value = "tipo_inventario", required = false, defaultValue = "equipe") String tipoInventario) {
-        return service.findByUserId(currentUserId(), tipoInventario);
+    public Map<String, Object> meu(@RequestParam(value = "tipo_inventario", required = false, defaultValue = "equipe") String tipoInventario,
+                                   @RequestParam(value = "unidade_id", required = false) Long unidadeId) {
+        return service.findByUserId(currentUserId(), tipoInventario, unidadeId);
+    }
+
+    // GET /api/autoavaliacao/meus — uma entrada por unidade já preenchida
+    @GetMapping("/meus")
+    public List<Map<String, Object>> meus(@RequestParam(value = "tipo_inventario", required = false, defaultValue = "equipe") String tipoInventario) {
+        return service.findMeus(currentUserId(), tipoInventario);
     }
 
     // GET /api/autoavaliacao/por-unidade/:unidadeId

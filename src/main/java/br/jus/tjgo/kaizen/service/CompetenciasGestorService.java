@@ -59,6 +59,69 @@ public class CompetenciasGestorService {
         return jdbc.queryForList(sql.toString(), params.toArray());
     }
 
+    /**
+     * Matrizes do domínio com a visibilidade do negócio.
+     *
+     * <p>Superadmin e validador final enxergam o domínio inteiro — o validador precisa, porque é na
+     * listagem que fica o botão da camada final. Os demais só veem o que lhes diz respeito: o que
+     * preencheram, as unidades onde são responsáveis
+     * (<code>cadastros_unidades.responsavel_user_id</code>) e as áreas que dirigem
+     * (<code>cadastros_areas.gestor_user_id / subdiretor_user_id</code>).
+     *
+     * <p>Sem esse recorte o gestor de uma unidade enxergava a matriz de todas as unidades do
+     * domínio: a tela manda <code>diretoria</code>, parâmetro que o endpoint não lê, e caía-se no
+     * domínio inteiro do usuário.
+     */
+    public List<Map<String, Object>> findVisiveis(
+            List<Long> areasIds, String tipo, long userId, boolean isSuperadmin, String userEmail) {
+        if (isSuperadmin || isValidadorFinal(userEmail)) {
+            return findAllByDomain(areasIds, tipo);
+        }
+        StringBuilder sql = new StringBuilder(listSelect())
+                .append(" WHERE f.is_deleted = FALSE AND f.cadastros_areas_id = ANY(?::bigint[])");
+        List<Object> params = new ArrayList<>();
+        params.add(bigintArray(areasIds));
+        if (tipo != null) {
+            params.add(tipo);
+            sql.append(" AND f.tipo = ?");
+        }
+        sql.append(" AND ( f.user_id = ? ")
+                .append("   OR EXISTS (SELECT 1 FROM cadastros_unidades cu2 ")
+                .append("               WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) ")
+                .append("   OR EXISTS (SELECT 1 FROM cadastros_areas ca2 ")
+                .append("               WHERE ca2.id = f.cadastros_areas_id ")
+                .append("                 AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) )");
+        params.add(userId);
+        params.add(userId);
+        params.add(userId);
+        params.add(userId);
+        sql.append(" ORDER BY f.created_at DESC");
+        return jdbc.queryForList(sql.toString(), params.toArray());
+    }
+
+    /**
+     * Mesma regra de visibilidade da listagem, para um registro só — sem isso, esconder a matriz da
+     * lista não adiantaria: bastava pedir o id direto (IDOR). Vale para o formulário e para o
+     * histórico de versões, que carrega o mesmo conteúdo.
+     */
+    public boolean podeVer(long id, long userId, boolean isSuperadmin, String userEmail) {
+        if (isSuperadmin || isValidadorFinal(userEmail)) {
+            return true;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT 1 FROM competencias_gestor_formularios f " +
+                        "WHERE f.id = ? AND f.is_deleted = FALSE " +
+                        "  AND ( f.user_id = ? " +
+                        "    OR EXISTS (SELECT 1 FROM cadastros_unidades cu2 " +
+                        "                WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) " +
+                        "    OR EXISTS (SELECT 1 FROM cadastros_areas ca2 " +
+                        "                WHERE ca2.id = f.cadastros_areas_id " +
+                        "                  AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ) " +
+                        "LIMIT 1",
+                id, userId, userId, userId, userId);
+        return !rows.isEmpty();
+    }
+
     public List<Map<String, Object>> findAll(String diretoria, String tipo) {
         StringBuilder sql = new StringBuilder(listSelect()).append(" WHERE f.is_deleted = FALSE");
         List<Object> params = new ArrayList<>();
