@@ -16,7 +16,6 @@ public record CicloDto(
         String publicadoEm,
         String proadGejut,
         String proadSgjt,
-        String proadAtaComites,
         String proadProdutoFinal,
         String proadPublicacao,
         String linkDou,
