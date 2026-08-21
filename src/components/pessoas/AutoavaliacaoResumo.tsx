@@ -66,6 +66,14 @@ export function AutoavaliacaoResumo({
   const isValidado = !!formulario.validado_em;
   const isAtualizacaoRequisitada =
     formulario.status === "atualizacao_requisitada";
+  // Quem valida a própria autoavaliação é quem a preencheu — colaborador no inventário da equipe,
+  // gestor no inventário do gestor. O rótulo vem do formulário (mesma chave que o AutoavaliacaoForm
+  // usa no título), senão a tela "Autoavaliação do Gestor" acabava anunciando "Validação do
+  // Colaborador".
+  const labelValidacao =
+    formulario.tipo_inventario === "gestor"
+      ? "Validação do Gestor"
+      : "Validação do Colaborador";
   const canValidate = !currentUserId || formulario.user_id === currentUserId;
 
   const handleValidar = async () => {
@@ -172,7 +180,7 @@ export function AutoavaliacaoResumo({
               <p
                 className={`font-medium ${isValidado ? "text-emerald-800" : "text-amber-800"}`}
               >
-                Validação do Colaborador
+                {labelValidacao}
               </p>
               {isValidado ? (
                 <p className="text-sm text-emerald-600">

@@ -381,6 +381,20 @@ function checkPageBreak(
   return currentY;
 }
 
+/**
+ * Rótulo da nota no card. A competência pode não ter resposta de um dos lados (entrou no referencial
+ * depois que aquele formulário foi preenchido) — sem esta guarda o PDF imprimia a string "null".
+ */
+function rotuloNota(
+  labels: Record<number, string>,
+  nota: number | null | undefined,
+): string {
+  if (nota == null) {
+    return "Não respondida";
+  }
+  return labels[nota] || `${nota}`;
+}
+
 export function generateAvaliacaoIntegradaPDF(
   formulario: AvaliacaoIntegradaFormulario,
 ) {
@@ -514,11 +528,9 @@ export function generateAvaliacaoIntegradaPDF(
         numero: i + 1,
         nome: resp.competencia_nome,
         descricao: resp.competencia_descricao || undefined,
-        notaAutoLabel:
-          tipoLabels[resp.nota_autoavaliacao] || `${resp.nota_autoavaliacao}`,
-        notaGestorLabel: tipoLabels[resp.nota_gestor] || `${resp.nota_gestor}`,
-        notaIntegradaLabel:
-          tipoLabels[resp.nota_integrada] || `${resp.nota_integrada}`,
+        notaAutoLabel: rotuloNota(tipoLabels, resp.nota_autoavaliacao),
+        notaGestorLabel: rotuloNota(tipoLabels, resp.nota_gestor),
+        notaIntegradaLabel: rotuloNota(tipoLabels, resp.nota_integrada),
         comentario: resp.comentario || undefined,
         y,
       });

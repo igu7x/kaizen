@@ -53,9 +53,14 @@ function NotaBadge({
   nota,
   labels,
 }: {
-  nota: number;
+  nota: number | null | undefined;
   labels: Record<number, string>;
 }) {
+  // A competência pode não ter resposta de um dos lados (entrou no referencial depois que aquele
+  // formulário foi preenchido). Sem esta guarda o badge imprimia literalmente "— Nota null".
+  if (nota == null) {
+    return <Badge className="bg-gray-100 text-gray-500">Não respondida</Badge>;
+  }
   return (
     <Badge className={NOTA_COLORS[nota] || "bg-gray-100 text-gray-700"}>
       {nota} — {labels[nota] || `Nota ${nota}`}

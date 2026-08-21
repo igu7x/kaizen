@@ -180,16 +180,18 @@ export function CompetenciasGestorResumo({
     (!!userId && !!autorUserId && userId === autorUserId) ||
     (!!formulario.email_institucional &&
       userEmail === formulario.email_institucional.toLowerCase().trim());
-  // Mesma regra do backend (CompetenciasGestorService.validarDiretoria): na matriz do GESTOR a
-  // camada do autor só existe quando quem preencheu foi o subdiretor da área. Sem espelhar isso
-  // aqui, a tela oferecia "Validar" ao autor e depois a diretoria batia em 403 — a matriz do
-  // gestor ficava sem como avançar.
-  const preenchidoPorSubdiretor =
+  // Mesma regra do backend (CompetenciasGestorService.requerValidacaoAutor): na matriz do GESTOR a
+  // camada do autor existe para quem preenche (gestor da unidade, sub-diretor) e só é dispensada
+  // quando quem preencheu foi o próprio diretor da área — aí sobram diretoria + final. Sem espelhar
+  // isso aqui, a tela oferecia "Validar" ao autor e depois a diretoria batia em 403 — a matriz do
+  // gestor ficava sem como avançar. `areas.length` evita decidir antes de a área carregar.
+  const preenchidoPeloDiretor =
     formulario.tipo === "gestor" &&
-    !!areaForm?.subdiretor_user_id &&
-    Number(areaForm.subdiretor_user_id) === autorUserId;
+    !!areaForm?.gestor_user_id &&
+    Number(areaForm.gestor_user_id) === autorUserId;
   const requerValidacaoAutor =
-    formulario.tipo !== "gestor" || preenchidoPorSubdiretor;
+    formulario.tipo !== "gestor" ||
+    (areas.length > 0 && !preenchidoPeloDiretor);
 
   const canValidateAutor =
     requerValidacaoAutor && formulario.status === "enviado" && isAutor;
@@ -296,10 +298,10 @@ export function CompetenciasGestorResumo({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Banners de validação — o subdiretor não é mais uma camada de validação (só preenche). */}
+      {/* Banners de validação — o stepper segue a mesma regra de camadas usada nos botões abaixo. */}
       <ValidacaoStatusBanners
         formulario={formulario}
-        preenchidoPorSubdiretor={preenchidoPorSubdiretor}
+        requerValidacaoAutor={requerValidacaoAutor}
       />
 
       {/* Botão Editar — cada validador (autor/diretoria/final) edita a matriz na sua etapa. A
