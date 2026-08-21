@@ -328,15 +328,15 @@ public class CompetenciasGestorService {
                 data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, userId, id);
 
         if (autoValidateAutor) {
-            List<Map<String, Object>> uname = jdbc.queryForList("SELECT name FROM users WHERE id = ?", userId);
-            String nomeGestor = (!uname.isEmpty() && uname.get(0).get("name") != null)
-                    ? String.valueOf(uname.get(0).get("name")) : "Gestor da Macroárea";
+            // Só o id: `validado_por_autor_nome` NÃO é coluna da tabela — é derivada no SELECT pelo
+            // LEFT JOIN users va (ver listSelect/findById). Escrever nela quebrava o save com 42703.
             jdbc.update(
                     "UPDATE competencias_gestor_formularios SET " +
-                            "  status = 'validado_autor', validado_por_autor_id = ?, validado_por_autor_nome = ?, validado_por_autor_em = NOW() " +
+                            "  status = 'validado_autor', validado_por_autor_id = ?, validado_por_autor_em = NOW() " +
                             "WHERE id = ?",
-                    userId, nomeGestor, id);
-            // Auto-validou a camada 1 (gestor editou form do subdiretor) → avisa a diretoria, igual validarAutor.
+                    userId, id);
+            // Auto-validou a camada 1 (o diretor editou matriz preenchida por outra pessoa) → avisa
+            // a diretoria, igual validarAutor.
             matrizNotificacoes.aoValidarAutor(findById(id));
         }
 

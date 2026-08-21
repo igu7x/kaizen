@@ -685,10 +685,11 @@ export async function generateCompetenciasPDF(
   // BLOCO - Histórico de Validação (ao final do documento)
   // ============================================================
   const validationItems: Array<{ label: string; value: string }> = [];
-  // Em formulários de gestor, a "Validação do Autor" era a camada do sub-diretor — que deixou de
-  // participar da validação. Por isso ela não é mais exibida para o tipo 'gestor' (mantida no
-  // 'equipe', onde o autor de fato valida).
-  if (formulario.validado_por_autor_nome && formulario.tipo !== "gestor") {
+  // A camada do autor entra quando existe registro dela — nada de decidir pelo `tipo`. Na matriz do
+  // gestor ela existe quando quem preencheu não foi o diretor da área (gestor da unidade,
+  // sub-diretor); quando foi o diretor, o campo vem nulo e a linha simplesmente não aparece.
+  // Ver CompetenciasGestorService.requerValidacaoAutor.
+  if (formulario.validado_por_autor_nome) {
     validationItems.push({
       label: "Validação do Autor",
       value: `${formulario.validado_por_autor_nome} — ${formulario.validado_por_autor_em ? formatDate(formulario.validado_por_autor_em) : ""}`,
