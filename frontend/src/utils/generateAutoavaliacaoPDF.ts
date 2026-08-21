@@ -294,6 +294,10 @@ export function generateAutoavaliacaoPDF(formulario: AutoavaliacaoFormulario) {
   const tipoInv = formulario.tipo_inventario || "equipe";
   const tipoLabel =
     tipoInv === "gestor" ? "Inventário do Gestor" : "Inventário da Equipe";
+  // Quem se autoavalia é o gestor no inventário do gestor e o colaborador no da equipe. O subtítulo
+  // já dizia "Inventário do Gestor", mas o título e os rótulos chamavam todo mundo de colaborador.
+  const pessoaLabel = tipoInv === "gestor" ? "Gestor" : "Colaborador";
+  const pessoaLabelTitulo = `Autoavaliação do ${pessoaLabel}`;
 
   // ============================================================
   // HEADER (mantido)
@@ -312,7 +316,7 @@ export function generateAutoavaliacaoPDF(formulario: AutoavaliacaoFormulario) {
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text("Autoavaliação do Colaborador", MARGIN_LEFT + 5, 18, {
+  doc.text(pessoaLabelTitulo, MARGIN_LEFT + 5, 18, {
     maxWidth: leftMaxW,
   });
   doc.setFontSize(12);
@@ -326,7 +330,7 @@ export function generateAutoavaliacaoPDF(formulario: AutoavaliacaoFormulario) {
   const lotEndY = 36 + (lotLines.length - 1) * 4;
   doc.setFontSize(9);
   doc.setTextColor(180, 195, 220);
-  const colabText = `Colaborador: ${formulario.nome_completo || formulario.user_name || ""}`;
+  const colabText = `${pessoaLabel}: ${formulario.nome_completo || formulario.user_name || ""}`;
   doc.text(
     doc.splitTextToSize(colabText, leftMaxW),
     MARGIN_LEFT + 5,
@@ -358,7 +362,7 @@ export function generateAutoavaliacaoPDF(formulario: AutoavaliacaoFormulario) {
   y = headerH + 8;
 
   // ============================================================
-  // BLOCO - Dados do Colaborador
+  // BLOCO - Dados do Colaborador / do Gestor
   // ============================================================
   const dadosItems: Array<{ label: string; value: string }> = [
     { label: "Nome", value: formulario.nome_completo || "" },
@@ -366,7 +370,7 @@ export function generateAutoavaliacaoPDF(formulario: AutoavaliacaoFormulario) {
     { label: "Cargo/Função", value: formulario.cargo_funcao || "" },
     { label: "E-mail", value: formulario.email_institucional || "" },
   ];
-  y = drawValidationBlock(doc, dadosItems, "Dados do Colaborador", y);
+  y = drawValidationBlock(doc, dadosItems, `Dados do ${pessoaLabel}`, y);
 
   // ============================================================
   // COMPETÊNCIAS (por seção)
