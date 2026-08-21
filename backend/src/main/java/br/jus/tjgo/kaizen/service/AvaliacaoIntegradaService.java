@@ -57,7 +57,10 @@ public class AvaliacaoIntegradaService {
             params.add(tipoInventario);
             where += " AND COALESCE(f.tipo_inventario, 'equipe') = ?";
         }
+        // `f.avaliador_user_id` fecha uma lacuna: quem AVALIOU tem de enxergar o resultado que a
+        // própria avaliação gerou, mesmo não dirigindo a área do avaliado.
         where += " AND ( af.user_id = ? " +
+                "   OR f.avaliador_user_id = ? " +
                 "   OR ( COALESCE(f.tipo_inventario, 'equipe') = 'equipe' AND EXISTS ( " +
                 "        SELECT 1 FROM cadastros_unidades cu2 " +
                 "        WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) ) " +
@@ -65,6 +68,7 @@ public class AvaliacaoIntegradaService {
                 "        SELECT 1 FROM cadastros_areas ca2 " +
                 "        WHERE ca2.id = f.cadastros_areas_id " +
                 "          AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ) )";
+        params.add(userId);
         params.add(userId);
         params.add(userId);
         params.add(userId);
@@ -81,6 +85,7 @@ public class AvaliacaoIntegradaService {
                 "SELECT 1 FROM avaliacao_integrada_formularios f " +
                         "LEFT JOIN autoavaliacao_formularios af ON af.id = f.autoavaliacao_id " +
                         "WHERE f.id = ? AND f.is_deleted = FALSE AND ( af.user_id = ? " +
+                        "   OR f.avaliador_user_id = ? " +
                         "   OR ( COALESCE(f.tipo_inventario, 'equipe') = 'equipe' AND EXISTS ( " +
                         "        SELECT 1 FROM cadastros_unidades cu2 " +
                         "        WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) ) " +
@@ -88,7 +93,7 @@ public class AvaliacaoIntegradaService {
                         "        SELECT 1 FROM cadastros_areas ca2 " +
                         "        WHERE ca2.id = f.cadastros_areas_id " +
                         "          AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ) ) LIMIT 1",
-                id, userId, userId, userId, userId);
+                id, userId, userId, userId, userId, userId);
         return !rows.isEmpty();
     }
 
@@ -610,6 +615,11 @@ public class AvaliacaoIntegradaService {
         String tipoInv = ag.get("tipo_inventario") != null ? str(ag.get("tipo_inventario")) : "equipe";
         Long unidadeId = asLong(ag.get("unidade_id"));
         Long avaliadorUserId = asLong(ag.get("avaliador_user_id"));
+        // A macroárea é a da UNIDADE AVALIADA. Herdar a da avaliação do gestor propagava para cá
+        // qualquer área errada gravada lá — e é essa coluna que decide quem enxerga o Resultado
+        // Final na listagem, então o diretor da área certa ficava sem ver.
+        Long areaIdFormulario = areaIdDaUnidade(unidadeId, ag.get("cadastros_areas_id"), ag.get("diretoria"));
+        String diretoriaFormulario = diretoriaDaUnidade(unidadeId, ag.get("diretoria"));
 
         List<Map<String, Object>> existing = jdbc.queryForList(
                 "SELECT id FROM avaliacao_integrada_formularios " +
@@ -630,7 +640,7 @@ public class AvaliacaoIntegradaService {
                             "  tecnicas_versao = ?, competencias_versao = ?, updated_at = NOW() " +
                             "WHERE id = ?",
                     asLong(ag.get("pessoa_id")), str(ag.get("pessoa_nome")), avaliadorUserId,
-                    str(ag.get("avaliador_nome")), asLong(ag.get("cadastros_areas_id")), str(ag.get("diretoria")),
+                    str(ag.get("avaliador_nome")), areaIdFormulario, diretoriaFormulario,
                     unidadeId, tipoInv, numOrOne(ag.get("tecnicas_versao")), numOrOne(ag.get("competencias_versao")),
                     formularioId);
         } else {
@@ -642,8 +652,8 @@ public class AvaliacaoIntegradaService {
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'calculado', NOW(), 1, ?, ?, ?, ?) " +
                             "RETURNING id",
                     autoavaliacaoId, avaliacaoGestorId, asLong(ag.get("pessoa_id")), str(ag.get("pessoa_nome")),
-                    avaliadorUserId, str(ag.get("avaliador_nome")), asLong(ag.get("cadastros_areas_id")),
-                    str(ag.get("diretoria")), unidadeId, tipoInv,
+                    avaliadorUserId, str(ag.get("avaliador_nome")), areaIdFormulario,
+                    diretoriaFormulario, unidadeId, tipoInv,
                     numOrOne(ag.get("tecnicas_versao")), numOrOne(ag.get("competencias_versao")),
                     avaliadorUserId, avaliadorUserId);
             formularioId = ((Number) ins.get("id")).longValue();
@@ -741,6 +751,47 @@ public class AvaliacaoIntegradaService {
             chaves.add(base + "#" + ocorrencias.merge(base, 1, Integer::sum));
         }
         return chaves;
+    }
+
+    /**
+     * Macroárea do Resultado Final: a da UNIDADE AVALIADA. A área herdada da avaliação do gestor só
+     * entra se a unidade não resolver, e a sigla é o último recurso. É a coluna que decide quem
+     * enxerga o registro na listagem, então precisa refletir a unidade — não quem avaliou.
+     */
+    private Long areaIdDaUnidade(Long unidadeId, Object areaHerdada, Object diretoriaSigla) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT area_id FROM cadastros_unidades WHERE id = ? LIMIT 1", unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("area_id") != null) {
+                return asLong(rows.get(0).get("area_id"));
+            }
+        }
+        Long herdada = asLong(areaHerdada);
+        if (herdada != null) {
+            return herdada;
+        }
+        if (diretoriaSigla == null) {
+            return null;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT id FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) LIMIT 1",
+                str(diretoriaSigla));
+        return rows.isEmpty() ? null : asLong(rows.get(0).get("id"));
+    }
+
+    /** Sigla legada correspondente — a coluna `diretoria` é NOT NULL, daí o fallback. */
+    private String diretoriaDaUnidade(Long unidadeId, Object fallback) {
+        if (unidadeId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT a.sigla FROM cadastros_unidades u " +
+                            "JOIN cadastros_areas a ON a.id = u.area_id " +
+                            "WHERE u.id = ? LIMIT 1",
+                    unidadeId);
+            if (!rows.isEmpty() && rows.get(0).get("sigla") != null) {
+                return str(rows.get(0).get("sigla"));
+            }
+        }
+        return fallback != null ? str(fallback) : null;
     }
 
     /** Casa a competência entre os dois formulários: id da competência da unidade + tipo. */
