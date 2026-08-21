@@ -37,18 +37,13 @@ export function DialogVincularContratos({
     if (!ifo) return [];
     
     return allContracts.filter((c) => {
-      // Regra de inserção automática: contratos precisam ter limitDate e ela deve alcançar o ano do ciclo
-      if (!c.limitDate) return false;
-      const limitAno = new Date(c.limitDate).getFullYear();
-      if (limitAno < ifo.ano) return false;
-
       let blocoContrato = "plurianual"; // Default se não tiver endDate
 
       if (c.endDate) {
         const fimAno = new Date(c.endDate).getFullYear();
         if (fimAno > ifo.ano) {
           blocoContrato = "plurianual";
-        } else if (new Date(c.limitDate) > new Date(c.endDate)) {
+        } else if (c.limitDate && new Date(c.limitDate) > new Date(c.endDate)) {
           blocoContrato = "renovacao";
         } else {
           blocoContrato = "encerramento";
@@ -65,15 +60,7 @@ export function DialogVincularContratos({
     }
   }, [open, ifo]);
 
-  const isOriginallyLinked = (contractId: number) => {
-    return ifo?.contratos?.includes(contractId) ?? false;
-  };
-
   const toggleContract = (contractId: number) => {
-    if (isOriginallyLinked(contractId)) {
-      toast.error("Para desvincular um contrato, você deve vinculá-lo a outro IFO.");
-      return;
-    }
     const newSet = new Set(selectedIds);
     if (newSet.has(contractId)) {
       newSet.delete(contractId);
@@ -121,32 +108,33 @@ export function DialogVincularContratos({
           ) : (
             filteredContracts.map((c) => {
               const isSelected = selectedIds.has(c.id);
-              const isLinkedToThis = isOriginallyLinked(c.id);
               const isLinkedToAnother = !!c.linkedIfoCodigo && c.linkedIfoCodigo !== ifo?.codigo && !isSelected;
               
               return (
                 <div
                   key={c.id}
-                  onClick={() => toggleContract(c.id)}
+                  onClick={() => {
+                    if (!isLinkedToAnother || isSelected) {
+                      toggleContract(c.id);
+                    }
+                  }}
                   className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    isLinkedToThis
-                      ? "border-emerald-500 bg-emerald-50 opacity-80 cursor-not-allowed"
+                    isLinkedToAnother
+                      ? "opacity-60 bg-slate-50 border-slate-200 cursor-not-allowed"
                       : isSelected
-                      ? "border-blue-500 bg-blue-50 cursor-pointer"
-                      : "border-slate-200 hover:bg-slate-50 cursor-pointer"
+                        ? "border-blue-500 bg-blue-50 cursor-pointer"
+                        : "border-slate-200 hover:bg-slate-50 cursor-pointer"
                   }`}
                 >
                   <div className="flex-shrink-0">
                     <div
                       className={`w-5 h-5 rounded border flex items-center justify-center ${
-                        isLinkedToThis
-                          ? "bg-emerald-500 border-emerald-500 text-white"
-                          : isSelected
+                        isSelected
                           ? "bg-blue-500 border-blue-500 text-white"
                           : "border-slate-300"
                       }`}
                     >
-                      {(isSelected || isLinkedToThis) && <Check className="h-3.5 w-3.5" />}
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
                     </div>
                   </div>
                   <div className="flex-grow min-w-0">
@@ -155,11 +143,6 @@ export function DialogVincularContratos({
                         <span className="font-medium text-sm text-slate-900 break-words line-clamp-2">
                           {c.objectName || "Sem Objeto"}
                         </span>
-                        {isLinkedToThis && (
-                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-medium">
-                            Vinculado
-                          </span>
-                        )}
                         {isLinkedToAnother && (
                           <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
                             Vinculado ao {c.linkedIfoCodigo}

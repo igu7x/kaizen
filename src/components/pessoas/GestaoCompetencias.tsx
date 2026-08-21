@@ -312,6 +312,13 @@ export function GestaoCompetencias({
   const [integradaPendentes, setIntegradaPendentes] = useState<
     AvaliacaoIntegradaFormulario[]
   >([]);
+  // Minha própria autoavaliação (equipe e gestor). O hub precisa disso pra saber se já
+  // preenchi: sem isso o card fica eternamente em "Preencher" e o painel abaixo diz que
+  // não há relação, mesmo com o formulário enviado e validado.
+  const [minhaAutoEquipe, setMinhaAutoEquipe] =
+    useState<AutoavaliacaoFormulario | null>(null);
+  const [minhaAutoGestor, setMinhaAutoGestor] =
+    useState<AutoavaliacaoFormulario | null>(null);
   const [temUnidadeColaborador, setTemUnidadeColaborador] = useState(false);
   const [temElegiveisEquipe, setTemElegiveisEquipe] = useState(false);
   const [temElegiveisGestor, setTemElegiveisGestor] = useState(false);
@@ -548,6 +555,69 @@ export function GestaoCompetencias({
     };
     load();
   }, []);
+
+  // Recarrega a minha autoavaliação toda vez que volto pro hub. O load principal roda uma
+  // vez só (deps []), então sem isto o card não reflete o que acabei de preencher/validar.
+  useEffect(() => {
+    if (!VIEWS_HUB.includes(currentView)) return;
+    let cancelado = false;
+    (async () => {
+      const [equipe, gestor] = await Promise.all([
+        autoavaliacaoApi.getMeu("equipe").catch(() => null),
+        autoavaliacaoApi.getMeu("gestor").catch(() => null),
+      ]);
+      if (cancelado) return;
+      setMinhaAutoEquipe(equipe);
+      setMinhaAutoGestor(gestor);
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [currentView]);
+
+  /**
+   * Painel de acompanhamento da PRÓPRIA autoavaliação. A relação existente
+   * (`AutoavaliacaoRespostas`) é a visão de quem audita a diretoria inteira; quem preenche
+   * precisa ver só o seu formulário.
+   */
+  const minhaAutoRelacao = (
+    form: AutoavaliacaoFormulario | null,
+    abrirResumo: (f: AutoavaliacaoFormulario) => void,
+  ) =>
+    form ? (
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-gray-200 p-4">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-gray-900">
+            {form.nome_completo}
+          </p>
+          <p className="text-xs text-gray-500">
+            {form.status === "atualizacao_requisitada"
+              ? "Atualização solicitada — revise e envie de novo."
+              : form.validado_em
+                ? `Validada em ${new Date(form.validado_em).toLocaleDateString("pt-BR")}`
+                : "Enviada — falta você validar."}
+            {form.total_respostas
+              ? ` · ${form.total_respostas} competências`
+              : ""}
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => abrirResumo(form)}>
+          Ver minhas respostas
+        </Button>
+      </div>
+    ) : undefined;
+
+  /**
+   * Selo do card. Só sai quando há PENDÊNCIA — `resumoModulo` conta itens com badge como
+   * "com pendência", então formulário já validado não pode emitir selo. O estado "validada"
+   * aparece na relação abaixo.
+   */
+  const minhaAutoBadge = (form: AutoavaliacaoFormulario | null) =>
+    !form || form.validado_em
+      ? undefined
+      : form.status === "atualizacao_requisitada"
+        ? "Atualização solicitada"
+        : "Aguardando sua validação";
 
   const isAdminOrManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSGJT = (user as any)?.is_superadmin === true;
@@ -1524,12 +1594,35 @@ export function GestaoCompetencias({
           "Registre sua autoavaliação das competências para a sua função.",
         icon: <ClipboardCheck className="h-5 w-5" />,
         cor: "emerald",
+        badge: autoEquipePreenche ? minhaAutoBadge(minhaAutoEquipe) : undefined,
         acoes: autoEquipePreenche ? (
           <Button
-            onClick={() => setCurrentView("autoavaliacao")}
+            onClick={() => {
+              // Formulário já enviado abre o resumo: reabrir o form cairia na tela de
+              // bloqueio "Autoavaliação já enviada". Só 'atualizacao_requisitada' reabre.
+              if (minhaAutoEquipe && minhaAutoEquipe.status !== "atualizacao_requisitada") {
+                setAutoavaliacaoResumo(minhaAutoEquipe);
+                setCurrentView("autoavaliacao_resumo");
+              } else {
+                setCurrentView("autoavaliacao");
+              }
+            }}
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
-            <Plus className="h-4 w-4 mr-1.5" /> Preencher autoavaliação
+            {!minhaAutoEquipe ? (
+              <>
+                <Plus className="h-4 w-4 mr-1.5" /> Preencher autoavaliação
+              </>
+            ) : minhaAutoEquipe.status === "atualizacao_requisitada" ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-1.5" /> Atualizar autoavaliação
+              </>
+            ) : (
+              <>
+                <ClipboardCheck className="h-4 w-4 mr-1.5" /> Ver minha
+                autoavaliação
+              </>
+            )}
           </Button>
         ) : undefined,
         relacao: isSGJTAdmin ? (
@@ -1542,7 +1635,12 @@ export function GestaoCompetencias({
               setCurrentView("autoavaliacao_resumo");
             }}
           />
-        ) : undefined,
+        ) : (
+          minhaAutoRelacao(minhaAutoEquipe, (f) => {
+            setAutoavaliacaoResumo(f);
+            setCurrentView("autoavaliacao_resumo");
+          })
+        ),
       });
     }
 
@@ -1555,7 +1653,7 @@ export function GestaoCompetencias({
         key: "resultado_final_equipe_meu",
         titulo: "Meu Resultado Final",
         descricao:
-          "Sua nota final: 70% da avaliação do gestor + 30% da sua autoavaliação.",
+          "Sua nota final, calculada a partir da avaliação do gestor e da sua autoavaliação.",
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
         badge: `${integradaEquipePend.length} resultado${integradaEquipePend.length > 1 ? "s" : ""} disponível${integradaEquipePend.length > 1 ? "eis" : ""}`,
@@ -1572,8 +1670,12 @@ export function GestaoCompetencias({
       });
     }
 
-    // Avaliação do Gestor — só quando há autoavaliações validadas ou já preenchidas
-    if (temAvgestorEquipe && (isGestorDeUnidade || isSGJTAdmin)) {
+    // Avaliação do Gestor — o gestor da unidade sempre preenche. NÃO exigir
+    // `temAvgestorEquipe` aqui: essa flag diz que JÁ existe avaliação da equipe, então
+    // usá-la como porta deixava o card invisível justamente enquanto não havia nenhuma —
+    // o gestor nunca conseguia criar a primeira. Mesma correção já aplicada no inventário
+    // do gestor. SGJT admin só acompanha, e só se houver dados.
+    if (isGestorDeUnidade || (isSGJTAdmin && temAvgestorEquipe)) {
       itensInvEquipe.push({
         key: "avgestor_equipe",
         titulo: "Avaliação do Gestor",
@@ -1612,7 +1714,7 @@ export function GestaoCompetencias({
         key: "resultado_final_equipe",
         titulo: "Resultado Final",
         descricao:
-          "Calculado: 70% da avaliação do gestor + 30% da autoavaliação do colaborador.",
+          "Calculado a partir da avaliação do gestor e da autoavaliação do colaborador.",
         icon: <Scale className="h-5 w-5" />,
         cor: "violet",
         relacao: (
@@ -1645,12 +1747,35 @@ export function GestaoCompetencias({
         descricao: "Registre sua autoavaliação das competências de gestão.",
         icon: <ClipboardCheck className="h-5 w-5" />,
         cor: "emerald",
+        badge: autoGestorPreenche ? minhaAutoBadge(minhaAutoGestor) : undefined,
         acoes: autoGestorPreenche ? (
           <Button
-            onClick={() => setCurrentView("inv_gestor_auto")}
+            onClick={() => {
+              // Formulário já enviado abre o resumo: reabrir o form cairia na tela de
+              // bloqueio "Autoavaliação já enviada". Só 'atualizacao_requisitada' reabre.
+              if (minhaAutoGestor && minhaAutoGestor.status !== "atualizacao_requisitada") {
+                setAutoavaliacaoResumo(minhaAutoGestor);
+                setCurrentView("inv_gestor_auto_resumo");
+              } else {
+                setCurrentView("inv_gestor_auto");
+              }
+            }}
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
-            <Plus className="h-4 w-4 mr-1.5" /> Preencher autoavaliação
+            {!minhaAutoGestor ? (
+              <>
+                <Plus className="h-4 w-4 mr-1.5" /> Preencher autoavaliação
+              </>
+            ) : minhaAutoGestor.status === "atualizacao_requisitada" ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-1.5" /> Atualizar autoavaliação
+              </>
+            ) : (
+              <>
+                <ClipboardCheck className="h-4 w-4 mr-1.5" /> Ver minha
+                autoavaliação
+              </>
+            )}
           </Button>
         ) : undefined,
         relacao: isSGJTAdmin ? (
@@ -1663,7 +1788,12 @@ export function GestaoCompetencias({
               setCurrentView("inv_gestor_auto_resumo");
             }}
           />
-        ) : undefined,
+        ) : (
+          minhaAutoRelacao(minhaAutoGestor, (f) => {
+            setAutoavaliacaoResumo(f);
+            setCurrentView("inv_gestor_auto_resumo");
+          })
+        ),
       });
     }
 
@@ -1676,7 +1806,7 @@ export function GestaoCompetencias({
         key: "resultado_final_gestor_meu",
         titulo: "Meu Resultado Final",
         descricao:
-          "Sua nota final: 70% da avaliação da liderança + 30% da sua autoavaliação.",
+          "Sua nota final, calculada a partir da avaliação da liderança e da sua autoavaliação.",
         icon: <Scale className="h-5 w-5" />,
         cor: "emerald",
         badge: `${integradaGestorPend.length} resultado${integradaGestorPend.length > 1 ? "s" : ""} disponível${integradaGestorPend.length > 1 ? "eis" : ""}`,
@@ -1736,7 +1866,7 @@ export function GestaoCompetencias({
         key: "resultado_final_gestor",
         titulo: "Resultado Final",
         descricao:
-          "Calculado: 70% da avaliação da liderança + 30% da autoavaliação do gestor.",
+          "Calculado a partir da avaliação da liderança e da autoavaliação do gestor.",
         icon: <Scale className="h-5 w-5" />,
         cor: "violet",
         relacao: (

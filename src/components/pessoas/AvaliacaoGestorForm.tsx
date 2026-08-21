@@ -35,7 +35,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Send, Info, AlertCircle } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  Info,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 
 interface RespostaState {
   competencia_unidade_id: number;
@@ -121,6 +127,11 @@ export function AvaliacaoGestorForm({
   const [gestorUnidade, setGestorUnidade] = useState<GestorDaUnidade | null>(
     null,
   );
+  // Colaboradores da unidade (do cadastro) como avaliáveis, mesmo sem autoavaliação —
+  // inventário "equipe". Mesma ideia do gestorUnidade acima.
+  const [colaboradoresUnidade, setColaboradoresUnidade] = useState<
+    GestorDaUnidade[]
+  >([]);
 
   // Competências padrão carregadas da API (com fallback para constantes)
   const [compComportamentais, setCompComportamentais] = useState(
@@ -238,6 +249,7 @@ export function AvaliacaoGestorForm({
       respostas: [],
     }));
     setGestorUnidade(null);
+    setColaboradoresUnidade([]);
     loadCompetencias(Number(value));
     loadPessoas(Number(value));
   };
@@ -253,6 +265,20 @@ export function AvaliacaoGestorForm({
         tipoInventario || "equipe",
       );
       setAutoavaliacoes(avals);
+
+      if (tipoInventario !== "gestor") {
+        // Colaboradores do cadastro da unidade: entram no dropdown mesmo sem autoavaliação.
+        try {
+          setColaboradoresUnidade(
+            await avaliacaoGestorApi.getColaboradoresDaUnidade(
+              unidadeId,
+              tipoInventario || "equipe",
+            ),
+          );
+        } catch {
+          setColaboradoresUnidade([]);
+        }
+      }
 
       if (tipoInventario === "gestor") {
         let g: GestorDaUnidade | null = null;
@@ -304,11 +330,45 @@ export function AvaliacaoGestorForm({
   const [avaliacaoExistente, setAvaliacaoExistente] =
     useState<AvaliacaoGestorFormulario | null>(null);
 
-  // Dispatcher do dropdown: "auto:<id>" = a partir de uma autoavaliação; "user:<userId>" = o gestor
-  // da unidade (sem autoavaliação).
+  /**
+   * A pessoa+unidade selecionada JÁ tem avaliação enviada. Só `atualizacao_requisitada`
+   * reabre o preenchimento; nos demais status é preciso bloquear, senão o create do backend
+   * insere uma linha nova (o dedup de lá só reaproveita formulário ainda não validado) e o
+   * mesmo gestor termina com duas avaliações.
+   */
+  const jaAvaliado =
+    !isEditMode &&
+    !!avaliacaoExistente &&
+    avaliacaoExistente.status !== "atualizacao_requisitada";
+
+  /**
+   * Só faz sentido renderizar a matriz de competências e o envio quando há alguém pendente
+   * de avaliação. Com a pessoa já avaliada, a tela fica só com o aviso — sem escala, sem
+   * lista de competências e sem botão.
+   */
+  const mostrarCompetencias =
+    !jaAvaliado &&
+    !!form.unidade_id &&
+    (!!form.pessoa_id || !!form.pessoa_user_id);
+
+  // Avaliáveis da equipe = quem já se autoavaliou (entra por "auto:<id>") mais quem ainda
+  // não (entra por "user:<userId>", pela chave estável). Sem os segundos, o gestor ficava
+  // impedido de avaliar até o colaborador preencher a autoavaliação.
+  const colaboradoresSemAuto = colaboradoresUnidade.filter(
+    (c) => !c.autoavaliacao_id,
+  );
+  const totalAvaliaveisEquipe =
+    autoavaliacoes.length + colaboradoresSemAuto.length;
+
+  // Dispatcher do dropdown: "auto:<id>" = a partir de uma autoavaliação; "user:<userId>" =
+  // pessoa do cadastro da unidade (gestor no inventário do gestor, colaborador no da equipe).
   const handleAvaliavelSelect = (key: string) => {
     if (key.startsWith("user:")) {
-      if (gestorUnidade) handleGestorSelect(gestorUnidade);
+      const userId = Number(key.replace(/^user:/, ""));
+      const pessoa =
+        colaboradoresUnidade.find((c) => c.pessoa_user_id === userId) ||
+        (gestorUnidade?.pessoa_user_id === userId ? gestorUnidade : null);
+      if (pessoa) handleGestorSelect(pessoa);
     } else {
       handlePessoaSelect(key.replace(/^auto:/, ""));
     }
@@ -898,6 +958,11 @@ export function AvaliacaoGestorForm({
 
   const handleSubmit = async () => {
     // Validacao
+    if (jaAvaliado) {
+      return toast.error(
+        `${form.pessoa_nome || "Esta pessoa"} já tem avaliação enviada nesta unidade.`,
+      );
+    }
     if (!form.unidade_id) return toast.error("Selecione a unidade.");
     if (!form.pessoa_id && !form.pessoa_user_id)
       return toast.error("Selecione o colaborador a ser avaliado.");
@@ -1206,12 +1271,12 @@ export function AvaliacaoGestorForm({
                   </p>
                 </div>
               )
-            ) : autoavaliacoes.length === 0 ? (
+            ) : totalAvaliaveisEquipe === 0 ? (
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-amber-700">
-                  Nenhum colaborador realizou a autoavaliação nesta unidade
-                  ainda.
+                  Nenhum colaborador cadastrado nesta unidade (inclua as pessoas
+                  no cadastro da unidade).
                 </p>
               </div>
             ) : (
@@ -1245,6 +1310,18 @@ export function AvaliacaoGestorForm({
                         {a.cargo_funcao ? ` — ${a.cargo_funcao}` : ""}
                       </SelectItem>
                     ))}
+                    {/* Cadastrados na unidade que ainda não se autoavaliaram: avaliáveis
+                        pela chave estável (pessoa_user_id), sem esperar a autoavaliação. */}
+                    {colaboradoresSemAuto.map((c) => (
+                      <SelectItem
+                        key={`user-${c.pessoa_user_id}`}
+                        value={`user:${c.pessoa_user_id}`}
+                      >
+                        {c.nome}
+                        {c.cargo ? ` — ${c.cargo}` : ""}
+                        {" (sem autoavaliação)"}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
@@ -1268,6 +1345,26 @@ export function AvaliacaoGestorForm({
                 )}
               </>
             )}
+
+            {/* Avaliação já enviada para esta pessoa+unidade: avisa e trava o envio. */}
+            {jaAvaliado && (
+              <div className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg mt-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-emerald-800 space-y-1">
+                  <p className="font-semibold">
+                    {form.pessoa_nome || "Esta pessoa"} já foi avaliado nesta
+                    unidade.
+                  </p>
+                  <p className="text-emerald-700">
+                    {avaliacaoExistente?.validado_em
+                      ? `Avaliação validada em ${new Date(avaliacaoExistente.validado_em).toLocaleDateString("pt-BR")}.`
+                      : "A avaliação já foi enviada e aguarda validação."}{" "}
+                    Para preencher de novo, é preciso que a avaliação seja
+                    recusada ou tenha atualização requisitada.
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1275,7 +1372,7 @@ export function AvaliacaoGestorForm({
       {/* Secao 5 - Competencias Tecnicas */}
       {/* pessoa_id OU pessoa_user_id: no fluxo de avaliar o gestor sem autoavaliacao so ha
           pessoa_user_id, e a secao (com a matriz da unidade) precisa aparecer igual. */}
-      {form.unidade_id && (form.pessoa_id || form.pessoa_user_id) && (
+      {mostrarCompetencias && (
         <>
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-8">
             <div className="flex gap-4">
@@ -1402,7 +1499,7 @@ export function AvaliacaoGestorForm({
       )}
 
       {/* Secao 6 - Competencias Comportamentais */}
-      {form.respostas.length > 0 && (
+      {mostrarCompetencias && form.respostas.length > 0 && (
         <>
           <div className="rounded-xl bg-violet-50 border border-violet-200 p-8">
             <div className="flex gap-4">
@@ -1503,6 +1600,7 @@ export function AvaliacaoGestorForm({
 
       {/* Secao 7 - Competencias Estrategicas (apenas gestor) */}
       {tipoInventario === "gestor" &&
+        mostrarCompetencias &&
         form.respostas.length > 0 &&
         form.respostas_estrategicas.length > 0 && (
           <>
@@ -1607,6 +1705,7 @@ export function AvaliacaoGestorForm({
 
       {/* Secao 8 - Competencias Gerenciais (apenas gestor) */}
       {tipoInventario === "gestor" &&
+        mostrarCompetencias &&
         form.respostas.length > 0 &&
         form.respostas_gerenciais.length > 0 && (
           <>
@@ -1710,11 +1809,11 @@ export function AvaliacaoGestorForm({
         )}
 
       {/* Botao Enviar */}
-      {form.respostas.length > 0 && (
+      {mostrarCompetencias && form.respostas.length > 0 && (
         <div className="flex justify-end pb-6">
           <Button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || jaAvaliado}
             className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 text-base"
           >
             {saving ? (

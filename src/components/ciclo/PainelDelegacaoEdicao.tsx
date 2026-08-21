@@ -13,11 +13,8 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Shield, ShieldAlert, ShieldCheck, Trash2, UserPlus, Loader2, Info, Check, ChevronsUpDown } from "lucide-react";
+import { Shield, ShieldAlert, ShieldCheck, Trash2, UserPlus, Loader2, Info } from "lucide-react";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { cn } from "../../lib/utils";
 
 interface PainelDelegacaoEdicaoProps {
   cicloId: number;
@@ -35,8 +32,7 @@ export function PainelDelegacaoEdicao({
   const [delegacoes, setDelegacoes] = useState<DelegacaoEdicaoDto[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
-  const [openUserCombobox, setOpenUserCombobox] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | "">("");
   const [tipo, setTipo] = useState<"normal" | "especial">("normal");
   
   const [isLoading, setIsLoading] = useState(false);
@@ -86,24 +82,20 @@ export function PainelDelegacaoEdicao({
   }, [open, cicloId, estado]);
 
   const handleDelegar = async () => {
-    if (selectedUserIds.length === 0) {
-      toast.error("Selecione ao menos um usuário para delegar.");
+    if (!selectedUserId) {
+      toast.error("Selecione um usuário para delegar.");
       return;
     }
     
     setIsSubmitting(true);
     try {
-      await Promise.all(
-        selectedUserIds.map((userId) =>
-          delegacaoApi.criar(cicloId, {
-            estado,
-            delegadoId: userId,
-            tipo
-          })
-        )
-      );
+      await delegacaoApi.criar(cicloId, {
+        estado,
+        delegadoId: Number(selectedUserId),
+        tipo
+      });
       toast.success("Edição delegada com sucesso!");
-      setSelectedUserIds([]);
+      setSelectedUserId("");
       setTipo("normal");
       loadData();
       if (onDelegacaoChanged) onDelegacaoChanged();
@@ -130,7 +122,7 @@ export function PainelDelegacaoEdicao({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-indigo-700 border-indigo-200 hover:bg-indigo-50 bg-white">
+        <Button variant="outline" className="text-indigo-700 border-indigo-200 hover:bg-indigo-50 bg-white">
           <Shield className="h-4 w-4 mr-2 text-indigo-500" />
           Delegar Edição
         </Button>
@@ -164,52 +156,16 @@ export function PainelDelegacaoEdicao({
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-medium text-slate-600 mb-1 block">Usuário da Área</label>
-                    <Popover open={openUserCombobox} onOpenChange={setOpenUserCombobox} modal={true}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={openUserCombobox}
-                          className="w-full justify-between text-sm font-normal"
-                        >
-                          {selectedUserIds.length > 0
-                            ? `${selectedUserIds.length} usuário(s) selecionado(s)`
-                            : "Selecione os usuários..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0 z-[100]" align="start">
-                        <Command>
-                          <CommandInput placeholder="Buscar usuário..." />
-                          <CommandList>
-                            <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              {users.map((u) => (
-                                <CommandItem
-                                  key={u.id}
-                                  value={u.name}
-                                  onSelect={() => {
-                                    setSelectedUserIds((prev) =>
-                                      prev.includes(u.id)
-                                        ? prev.filter((id) => id !== u.id)
-                                        : [...prev, u.id]
-                                    );
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedUserIds.includes(u.id) ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {u.name}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <select
+                      className="w-full text-sm border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                    >
+                      <option value="">-- Selecione o usuário --</option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
                   </div>
                   
                 </div>
@@ -217,7 +173,7 @@ export function PainelDelegacaoEdicao({
                 <div className="flex items-end">
                   <Button 
                     onClick={handleDelegar}
-                    disabled={selectedUserIds.length === 0 || isSubmitting}
+                    disabled={!selectedUserId || isSubmitting}
                     className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white"
                   >
                     {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Delegar"}
@@ -243,6 +199,7 @@ export function PainelDelegacaoEdicao({
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Delegado</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Tipo</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Delegante</th>
                         <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Ação</th>
                       </tr>
@@ -252,6 +209,13 @@ export function PainelDelegacaoEdicao({
                         <tr key={del.id}>
                           <td className="px-4 py-2 text-sm font-medium text-slate-900">
                             {del.delegadoNome}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              del.tipo === 'especial' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              {del.tipo}
+                            </span>
                           </td>
                           <td className="px-4 py-2 text-xs text-slate-500">
                             {del.deleganteNome}

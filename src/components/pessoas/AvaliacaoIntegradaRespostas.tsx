@@ -310,16 +310,21 @@ export function AvaliacaoIntegradaRespostas({
               </TableRow>
             ) : (
               formulariosFiltrados.map((f) => {
+                // 'calculado' é o status atual: a nota sai pronta quando as duas avaliações de
+                // origem são validadas, sem etapa de consenso. Os demais são de formulários
+                // antigos, de quando o Resultado Final ainda era preenchido e validado à mão.
                 const statusLabel =
-                  f.status === "validado"
-                    ? "Validado"
-                    : f.status === "validado_gestor"
-                      ? "1/2 Validado"
-                      : f.status === "atualizacao_requisitada"
-                        ? "Atualização Pendente"
-                        : "Enviado";
+                  f.status === "calculado"
+                    ? "Concluído"
+                    : f.status === "validado"
+                      ? "Validado"
+                      : f.status === "validado_gestor"
+                        ? "1/2 Validado"
+                        : f.status === "atualizacao_requisitada"
+                          ? "Atualização Pendente"
+                          : "Enviado";
                 const statusColor =
-                  f.status === "validado"
+                  f.status === "calculado" || f.status === "validado"
                     ? "bg-emerald-100 text-emerald-700"
                     : f.status === "validado_gestor"
                       ? "bg-blue-100 text-blue-700"
@@ -468,9 +473,11 @@ export function AvaliacaoIntegradaRespostas({
                       v{v.versao}
                     </span>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Validado em{" "}
-                      {new Date(v.validado_em).toLocaleDateString("pt-BR")}
-                      {v.validado_nome ? ` por ${v.validado_nome}` : ""}
+                      {/* Sem nome = versão do cálculo automático. Com nome = formulário
+                          antigo, de quando a nota era validada à mão. */}
+                      {v.validado_nome
+                        ? `Validado em ${new Date(v.validado_em).toLocaleDateString("pt-BR")} por ${v.validado_nome}`
+                        : `Calculado em ${new Date(v.validado_em).toLocaleDateString("pt-BR")}`}
                     </p>
                   </div>
                   <Button
