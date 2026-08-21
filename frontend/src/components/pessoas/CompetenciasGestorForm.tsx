@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { areasApi } from "@/services/areasApi";
+import { areasApi, Area } from "@/services/areasApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +85,7 @@ export function CompetenciasGestorForm({
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [diretoriaUsuario, setDiretoriaUsuario] = useState<string>("");
+  const [areas, setAreas] = useState<Area[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingUnidadeNome, setEditingUnidadeNome] = useState<string>("");
 
@@ -126,6 +127,7 @@ export function CompetenciasGestorForm({
       try {
         // Carregar diretoria do usuário (usar user.diretoria, não domain root)
         const allAreas = await areasApi.getAll();
+        setAreas(allAreas);
         if (allAreas.length > 0) {
           const userArea =
             allAreas.find((a) => a.sigla === user?.diretoria) ||
@@ -301,10 +303,29 @@ export function CompetenciasGestorForm({
     }
   };
 
+  // Camadas do stepper: na matriz do gestor, quem preencheu define se existe camada de autor.
+  // Mesma regra do backend (CompetenciasGestorService.requerValidacaoAutor) e de
+  // CompetenciasGestorResumo — o diretor da área pula a camada 1; os demais autores, não.
+  const areaEdit = areas.find(
+    (a) =>
+      (a.sigla || "").toUpperCase() ===
+      (editFormulario?.diretoria || "").toUpperCase(),
+  );
+  const preenchidoPeloDiretor =
+    !!areaEdit?.gestor_user_id &&
+    Number(areaEdit.gestor_user_id) ===
+      Number((editFormulario as any)?.user_id || 0);
+  const requerValidacaoAutor = areas.length > 0 && !preenchidoPeloDiretor;
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Banners de validação (quando editando formulário existente) */}
-      {editFormulario && <ValidacaoStatusBanners formulario={editFormulario} />}
+      {editFormulario && (
+        <ValidacaoStatusBanners
+          formulario={editFormulario}
+          requerValidacaoAutor={requerValidacaoAutor}
+        />
+      )}
 
       {/* Texto Introdutório */}
       <div className="rounded-xl bg-blue-50 border border-blue-200 p-8">

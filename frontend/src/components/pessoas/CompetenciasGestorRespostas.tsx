@@ -95,9 +95,16 @@ function canUserEdit(
     return isValidadorFinal(email);
   }
   if (isGestor) {
-    // Gestor: 2 camadas — status 'enviado': diretor + validador final
+    // Gestor: diretor e validador final editam em qualquer etapa anterior à sua. O autor (gestor da
+    // unidade ou sub-diretor) edita enquanto está em 'enviado' — a camada dele ainda não passou.
     if (isDiretor) return true;
     if (isValidadorFinal(email)) return true;
+    if (
+      f.status === "enviado" &&
+      f.email_institucional &&
+      email === f.email_institucional.toLowerCase().trim()
+    )
+      return true;
     return false;
   }
   // Equipe: 3 camadas
@@ -134,7 +141,9 @@ function formatDate(dateStr: string) {
 }
 
 // Equipe: 3 camadas (autor → diretoria → final)
-// Gestor: 2 camadas (diretoria → final) — não tem validado_autor
+// Gestor: 3 camadas quando quem preencheu foi o gestor da unidade ou o sub-diretor; 2 (diretoria →
+// final) quando foi o próprio diretor. Como o número de camadas varia por formulário, os selos do
+// gestor dizem O QUE FALTA em vez de contar "N/M" — contar aqui já produziu "2/3" num fluxo de 2.
 const statusLabelsEquipe: Record<string, { label: string; color: string }> = {
   enviado: { label: "Enviado", color: "bg-blue-100 text-blue-700" },
   validado_autor: {
@@ -156,14 +165,12 @@ const statusLabelsEquipe: Record<string, { label: string; color: string }> = {
 };
 const statusLabelsGestor: Record<string, { label: string; color: string }> = {
   enviado: { label: "Enviado", color: "bg-blue-100 text-blue-700" },
-  // A camada do autor não conta aqui: só existe quando o subdiretor preencheu, e mesmo
-  // assim o que falta pra matriz andar é a diretoria.
   validado_autor: {
     label: "Aguardando diretoria",
     color: "bg-blue-100 text-blue-700",
   },
   validado_diretoria: {
-    label: "1/2 Validado",
+    label: "Aguardando validação final",
     color: "bg-orange-100 text-orange-700",
   },
   validado_final: {

@@ -288,7 +288,9 @@ public class CompetenciasGestorService {
             throw new IllegalStateException(reason != null ? reason : "Sem permissão para editar");
         }
 
-        // Auto-validar camada 1 quando o gestor da macroárea edita form do sub-diretor (status enviado).
+        // Auto-validar camada 1 quando o gestor da macroárea edita, em status 'enviado', um formulário
+        // cuja camada de autor ainda faz parte do fluxo — matriz do gestor preenchida por outra pessoa
+        // (gestor da unidade ou sub-diretor), ou matriz da equipe preenchida pelo sub-diretor.
         boolean autoValidateAutor = false;
         try {
             List<Map<String, Object>> areaRows = jdbc.queryForList(
@@ -299,9 +301,12 @@ public class CompetenciasGestorService {
                 Long gestorMacroId = asLong(areaRows.get(0).get("gestor_user_id"));
                 Long subdiretorId = asLong(areaRows.get(0).get("subdiretor_user_id"));
                 boolean isGestorEditando = gestorMacroId != null && userId == gestorMacroId;
-                boolean foiPreenchidoPorSubdiretor = subdiretorId != null && equalsId(existing.get("user_id"), subdiretorId);
+                boolean isTipoGestor = "gestor".equals(existing.get("tipo"));
+                boolean camadaAutorPendente = isTipoGestor
+                        ? (gestorMacroId != null && requerValidacaoAutor(true, existing.get("user_id"), gestorMacroId))
+                        : (subdiretorId != null && equalsId(existing.get("user_id"), subdiretorId));
                 boolean statusEnviado = "enviado".equals(existing.get("status"));
-                if (isGestorEditando && foiPreenchidoPorSubdiretor && statusEnviado) {
+                if (isGestorEditando && camadaAutorPendente && statusEnviado) {
                     autoValidateAutor = true;
                 }
             }
@@ -502,12 +507,15 @@ public class CompetenciasGestorService {
 
     public List<Map<String, Object>> findUnidadesAutorizadas(long userId, String userEmail, String tipo) {
         if ("gestor".equals(tipo)) {
+            // Além do diretor e do sub-diretor da macroárea, o GESTOR DA UNIDADE preenche a matriz do
+            // gestor da própria unidade (cadastros_unidades.responsavel_user_id) — nesse caso ele
+            // valida a camada 1 e a matriz segue para diretoria e validação final.
             try {
                 return jdbc.queryForList(
                         "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
                                 "FROM cadastros_unidades cu " +
                                 "JOIN cadastros_areas ca ON ca.id = cu.area_id " +
-                                "WHERE (ca.gestor_user_id = ? OR ca.subdiretor_user_id = ?) " +
+                                "WHERE (ca.gestor_user_id = ? OR ca.subdiretor_user_id = ? OR cu.responsavel_user_id = ?) " +
                                 "  AND (cu.ativo IS NOT FALSE) " +
                                 "  AND COALESCE(ca.ativo, TRUE) = TRUE " +
                                 "  AND LOWER(TRIM(cu.nome)) <> LOWER(TRIM(ca.sigla)) " +
@@ -516,7 +524,7 @@ public class CompetenciasGestorService {
                                 "    WHERE cgf.unidade_id = cu.id AND cgf.tipo = 'gestor' AND cgf.is_deleted = FALSE " +
                                 "  ) " +
                                 "ORDER BY cu.nome",
-                        userId, userId);
+                        userId, userId, userId);
             } catch (Exception ex) {
                 return jdbc.queryForList(
                         "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
@@ -629,6 +637,20 @@ public class CompetenciasGestorService {
         }
     }
 
+    /**
+     * A camada 1 (autor) faz parte do fluxo deste formulário?
+     *
+     * <p>Matriz da EQUIPE: sempre — 3 camadas (autor → diretoria → final).
+     *
+     * <p>Matriz do GESTOR: depende de quem preencheu. O gestor da unidade e o sub-diretor validam a
+     * própria camada antes de a matriz subir para a diretoria (3 camadas). Quando quem preencheu foi
+     * o próprio diretor da área (<code>cadastros_areas.gestor_user_id</code>) não há camada de autor
+     * a cumprir — restam diretoria + final (2 camadas).
+     */
+    private static boolean requerValidacaoAutor(boolean isGestor, Object autorUserId, long gestorMacroId) {
+        return !isGestor || !equalsId(autorUserId, gestorMacroId);
+    }
+
     /** Camada 1: Validação do autor. */
     @Transactional
     public Map<String, Object> validarAutor(long id, long userId) {
@@ -694,12 +716,10 @@ public class CompetenciasGestorService {
             throw new IllegalStateException("Nenhum gestor configurado para a diretoria " + str(form.get("diretoria")));
         }
         long gestorMacroId = asLong(areaRows.get(0).get("gestor_user_id"));
-        Long subdiretorId = asLong(areaRows.get(0).get("subdiretor_user_id"));
 
-        boolean preenchidoPorSubdiretor = isGestor && subdiretorId != null && equalsId(autorUserId, subdiretorId);
-        boolean requerValidacaoAutor = !isGestor || preenchidoPorSubdiretor;
-        // Quando a camada do autor não faz parte do fluxo (matriz do gestor não preenchida pelo
-        // subdiretor), \"validado_autor\" também serve: a tela do autor permitia validar a própria
+        boolean requerValidacaoAutor = requerValidacaoAutor(isGestor, autorUserId, gestorMacroId);
+        // Quando a camada do autor não faz parte do fluxo (matriz do gestor preenchida pelo próprio
+        // diretor), \"validado_autor\" também serve: a tela do autor permitia validar a própria
         // camada e, exigindo só \"enviado\" aqui, a matriz ficava sem saída — nunca mais avançava.
         boolean statusOk = requerValidacaoAutor
                 ? "validado_autor".equals(status)
@@ -816,9 +836,7 @@ public class CompetenciasGestorService {
             throw new IllegalStateException("Nenhum gestor configurado para a diretoria " + str(form.get("diretoria")));
         }
         long gestorMacroId = asLong(areaRows.get(0).get("gestor_user_id"));
-        Long subdiretorId = asLong(areaRows.get(0).get("subdiretor_user_id"));
-        boolean preenchidoPorSubdiretor = isGestor && subdiretorId != null && equalsId(autorUserId, subdiretorId);
-        boolean requerValidacaoAutor = !isGestor || preenchidoPorSubdiretor;
+        boolean requerValidacaoAutor = requerValidacaoAutor(isGestor, autorUserId, gestorMacroId);
         String statusValido = requerValidacaoAutor ? "validado_autor" : "enviado";
         if (!statusValido.equals(form.get("status"))) {
             throw new IllegalStateException("Formulário não está em estado válido para recusa pela diretoria");

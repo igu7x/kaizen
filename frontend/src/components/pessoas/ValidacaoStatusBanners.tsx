@@ -28,7 +28,13 @@ import {
 
 interface ValidacaoStatusBannersProps {
   formulario: FormularioCompetencias;
-  preenchidoPorSubdiretor?: boolean;
+  /**
+   * A camada 1 (autor) faz parte do fluxo deste formulário? Sempre verdadeiro na matriz da equipe.
+   * Na matriz do GESTOR depende de quem preencheu: gestor da unidade e sub-diretor validam a
+   * própria camada antes de a matriz subir (3 camadas); o diretor da área não (2 camadas).
+   * Espelha CompetenciasGestorService.requerValidacaoAutor no backend.
+   */
+  requerValidacaoAutor?: boolean;
 }
 
 function formatDate(dateStr: string) {
@@ -41,16 +47,16 @@ function formatDate(dateStr: string) {
   });
 }
 
-const STATUS_ORDER_EQUIPE = [
+// Com camada de autor: matriz da equipe e matriz do gestor preenchida por quem não é o diretor.
+const STATUS_ORDER_COM_AUTOR = [
   "enviado",
   "validado_autor",
   "validado_diretoria",
   "validado_final",
 ];
-const STATUS_ORDER_GESTOR = ["enviado", "validado_diretoria", "validado_final"];
-const STATUS_ORDER_GESTOR_SUBDIRETOR = [
+// Sem camada de autor: matriz do gestor preenchida pelo próprio diretor da área.
+const STATUS_ORDER_SEM_AUTOR = [
   "enviado",
-  "validado_autor",
   "validado_diretoria",
   "validado_final",
 ];
@@ -62,82 +68,58 @@ function getStatusIndex(status: string, order: string[]): number {
 
 export function ValidacaoStatusBanners({
   formulario,
-  preenchidoPorSubdiretor,
+  requerValidacaoAutor = true,
 }: ValidacaoStatusBannersProps) {
   const [mudancasOpen, setMudancasOpen] = useState(false);
   const isGestor = formulario.tipo === "gestor";
-  const statusOrder = isGestor
-    ? preenchidoPorSubdiretor
-      ? STATUS_ORDER_GESTOR_SUBDIRETOR
-      : STATUS_ORDER_GESTOR
-    : STATUS_ORDER_EQUIPE;
+  // Só a matriz do gestor preenchida pelo diretor pula a camada de autor. Nos demais casos o
+  // stepper tem as 3 camadas — inclusive na matriz do gestor preenchida pelo gestor da unidade.
+  const comCamadaAutor = !isGestor || requerValidacaoAutor;
+  const statusOrder = comCamadaAutor
+    ? STATUS_ORDER_COM_AUTOR
+    : STATUS_ORDER_SEM_AUTOR;
   const statusIdx = getStatusIndex(formulario.status, statusOrder);
 
-  const layers =
-    isGestor && preenchidoPorSubdiretor
-      ? [
-          {
-            label: "Validação do Sub-diretor",
-            done: statusIdx >= 1,
-            pending: statusIdx === 0,
-            nome: formulario.validado_por_autor_nome,
-            data: formulario.validado_por_autor_em,
-          },
-          {
-            label: "Validação da Diretoria",
-            done: statusIdx >= 2,
-            pending: statusIdx === 1,
-            nome: formulario.validado_por_diretoria_nome,
-            data: formulario.validado_por_diretoria_em,
-          },
-          {
-            label: "Validação Final",
-            done: statusIdx >= 3,
-            pending: statusIdx === 2,
-            nome: formulario.validado_final_nome,
-            data: formulario.validado_final_em,
-          },
-        ]
-      : isGestor
-        ? [
-            {
-              label: "Validação da Diretoria",
-              done: statusIdx >= 1,
-              pending: statusIdx === 0,
-              nome: formulario.validado_por_diretoria_nome,
-              data: formulario.validado_por_diretoria_em,
-            },
-            {
-              label: "Validação Final",
-              done: statusIdx >= 2,
-              pending: statusIdx === 1,
-              nome: formulario.validado_final_nome,
-              data: formulario.validado_final_em,
-            },
-          ]
-        : [
-            {
-              label: "Validação do Autor",
-              done: statusIdx >= 1,
-              pending: statusIdx === 0,
-              nome: formulario.validado_por_autor_nome,
-              data: formulario.validado_por_autor_em,
-            },
-            {
-              label: "Validação da Diretoria",
-              done: statusIdx >= 2,
-              pending: statusIdx === 1,
-              nome: formulario.validado_por_diretoria_nome,
-              data: formulario.validado_por_diretoria_em,
-            },
-            {
-              label: "Validação Final",
-              done: statusIdx >= 3,
-              pending: statusIdx === 2,
-              nome: formulario.validado_final_nome,
-              data: formulario.validado_final_em,
-            },
-          ];
+  const layers = comCamadaAutor
+    ? [
+        {
+          label: "Validação do Autor",
+          done: statusIdx >= 1,
+          pending: statusIdx === 0,
+          nome: formulario.validado_por_autor_nome,
+          data: formulario.validado_por_autor_em,
+        },
+        {
+          label: "Validação da Diretoria",
+          done: statusIdx >= 2,
+          pending: statusIdx === 1,
+          nome: formulario.validado_por_diretoria_nome,
+          data: formulario.validado_por_diretoria_em,
+        },
+        {
+          label: "Validação Final",
+          done: statusIdx >= 3,
+          pending: statusIdx === 2,
+          nome: formulario.validado_final_nome,
+          data: formulario.validado_final_em,
+        },
+      ]
+    : [
+        {
+          label: "Validação da Diretoria",
+          done: statusIdx >= 1,
+          pending: statusIdx === 0,
+          nome: formulario.validado_por_diretoria_nome,
+          data: formulario.validado_por_diretoria_em,
+        },
+        {
+          label: "Validação Final",
+          done: statusIdx >= 2,
+          pending: statusIdx === 1,
+          nome: formulario.validado_final_nome,
+          data: formulario.validado_final_em,
+        },
+      ];
 
   // Tipos de padrão afetados (em pt-BR para mostrar no banner)
   const tiposLabel: Record<string, string> = {

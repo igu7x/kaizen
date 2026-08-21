@@ -1509,7 +1509,14 @@ export function GestaoCompetencias({
       ),
     });
 
-    if (isSGJT || isAvaliadorLideranca || ehGestorOuSubdiretorMacro) {
+    // O gestor da unidade entra aqui para preencher a matriz do gestor da PRÓPRIA unidade — o
+    // backend (findUnidadesAutorizadas) só lhe oferece as unidades onde é responsável.
+    if (
+      isSGJT ||
+      isAvaliadorLideranca ||
+      ehGestorOuSubdiretorMacro ||
+      isGestorDeUnidade
+    ) {
       itensMatriz.push({
         key: "matriz_gestor",
         titulo: "Competências do Gestor",
