@@ -574,7 +574,13 @@ function MenuItemComponent({
               const isSubActive = child.path
                 ? location.pathname === child.path
                 : hasSubChildren &&
-                  child.children?.some((c) => location.pathname === c.path);
+                  // Inclui o 4º nível: sem isso, estar numa tela sob um agrupador
+                  // (ex.: Documentação do SGC) não destacava o item do 2º nível.
+                  child.children?.some(
+                    (c) =>
+                      location.pathname === c.path ||
+                      c.children?.some((n) => location.pathname === n.path),
+                  );
               return (
                 <div key={idx}>
                   {hasSubChildren ? (
@@ -724,6 +730,18 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+/**
+ * Último menu resolvido, guardado em escopo de módulo (sobrevive à remontagem, ao contrário do
+ * state). Cada página monta o próprio <Layout>, então a Sidebar é desmontada e remontada a cada
+ * navegação; sem isto o menu somia e reaparecia toda vez. Chaveado por usuário para nunca reusar
+ * o menu de outra conta depois de um troca-troca de login.
+ */
+let menuCache: {
+  userId: string | number;
+  codigos: string[];
+  areas: Area[];
+} | null = null;
+
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
@@ -802,14 +820,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     return expanded;
   });
 
-  // Estado para armazenar permissões do usuário
-  const [permissoesUsuario, setPermissoesUsuario] = useState<string[]>([]);
-  const [permissoesCarregadas, setPermissoesCarregadas] = useState(false);
-  const [areas, setAreas] = useState<Area[]>([]);
+  // Estado para armazenar permissões do usuário.
+  // Semeado pelo cache de módulo: como cada página monta o próprio <Layout>, a Sidebar REMONTA a
+  // cada navegação. Partindo de vazio, o <nav> ficava em branco até as duas chamadas de API
+  // responderem — era o "pisca" a cada clique no menu. Com o cache o menu já nasce montado e a
+  // busca abaixo apenas revalida.
+  // `user.id != null` é proposital: sem id não há como garantir que o cache é do mesmo usuário,
+  // e permissão de menu não pode ser reaproveitada no escuro.
+  const cacheDoUsuario =
+    menuCache && user?.id != null && String(menuCache.userId) === String(user.id)
+      ? menuCache
+      : null;
+  const [permissoesUsuario, setPermissoesUsuario] = useState<string[]>(
+    () => cacheDoUsuario?.codigos ?? [],
+  );
+  const [permissoesCarregadas, setPermissoesCarregadas] = useState(
+    () => cacheDoUsuario != null,
+  );
+  const [areas, setAreas] = useState<Area[]>(() => cacheDoUsuario?.areas ?? []);
 
   // Carregar permissões da diretoria do usuário
   useEffect(() => {
     const carregarPermissoes = async () => {
+      /** Guarda o menu resolvido para a próxima remontagem da Sidebar. */
+      const guardarNoCache = (codigos: string[], areasDoMenu: Area[]) => {
+        // Sem id não dá para chavear o cache com segurança — melhor não guardar.
+        if (user?.id != null) {
+          menuCache = { userId: user.id, codigos, areas: areasDoMenu };
+        }
+      };
+
       // Carregar áreas da API para verificar is_domain_root (fallback robusto)
       let loadedAreas: Area[] = [];
       try {
@@ -837,6 +877,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         setPermissoesUsuario(todosCodigos);
         setPermissoesCarregadas(true);
+        guardarNoCache(todosCodigos, loadedAreas);
         return;
       }
 
@@ -856,9 +897,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         }
 
         setPermissoesUsuario(Array.from(todosCodigos));
+        guardarNoCache(Array.from(todosCodigos), loadedAreas);
       } catch (error) {
-        // SEGURANÇA: Em caso de erro, NÃO liberar acesso - manter vazio
+        // SEGURANÇA: Em caso de erro, NÃO liberar acesso - manter vazio.
+        // O cache também é zerado: nada de manter menu de uma resposta que falhou.
         setPermissoesUsuario([]);
+        guardarNoCache([], loadedAreas);
       } finally {
         setPermissoesCarregadas(true);
       }

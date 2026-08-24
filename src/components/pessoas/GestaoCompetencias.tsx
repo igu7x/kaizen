@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   UserCheck,
   Scale,
+  ScanSearch,
   GitCompare,
   ShieldAlert,
   ChevronRight,
@@ -45,6 +46,7 @@ import { AvaliacaoGestorRespostas } from "./AvaliacaoGestorRespostas";
 import { AvaliacaoIntegradaResumo } from "./AvaliacaoIntegradaResumo";
 import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
+import { RelatorioLacunas } from "./RelatorioLacunas";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
 import { Wrench } from "lucide-react";
@@ -227,6 +229,7 @@ function PainelItem({
 
 type View =
   | "inventario"
+  | "lacunas"
   | "referencial_home"
   | "inventario_home"
   | "inventario_equipe_home"
@@ -1540,6 +1543,29 @@ export function GestaoCompetencias({
     );
   }
 
+  // ── Lacunas de Competências ───────────────────────────────────
+  // O backend restringe ao gestor da unidade e à direção da área; aqui a tela só
+  // oferece as unidades que o próprio endpoint devolve.
+  if (currentView === "lacunas") {
+    return (
+      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView("inventario_equipe_home")}
+            className="text-gray-600"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
+          </Button>
+          <h2 className="text-xl font-bold text-gray-900">
+            Lacunas de Competências
+          </h2>
+        </div>
+        <RelatorioLacunas />
+      </div>
+    );
+  }
+
   // ── Inventário de Competências — HOME (2 cards) ─────────────────
 
 
@@ -1870,6 +1896,21 @@ export function GestaoCompetencias({
             }}
           />
         ),
+      });
+    }
+
+    // Lacunas de Competências — último card do módulo: é leitura derivada, depende do
+    // Resultado Final já existir. Só quem gere a unidade ou dirige a área; o backend
+    // revalida a unidade a cada geração.
+    if (isGestorDeUnidade || isAvaliadorLideranca || isSGJTAdmin) {
+      itensInvEquipe.push({
+        key: "lacunas_equipe",
+        titulo: "Lacunas de Competências",
+        descricao:
+          "Compare a aplicabilidade declarada na Matriz com o Resultado Final e veja o débito de competências da unidade.",
+        icon: <ScanSearch className="h-5 w-5" />,
+        cor: "violet",
+        aoAbrir: () => setCurrentView("lacunas"),
       });
     }
   }
