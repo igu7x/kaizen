@@ -98,7 +98,7 @@ export default function SgsiMatriz() {
           <Breadcrumbs
             items={[
               {
-                label: "Gestão de Riscos e Compliance",
+                label: "Sistema de Gestão da Segurança da Informação",
                 to: "/seguranca-informacao/instrumentos",
               },
               { label: "Matriz de Rastreabilidade" },
@@ -115,7 +115,7 @@ export default function SgsiMatriz() {
             />
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-0.5">
-                Gestão de Riscos e Compliance
+                Sistema de Gestão da Segurança da Informação
               </p>
               <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <Network className="h-6 w-6 text-blue-600" />
