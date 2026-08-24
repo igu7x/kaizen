@@ -135,6 +135,13 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
       "Com Resultado Final",
       `${rel.colaboradores_avaliados} de ${rel.qtd_colaboradores}`,
     ],
+    // Deixa registrado de qual matriz saiu o "necessário" — um rascunho ainda pode mudar.
+    [
+      "Matriz de referência",
+      rel.matriz_status === "validado_final"
+        ? `Validada${rel.matriz_validada_em ? " em " + new Date(rel.matriz_validada_em).toLocaleDateString("pt-BR") : ""}`
+        : "Em elaboração (sem validação final)",
+    ],
     ["Competências analisadas", String(rel.total_competencias)],
     ["Competências com débito", String(rel.competencias_com_debito)],
     ["Cobertura geral", `${rel.cobertura_geral_percentual}%`],

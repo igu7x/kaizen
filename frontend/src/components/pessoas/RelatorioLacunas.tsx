@@ -238,6 +238,19 @@ export function RelatorioLacunas() {
             />
           </div>
 
+          {/* A matriz de referência pode ainda não estar homologada — nesse caso o "necessário"
+              vem de um rascunho e ainda pode mudar. Quem lê o relatório precisa saber. */}
+          {relatorio.matriz_status !== "validado_final" && (
+            <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
+              <p className="text-sm text-blue-900">
+                A Matriz de Competências desta unidade ainda não recebeu
+                validação final. Os números da coluna "Necessário" vêm de uma
+                versão em elaboração e podem mudar.
+              </p>
+            </div>
+          )}
+
           {/* A ressalva que impede a leitura errada do número: quem não foi avaliado
               nunca entra em "Possuem". */}
           {semCobertura && (

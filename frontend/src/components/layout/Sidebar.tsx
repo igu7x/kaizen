@@ -574,7 +574,13 @@ function MenuItemComponent({
               const isSubActive = child.path
                 ? location.pathname === child.path
                 : hasSubChildren &&
-                  child.children?.some((c) => location.pathname === c.path);
+                  // Inclui o 4º nível: sem isso, estar numa tela sob um agrupador
+                  // (ex.: Documentação do SGC) não destacava o item do 2º nível.
+                  child.children?.some(
+                    (c) =>
+                      location.pathname === c.path ||
+                      c.children?.some((n) => location.pathname === n.path),
+                  );
               return (
                 <div key={idx}>
                   {hasSubChildren ? (
@@ -819,8 +825,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   // cada navegação. Partindo de vazio, o <nav> ficava em branco até as duas chamadas de API
   // responderem — era o "pisca" a cada clique no menu. Com o cache o menu já nasce montado e a
   // busca abaixo apenas revalida.
+  // `user.id != null` é proposital: sem id não há como garantir que o cache é do mesmo usuário,
+  // e permissão de menu não pode ser reaproveitada no escuro.
   const cacheDoUsuario =
-    menuCache && user && String(menuCache.userId) === String(user.id)
+    menuCache && user?.id != null && String(menuCache.userId) === String(user.id)
       ? menuCache
       : null;
   const [permissoesUsuario, setPermissoesUsuario] = useState<string[]>(
@@ -836,7 +844,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const carregarPermissoes = async () => {
       /** Guarda o menu resolvido para a próxima remontagem da Sidebar. */
       const guardarNoCache = (codigos: string[], areasDoMenu: Area[]) => {
-        if (user) {
+        // Sem id não dá para chavear o cache com segurança — melhor não guardar.
+        if (user?.id != null) {
           menuCache = { userId: user.id, codigos, areas: areasDoMenu };
         }
       };
