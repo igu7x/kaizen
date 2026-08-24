@@ -1813,20 +1813,6 @@ export function GestaoCompetencias({
       });
     }
 
-    // Lacunas de Competências — cruza a aplicabilidade da Matriz com o Resultado Final.
-    // Só quem gere a unidade ou dirige a área; o backend valida de novo por unidade.
-    if (isGestorDeUnidade || isAvaliadorLideranca || isSGJTAdmin) {
-      itensInvEquipe.push({
-        key: "lacunas_equipe",
-        titulo: "Lacunas de Competências",
-        descricao:
-          "Compare a aplicabilidade declarada na Matriz com o Resultado Final e veja o débito de competências da unidade.",
-        icon: <ScanSearch className="h-5 w-5" />,
-        cor: "violet",
-        aoAbrir: () => setCurrentView("lacunas"),
-      });
-    }
-
     // Resultado Final do próprio colaborador — não há mais validação, é só consulta.
     const integradaEquipePend = integradaPendentes.filter(
       (p) => (p.tipo_inventario || "equipe") === "equipe",
@@ -1910,6 +1896,21 @@ export function GestaoCompetencias({
             }}
           />
         ),
+      });
+    }
+
+    // Lacunas de Competências — último card do módulo: é leitura derivada, depende do
+    // Resultado Final já existir. Só quem gere a unidade ou dirige a área; o backend
+    // revalida a unidade a cada geração.
+    if (isGestorDeUnidade || isAvaliadorLideranca || isSGJTAdmin) {
+      itensInvEquipe.push({
+        key: "lacunas_equipe",
+        titulo: "Lacunas de Competências",
+        descricao:
+          "Compare a aplicabilidade declarada na Matriz com o Resultado Final e veja o débito de competências da unidade.",
+        icon: <ScanSearch className="h-5 w-5" />,
+        cor: "violet",
+        aoAbrir: () => setCurrentView("lacunas"),
       });
     }
   }
