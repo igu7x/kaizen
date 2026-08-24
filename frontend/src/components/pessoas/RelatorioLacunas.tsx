@@ -214,10 +214,12 @@ export function RelatorioLacunas() {
               valor={String(relatorio.total_competencias)}
               detalhe={`${relatorio.competencias_com_debito} com débito`}
             />
+            {/* A unidade é colaborador × competência: cada pessoa que falta conta uma vez em
+                CADA competência. Dizer "vagas" fazia parecer nº de pessoas. */}
             <Resumo
               rotulo="Débito total"
               valor={String(relatorio.soma_debito)}
-              detalhe="vagas a preencher"
+              detalhe="lacunas (colaborador × competência)"
               destaque={relatorio.soma_debito > 0}
             />
             <Resumo

@@ -138,7 +138,8 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     ["Competências analisadas", String(rel.total_competencias)],
     ["Competências com débito", String(rel.competencias_com_debito)],
     ["Cobertura geral", `${rel.cobertura_geral_percentual}%`],
-    ["Débito total (vagas)", String(rel.soma_debito)],
+    // Unidade: colaborador × competência (uma pessoa em falta conta em cada competência).
+    ["Débito total (colaborador × competência)", String(rel.soma_debito)],
   ];
   const rowH = 7;
   const labelW = 60;
