@@ -45,12 +45,21 @@ import { isDomainRoot, getUserDominio } from "@/utils/domain";
 import { isProduction } from "@/utils/environment";
 import { useEstrategiaModelo } from "@/contexts/EstrategiaModeloContext";
 
-interface SubSubMenuItem {
+/** 4º nível — sempre folha (tem rota). Hoje só o SGC usa. */
+interface SubSubSubMenuItem {
   title: string;
   path: string;
   icon?: LucideIcon;
+}
+
+interface SubSubMenuItem {
+  title: string;
+  /** Opcional: um item do 3º nível pode ser só um agrupador do 4º. */
+  path?: string;
+  icon?: LucideIcon;
   permissaoCodigo?: string;
   stagingOnly?: boolean;
+  children?: SubSubSubMenuItem[];
 }
 
 interface SubMenuItem {
@@ -222,9 +231,89 @@ const menuItemsCompleto: MenuItem[] = [
     superAdminOnly: true,
     children: [
       {
-        title: "Contratações de TIC",
-        icon: DollarSign,
-        path: "/gestao-riscos/contratacoes-tic",
+        // Todas as telas ainda são placeholder (EmDesenvolvimento) — ver App.tsx.
+        title: "Sistema de Gestão de Compliance (SGC)",
+        icon: BookCheck,
+        children: [
+          {
+            title: "O que é Gestão de Compliance",
+            icon: BookOpen,
+            path: "/gestao-riscos/sgc/o-que-e",
+          },
+          {
+            title: "Comitê de Gestão de Compliance",
+            icon: Users,
+            path: "/gestao-riscos/sgc/comite",
+          },
+          {
+            title: "Política e Objetivos",
+            icon: Target,
+            path: "/gestao-riscos/sgc/politica-objetivos",
+          },
+          {
+            title: "Escopo do SGC",
+            icon: FolderKanban,
+            path: "/gestao-riscos/sgc/escopo",
+          },
+          {
+            // Agrupador (4º nível) — não tem tela própria.
+            title: "Documentação do SGC",
+            icon: FileText,
+            children: [
+              {
+                title: "Atos Normativos",
+                icon: Gavel,
+                path: "/gestao-riscos/sgc/documentacao/atos-normativos",
+              },
+              {
+                title: "Manuais e POPs",
+                icon: BookOpen,
+                path: "/gestao-riscos/sgc/documentacao/manuais-pops",
+              },
+              {
+                title: "Arquitetura de Processos",
+                icon: Workflow,
+                path: "/gestao-riscos/sgc/documentacao/arquitetura-processos",
+              },
+              {
+                title: "Modelos e Formulários",
+                icon: FilePlus,
+                path: "/gestao-riscos/sgc/documentacao/modelos-formularios",
+              },
+              {
+                title: "Gerenciamento da Informação Documentada",
+                icon: Database,
+                path: "/gestao-riscos/sgc/documentacao/informacao-documentada",
+              },
+            ],
+          },
+          {
+            title: "Gestão de Mudanças do SGC",
+            icon: RefreshCw,
+            path: "/gestao-riscos/sgc/gestao-mudancas",
+          },
+          {
+            title: "Gestão de Riscos do SGC",
+            icon: ShieldAlert,
+            path: "/gestao-riscos/sgc/gestao-riscos",
+          },
+          {
+            title: "Comunicação do SGC",
+            icon: Megaphone,
+            path: "/gestao-riscos/sgc/comunicacao",
+          },
+          {
+            title: "Avaliação e Melhorias do SGC",
+            icon: BarChart3,
+            path: "/gestao-riscos/sgc/avaliacao-melhorias",
+          },
+        ],
+      },
+      {
+        // Substitui o antigo item "Contratações de TIC" (que era só placeholder).
+        title: "Gestão de Riscos de TIC",
+        icon: ShieldAlert,
+        path: "/gestao-riscos/riscos-tic",
       },
     ],
   },
@@ -531,10 +620,62 @@ function MenuItemComponent({
                       {child.children?.map((subChild, subIdx) => {
                         const isSubSubActive =
                           location.pathname === subChild.path;
+                        // 4º nível: item do 3º que agrupa outros em vez de ter rota própria.
+                        const netos = subChild.children ?? [];
+                        if (netos.length > 0) {
+                          const netoAtivo = netos.some(
+                            (n) => location.pathname === n.path,
+                          );
+                          return (
+                            <div key={`sub-${idx}-${subIdx}`}>
+                              <button
+                                onClick={() => toggleMenu(subChild.title)}
+                                className={cn(
+                                  "w-full flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors",
+                                  netoAtivo && "text-white font-medium",
+                                )}
+                              >
+                                {subChild.icon && (
+                                  <subChild.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                )}
+                                <span className="flex-1 text-left">
+                                  {subChild.title}
+                                </span>
+                                <ChevronDown
+                                  className={cn(
+                                    "h-3 w-3 transition-transform duration-200",
+                                    expandedMenus.includes(subChild.title) &&
+                                      "rotate-180",
+                                  )}
+                                />
+                              </button>
+                              {expandedMenus.includes(subChild.title) && (
+                                <div className="pl-4">
+                                  {netos.map((neto, netoIdx) => (
+                                    <Link
+                                      key={`neto-${idx}-${subIdx}-${netoIdx}`}
+                                      to={neto.path}
+                                      className={cn(
+                                        "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/50 hover:bg-white/10 hover:text-white transition-colors",
+                                        location.pathname === neto.path &&
+                                          "text-white font-medium",
+                                      )}
+                                    >
+                                      {neto.icon && (
+                                        <neto.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                      )}
+                                      <span>{neto.title}</span>
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
                         return (
                           <Link
                             key={`sub-${idx}-${subIdx}`}
-                            to={subChild.path}
+                            to={subChild.path || "#"}
                             // onClick={onNavigate} Removido para não fechar a navbar ao clicar
                             className={cn(
                               "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors",
@@ -625,27 +766,31 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const currentPath = location.pathname;
     const expanded: string[] = [];
 
+    const casa = (p?: string) =>
+      !!p && (currentPath === p || currentPath.startsWith(p + "/"));
+
     menuItemsCompleto.forEach((item) => {
       let isItemExpanded = false;
 
       item.children?.forEach((child) => {
-        const isChildActive =
-          child.path &&
-          (currentPath === child.path ||
-            currentPath.startsWith(child.path + "/"));
-        const isSubChildActive = child.children?.some(
-          (sub) =>
-            sub.path &&
-            (currentPath === sub.path ||
-              currentPath.startsWith(sub.path + "/")),
+        const isChildActive = casa(child.path);
+        const isSubChildActive = child.children?.some((sub) => casa(sub.path));
+        // 4º nível: quando a rota ativa está sob um agrupador do 3º nível, os
+        // DOIS ancestrais precisam abrir (o do 2º e o próprio agrupador).
+        const agrupadorAtivo = child.children?.find((sub) =>
+          sub.children?.some((neto) => casa(neto.path)),
         );
 
-        if (isChildActive || isSubChildActive) {
+        if (isChildActive || isSubChildActive || agrupadorAtivo) {
           isItemExpanded = true;
         }
 
-        if (isSubChildActive) {
+        if (isSubChildActive || agrupadorAtivo) {
           expanded.push(child.title);
+        }
+
+        if (agrupadorAtivo) {
+          expanded.push(agrupadorAtivo.title);
         }
       });
 
@@ -733,29 +878,34 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   useEffect(() => {
     const currentPath = location.pathname;
 
+    const casa = (p?: string) =>
+      !!p && (currentPath === p || currentPath.startsWith(p + "/"));
+    const abrir = (titulo: string) =>
+      setExpandedMenus((prev) =>
+        prev.includes(titulo) ? prev : [...prev, titulo],
+      );
+
     menuItemsCompleto.forEach((item) => {
       let shouldExpandItem = false;
 
       item.children?.forEach((child) => {
-        const isChildActive =
-          child.path &&
-          (currentPath === child.path ||
-            currentPath.startsWith(child.path + "/"));
-        const isSubChildActive = child.children?.some(
-          (sub) =>
-            sub.path &&
-            (currentPath === sub.path ||
-              currentPath.startsWith(sub.path + "/")),
+        const isChildActive = casa(child.path);
+        const isSubChildActive = child.children?.some((sub) => casa(sub.path));
+        // 4º nível — mesma regra do estado inicial: abre o agrupador junto.
+        const agrupadorAtivo = child.children?.find((sub) =>
+          sub.children?.some((neto) => casa(neto.path)),
         );
 
-        if (isChildActive || isSubChildActive) {
+        if (isChildActive || isSubChildActive || agrupadorAtivo) {
           shouldExpandItem = true;
         }
 
-        if (isSubChildActive) {
-          setExpandedMenus((prev) =>
-            prev.includes(child.title) ? prev : [...prev, child.title],
-          );
+        if (isSubChildActive || agrupadorAtivo) {
+          abrir(child.title);
+        }
+
+        if (agrupadorAtivo) {
+          abrir(agrupadorAtivo.title);
         }
       });
 
