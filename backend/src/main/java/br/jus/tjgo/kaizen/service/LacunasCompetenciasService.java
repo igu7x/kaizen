@@ -124,10 +124,13 @@ public class LacunasCompetenciasService {
                         "ORDER BY i.ordem, i.id",
                 matrizId);
 
+        int totalAvaliados = formulariosIntegrados.size();
         List<Map<String, Object>> linhas = new ArrayList<>();
         int somaNecessario = 0;
         int somaPossuem = 0;
         int somaDebito = 0;
+        int somaNecessarioAvaliados = 0;
+        int somaDebitoAvaliados = 0;
         for (Map<String, Object> item : itens) {
             String nome = str(item.get("nome"));
             boolean paraTodos = !"parte".equalsIgnoreCase(str(item.get("aplicabilidade")));
@@ -138,6 +141,13 @@ public class LacunasCompetenciasService {
             int possuem = contarAptos(formulariosIntegrados, nome, nivelMinimo);
             int debito = Math.max(0, necessario - possuem);
 
+            // Recorte entre quem JÁ TEM Resultado Final. Separa "falta competência" de "falta
+            // avaliação": no débito cheio, todo colaborador ainda não avaliado vira lacuna em
+            // todas as competências, e o número passa a medir cobertura de avaliação, não domínio.
+            // A base é o que dá para observar hoje — no máximo o total de avaliados.
+            int necessarioAvaliados = Math.min(necessario, totalAvaliados);
+            int debitoAvaliados = Math.max(0, necessarioAvaliados - possuem);
+
             Map<String, Object> linha = new LinkedHashMap<>();
             linha.put("competencia_id", item.get("id"));
             linha.put("competencia_nome", nome);
@@ -147,6 +157,8 @@ public class LacunasCompetenciasService {
             linha.put("necessario", necessario);
             linha.put("possuem", possuem);
             linha.put("debito", debito);
+            linha.put("necessario_avaliados", necessarioAvaliados);
+            linha.put("debito_avaliados", debitoAvaliados);
             // Percentual de cobertura da competência (100% = ninguém em falta).
             linha.put("cobertura_percentual",
                     necessario > 0 ? Math.min(100, (possuem * 100) / necessario) : 100);
@@ -155,6 +167,8 @@ public class LacunasCompetenciasService {
             somaNecessario += necessario;
             somaPossuem += Math.min(possuem, necessario);
             somaDebito += debito;
+            somaNecessarioAvaliados += necessarioAvaliados;
+            somaDebitoAvaliados += debitoAvaliados;
         }
 
         Map<String, Object> out = new LinkedHashMap<>();
@@ -175,6 +189,11 @@ public class LacunasCompetenciasService {
         out.put("soma_necessario", somaNecessario);
         out.put("soma_possuem", somaPossuem);
         out.put("soma_debito", somaDebito);
+        // Recorte só entre os avaliados — o débito que é de fato falta de competência.
+        out.put("soma_necessario_avaliados", somaNecessarioAvaliados);
+        out.put("soma_debito_avaliados", somaDebitoAvaliados);
+        out.put("competencias_com_debito_avaliados",
+                linhas.stream().filter(l -> ((Number) l.get("debito_avaliados")).intValue() > 0).count());
         out.put("cobertura_geral_percentual",
                 somaNecessario > 0 ? (somaPossuem * 100) / somaNecessario : 100);
         out.put("competencias", linhas);

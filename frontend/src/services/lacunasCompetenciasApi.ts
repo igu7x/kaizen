@@ -23,6 +23,10 @@ export interface LinhaLacuna {
   possuem: number;
   /** necessario - possuem, nunca negativo. */
   debito: number;
+  /** Base observável hoje: min(necessario, colaboradores com Resultado Final). */
+  necessario_avaliados: number;
+  /** Débito considerando só quem já foi avaliado — falta de competência, não de avaliação. */
+  debito_avaliados: number;
   cobertura_percentual: number;
 }
 
@@ -42,6 +46,9 @@ export interface RelatorioLacunas {
   soma_necessario: number;
   soma_possuem: number;
   soma_debito: number;
+  soma_necessario_avaliados: number;
+  soma_debito_avaliados: number;
+  competencias_com_debito_avaliados: number;
   cobertura_geral_percentual: number;
   competencias: LinhaLacuna[];
 }

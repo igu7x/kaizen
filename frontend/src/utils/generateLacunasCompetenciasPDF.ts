@@ -140,6 +140,12 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     ["Cobertura geral", `${rel.cobertura_geral_percentual}%`],
     // Unidade: colaborador × competência (uma pessoa em falta conta em cada competência).
     ["Débito total (colaborador × competência)", String(rel.soma_debito)],
+    // Recorte só entre quem tem Resultado Final — falta de competência, sem o ruído da
+    // falta de avaliação.
+    [
+      "Débito entre avaliados",
+      `${rel.soma_debito_avaliados} de ${rel.soma_necessario_avaliados} possíveis`,
+    ],
   ];
   const rowH = 7;
   const labelW = 60;
@@ -245,10 +251,8 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     addFooter(doc, i, total);
   }
 
-  const slug = (rel.unidade_nome || "unidade")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .toLowerCase();
-  doc.save(`lacunas-competencias-${slug}.pdf`);
+  // Abrir PDF em nova aba — mesmo comportamento dos demais geradores do módulo (o visualizador
+  // do navegador já oferece o download). Baixar direto foge do padrão das outras telas.
+  const blobUrl = doc.output("bloburl");
+  window.open(blobUrl as unknown as string, "_blank");
 }

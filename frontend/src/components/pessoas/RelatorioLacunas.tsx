@@ -203,7 +203,7 @@ export function RelatorioLacunas() {
       {relatorio && (
         <>
           {/* Resumo */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <Resumo
               rotulo="Colaboradores"
               valor={String(relatorio.qtd_colaboradores)}
@@ -221,6 +221,15 @@ export function RelatorioLacunas() {
               valor={String(relatorio.soma_debito)}
               detalhe="lacunas (colaborador × competência)"
               destaque={relatorio.soma_debito > 0}
+            />
+            {/* O recorte que separa falta de COMPETÊNCIA de falta de AVALIAÇÃO: olha só quem
+                já tem Resultado Final. Enquanto a equipe não estiver toda avaliada, é este o
+                número que fala sobre domínio técnico. */}
+            <Resumo
+              rotulo="Débito entre avaliados"
+              valor={String(relatorio.soma_debito_avaliados)}
+              detalhe={`de ${relatorio.soma_necessario_avaliados} possíveis · ${relatorio.competencias_com_debito_avaliados} competência(s)`}
+              destaque={relatorio.soma_debito_avaliados > 0}
             />
             <Resumo
               rotulo="Cobertura geral"
@@ -241,7 +250,9 @@ export function RelatorioLacunas() {
                   colaborador(es)
                 </strong>{" "}
                 ainda não têm Resultado Final calculado e não entram na coluna
-                "Possuem" — o débito abaixo é o pior cenário.
+                "Possuem" — o débito abaixo é o pior cenário. Para enxergar só a
+                falta de competência de quem já foi medido, use{" "}
+                <strong>Débito entre avaliados</strong>.
               </p>
             </div>
           )}
