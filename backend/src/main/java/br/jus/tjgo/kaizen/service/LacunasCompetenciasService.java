@@ -125,6 +125,11 @@ public class LacunasCompetenciasService {
                 matrizId);
 
         int totalAvaliados = formulariosIntegrados.size();
+        // Notas de cada avaliado, agrupadas por nome e PRESERVANDO A ORDEM das respostas.
+        // A ordem é o que permite casar a n-ésima competência de nome repetido da matriz com a
+        // n-ésima resposta da pessoa — ver contarAptos.
+        Map<Long, Map<String, List<Integer>>> notasPorPessoa = carregarNotas(formulariosIntegrados);
+        Map<String, Integer> ocorrencias = new LinkedHashMap<>();
         List<Map<String, Object>> linhas = new ArrayList<>();
         int somaNecessario = 0;
         int somaPossuem = 0;
@@ -138,7 +143,10 @@ public class LacunasCompetenciasService {
                     ? qtdColaboradores
                     : (item.get("quantidade_pessoas") != null
                             ? ((Number) item.get("quantidade_pessoas")).intValue() : 0);
-            int possuem = contarAptos(formulariosIntegrados, nome, nivelMinimo);
+            // Índice desta ocorrência do nome dentro da matriz (0, 1, 2...).
+            String chave = normalizar(nome);
+            int ocorrencia = ocorrencias.merge(chave, 1, Integer::sum) - 1;
+            int possuem = contarAptos(notasPorPessoa, chave, ocorrencia, nivelMinimo);
             int debito = Math.max(0, necessario - possuem);
 
             // Recorte entre quem JÁ TEM Resultado Final. Separa "falta competência" de "falta
@@ -201,22 +209,66 @@ public class LacunasCompetenciasService {
     }
 
     /**
-     * Quantos colaboradores atingem o nível mínimo na competência. O pareamento é por NOME
-     * normalizado — {@code competencia_unidade_id} vem nulo na grande maioria das respostas, então
-     * é o nome que liga a matriz ao Resultado Final (mesma escolha do resto do módulo).
+     * Notas de cada avaliado, por nome de competência, na ordem em que aparecem no Resultado Final.
+     * Uma consulta só para todo o relatório (evita uma ida ao banco por competência).
      */
-    private int contarAptos(List<Long> formularioIds, String nome, int nivelMinimo) {
-        if (formularioIds.isEmpty() || nome == null || nome.isBlank()) {
-            return 0;
+    private Map<Long, Map<String, List<Integer>>> carregarNotas(List<Long> formularioIds) {
+        Map<Long, Map<String, List<Integer>>> porPessoa = new LinkedHashMap<>();
+        if (formularioIds.isEmpty()) {
+            return porPessoa;
         }
-        Integer total = jdbc.queryForObject(
-                "SELECT COUNT(DISTINCT r.formulario_id)::int " +
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT r.formulario_id, r.competencia_nome, r.nota_integrada " +
                         "FROM avaliacao_integrada_respostas r " +
                         "WHERE r.formulario_id = ANY(?::bigint[]) " +
-                        "  AND LOWER(BTRIM(r.competencia_nome)) = LOWER(BTRIM(?)) " +
-                        "  AND r.nota_integrada IS NOT NULL AND r.nota_integrada >= ?",
-                Integer.class, bigintArray(formularioIds), nome, nivelMinimo);
-        return total == null ? 0 : total;
+                        "ORDER BY r.formulario_id, r.ordem, r.id",
+                bigintArray(formularioIds));
+        for (Map<String, Object> row : rows) {
+            long formularioId = ((Number) row.get("formulario_id")).longValue();
+            String chave = normalizar(str(row.get("competencia_nome")));
+            Integer nota = row.get("nota_integrada") != null
+                    ? ((Number) row.get("nota_integrada")).intValue() : null;
+            porPessoa
+                    .computeIfAbsent(formularioId, k -> new LinkedHashMap<>())
+                    .computeIfAbsent(chave, k -> new ArrayList<>())
+                    .add(nota);
+        }
+        return porPessoa;
+    }
+
+    /**
+     * Quantos avaliados atingem o nível mínimo NESTA ocorrência da competência.
+     *
+     * <p>O pareamento é por nome — {@code competencia_unidade_id} vem nulo na grande maioria das
+     * respostas, então é o nome que liga a matriz ao Resultado Final (mesma escolha do resto do
+     * módulo). Só que nomes repetidos são comuns na matriz, e aí o nome sozinho não basta: contar
+     * "existe alguma resposta com esse nome acima do corte" dava a MESMA contagem para todas as
+     * ocorrências e escondia a que estava abaixo. Por isso a n-ésima ocorrência do nome na matriz
+     * é comparada com a n-ésima resposta da pessoa — a ordem é a mesma dos dois lados, porque as
+     * respostas nascem da própria matriz. Ver o mesmo raciocínio em
+     * AvaliacaoIntegradaService.chavesDeOcorrencia.
+     */
+    private int contarAptos(Map<Long, Map<String, List<Integer>>> notasPorPessoa,
+                            String chave, int ocorrencia, int nivelMinimo) {
+        if (chave == null || chave.isBlank()) {
+            return 0;
+        }
+        int aptos = 0;
+        for (Map<String, List<Integer>> doPessoa : notasPorPessoa.values()) {
+            List<Integer> notas = doPessoa.get(chave);
+            if (notas == null || notas.size() <= ocorrencia) {
+                continue;
+            }
+            Integer nota = notas.get(ocorrencia);
+            if (nota != null && nota >= nivelMinimo) {
+                aptos++;
+            }
+        }
+        return aptos;
+    }
+
+    private static String normalizar(String nome) {
+        return nome == null ? "" : nome.trim().toLowerCase();
     }
 
     private static String bigintArray(List<Long> ids) {
