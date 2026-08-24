@@ -35,8 +35,10 @@ import {
   PacCertificado,
   progressoCapacitacao,
   vagasEfetivas,
+  PacParametros,
 } from "@/services/pacCapacitacaoApi";
 import { getColaboradores, Colaborador } from "@/services/colaboradoresApi";
+import { PacMetasCards } from "@/components/pessoas/PacMetasCards";
 import { areasApi, Area } from "@/services/areasApi";
 import {
   GraduationCap,
@@ -121,6 +123,7 @@ export default function PacCapacitacao({
   modulo = "ti",
 }: PacCapacitacaoProps) {
   const [itens, setItens] = useState<PacCapacitacaoItem[]>([]);
+  const [parametros, setParametros] = useState<PacParametros | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<number | null>(null);
 
@@ -162,8 +165,29 @@ export default function PacCapacitacao({
     }
   };
 
+  /** Recarrega os números da Meta 2 (total de servidores + capacitados). */
+  const carregarParametros = () => {
+    pacCapacitacaoApi
+      .getParametros(modulo)
+      .then(setParametros)
+      .catch(() => setParametros(null));
+  };
+
+  const salvarTotalServidores = async (valor: number) => {
+    try {
+      const atualizado = await pacCapacitacaoApi.salvarParametros(
+        modulo,
+        valor,
+      );
+      setParametros(atualizado);
+    } catch {
+      /* erro tratado no apiClient */
+    }
+  };
+
   useEffect(() => {
     carregar();
+    carregarParametros();
     getColaboradores()
       .then(setColaboradores)
       .catch(() => setColaboradores([]));
@@ -337,7 +361,9 @@ export default function PacCapacitacao({
       toast.success("Certificado adicionado.");
       const capId = certDialogItem.id;
       setCertDialogItem(null);
+      // Certificado mexe no progresso do item E no total de servidores capacitados (Meta 2).
       await Promise.all([carregarCerts(capId), carregar()]);
+      carregarParametros();
     } catch {
       /* erro tratado no apiClient */
     } finally {
@@ -374,7 +400,9 @@ export default function PacCapacitacao({
       toast.success("Certificado removido.");
       const capId = excluirCert.capacitacaoId;
       setExcluirCert(null);
+      // Certificado mexe no progresso do item E no total de servidores capacitados (Meta 2).
       await Promise.all([carregarCerts(capId), carregar()]);
+      carregarParametros();
     } catch {
       /* erro tratado no apiClient */
     }
@@ -442,6 +470,18 @@ export default function PacCapacitacao({
           </Select>
         </div>
 
+        {/* Metas e status — calculados sobre TODOS os itens do módulo, não sobre `filtrados`:
+            é o desempenho do plano, não da busca em tela. */}
+        <PacMetasCards
+          totalAcoes={itens.length}
+          acoesConcluidas={
+            itens.filter((it) => progressoCapacitacao(it) >= 100).length
+          }
+          totalServidores={parametros?.total_servidores ?? 0}
+          servidoresCapacitados={parametros?.servidores_capacitados ?? 0}
+          onSalvarTotalServidores={salvarTotalServidores}
+        />
+
         {/* Tabela */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -508,12 +548,17 @@ export default function PacCapacitacao({
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editId ? "Editar item de capacitação" : "Novo item de capacitação"}
+              {editId
+                ? "Editar item de capacitação"
+                : "Novo item de capacitação"}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 py-2">
-            <Secao icone={<Layers className="h-4 w-4" />} titulo="Identificação">
+            <Secao
+              icone={<Layers className="h-4 w-4" />}
+              titulo="Identificação"
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Campo label="Código">
                   <Input
@@ -725,9 +770,7 @@ export default function PacCapacitacao({
               <DiretoriaPicker
                 areas={areas}
                 value={certForm.diretoria}
-                onChange={(v) =>
-                  setCertForm((f) => ({ ...f, diretoria: v }))
-                }
+                onChange={(v) => setCertForm((f) => ({ ...f, diretoria: v }))}
               />
             </div>
             <div>
@@ -795,7 +838,10 @@ export default function PacCapacitacao({
       </Dialog>
 
       {/* Confirmação de exclusão do item */}
-      <AlertDialog open={!!excluir} onOpenChange={(o) => !o && setExcluir(null)}>
+      <AlertDialog
+        open={!!excluir}
+        onOpenChange={(o) => !o && setExcluir(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir item</AlertDialogTitle>

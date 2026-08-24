@@ -81,12 +81,49 @@ export function progressoCapacitacao(it: PacCapacitacaoItem): number {
   return Math.min(100, Math.round((feitos / total) * 100));
 }
 
+/** Números da Meta 2 — o total de servidores é informado pelo gestor, não derivado do cadastro. */
+export interface PacParametros {
+  modulo: string;
+  total_servidores: number;
+  servidores_capacitados: number;
+  atualizado_em?: string | null;
+}
+
+/**
+ * Metas do PAC. São a regra do plano e não mudam de ano para ano, por isso vivem como constante
+ * e não em banco — só o denominador da Meta 2 é configurável.
+ */
+export const META_1_PERCENTUAL = 75;
+export const META_2_PERCENTUAL = 40;
+
 export const pacCapacitacaoApi = {
   async list(modulo: string = "ti"): Promise<PacCapacitacaoItem[]> {
     const data = await apiClient.request<PacCapacitacaoItem[]>(
       `${BASE_URL}?modulo=${encodeURIComponent(modulo)}`,
     );
     return (data || []).map(normalizar);
+  },
+
+  async getParametros(modulo: string = "ti"): Promise<PacParametros> {
+    const data = await apiClient.request<PacParametros>(
+      `${BASE_URL}/parametros?modulo=${encodeURIComponent(modulo)}`,
+    );
+    return {
+      modulo: data?.modulo ?? modulo,
+      total_servidores: Number(data?.total_servidores ?? 0),
+      servidores_capacitados: Number(data?.servidores_capacitados ?? 0),
+      atualizado_em: data?.atualizado_em ?? null,
+    };
+  },
+
+  async salvarParametros(
+    modulo: string,
+    totalServidores: number,
+  ): Promise<PacParametros> {
+    return apiClient.put<PacParametros>(
+      `${BASE_URL}/parametros?modulo=${encodeURIComponent(modulo)}`,
+      { total_servidores: totalServidores },
+    );
   },
 
   async create(data: PacCapacitacaoInput): Promise<PacCapacitacaoItem> {

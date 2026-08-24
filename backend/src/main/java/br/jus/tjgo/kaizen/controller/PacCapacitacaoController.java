@@ -25,6 +25,34 @@ public class PacCapacitacaoController {
         return service.list(modulo);
     }
 
+    /** Números da Meta 2: total de servidores do módulo e quantos já se capacitaram. */
+    @GetMapping("/parametros")
+    public Map<String, Object> getParametros(
+            @RequestParam(value = "modulo", required = false, defaultValue = "ti") String modulo) {
+        return service.getParametros(modulo);
+    }
+
+    /** Atualiza o total de servidores do módulo (denominador da Meta 2). */
+    @PutMapping("/parametros")
+    public ResponseEntity<?> salvarParametros(
+            @RequestParam(value = "modulo", required = false, defaultValue = "ti") String modulo,
+            @RequestBody Map<String, Object> body) {
+        Object bruto = body.get("total_servidores");
+        int total;
+        try {
+            total = bruto == null ? 0 : Integer.parseInt(String.valueOf(bruto).trim());
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "total_servidores deve ser um número inteiro"));
+        }
+        if (total < 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "total_servidores não pode ser negativo"));
+        }
+        return ResponseEntity.ok(
+                service.salvarParametros(modulo, total, br.jus.tjgo.kaizen.auth.AuthContext.requestUserId()));
+    }
+
     @GetMapping("/{id:\\d+}")
     public ResponseEntity<?> getById(@PathVariable long id) {
         Map<String, Object> item = service.getById(id);

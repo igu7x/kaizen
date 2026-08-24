@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -143,6 +144,62 @@ public class PacCapacitacaoService {
 
     private String blankToNull(String s) {
         return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
+    // ============================================================
+    // PARÂMETROS DAS METAS
+    // ============================================================
+
+    /**
+     * Números da Meta 2 do módulo: o total de servidores (informado pelo gestor e travado para o
+     * ciclo) e quantos já participaram de ao menos uma ação.
+     *
+     * <p>Meta 1 e o gráfico de status NÃO saem daqui: derivam de certificados x vagas de cada item,
+     * que a tela já tem em mãos. Calcular de novo no backend abriria espaço para o card divergir
+     * da própria tabela logo abaixo dele.
+     */
+    public Map<String, Object> getParametros(String modulo) {
+        String mod = modulo == null || modulo.isBlank() ? "ti" : modulo.trim();
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT total_servidores, updated_at FROM pac_parametros WHERE modulo = ?", mod);
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("modulo", mod);
+        out.put("total_servidores", rows.isEmpty() ? 0 : rows.get(0).get("total_servidores"));
+        out.put("atualizado_em", rows.isEmpty() ? null : rows.get(0).get("updated_at"));
+        out.put("servidores_capacitados", contarServidoresCapacitados(mod));
+        return out;
+    }
+
+    /**
+     * Servidores distintos com ao menos um certificado no módulo. Casa por
+     * {@code colaborador_id} e, quando ele é nulo (certificado lançado só com o nome), pelo nome
+     * normalizado — senão a mesma pessoa contaria mais de uma vez e a meta inflaria.
+     */
+    private int contarServidoresCapacitados(String modulo) {
+        Integer total = jdbc.queryForObject(
+                "SELECT COUNT(DISTINCT COALESCE(c.colaborador_id::text, LOWER(BTRIM(c.nome_servidor))))::int " +
+                        "FROM pac_capacitacao_certificados c " +
+                        "JOIN pac_capacitacao p ON p.id = c.capacitacao_id " +
+                        "WHERE p.modulo = ? AND COALESCE(p.is_deleted, FALSE) = FALSE " +
+                        "  AND COALESCE(c.is_deleted, FALSE) = FALSE " +
+                        "  AND COALESCE(BTRIM(c.nome_servidor), '') <> ''",
+                Integer.class, modulo);
+        return total == null ? 0 : total;
+    }
+
+    /** Grava o total de servidores do módulo (upsert por módulo). */
+    public Map<String, Object> salvarParametros(String modulo, Integer totalServidores, Long userId) {
+        String mod = modulo == null || modulo.isBlank() ? "ti" : modulo.trim();
+        int total = totalServidores == null || totalServidores < 0 ? 0 : totalServidores;
+        jdbc.update(
+                "INSERT INTO pac_parametros (modulo, total_servidores, updated_at, updated_by) " +
+                        "VALUES (?, ?, NOW(), ?) " +
+                        "ON CONFLICT (modulo) DO UPDATE " +
+                        "SET total_servidores = EXCLUDED.total_servidores, " +
+                        "    updated_at = NOW(), updated_by = EXCLUDED.updated_by",
+                mod, total, userId);
+        return getParametros(mod);
     }
 
     /** numero_vagas é INTEGER; os demais são texto. Strings vazias viram NULL. */
