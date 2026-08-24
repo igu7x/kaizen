@@ -1,0 +1,69 @@
+package br.jus.tjgo.kaizen.controller;
+
+import br.jus.tjgo.kaizen.auth.AuthContext;
+import br.jus.tjgo.kaizen.service.LacunasCompetenciasService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Relatório de Lacunas de Competências. Endpoints SOMENTE DE LEITURA — o relatório é calculado
+ * na hora da consulta, nada é gravado nem alterado.
+ *
+ * <p>Acesso restrito ao gestor da unidade e ao diretor/sub-diretor da área (e a superadmin).
+ */
+@Tag(name = "Competências — Lacunas",
+     description = "Compara a aplicabilidade declarada na Matriz da equipe com o Resultado Final, apontando o débito de competências da unidade.")
+@RestController
+@RequestMapping("/api/competencias/lacunas")
+@RequiredArgsConstructor
+public class LacunasCompetenciasController {
+
+    private final LacunasCompetenciasService service;
+
+    private long currentUserId() {
+        Long id = AuthContext.requestUserId();
+        return id != null ? id : -1L;
+    }
+
+    private boolean isSuperadmin() {
+        return AuthContext.getCurrentUser().map(u -> u.isSuperadmin()).orElse(false);
+    }
+
+    /** Unidades sobre as quais o usuário logado pode emitir o relatório. */
+    @GetMapping("/unidades")
+    public List<Map<String, Object>> unidades() {
+        return service.unidadesPermitidas(currentUserId(), isSuperadmin());
+    }
+
+    /**
+     * Relatório da unidade, calculado no momento da chamada.
+     *
+     * @param nivelMinimo nota mínima (1..5) para considerar que o colaborador domina a competência.
+     */
+    @GetMapping
+    public ResponseEntity<?> relatorio(
+            @RequestParam("unidadeId") long unidadeId,
+            @RequestParam(value = "nivelMinimo", required = false) Integer nivelMinimo) {
+        long userId = currentUserId();
+        if (!service.podeGerar(unidadeId, userId, isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas o gestor da unidade e a direção da área podem gerar este relatório"));
+        }
+        int nivel = nivelMinimo != null ? nivelMinimo : LacunasCompetenciasService.NIVEL_MINIMO_PADRAO;
+        if (nivel < 1 || nivel > 5) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "nivelMinimo deve estar entre 1 e 5"));
+        }
+        Map<String, Object> relatorio = service.gerar(unidadeId, nivel);
+        if (relatorio == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "A unidade ainda não tem Matriz de Competências da equipe — sem ela não há o que comparar"));
+        }
+        return ResponseEntity.ok(relatorio);
+    }
+}
