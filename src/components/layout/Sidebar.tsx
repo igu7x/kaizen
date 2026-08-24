@@ -45,12 +45,21 @@ import { isDomainRoot, getUserDominio } from "@/utils/domain";
 import { isProduction } from "@/utils/environment";
 import { useEstrategiaModelo } from "@/contexts/EstrategiaModeloContext";
 
-interface SubSubMenuItem {
+/** 4º nível — sempre folha (tem rota). Hoje só o SGC usa. */
+interface SubSubSubMenuItem {
   title: string;
   path: string;
   icon?: LucideIcon;
+}
+
+interface SubSubMenuItem {
+  title: string;
+  /** Opcional: um item do 3º nível pode ser só um agrupador do 4º. */
+  path?: string;
+  icon?: LucideIcon;
   permissaoCodigo?: string;
   stagingOnly?: boolean;
+  children?: SubSubSubMenuItem[];
 }
 
 interface SubMenuItem {
@@ -217,111 +226,193 @@ const menuItemsCompleto: MenuItem[] = [
     permissaoCodigo: "painel_indicadores",
   },
   {
-    // Módulo em construção (porte do SGSI/TJGO). Restrito a superadmin por ora.
     title: "Gestão de Riscos e Compliance",
     icon: Scale,
     superAdminOnly: true,
     children: [
       {
-        title: "Segurança da Informação",
-        icon: Shield,
+        // Todas as telas ainda são placeholder (EmDesenvolvimento) — ver App.tsx.
+        title: "Sistema de Gestão de Compliance (SGC)",
+        icon: BookCheck,
         children: [
           {
-            title: "Painel",
-            icon: LayoutDashboard,
-            path: "/seguranca-informacao/painel",
-          },
-          {
-            title: "Alertas",
-            icon: Bell,
-            path: "/seguranca-informacao/alertas",
-          },
-          {
-            title: "Instrumentos Normativos",
+            title: "O que é Gestão de Compliance",
             icon: BookOpen,
-            path: "/seguranca-informacao/instrumentos",
+            path: "/gestao-riscos/sgc/o-que-e",
           },
           {
-            title: "Ciência e Leitura",
-            icon: BookCheck,
-            path: "/seguranca-informacao/leitura",
+            title: "Comitê de Gestão de Compliance",
+            icon: Users,
+            path: "/gestao-riscos/sgc/comite",
           },
           {
-            title: "Obrigações Documentais",
-            icon: FileText,
-            path: "/seguranca-informacao/documentos",
+            title: "Política e Objetivos",
+            icon: Target,
+            path: "/gestao-riscos/sgc/politica-objetivos",
           },
           {
-            title: "Indicadores",
-            icon: BarChart3,
-            path: "/seguranca-informacao/indicadores",
-          },
-          {
-            title: "Frameworks",
+            title: "Escopo do SGC",
             icon: FolderKanban,
-            path: "/seguranca-informacao/frameworks",
+            path: "/gestao-riscos/sgc/escopo",
           },
           {
-            title: "Riscos",
-            icon: Shield,
-            path: "/seguranca-informacao/riscos",
-          },
-          {
-            title: "Eventos e SLA",
-            icon: ShieldAlert,
-            path: "/seguranca-informacao/eventos",
-          },
-          {
-            title: "Emissões",
-            icon: FilePlus,
-            path: "/seguranca-informacao/emissoes",
-          },
-          {
-            title: "Relatórios",
+            // Agrupador (4º nível) — não tem tela própria.
+            title: "Documentação do SGC",
             icon: FileText,
-            path: "/seguranca-informacao/relatorios",
+            children: [
+              {
+                title: "Atos Normativos",
+                icon: Gavel,
+                path: "/gestao-riscos/sgc/documentacao/atos-normativos",
+              },
+              {
+                title: "Manuais e POPs",
+                icon: BookOpen,
+                path: "/gestao-riscos/sgc/documentacao/manuais-pops",
+              },
+              {
+                title: "Arquitetura de Processos",
+                icon: Workflow,
+                path: "/gestao-riscos/sgc/documentacao/arquitetura-processos",
+              },
+              {
+                title: "Modelos e Formulários",
+                icon: FilePlus,
+                path: "/gestao-riscos/sgc/documentacao/modelos-formularios",
+              },
+              {
+                title: "Gerenciamento da Informação Documentada",
+                icon: Database,
+                path: "/gestao-riscos/sgc/documentacao/informacao-documentada",
+              },
+            ],
           },
           {
-            title: "Atas",
-            icon: ClipboardList,
-            path: "/seguranca-informacao/atas",
+            title: "Gestão de Mudanças do SGC",
+            icon: RefreshCw,
+            path: "/gestao-riscos/sgc/gestao-mudancas",
           },
           {
-            title: "Processos (BPMN)",
-            icon: Workflow,
-            path: "/seguranca-informacao/processos",
+            title: "Gestão de Riscos do SGC",
+            icon: ShieldAlert,
+            path: "/gestao-riscos/sgc/gestao-riscos",
           },
           {
-            title: "Matriz de Rastreabilidade",
-            icon: Workflow,
-            path: "/seguranca-informacao/matriz",
+            title: "Comunicação do SGC",
+            icon: Megaphone,
+            path: "/gestao-riscos/sgc/comunicacao",
           },
           {
-            title: "SBOM",
-            icon: Boxes,
-            path: "/seguranca-informacao/sbom",
-          },
-          {
-            title: "Integração (API)",
-            icon: Plug,
-            path: "/seguranca-informacao/integracao",
-          },
-          {
-            title: "Configurações",
-            icon: SlidersHorizontal,
-            path: "/seguranca-informacao/configuracoes",
-          },
-          {
-            title: "Auditoria",
-            icon: History,
-            path: "/seguranca-informacao/auditoria",
+            title: "Avaliação e Melhorias do SGC",
+            icon: BarChart3,
+            path: "/gestao-riscos/sgc/avaliacao-melhorias",
           },
         ],
       },
       {
-        title: "Contratações de TIC",
-        icon: DollarSign,
-        path: "/gestao-riscos/contratacoes-tic",
+        // Substitui o antigo item "Contratações de TIC" (que era só placeholder).
+        title: "Gestão de Riscos de TIC",
+        icon: ShieldAlert,
+        path: "/gestao-riscos/riscos-tic",
+      },
+    ],
+  },
+  {
+    // Módulo em construção (porte do SGSI/TJGO). Restrito a superadmin por ora.
+    // Nasceu como sub-item de "Gestão de Riscos e Compliance" e virou módulo próprio.
+    title: "Sistema de Gestão da Segurança da Informação",
+    icon: Shield,
+    superAdminOnly: true,
+    children: [
+      {
+        title: "Painel",
+        icon: LayoutDashboard,
+        path: "/seguranca-informacao/painel",
+      },
+      {
+        title: "Alertas",
+        icon: Bell,
+        path: "/seguranca-informacao/alertas",
+      },
+      {
+        title: "Instrumentos Normativos",
+        icon: BookOpen,
+        path: "/seguranca-informacao/instrumentos",
+      },
+      {
+        title: "Ciência e Leitura",
+        icon: BookCheck,
+        path: "/seguranca-informacao/leitura",
+      },
+      {
+        title: "Obrigações Documentais",
+        icon: FileText,
+        path: "/seguranca-informacao/documentos",
+      },
+      {
+        title: "Indicadores",
+        icon: BarChart3,
+        path: "/seguranca-informacao/indicadores",
+      },
+      {
+        title: "Frameworks",
+        icon: FolderKanban,
+        path: "/seguranca-informacao/frameworks",
+      },
+      {
+        title: "Riscos",
+        icon: Shield,
+        path: "/seguranca-informacao/riscos",
+      },
+      {
+        title: "Eventos e SLA",
+        icon: ShieldAlert,
+        path: "/seguranca-informacao/eventos",
+      },
+      {
+        title: "Emissões",
+        icon: FilePlus,
+        path: "/seguranca-informacao/emissoes",
+      },
+      {
+        title: "Relatórios",
+        icon: FileText,
+        path: "/seguranca-informacao/relatorios",
+      },
+      {
+        title: "Atas",
+        icon: ClipboardList,
+        path: "/seguranca-informacao/atas",
+      },
+      {
+        title: "Processos (BPMN)",
+        icon: Workflow,
+        path: "/seguranca-informacao/processos",
+      },
+      {
+        title: "Matriz de Rastreabilidade",
+        icon: Workflow,
+        path: "/seguranca-informacao/matriz",
+      },
+      {
+        title: "SBOM",
+        icon: Boxes,
+        path: "/seguranca-informacao/sbom",
+      },
+      {
+        title: "Integração (API)",
+        icon: Plug,
+        path: "/seguranca-informacao/integracao",
+      },
+      {
+        title: "Configurações",
+        icon: SlidersHorizontal,
+        path: "/seguranca-informacao/configuracoes",
+      },
+      {
+        title: "Auditoria",
+        icon: History,
+        path: "/seguranca-informacao/auditoria",
       },
     ],
   },
@@ -529,10 +620,62 @@ function MenuItemComponent({
                       {child.children?.map((subChild, subIdx) => {
                         const isSubSubActive =
                           location.pathname === subChild.path;
+                        // 4º nível: item do 3º que agrupa outros em vez de ter rota própria.
+                        const netos = subChild.children ?? [];
+                        if (netos.length > 0) {
+                          const netoAtivo = netos.some(
+                            (n) => location.pathname === n.path,
+                          );
+                          return (
+                            <div key={`sub-${idx}-${subIdx}`}>
+                              <button
+                                onClick={() => toggleMenu(subChild.title)}
+                                className={cn(
+                                  "w-full flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors",
+                                  netoAtivo && "text-white font-medium",
+                                )}
+                              >
+                                {subChild.icon && (
+                                  <subChild.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                )}
+                                <span className="flex-1 text-left">
+                                  {subChild.title}
+                                </span>
+                                <ChevronDown
+                                  className={cn(
+                                    "h-3 w-3 transition-transform duration-200",
+                                    expandedMenus.includes(subChild.title) &&
+                                      "rotate-180",
+                                  )}
+                                />
+                              </button>
+                              {expandedMenus.includes(subChild.title) && (
+                                <div className="pl-4">
+                                  {netos.map((neto, netoIdx) => (
+                                    <Link
+                                      key={`neto-${idx}-${subIdx}-${netoIdx}`}
+                                      to={neto.path}
+                                      className={cn(
+                                        "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/50 hover:bg-white/10 hover:text-white transition-colors",
+                                        location.pathname === neto.path &&
+                                          "text-white font-medium",
+                                      )}
+                                    >
+                                      {neto.icon && (
+                                        <neto.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                      )}
+                                      <span>{neto.title}</span>
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
                         return (
                           <Link
                             key={`sub-${idx}-${subIdx}`}
-                            to={subChild.path}
+                            to={subChild.path || "#"}
                             // onClick={onNavigate} Removido para não fechar a navbar ao clicar
                             className={cn(
                               "flex items-center gap-2 pl-10 pr-4 py-2 text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors",
@@ -623,27 +766,31 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const currentPath = location.pathname;
     const expanded: string[] = [];
 
+    const casa = (p?: string) =>
+      !!p && (currentPath === p || currentPath.startsWith(p + "/"));
+
     menuItemsCompleto.forEach((item) => {
       let isItemExpanded = false;
 
       item.children?.forEach((child) => {
-        const isChildActive =
-          child.path &&
-          (currentPath === child.path ||
-            currentPath.startsWith(child.path + "/"));
-        const isSubChildActive = child.children?.some(
-          (sub) =>
-            sub.path &&
-            (currentPath === sub.path ||
-              currentPath.startsWith(sub.path + "/")),
+        const isChildActive = casa(child.path);
+        const isSubChildActive = child.children?.some((sub) => casa(sub.path));
+        // 4º nível: quando a rota ativa está sob um agrupador do 3º nível, os
+        // DOIS ancestrais precisam abrir (o do 2º e o próprio agrupador).
+        const agrupadorAtivo = child.children?.find((sub) =>
+          sub.children?.some((neto) => casa(neto.path)),
         );
 
-        if (isChildActive || isSubChildActive) {
+        if (isChildActive || isSubChildActive || agrupadorAtivo) {
           isItemExpanded = true;
         }
 
-        if (isSubChildActive) {
+        if (isSubChildActive || agrupadorAtivo) {
           expanded.push(child.title);
+        }
+
+        if (agrupadorAtivo) {
+          expanded.push(agrupadorAtivo.title);
         }
       });
 
@@ -731,29 +878,34 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   useEffect(() => {
     const currentPath = location.pathname;
 
+    const casa = (p?: string) =>
+      !!p && (currentPath === p || currentPath.startsWith(p + "/"));
+    const abrir = (titulo: string) =>
+      setExpandedMenus((prev) =>
+        prev.includes(titulo) ? prev : [...prev, titulo],
+      );
+
     menuItemsCompleto.forEach((item) => {
       let shouldExpandItem = false;
 
       item.children?.forEach((child) => {
-        const isChildActive =
-          child.path &&
-          (currentPath === child.path ||
-            currentPath.startsWith(child.path + "/"));
-        const isSubChildActive = child.children?.some(
-          (sub) =>
-            sub.path &&
-            (currentPath === sub.path ||
-              currentPath.startsWith(sub.path + "/")),
+        const isChildActive = casa(child.path);
+        const isSubChildActive = child.children?.some((sub) => casa(sub.path));
+        // 4º nível — mesma regra do estado inicial: abre o agrupador junto.
+        const agrupadorAtivo = child.children?.find((sub) =>
+          sub.children?.some((neto) => casa(neto.path)),
         );
 
-        if (isChildActive || isSubChildActive) {
+        if (isChildActive || isSubChildActive || agrupadorAtivo) {
           shouldExpandItem = true;
         }
 
-        if (isSubChildActive) {
-          setExpandedMenus((prev) =>
-            prev.includes(child.title) ? prev : [...prev, child.title],
-          );
+        if (isSubChildActive || agrupadorAtivo) {
+          abrir(child.title);
+        }
+
+        if (agrupadorAtivo) {
+          abrir(agrupadorAtivo.title);
         }
       });
 

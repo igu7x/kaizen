@@ -75,6 +75,59 @@ import { FormFiller } from "./components/pessoas/FormFiller";
 import { FormResponses } from "./components/pessoas/FormResponses";
 import { Toaster } from "sonner";
 
+/**
+ * Telas do Sistema de Gestão de Compliance (SGC). Todas ainda são placeholder
+ * "Em Desenvolvimento" — a ordem e os títulos espelham a árvore em Sidebar.tsx.
+ */
+const SGC_PLACEHOLDERS: { path: string; titulo: string }[] = [
+  {
+    path: "/gestao-riscos/sgc/o-que-e",
+    titulo: "O que é Gestão de Compliance",
+  },
+  {
+    path: "/gestao-riscos/sgc/comite",
+    titulo: "Comitê de Gestão de Compliance",
+  },
+  {
+    path: "/gestao-riscos/sgc/politica-objetivos",
+    titulo: "Política e Objetivos",
+  },
+  { path: "/gestao-riscos/sgc/escopo", titulo: "Escopo do SGC" },
+  {
+    path: "/gestao-riscos/sgc/documentacao/atos-normativos",
+    titulo: "Atos Normativos",
+  },
+  {
+    path: "/gestao-riscos/sgc/documentacao/manuais-pops",
+    titulo: "Manuais e POPs",
+  },
+  {
+    path: "/gestao-riscos/sgc/documentacao/arquitetura-processos",
+    titulo: "Arquitetura de Processos",
+  },
+  {
+    path: "/gestao-riscos/sgc/documentacao/modelos-formularios",
+    titulo: "Modelos e Formulários",
+  },
+  {
+    path: "/gestao-riscos/sgc/documentacao/informacao-documentada",
+    titulo: "Gerenciamento da Informação Documentada",
+  },
+  {
+    path: "/gestao-riscos/sgc/gestao-mudancas",
+    titulo: "Gestão de Mudanças do SGC",
+  },
+  {
+    path: "/gestao-riscos/sgc/gestao-riscos",
+    titulo: "Gestão de Riscos do SGC",
+  },
+  { path: "/gestao-riscos/sgc/comunicacao", titulo: "Comunicação do SGC" },
+  {
+    path: "/gestao-riscos/sgc/avaliacao-melhorias",
+    titulo: "Avaliação e Melhorias do SGC",
+  },
+];
+
 function App() {
   return (
     <AuthProvider>
@@ -163,14 +216,27 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  {/* Gestão de Riscos e Compliance — árvore ainda toda em placeholder.
+                      A estrutura do menu vive em Sidebar.tsx; aqui só as rotas. */}
                   <Route
-                    path="/gestao-riscos/contratacoes-tic"
+                    path="/gestao-riscos/riscos-tic"
                     element={
                       <ProtectedRoute>
-                        <EmDesenvolvimento titulo="Contratações de TIC" />
+                        <EmDesenvolvimento titulo="Gestão de Riscos de TIC" />
                       </ProtectedRoute>
                     }
                   />
+                  {SGC_PLACEHOLDERS.map(({ path, titulo }) => (
+                    <Route
+                      key={path}
+                      path={path}
+                      element={
+                        <ProtectedRoute>
+                          <EmDesenvolvimento titulo={titulo} />
+                        </ProtectedRoute>
+                      }
+                    />
+                  ))}
                   <Route
                     path="/auditoria"
                     element={
@@ -679,7 +745,10 @@ function App() {
                   <Route
                     path="/cadastros/contratacoes-tic/parametros"
                     element={
-                      <ProtectedRoute allowedRoles={["ADMIN"]} requireSuperadmin={true}>
+                      <ProtectedRoute
+                        allowedRoles={["ADMIN"]}
+                        requireSuperadmin={true}
+                      >
                         <ParametrosContratacoesTic />
                       </ProtectedRoute>
                     }
@@ -721,9 +790,9 @@ function App() {
             </BrowserRouter>
             <Toaster richColors position="bottom-right" />
           </GestaoProvider>
-        </EstrategiaModeloProvider >
-      </DirectorateProvider >
-    </AuthProvider >
+        </EstrategiaModeloProvider>
+      </DirectorateProvider>
+    </AuthProvider>
   );
 }
 
