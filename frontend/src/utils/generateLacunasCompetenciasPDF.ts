@@ -71,6 +71,43 @@ function drawTextCell(
   doc.text(text || "", textX, y + h / 2 + 1, { align, maxWidth: w - 6 });
 }
 
+/**
+ * Célula com texto já quebrado em linhas, centralizado verticalmente no bloco.
+ * Diferente de drawTextCell (que usa `maxWidth` e assume uma linha só), aqui a altura é
+ * informada pelo chamador a partir da contagem de linhas — é o que impede o corte.
+ */
+function drawWrappedCell(
+  doc: jsPDF,
+  lines: string[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  options?: {
+    bold?: boolean;
+    bg?: readonly [number, number, number];
+    fontSize?: number;
+  },
+) {
+  if (options?.bg) {
+    doc.setFillColor(...options.bg);
+    doc.rect(x, y, w, h, "F");
+  }
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.3);
+  doc.rect(x, y, w, h, "S");
+  const fontSize = options?.fontSize ?? 9;
+  const alturaLinha = fontSize >= 9 ? 4.5 : 4.2;
+  doc.setFontSize(fontSize);
+  doc.setFont("helvetica", options?.bold ? "bold" : "normal");
+  doc.setTextColor(...BLACK);
+  let ty = y + (h - lines.length * alturaLinha) / 2 + 3.2;
+  for (const line of lines) {
+    doc.text(line, x + 3, ty);
+    ty += alturaLinha;
+  }
+}
+
 function drawHeader(doc: jsPDF, rel: RelatorioLacunas) {
   const headerH = 55;
   const colorStart = [10, 35, 81];
@@ -145,8 +182,12 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     ["Competências analisadas", String(rel.total_competencias)],
     ["Competências com débito", String(rel.competencias_com_debito)],
     ["Cobertura geral", `${rel.cobertura_geral_percentual}%`],
-    // Unidade: colaborador × competência (uma pessoa em falta conta em cada competência).
-    ["Débito total (colaborador × competência)", String(rel.soma_debito)],
+    // A explicação da unidade vai no VALOR, não no rótulo: a coluna do rótulo tem 60mm e
+    // um título longo quebrava em duas linhas dentro de uma célula de altura fixa.
+    [
+      "Débito total",
+      `${rel.soma_debito} lacunas (colaborador × competência)`,
+    ],
     // Recorte só entre quem tem Resultado Final — falta de competência, sem o ruído da
     // falta de avaliação.
     [
@@ -157,19 +198,30 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
   const rowH = 7;
   const labelW = 60;
   for (const [label, value] of infos) {
-    drawTextCell(doc, label, MARGIN_LEFT, y, labelW, rowH, {
+    // A altura sai do conteúdo: com altura fixa, um texto que quebrasse em duas linhas
+    // transbordava a célula e a segunda linha aparecia cortada.
+    const linhasLabel = doc.splitTextToSize(label, labelW - 6) as string[];
+    const linhasValor = doc.splitTextToSize(
+      value,
+      CONTENT_WIDTH - labelW - 6,
+    ) as string[];
+    const alturaLinha = Math.max(
+      rowH,
+      Math.max(linhasLabel.length, linhasValor.length) * 4.5 + 3,
+    );
+    drawWrappedCell(doc, linhasLabel, MARGIN_LEFT, y, labelW, alturaLinha, {
       bold: true,
       bg: GRAY_LIGHT,
     });
-    drawTextCell(
+    drawWrappedCell(
       doc,
-      value,
+      linhasValor,
       MARGIN_LEFT + labelW,
       y,
       CONTENT_WIDTH - labelW,
-      rowH,
+      alturaLinha,
     );
-    y += rowH;
+    y += alturaLinha;
   }
   y += 8;
 
@@ -213,32 +265,43 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
   y = drawHeadRow(y);
 
   for (const linha of rel.competencias) {
-    if (y + rowH > FOOTER_Y - 5) {
+    // Nome de competência é texto livre e costuma ser longo ("Gerenciamento de Configurações
+    // e de Ativos de Serviço"). A linha cresce conforme a quebra, senão o nome sai cortado.
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    const linhasNome = doc.splitTextToSize(
+      linha.competencia_nome || "—",
+      colW[0] - 6,
+    ) as string[];
+    const alturaLinha = Math.max(rowH, linhasNome.length * 4.2 + 3);
+
+    if (y + alturaLinha > FOOTER_Y - 5) {
       doc.addPage();
       y = 20;
       y = drawHeadRow(y);
     }
     const emDebito = linha.debito > 0;
-    const cells: [string, "left" | "center"][] = [
-      [linha.competencia_nome, "left"],
-      [pesoLabel(linha.peso), "center"],
-      [String(linha.necessario), "center"],
-      [String(linha.possuem), "center"],
-      [String(linha.debito), "center"],
-      [`${linha.cobertura_percentual}%`, "center"],
+    const numeros: [string, boolean][] = [
+      [pesoLabel(linha.peso), false],
+      [String(linha.necessario), false],
+      [String(linha.possuem), false],
+      [String(linha.debito), emDebito],
+      [`${linha.cobertura_percentual}%`, false],
     ];
-    let x = MARGIN_LEFT;
-    cells.forEach(([texto, align], i) => {
-      const destacaDebito = i === 4 && emDebito;
-      drawTextCell(doc, texto, x, y, colW[i], rowH, {
-        align,
-        fontSize: 8.5,
-        bold: destacaDebito,
-        color: destacaDebito ? [185, 28, 28] : BLACK,
-      });
-      x += colW[i];
+    drawWrappedCell(doc, linhasNome, MARGIN_LEFT, y, colW[0], alturaLinha, {
+      fontSize: 8.5,
     });
-    y += rowH;
+    let x = MARGIN_LEFT + colW[0];
+    numeros.forEach(([texto, destaca], i) => {
+      drawTextCell(doc, texto, x, y, colW[i + 1], alturaLinha, {
+        align: "center",
+        fontSize: 8.5,
+        bold: destaca,
+        color: destaca ? [185, 28, 28] : BLACK,
+      });
+      x += colW[i + 1];
+    });
+    y += alturaLinha;
   }
 
   if (rel.competencias.length === 0) {
