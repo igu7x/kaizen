@@ -17,8 +17,10 @@ export interface LinhaLacuna {
   competencia_descricao: string | null;
   /** Criterio antigo, mantido so como historico. */
   peso: number | null;
-  /** Nivel exigido nesta competencia (1..5), definido na matriz. */
+  /** Nivel exigido nesta competencia (1..5). */
   grau_minimo_esperado: number;
+  /** "matriz" = tecnica digitada; "padrao" = comportamental do catalogo. */
+  origem?: "matriz" | "padrao";
   aplicabilidade: string | null;
   /** Quantos colaboradores deveriam dominar a competência. */
   necessario: number;

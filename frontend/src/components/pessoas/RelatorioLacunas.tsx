@@ -262,7 +262,10 @@ export function RelatorioLacunas() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {relatorio.competencias.map((l) => (
-                      <tr key={l.competencia_id} className="hover:bg-gray-50">
+                      <tr
+                        key={`${l.origem ?? "matriz"}-${l.competencia_id}`}
+                        className="hover:bg-gray-50"
+                      >
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">
                             {l.competencia_nome}
@@ -270,6 +273,11 @@ export function RelatorioLacunas() {
                           {l.aplicabilidade === "parte" && (
                             <p className="text-xs text-gray-500">
                               Aplicável a parte da equipe
+                            </p>
+                          )}
+                          {l.origem === "padrao" && (
+                            <p className="text-xs text-gray-500">
+                              Comportamental — aplicável a todos
                             </p>
                           )}
                         </td>

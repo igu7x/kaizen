@@ -115,15 +115,26 @@ public class LacunasCompetenciasService {
             formulariosIntegrados.add(((Number) row.get("id")).longValue());
         }
 
-        // Entram TODAS as competências da matriz da equipe: as técnicas (que declaram
-        // aplicabilidade) e as comportamentais (que não declaram, porque valem para todo mundo).
-        List<Map<String, Object>> itens = jdbc.queryForList(
+        // As TÉCNICAS vêm da matriz — são as que o gestor digitou, com aplicabilidade e grau.
+        List<Map<String, Object>> itens = new ArrayList<>(jdbc.queryForList(
                 "SELECT i.id, i.nome, i.descricao, i.peso, i.grau_minimo_esperado, " +
-                        "       i.aplicabilidade, i.quantidade_pessoas, i.ordem " +
+                        "       i.aplicabilidade, i.quantidade_pessoas, i.ordem, 'matriz' AS origem " +
                         "FROM competencias_gestor_itens i " +
                         "WHERE i.formulario_id = ? " +
                         "ORDER BY i.ordem, i.id",
-                matrizId);
+                matrizId));
+
+        // As COMPORTAMENTAIS não ficam na matriz: vivem no catálogo de competências padrão e são
+        // aplicadas a todo mundo na avaliação. Por isso entram aqui pelo catálogo, com o grau
+        // mínimo fixo em 3 e necessário = todos os colaboradores.
+        itens.addAll(jdbc.queryForList(
+                "SELECT p.id, p.nome, p.descricao, NULL::int AS peso, " +
+                        "       " + NIVEL_MINIMO_PADRAO + " AS grau_minimo_esperado, " +
+                        "       NULL::varchar AS aplicabilidade, NULL::int AS quantidade_pessoas, " +
+                        "       p.ordem, 'padrao' AS origem " +
+                        "FROM competencias_padrao p " +
+                        "WHERE p.tipo = 'comportamental' AND COALESCE(p.ativo, TRUE) = TRUE " +
+                        "ORDER BY p.ordem, p.id"));
 
         int totalAvaliados = formulariosIntegrados.size();
         // Notas de cada avaliado, agrupadas por nome e PRESERVANDO A ORDEM das respostas.
@@ -162,6 +173,9 @@ public class LacunasCompetenciasService {
 
             Map<String, Object> linha = new LinkedHashMap<>();
             linha.put("competencia_id", item.get("id"));
+            // "matriz" (técnica digitada) ou "padrao" (comportamental do catálogo). Ids das duas
+            // origens podem coincidir, então a tela precisa dos dois para montar a chave.
+            linha.put("origem", item.get("origem"));
             linha.put("competencia_nome", nome);
             linha.put("competencia_descricao", item.get("descricao"));
             linha.put("peso", item.get("peso"));

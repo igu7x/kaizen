@@ -38,7 +38,7 @@ interface Competencia {
   nome: string;
   descricao: string;
   /** Nivel (1..5) que a pessoa precisa atingir para ser considerada apta. */
-  grau_minimo_esperado: "1" | "2" | "3" | "4" | "5";
+  grau_minimo_esperado: "" | "1" | "2" | "3" | "4" | "5";
 }
 
 interface FormState {
@@ -53,7 +53,7 @@ interface FormState {
 const COMPETENCIA_VAZIA: Competencia = {
   nome: "",
   descricao: "",
-  grau_minimo_esperado: "3",
+  grau_minimo_esperado: "",
 };
 
 const MIN_COMPETENCIAS = 8;
@@ -652,9 +652,7 @@ export function CompetenciasGestorForm({
                       type="radio"
                       name={`grau-minimo-gestor-${index}`}
                       value={opt.value}
-                      checked={
-                        String(comp.grau_minimo_esperado ?? "3") === opt.value
-                      }
+                      checked={comp.grau_minimo_esperado === opt.value}
                       onChange={() =>
                         updateCompetencia(
                           index,
