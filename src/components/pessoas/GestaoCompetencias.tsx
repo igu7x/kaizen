@@ -47,6 +47,8 @@ import { AvaliacaoIntegradaResumo } from "./AvaliacaoIntegradaResumo";
 import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
 import { RelatorioLacunas } from "./RelatorioLacunas";
+import { RelatorioLacunasGestor } from "./RelatorioLacunasGestor";
+import { EditoresMatrizGestor } from "./EditoresMatrizGestor";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
 import { Wrench } from "lucide-react";
@@ -220,7 +222,9 @@ function PainelItem({
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h3 className="text-lg font-bold text-gray-900">{titulo}</h3>
-        {acoes && <div className="ml-auto flex items-center gap-2">{acoes}</div>}
+        {acoes && (
+          <div className="ml-auto flex items-center gap-2">{acoes}</div>
+        )}
       </div>
       {children}
     </div>
@@ -229,6 +233,8 @@ function PainelItem({
 
 type View =
   | "inventario"
+  | "lacunas_gestor"
+  | "editores_gestor"
   | "lacunas"
   | "referencial_home"
   | "inventario_home"
@@ -336,6 +342,7 @@ export function GestaoCompetencias({
   const [temNovosElegiveisGestor, setTemNovosElegiveisGestor] = useState(false);
   const [temAvgestorEquipe, setTemAvgestorEquipe] = useState(false);
   const [temAvgestorGestor, setTemAvgestorGestor] = useState(false);
+  const [ehEditorMatrizGestor, setEhEditorMatrizGestor] = useState(false);
   const [ehGestorOuSubdiretorMacro, setEhGestorOuSubdiretorMacro] =
     useState(false);
   const [temReferencialGerenciavel, setTemReferencialGerenciavel] =
@@ -420,8 +427,7 @@ export function GestaoCompetencias({
           const id = Number(integradaIdRaw);
           if (!Number.isFinite(id)) return;
           const tipo = (tipoRaw === "gestor" ? "gestor" : "equipe") as
-            | "equipe"
-            | "gestor";
+            "equipe" | "gestor";
           const form = await avaliacaoIntegradaApi.getById(id);
           if (cancelled || !form) return;
           setIntegradaResumo(form);
@@ -537,6 +543,14 @@ export function GestaoCompetencias({
           setEhGestorOuSubdiretorMacro(ehMacro);
         } catch {
           setEhGestorOuSubdiretorMacro(false);
+        }
+
+        // Editor da Matriz do Gestor: preenche a matriz das unidades da área, sem validar.
+        try {
+          const r = await competenciasGestorApi.getSouEditor();
+          setEhEditorMatrizGestor(!!r?.editor);
+        } catch {
+          setEhEditorMatrizGestor(false);
         }
 
         // Verificar se tem algum referencial gerenciável (para mostrar o card de gerenciar técnicas)
@@ -1255,9 +1269,7 @@ export function GestaoCompetencias({
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Resultado Final
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">Resultado Final</h2>
         </div>
         <AvaliacaoIntegradaResumo
           formulario={integradaResumo}
@@ -1279,9 +1291,7 @@ export function GestaoCompetencias({
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Resultado Final
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">Resultado Final</h2>
         </div>
         <AvaliacaoIntegradaRespostas
           diretoria={diretoriaUsuario}
@@ -1489,9 +1499,7 @@ export function GestaoCompetencias({
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Resultado Final
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">Resultado Final</h2>
         </div>
         <AvaliacaoIntegradaResumo
           formulario={integradaResumo}
@@ -1514,9 +1522,7 @@ export function GestaoCompetencias({
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Resultado Final
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">Resultado Final</h2>
         </div>
         <AvaliacaoIntegradaRespostas
           diretoria={diretoriaUsuario}
@@ -1531,7 +1537,6 @@ export function GestaoCompetencias({
     );
   }
 
-
   // ── Visualizar Competências Padrão (read-only) ─────────────────
   if (currentView === "competencias_padrao_view") {
     // Tela unificada: todos visualizam + Gerar PDF; superadmin também edita/publica.
@@ -1540,6 +1545,50 @@ export function GestaoCompetencias({
         isSuperadmin={isSGJT}
         onVoltar={() => setCurrentView("referencial_home")}
       />
+    );
+  }
+
+  // ── Editores da Matriz do Gestor ──────────────────────────────
+  // O backend só devolve as áreas que o usuário dirige e revalida em cada operação.
+  if (currentView === "editores_gestor") {
+    return (
+      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView("referencial_home")}
+            className="text-gray-600"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
+          </Button>
+          <h2 className="text-xl font-bold text-gray-900">
+            Editores da Matriz do Gestor
+          </h2>
+        </div>
+        <EditoresMatrizGestor />
+      </div>
+    );
+  }
+
+  // ── Lacunas de Competências do Gestor ─────────────────────────
+  // Só a direção da área; o backend revalida a unidade a cada geração.
+  if (currentView === "lacunas_gestor") {
+    return (
+      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView("inventario_gestor_home")}
+            className="text-gray-600"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
+          </Button>
+          <h2 className="text-xl font-bold text-gray-900">
+            Lacunas de Competências do Gestor
+          </h2>
+        </div>
+        <RelatorioLacunasGestor />
+      </div>
     );
   }
 
@@ -1567,7 +1616,6 @@ export function GestaoCompetencias({
   }
 
   // ── Inventário de Competências — HOME (2 cards) ─────────────────
-
 
   // ── Competências Padrão (tela unificada) ─────────────────────
   if (currentView === "competencias_padrao_admin") {
@@ -1673,11 +1721,13 @@ export function GestaoCompetencias({
 
     // O gestor da unidade entra aqui para preencher a matriz do gestor da PRÓPRIA unidade — o
     // backend (findUnidadesAutorizadas) só lhe oferece as unidades onde é responsável.
+    // O editor entra pelo mesmo caminho, com as unidades da área que o diretor lhe deu.
     if (
       isSGJT ||
       isAvaliadorLideranca ||
       ehGestorOuSubdiretorMacro ||
-      isGestorDeUnidade
+      isGestorDeUnidade ||
+      ehEditorMatrizGestor
     ) {
       itensMatriz.push({
         key: "matriz_gestor",
@@ -1769,7 +1819,10 @@ export function GestaoCompetencias({
             onClick={() => {
               // Formulário já enviado abre o resumo: reabrir o form cairia na tela de
               // bloqueio "Autoavaliação já enviada". Só 'atualizacao_requisitada' reabre.
-              if (minhaAutoEquipe && minhaAutoEquipe.status !== "atualizacao_requisitada") {
+              if (
+                minhaAutoEquipe &&
+                minhaAutoEquipe.status !== "atualizacao_requisitada"
+              ) {
                 setAutoavaliacaoResumo(minhaAutoEquipe);
                 setCurrentView("autoavaliacao_resumo");
               } else {
@@ -2081,37 +2134,53 @@ export function GestaoCompetencias({
         ),
       });
     }
+
+    // Lacunas do Gestor — último card, como no inventário da equipe: é leitura derivada,
+    // só tem o que mostrar depois que o Resultado Final do gestor existe.
+    if (isAvaliadorLideranca || isSGJT) {
+      itensInvGestor.push({
+        key: "lacunas_gestor",
+        titulo: "Lacunas de Competências",
+        descricao:
+          "Veja o que o gestor da unidade alcançou e o que está em débito, competência a competência.",
+        icon: <ScanSearch className="h-5 w-5" />,
+        cor: "violet",
+        aoAbrir: () => setCurrentView("lacunas_gestor"),
+      });
+    }
   }
 
   // ── Módulos visíveis (mesmos gates de antes; módulo sem item não aparece) ──
-  const modulos: ModuloHub[] = ([
-    showMatriz && {
-      key: "matriz",
-      titulo: "Matriz de Competências",
-      descricao: "Mapeamento e catálogo de competências",
-      icon: <BookOpen className="h-6 w-6" />,
-      cor: "blue" as CorHub,
-      itens: itensMatriz,
-    },
-    showInvEquipe && {
-      key: "inv_equipe",
-      titulo: "Inventário da Equipe",
-      descricao: "Autoavaliação, avaliação do gestor e consenso dos colaboradores",
-      icon: <Users className="h-6 w-6" />,
-      cor: "teal" as CorHub,
-      itens: itensInvEquipe,
-    },
-    showInvGestor && {
-      key: "inv_gestor",
-      titulo: "Inventário do Gestor",
-      descricao: "Autoavaliação, avaliação da liderança e consenso dos gestores",
-      icon: <UserCog className="h-6 w-6" />,
-      cor: "violet" as CorHub,
-      itens: itensInvGestor,
-    },
-  ] as (ModuloHub | false)[]).filter(
-    (m): m is ModuloHub => !!m && m.itens.length > 0,
-  );
+  const modulos: ModuloHub[] = (
+    [
+      showMatriz && {
+        key: "matriz",
+        titulo: "Matriz de Competências",
+        descricao: "Mapeamento e catálogo de competências",
+        icon: <BookOpen className="h-6 w-6" />,
+        cor: "blue" as CorHub,
+        itens: itensMatriz,
+      },
+      showInvEquipe && {
+        key: "inv_equipe",
+        titulo: "Inventário da Equipe",
+        descricao:
+          "Autoavaliação, avaliação do gestor e consenso dos colaboradores",
+        icon: <Users className="h-6 w-6" />,
+        cor: "teal" as CorHub,
+        itens: itensInvEquipe,
+      },
+      showInvGestor && {
+        key: "inv_gestor",
+        titulo: "Inventário do Gestor",
+        descricao:
+          "Autoavaliação, avaliação da liderança e consenso dos gestores",
+        icon: <UserCog className="h-6 w-6" />,
+        cor: "violet" as CorHub,
+        itens: itensInvGestor,
+      },
+    ] as (ModuloHub | false)[]
+  ).filter((m): m is ModuloHub => !!m && m.itens.length > 0);
 
   // Seleção resolvida no render: os gates chegam por chamadas assíncronas, então a
   // escolha do usuário só vale enquanto o módulo/item continuar disponível pra ele.
@@ -2145,14 +2214,31 @@ export function GestaoCompetencias({
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
-          Gestão por Competências
-        </h2>
-        <p className="text-sm text-gray-500 mt-2 pl-5">
-          Escolha um módulo para ver as ações do seu perfil e a relação
-          correspondente logo abaixo.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
+            Gestão por Competências
+          </h2>
+          <p className="text-sm text-gray-500 mt-2 pl-5">
+            Escolha um módulo para ver as ações do seu perfil e a relação
+            correspondente logo abaixo.
+          </p>
+        </div>
+        {/* Administração pontual, não é uma "ação do perfil" — fica fora da grade de cards
+            para não competir com o que o usuário vem fazer aqui todo dia. Só aparece com a
+            Matriz selecionada: é dela que o editor trata. */}
+        {moduloSel?.key === "matriz" &&
+          (ehGestorOuSubdiretorMacro || isSGJT) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentView("editores_gestor")}
+              className="flex-shrink-0 text-gray-600"
+            >
+              <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz do
+              Gestor
+            </Button>
+          )}
       </div>
 
       {modulos.length === 0 ? (

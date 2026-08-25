@@ -255,3 +255,13 @@ export const NOTA_COLORS: Record<number, string> = {
   4: "bg-blue-100 text-blue-700",
   5: "bg-emerald-100 text-emerald-700",
 };
+
+/**
+ * Grau mínimo esperado de uma competência (1..5) — substituiu o antigo "Grau de Impacto" (1..3)
+ * no preenchimento das matrizes. Diz qual nível a pessoa precisa atingir no Resultado Final para
+ * ser considerada apta, e é o corte que o relatório de Lacunas aplica por competência.
+ * Mesma escala das notas técnicas, para o preenchedor e o avaliador falarem a mesma língua.
+ */
+export const GRAUS_MINIMOS: { value: string; label: string }[] = [
+  1, 2, 3, 4, 5,
+].map((n) => ({ value: String(n), label: `${n} — ${NOTA_TECNICA_LABELS[n]}` }));
