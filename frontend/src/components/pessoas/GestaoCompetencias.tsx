@@ -2187,17 +2187,20 @@ export function GestaoCompetencias({
           </p>
         </div>
         {/* Administração pontual, não é uma "ação do perfil" — fica fora da grade de cards
-            para não competir com o que o usuário vem fazer aqui todo dia. */}
-        {(ehGestorOuSubdiretorMacro || isSGJT) && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentView("editores_gestor")}
-            className="flex-shrink-0 text-gray-600"
-          >
-            <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz do Gestor
-          </Button>
-        )}
+            para não competir com o que o usuário vem fazer aqui todo dia. Só aparece com a
+            Matriz selecionada: é dela que o editor trata. */}
+        {moduloSel?.key === "matriz" &&
+          (ehGestorOuSubdiretorMacro || isSGJT) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentView("editores_gestor")}
+              className="flex-shrink-0 text-gray-600"
+            >
+              <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz do
+              Gestor
+            </Button>
+          )}
       </div>
 
       {modulos.length === 0 ? (
