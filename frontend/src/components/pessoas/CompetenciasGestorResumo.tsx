@@ -88,6 +88,9 @@ export function CompetenciasGestorResumo({
   >(null);
   const [recusaComentario, setRecusaComentario] = useState("");
   const [areas, setAreas] = useState<Area[]>([]);
+  // Papeis do usuario logado que decidem quem valida a camada 1 na matriz do gestor.
+  const [areasOndeSouEditor, setAreasOndeSouEditor] = useState<number[]>([]);
+  const [unidadesGestor, setUnidadesGestor] = useState<number[]>([]);
   const [compNomesComportamentais, setCompNomesComportamentais] = useState(
     () => new Set(COMPETENCIAS_COMPORTAMENTAIS.map((c) => c.nome)),
   );
@@ -107,6 +110,16 @@ export function CompetenciasGestorResumo({
       .getAll()
       .then(setAreas)
       .catch(() => {});
+    competenciasGestorApi
+      .getSouEditor()
+      .then((r) =>
+        setAreasOndeSouEditor((r?.areas || []).map((a) => Number(a.id))),
+      )
+      .catch(() => setAreasOndeSouEditor([]));
+    competenciasGestorApi
+      .getMinhasUnidadesGestor()
+      .then((us) => setUnidadesGestor((us || []).map((u) => Number(u.id))))
+      .catch(() => setUnidadesGestor([]));
     competenciasPadraoApi
       .getAll()
       .then((data) => {
@@ -192,8 +205,29 @@ export function CompetenciasGestorResumo({
     formulario.tipo !== "gestor" ||
     (areas.length > 0 && !preenchidoPeloDiretor);
 
+  // Espelha CompetenciasGestorService.podeValidarAutor. Na matriz do GESTOR a camada 1 é
+  // referendada pelo GESTOR DA UNIDADE, e quem é APENAS editor não valida nem sendo o autor —
+  // o papel dele é só preencher. Sem esta regra aqui, a tela oferecia "Validar como Autor" ao
+  // editor e a chamada voltava 403.
+  const isGestorDaUnidade =
+    !!formulario.unidade_id &&
+    unidadesGestor.includes(Number(formulario.unidade_id));
+  const isDirecaoDaArea = !!(
+    userId &&
+    areaForm &&
+    (Number(areaForm.gestor_user_id) === userId ||
+      Number((areaForm as any).subdiretor_user_id) === userId)
+  );
+  const isEditorDaArea =
+    !!areaForm && areasOndeSouEditor.includes(Number(areaForm.id));
+  const apenasEditor = isEditorDaArea && !isDirecaoDaArea && !isGestorDaUnidade;
+
   const canValidateAutor =
-    requerValidacaoAutor && formulario.status === "enviado" && isAutor;
+    requerValidacaoAutor &&
+    formulario.status === "enviado" &&
+    (formulario.tipo === "gestor"
+      ? isGestorDaUnidade || (isAutor && !apenasEditor)
+      : isAutor);
 
   // Camada 2 (Diretoria): o gestor da área (cadastros_areas.gestor_user_id) valida depois que a
   // camada 1 passou (validado_autor).
@@ -217,8 +251,18 @@ export function CompetenciasGestorResumo({
   // em 'enviado', diretoria em 'validado_autor', final em 'validado_diretoria'. A edição apenas
   // SALVA (não valida): os botões Validar/Recusar continuam disponíveis depois. O backend (canEdit)
   // já autoriza cada papel na respectiva etapa.
+  // O editor NÃO valida, mas precisa continuar editando — é o papel dele. Vale enquanto a
+  // matriz não subiu para a diretoria, mesmo espelho do canEdit do backend.
+  const podeEditarComoEditor =
+    apenasEditor &&
+    formulario.status !== "validado_diretoria" &&
+    formulario.status !== "validado_final";
+
   const podeEditar =
-    canValidateAutor || canValidateDiretoria || canValidateFinal;
+    canValidateAutor ||
+    canValidateDiretoria ||
+    canValidateFinal ||
+    podeEditarComoEditor;
 
   const mostrarBotaoEditar = !!onEdit && podeEditar;
 
