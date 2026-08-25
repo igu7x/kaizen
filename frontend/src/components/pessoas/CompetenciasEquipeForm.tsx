@@ -1,3 +1,4 @@
+import { GRAUS_MINIMOS } from "@/constants/competencias";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi } from "@/services/areasApi";
@@ -36,7 +37,8 @@ import { ValidacaoStatusBanners } from "./ValidacaoStatusBanners";
 interface Competencia {
   nome: string;
   descricao: string;
-  peso: "" | "1" | "2" | "3";
+  /** Nivel (1..5) que a pessoa precisa atingir para ser considerada apta. */
+  grau_minimo_esperado: "1" | "2" | "3" | "4" | "5";
   aplicabilidade: "" | "todos" | "parte";
   quantidade_pessoas: string;
 }
@@ -54,7 +56,7 @@ interface FormState {
 const COMPETENCIA_VAZIA: Competencia = {
   nome: "",
   descricao: "",
-  peso: "",
+  grau_minimo_esperado: "3",
   aplicabilidade: "",
   quantidade_pessoas: "",
 };
@@ -124,7 +126,9 @@ export function CompetenciasEquipeForm({
       competencias: (editFormulario.competencias || []).map((c) => ({
         nome: c.nome || "",
         descricao: c.descricao || "",
-        peso: c.peso ? (String(c.peso) as "1" | "2" | "3") : "",
+        grau_minimo_esperado: String(
+          c.grau_minimo_esperado ?? 3,
+        ) as Competencia["grau_minimo_esperado"],
         aplicabilidade: (c.aplicabilidade || "") as "" | "todos" | "parte",
         quantidade_pessoas: c.quantidade_pessoas
           ? String(c.quantidade_pessoas)
@@ -187,7 +191,9 @@ export function CompetenciasEquipeForm({
         competencias: (formulario.competencias || []).map((c) => ({
           nome: c.nome || "",
           descricao: c.descricao || "",
-          peso: c.peso ? (String(c.peso) as "1" | "2" | "3") : "",
+          grau_minimo_esperado: String(
+            c.grau_minimo_esperado ?? 3,
+          ) as Competencia["grau_minimo_esperado"],
           aplicabilidade: (c.aplicabilidade || "") as "" | "todos" | "parte",
           quantidade_pessoas: c.quantidade_pessoas
             ? String(c.quantidade_pessoas)
@@ -280,8 +286,10 @@ export function CompetenciasEquipeForm({
         return toast.error(`Informe o nome da competência nº ${i + 1}.`);
       if (!c.descricao.trim())
         return toast.error(`Informe a descrição da competência nº ${i + 1}.`);
-      if (!c.peso)
-        return toast.error(`Selecione o peso da competência nº ${i + 1}.`);
+      if (!c.grau_minimo_esperado)
+        return toast.error(
+          `Selecione o grau mínimo esperado da competência nº ${i + 1}.`,
+        );
       if (!c.aplicabilidade)
         return toast.error(
           `Selecione a aplicabilidade da competência nº ${i + 1}.`,
@@ -320,7 +328,7 @@ export function CompetenciasEquipeForm({
         competencias: form.competencias.map((c) => ({
           nome: c.nome.trim(),
           descricao: c.descricao.trim(),
-          peso: Number(c.peso),
+          grau_minimo_esperado: Number(c.grau_minimo_esperado),
           aplicabilidade: c.aplicabilidade as "todos" | "parte",
           quantidade_pessoas:
             c.aplicabilidade === "parte" && c.quantidade_pessoas
@@ -374,8 +382,9 @@ export function CompetenciasEquipeForm({
             <p>Cada competência deve ser classificada de acordo com:</p>
             <ul className="list-disc ml-6 space-y-2">
               <li>
-                <strong className="text-gray-900">Importância (peso):</strong>{" "}
-                grau de relevância para o desempenho das atividades.
+                <strong className="text-gray-900">Grau mínimo esperado:</strong>{" "}
+                nível que o colaborador precisa atingir para ser considerado
+                apto na competência.
               </li>
               <li>
                 <strong className="text-gray-900">Aplicabilidade:</strong>{" "}
@@ -606,8 +615,8 @@ export function CompetenciasEquipeForm({
                 explicação da competência;
               </li>
               <li>
-                <strong className="text-gray-900">Grau de Impacto:</strong> se é
-                útil, importante ou crítica;
+                <strong className="text-gray-900">Grau mínimo esperado:</strong>{" "}
+                de 1 a 5, o nível exigido na competência;
               </li>
               <li>
                 <strong className="text-gray-900">Aplicabilidade:</strong> se
@@ -677,38 +686,35 @@ export function CompetenciasEquipeForm({
                 rows={3}
               />
             </div>
+            {/* Grau mínimo esperado: o nível que o colaborador precisa atingir nesta competência
+                para ser considerado apto. É o corte que o relatório de Lacunas usa. */}
             <div>
               <Label>
-                Grau de Impacto <span className="text-red-500">*</span>
+                Grau mínimo esperado <span className="text-red-500">*</span>
               </Label>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Nível que o colaborador precisa atingir para ser considerado
+                apto nesta competência.
+              </p>
               <div className="mt-2 space-y-2">
-                {[
-                  {
-                    value: "1",
-                    label:
-                      "1 — Útil: agrega, mas não compromete o serviço se ausente",
-                  },
-                  {
-                    value: "2",
-                    label: "2 — Importante: ausência gera retrabalho/atrasos",
-                  },
-                  {
-                    value: "3",
-                    label:
-                      "3 — Crítica: risco operacional/segurança/conformidade",
-                  },
-                ].map((opt) => (
+                {GRAUS_MINIMOS.map((opt) => (
                   <label
                     key={opt.value}
                     className="flex items-start gap-3 cursor-pointer group"
                   >
                     <input
                       type="radio"
-                      name={`peso-${index}`}
+                      name={`grau-minimo-${index}`}
                       value={opt.value}
-                      checked={comp.peso === opt.value}
+                      checked={
+                        String(comp.grau_minimo_esperado ?? "3") === opt.value
+                      }
                       onChange={() =>
-                        updateCompetencia(index, "peso", opt.value)
+                        updateCompetencia(
+                          index,
+                          "grau_minimo_esperado",
+                          opt.value,
+                        )
                       }
                       className="mt-0.5 h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />

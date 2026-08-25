@@ -81,7 +81,7 @@ public class LacunasCompetenciasService {
      * Monta o relatório da unidade. Devolve {@code null} quando a unidade não tem Matriz de
      * Competências da equipe — sem ela não há o que comparar.
      */
-    public Map<String, Object> gerar(long unidadeId, int nivelMinimo) {
+    public Map<String, Object> gerar(long unidadeId) {
         // Matriz vigente da equipe: a validada mais recente; sem nenhuma validada, a mais recente.
         List<Map<String, Object>> matrizRows = jdbc.queryForList(
                 "SELECT f.id, f.qtd_colaboradores, f.versao_formulario, f.status, " +
@@ -115,12 +115,13 @@ public class LacunasCompetenciasService {
             formulariosIntegrados.add(((Number) row.get("id")).longValue());
         }
 
-        // Só entram as competências com aplicabilidade declarada — é o campo que diz para quantos
-        // a competência vale, e na prática marca as TÉCNICAS (as padrão não o preenchem).
+        // Entram TODAS as competências da matriz da equipe: as técnicas (que declaram
+        // aplicabilidade) e as comportamentais (que não declaram, porque valem para todo mundo).
         List<Map<String, Object>> itens = jdbc.queryForList(
-                "SELECT i.id, i.nome, i.descricao, i.peso, i.aplicabilidade, i.quantidade_pessoas, i.ordem " +
+                "SELECT i.id, i.nome, i.descricao, i.peso, i.grau_minimo_esperado, " +
+                        "       i.aplicabilidade, i.quantidade_pessoas, i.ordem " +
                         "FROM competencias_gestor_itens i " +
-                        "WHERE i.formulario_id = ? AND i.aplicabilidade IS NOT NULL " +
+                        "WHERE i.formulario_id = ? " +
                         "ORDER BY i.ordem, i.id",
                 matrizId);
 
@@ -143,10 +144,13 @@ public class LacunasCompetenciasService {
                     ? qtdColaboradores
                     : (item.get("quantidade_pessoas") != null
                             ? ((Number) item.get("quantidade_pessoas")).intValue() : 0);
+            // O corte agora é de CADA competência (Grau mínimo esperado, definido na matriz), não
+            // mais um nível único escolhido ao gerar o relatório.
+            int grauMinimo = grauMinimoDoItem(item);
             // Índice desta ocorrência do nome dentro da matriz (0, 1, 2...).
             String chave = normalizar(nome);
             int ocorrencia = ocorrencias.merge(chave, 1, Integer::sum) - 1;
-            int possuem = contarAptos(notasPorPessoa, chave, ocorrencia, nivelMinimo);
+            int possuem = contarAptos(notasPorPessoa, chave, ocorrencia, grauMinimo);
             int debito = Math.max(0, necessario - possuem);
 
             // Recorte entre quem JÁ TEM Resultado Final. Separa "falta competência" de "falta
@@ -161,6 +165,7 @@ public class LacunasCompetenciasService {
             linha.put("competencia_nome", nome);
             linha.put("competencia_descricao", item.get("descricao"));
             linha.put("peso", item.get("peso"));
+            linha.put("grau_minimo_esperado", grauMinimo);
             linha.put("aplicabilidade", item.get("aplicabilidade"));
             linha.put("necessario", necessario);
             linha.put("possuem", possuem);
@@ -186,7 +191,6 @@ public class LacunasCompetenciasService {
         out.put("matriz_id", matrizId);
         out.put("matriz_status", matriz.get("status"));
         out.put("matriz_validada_em", matriz.get("validado_final_em"));
-        out.put("nivel_minimo", nivelMinimo);
         out.put("qtd_colaboradores", qtdColaboradores);
         // Cobertura do próprio inventário: de nada adianta o número de aptos se metade da equipe
         // ainda não tem Resultado Final. É a ressalva que o relatório precisa mostrar.
@@ -269,6 +273,20 @@ public class LacunasCompetenciasService {
 
     private static String normalizar(String nome) {
         return nome == null ? "" : nome.trim().toLowerCase();
+    }
+
+    /**
+     * Grau mínimo esperado da competência (1..5), definido no preenchimento da matriz.
+     * Cai em 3 quando ausente ou fora da faixa — é o valor do backfill da migration 255 e o corte
+     * que o relatório usava antes de o campo existir, então matriz antiga não muda de resultado.
+     */
+    private static int grauMinimoDoItem(Map<String, Object> item) {
+        Object v = item.get("grau_minimo_esperado");
+        if (v == null) {
+            return NIVEL_MINIMO_PADRAO;
+        }
+        int n = ((Number) v).intValue();
+        return n < 1 || n > 5 ? NIVEL_MINIMO_PADRAO : n;
     }
 
     private static String bigintArray(List<Long> ids) {

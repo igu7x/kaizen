@@ -15,7 +15,10 @@ export interface LinhaLacuna {
   competencia_id: number;
   competencia_nome: string;
   competencia_descricao: string | null;
+  /** Criterio antigo, mantido so como historico. */
   peso: number | null;
+  /** Nivel exigido nesta competencia (1..5), definido na matriz. */
+  grau_minimo_esperado: number;
   aplicabilidade: string | null;
   /** Quantos colaboradores deveriam dominar a competência. */
   necessario: number;
@@ -37,7 +40,6 @@ export interface RelatorioLacunas {
   matriz_id: number;
   matriz_status: string | null;
   matriz_validada_em: string | null;
-  nivel_minimo: number;
   qtd_colaboradores: number;
   /** Quantos colaboradores da unidade já têm Resultado Final calculado. */
   colaboradores_avaliados: number;
@@ -59,12 +61,13 @@ export const lacunasCompetenciasApi = {
     return apiClient.request<UnidadeLacunas[]>(`${BASE_URL}/unidades`);
   },
 
-  /** Gera o relatório com os dados vigentes no momento da chamada. */
-  gerar(unidadeId: number, nivelMinimo: number): Promise<RelatorioLacunas> {
-    const params = new URLSearchParams({
-      unidadeId: String(unidadeId),
-      nivelMinimo: String(nivelMinimo),
-    });
-    return apiClient.request<RelatorioLacunas>(`${BASE_URL}?${params}`);
+  /**
+   * Gera o relatório com os dados vigentes no momento da chamada. O corte não é mais parâmetro:
+   * cada competência traz o seu Grau mínimo esperado, definido na matriz.
+   */
+  gerar(unidadeId: number): Promise<RelatorioLacunas> {
+    return apiClient.request<RelatorioLacunas>(
+      `${BASE_URL}?unidadeId=${unidadeId}`,
+    );
   },
 };

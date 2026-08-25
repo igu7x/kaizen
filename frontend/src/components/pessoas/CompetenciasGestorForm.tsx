@@ -1,3 +1,4 @@
+import { GRAUS_MINIMOS } from "@/constants/competencias";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi, Area } from "@/services/areasApi";
@@ -36,7 +37,8 @@ import { ValidacaoStatusBanners } from "./ValidacaoStatusBanners";
 interface Competencia {
   nome: string;
   descricao: string;
-  peso: "" | "1" | "2" | "3";
+  /** Nivel (1..5) que a pessoa precisa atingir para ser considerada apta. */
+  grau_minimo_esperado: "1" | "2" | "3" | "4" | "5";
 }
 
 interface FormState {
@@ -51,7 +53,7 @@ interface FormState {
 const COMPETENCIA_VAZIA: Competencia = {
   nome: "",
   descricao: "",
-  peso: "",
+  grau_minimo_esperado: "3",
 };
 
 const MIN_COMPETENCIAS = 8;
@@ -116,7 +118,9 @@ export function CompetenciasGestorForm({
       competencias: (editFormulario.competencias || []).map((c) => ({
         nome: c.nome || "",
         descricao: c.descricao || "",
-        peso: c.peso ? (String(c.peso) as "1" | "2" | "3") : "",
+        grau_minimo_esperado: String(
+          c.grau_minimo_esperado ?? 3,
+        ) as Competencia["grau_minimo_esperado"],
       })),
     });
   }, [editFormulario]);
@@ -173,7 +177,9 @@ export function CompetenciasGestorForm({
         competencias: (formulario.competencias || []).map((c) => ({
           nome: c.nome || "",
           descricao: c.descricao || "",
-          peso: c.peso ? (String(c.peso) as "1" | "2" | "3") : "",
+          grau_minimo_esperado: String(
+            c.grau_minimo_esperado ?? 3,
+          ) as Competencia["grau_minimo_esperado"],
         })),
       });
     } catch (err: any) {
@@ -255,8 +261,10 @@ export function CompetenciasGestorForm({
         return toast.error(`Informe o nome da competência nº ${i + 1}.`);
       if (!c.descricao.trim())
         return toast.error(`Informe a descrição da competência nº ${i + 1}.`);
-      if (!c.peso)
-        return toast.error(`Selecione o peso da competência nº ${i + 1}.`);
+      if (!c.grau_minimo_esperado)
+        return toast.error(
+          `Selecione o grau mínimo esperado da competência nº ${i + 1}.`,
+        );
     }
 
     setSaving(true);
@@ -272,7 +280,7 @@ export function CompetenciasGestorForm({
         competencias: form.competencias.map((c) => ({
           nome: c.nome.trim(),
           descricao: c.descricao.trim(),
-          peso: Number(c.peso),
+          grau_minimo_esperado: Number(c.grau_minimo_esperado),
         })),
       };
 
@@ -347,8 +355,9 @@ export function CompetenciasGestorForm({
             <p>Cada competência deve ser classificada de acordo com:</p>
             <ul className="list-disc ml-6 space-y-2">
               <li>
-                <strong className="text-gray-900">Importância (peso):</strong>{" "}
-                relevância para a gestão da unidade e alcance dos resultados.
+                <strong className="text-gray-900">Grau mínimo esperado:</strong>{" "}
+                nível que o gestor precisa atingir para ser considerado apto na
+                competência.
               </li>
             </ul>
             <p className="text-gray-400 italic text-sm">
@@ -562,9 +571,8 @@ export function CompetenciasGestorForm({
                 explicação da competência;
               </li>
               <li>
-                <strong className="text-gray-900">Grau de Impacto:</strong> se é
-                útil, importante ou crítica para o desempenho da função de
-                gestor.
+                <strong className="text-gray-900">Grau mínimo esperado:</strong>{" "}
+                de 1 a 5, o nível exigido na competência.
               </li>
             </ul>
           </div>
@@ -624,39 +632,35 @@ export function CompetenciasGestorForm({
                 rows={3}
               />
             </div>
+            {/* Grau mínimo esperado: nível que o gestor precisa atingir nesta competência para
+                ser considerado apto. Mesma escala do Resultado Final (1..5). */}
             <div>
               <Label>
-                Grau de Impacto <span className="text-red-500">*</span>
+                Grau mínimo esperado <span className="text-red-500">*</span>
               </Label>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Nível que o gestor precisa atingir para ser considerado apto
+                nesta competência.
+              </p>
               <div className="mt-2 space-y-2">
-                {[
-                  {
-                    value: "1",
-                    label:
-                      "1 — Útil: agrega, mas não compromete a gestão se ausente",
-                  },
-                  {
-                    value: "2",
-                    label:
-                      "2 — Importante: ausência gera dificuldades na condução da área",
-                  },
-                  {
-                    value: "3",
-                    label:
-                      "3 — Crítica: risco para a gestão e liderança da unidade",
-                  },
-                ].map((opt) => (
+                {GRAUS_MINIMOS.map((opt) => (
                   <label
                     key={opt.value}
                     className="flex items-start gap-3 cursor-pointer group"
                   >
                     <input
                       type="radio"
-                      name={`peso-gestor-${index}`}
+                      name={`grau-minimo-gestor-${index}`}
                       value={opt.value}
-                      checked={comp.peso === opt.value}
+                      checked={
+                        String(comp.grau_minimo_esperado ?? "3") === opt.value
+                      }
                       onChange={() =>
-                        updateCompetencia(index, "peso", opt.value)
+                        updateCompetencia(
+                          index,
+                          "grau_minimo_esperado",
+                          opt.value,
+                        )
                       }
                       className="mt-0.5 h-4 w-4 text-violet-600 border-gray-300 focus:ring-violet-500"
                     />

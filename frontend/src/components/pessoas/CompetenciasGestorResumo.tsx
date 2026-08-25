@@ -55,15 +55,14 @@ interface CompetenciasGestorResumoProps {
   ) => void;
 }
 
-const pesoLabels: Record<number, string> = {
-  1: "Útil",
-  2: "Importante",
-  3: "Crítica",
-};
-const pesoColors: Record<number, string> = {
-  1: "bg-blue-100 text-blue-700",
-  2: "bg-amber-100 text-amber-700",
-  3: "bg-red-100 text-red-700",
+/** Cor do badge do grau mínimo esperado: quanto maior a exigência, mais forte. */
+const grauMinimoCor = (grau?: number) => {
+  const g = grau ?? 3;
+  return g >= 4
+    ? "bg-red-100 text-red-700"
+    : g === 3
+      ? "bg-amber-100 text-amber-700"
+      : "bg-blue-100 text-blue-700";
 };
 
 function formatDate(dateStr: string) {
@@ -578,12 +577,9 @@ function CompetenciaSection({
                 )}
               </CardTitle>
               {showPeso && (
-                <Badge
-                  className={
-                    pesoColors[comp.peso] || "bg-gray-100 text-gray-700"
-                  }
-                >
-                  {pesoLabels[comp.peso] || `Peso ${comp.peso}`}
+                // Grau mínimo esperado — substituiu o antigo "Grau de Impacto" (peso).
+                <Badge className={grauMinimoCor(comp.grau_minimo_esperado)}>
+                  {`Grau mín. ${comp.grau_minimo_esperado ?? 3}`}
                 </Badge>
               )}
             </div>

@@ -3,7 +3,10 @@ import { apiClient } from "./apiClient";
 export interface CompetenciaItem {
   nome: string;
   descricao: string;
-  peso: number;
+  /** Criterio antigo ("Grau de Impacto", 1..3). Mantido so como historico. */
+  peso?: number;
+  /** Nivel (1..5) que a pessoa precisa atingir para ser considerada apta. */
+  grau_minimo_esperado?: number;
   aplicabilidade?: "todos" | "parte";
   quantidade_pessoas?: number;
   /** TRUE quando o item foi alterado/adicionado na última edição via "Gerenciar Competências Técnicas". */

@@ -13,8 +13,9 @@ const MARGIN_RIGHT = 15;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const FOOTER_Y = PAGE_HEIGHT - 15;
 
-const pesoLabel = (peso: number | null) =>
-  peso === 3 ? "Crítica" : peso === 2 ? "Importante" : peso === 1 ? "Útil" : "—";
+/** Grau mínimo esperado da competência, na escala do Resultado Final. */
+const grauLabel = (grau: number) =>
+  `${grau} — ${NOTA_TECNICA_LABELS[grau] || ""}`;
 
 function formatDateTime(d: Date): string {
   return d.toLocaleDateString("pt-BR", {
@@ -142,7 +143,16 @@ function drawHeader(doc: jsPDF, rel: RelatorioLacunas) {
   doc.text(lotLines, MARGIN_LEFT + 5, 36);
 
   const rcx = PAGE_WIDTH * 0.6 + (PAGE_WIDTH * 0.4) / 2;
-  doc.addImage(LOGO_BRANCO_4K_BASE64, "PNG", rcx - 9, 10, 18, 22, undefined, "FAST");
+  doc.addImage(
+    LOGO_BRANCO_4K_BASE64,
+    "PNG",
+    rcx - 9,
+    10,
+    18,
+    22,
+    undefined,
+    "FAST",
+  );
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
@@ -163,10 +173,9 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
   // ── Parâmetros do cálculo ────────────────────────────────────────────────
   // O relatório é uma FOTOGRAFIA: registra o critério e o momento, porque o mesmo
   // relatório gerado amanhã pode dar outro número.
-  const nivel = `${rel.nivel_minimo} — ${NOTA_TECNICA_LABELS[rel.nivel_minimo] || ""}`;
   const infos: [string, string][] = [
     ["Gerado em", formatDateTime(geradoEm)],
-    ["Nível mínimo considerado", nivel],
+    // O corte e por competencia (coluna "Grau minimo" da tabela), nao mais um nivel unico.
     ["Colaboradores na unidade", String(rel.qtd_colaboradores)],
     [
       "Com Resultado Final",
@@ -184,10 +193,7 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     ["Cobertura geral", `${rel.cobertura_geral_percentual}%`],
     // A explicação da unidade vai no VALOR, não no rótulo: a coluna do rótulo tem 60mm e
     // um título longo quebrava em duas linhas dentro de uma célula de altura fixa.
-    [
-      "Débito total",
-      `${rel.soma_debito} lacunas (colaborador × competência)`,
-    ],
+    ["Débito total", `${rel.soma_debito} lacunas (colaborador × competência)`],
     // Recorte só entre quem tem Resultado Final — falta de competência, sem o ruído da
     // falta de avaliação.
     [
@@ -248,7 +254,14 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
 
   // ── Tabela ───────────────────────────────────────────────────────────────
   const colW = [78, 22, 22, 22, 22, 14];
-  const heads = ["Competência", "Peso", "Necess.", "Possuem", "Débito", "%"];
+  const heads = [
+    "Competência",
+    "Grau mín.",
+    "Necess.",
+    "Possuem",
+    "Débito",
+    "%",
+  ];
   const drawHeadRow = (yy: number) => {
     let x = MARGIN_LEFT;
     heads.forEach((h, i) => {
@@ -282,7 +295,7 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     }
     const emDebito = linha.debito > 0;
     const numeros: [string, boolean][] = [
-      [pesoLabel(linha.peso), false],
+      [grauLabel(linha.grau_minimo_esperado), false],
       [String(linha.necessario), false],
       [String(linha.possuem), false],
       [String(linha.debito), emDebito],

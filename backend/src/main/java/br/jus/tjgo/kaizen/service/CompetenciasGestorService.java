@@ -274,10 +274,10 @@ public class CompetenciasGestorService {
         for (int i = 0; i < competencias.size(); i++) {
             Map<String, Object> c = competencias.get(i);
             jdbc.update(
-                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, aplicabilidade, quantidade_pessoas) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    formularioId, i + 1, str(c.get("nome")), str(c.get("descricao")), c.get("peso"),
-                    orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")));
+                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    formularioId, i + 1, str(c.get("nome")), str(c.get("descricao")), pesoLegado(c),
+                    grauMinimo(c), orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")));
         }
 
         if ("equipe".equals(tipo) && unidadeId != null) {
@@ -441,10 +441,10 @@ public class CompetenciasGestorService {
                     || !java.util.Objects.equals(strOrNull(o.get("aplicabilidade")), strOrNull(c.get("aplicabilidade")))
                     || numOr0(o.get("quantidade_pessoas")) != numOr0(c.get("quantidade_pessoas"));
             jdbc.update(
-                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, aplicabilidade, quantidade_pessoas, alterada) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    id, i + 1, str(c.get("nome")), str(c.get("descricao")), c.get("peso"),
-                    orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), isAlterada);
+                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas, alterada) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    id, i + 1, str(c.get("nome")), str(c.get("descricao")), pesoLegado(c),
+                    grauMinimo(c), orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), isAlterada);
         }
 
         boolean itensChanged = oldItens.size() != competencias.size();
@@ -495,10 +495,10 @@ public class CompetenciasGestorService {
     public void syncCompetenciasPorUnidade(long unidadeId, long formularioId, List<Map<String, Object>> competencias) {
         for (Map<String, Object> c : competencias) {
             jdbc.update(
-                    "INSERT INTO competencias_por_unidade (unidade_id, nome, descricao, peso, aplicabilidade, quantidade_pessoas, origem_formulario_id) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    unidadeId, str(c.get("nome")), str(c.get("descricao")), c.get("peso"),
-                    orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), formularioId);
+                    "INSERT INTO competencias_por_unidade (unidade_id, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas, origem_formulario_id) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    unidadeId, str(c.get("nome")), str(c.get("descricao")), pesoLegado(c),
+                    grauMinimo(c), orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), formularioId);
         }
     }
 
@@ -1207,6 +1207,40 @@ public class CompetenciasGestorService {
             return (List<Map<String, Object>>) list;
         }
         return new ArrayList<>();
+    }
+
+    /**
+     * Grau mínimo esperado (1..5) — o nível que a pessoa precisa atingir para ser considerada
+     * capaz naquela competência. Substituiu o "Grau de Impacto" no formulário; 3 é o padrão, que
+     * era o corte usado pelo relatório de Lacunas antes de o campo existir.
+     */
+    private static int grauMinimo(Map<String, Object> c) {
+        Object v = c.get("grau_minimo_esperado");
+        if (v == null) {
+            return 3;
+        }
+        try {
+            int n = Integer.parseInt(String.valueOf(v).trim());
+            return n < 1 || n > 5 ? 3 : n;
+        } catch (NumberFormatException e) {
+            return 3;
+        }
+    }
+
+    /**
+     * `peso` saiu do formulário mas a coluna é NOT NULL e guarda o histórico do critério antigo
+     * (Grau de Impacto). Preserva o valor quando ainda vier no payload; senão grava o default.
+     */
+    private static int pesoLegado(Map<String, Object> c) {
+        Object v = c.get("peso");
+        if (v == null) {
+            return 1;
+        }
+        try {
+            return Integer.parseInt(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            return 1;
+        }
     }
 
     private static boolean equalsId(Object a, long b) {
