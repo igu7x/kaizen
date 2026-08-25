@@ -16,6 +16,7 @@ import {
   RefreshCw,
   ScanSearch,
   UserCog,
+  FileText,
 } from "lucide-react";
 import { NOTA_TECNICA_LABELS } from "@/constants/competencias";
 import {
@@ -23,6 +24,13 @@ import {
   RelatorioLacunasGestor as Relatorio,
   UnidadeGestorLacunas,
 } from "@/services/lacunasCompetenciasApi";
+import { generateLacunasGestorPDF } from "@/utils/generateLacunasGestorPDF";
+import { toast } from "sonner";
+
+/** Plural de "nível" é "níveis" — não "nívelis". */
+export const niveis = (n: number) => (n === 1 ? "1 nível" : `${n} níveis`);
+const faltamNiveis = (n: number | null) =>
+  n === 1 ? "Falta 1 nível" : `Faltam ${n} níveis`;
 
 /**
  * Lacunas de Competências do Gestor.
@@ -66,6 +74,15 @@ export function RelatorioLacunasGestor() {
       );
     } finally {
       setGerando(false);
+    }
+  };
+
+  const exportarPdf = () => {
+    if (!relatorio) return;
+    try {
+      generateLacunasGestorPDF(relatorio);
+    } catch {
+      toast.error("Falha ao gerar o PDF.");
     }
   };
 
@@ -125,6 +142,12 @@ export function RelatorioLacunasGestor() {
               )}
               Gerar relatório
             </Button>
+
+            {relatorio && (
+              <Button variant="outline" onClick={exportarPdf}>
+                <FileText className="mr-1.5 h-4 w-4" /> Gerar PDF
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -180,7 +203,7 @@ export function RelatorioLacunasGestor() {
             <Resumo
               rotulo="Em débito"
               valor={String(relatorio.em_debito)}
-              detalhe={`${relatorio.soma_debito_niveis} nível(is) a evoluir`}
+              detalhe={`${niveis(relatorio.soma_debito_niveis)} a evoluir`}
               destaque={relatorio.em_debito > 0}
             />
             <Resumo
@@ -243,8 +266,7 @@ export function RelatorioLacunasGestor() {
                             </Badge>
                           ) : (
                             <Badge className="bg-red-100 text-red-700">
-                              Faltam {l.debito_niveis} nível
-                              {(l.debito_niveis ?? 0) > 1 ? "is" : ""}
+                              {faltamNiveis(l.debito_niveis)}
                             </Badge>
                           )}
                         </td>
