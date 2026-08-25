@@ -349,9 +349,27 @@ export default function RiscosContratacoesDetalhe() {
           <div className="flex gap-2">
             {isEditContextMode ? (
               <>
-                <Button onClick={handleCancelContext} variant="outline" className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50">
-                  Cancelar
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50">
+                      Cancelar
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancelar edição?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja cancelar a edição? Todas as alterações não salvas serão perdidas.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Voltar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleCancelContext} className="bg-red-600 hover:bg-red-700 text-white">
+                        Confirmar Cancelamento
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button className="bg-[#002547] hover:bg-[#001b33] text-white" disabled={isSaving}>
