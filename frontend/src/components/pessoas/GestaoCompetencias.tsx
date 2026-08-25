@@ -1747,19 +1747,6 @@ export function GestaoCompetencias({
       });
     }
 
-    // Administração dos editores — só quem dirige macroárea (o backend confere de novo por área).
-    if (ehGestorOuSubdiretorMacro || isSGJT) {
-      itensMatriz.push({
-        key: "editores_matriz_gestor",
-        titulo: "Editores da Matriz do Gestor",
-        descricao:
-          "Associe quem pode preencher a Matriz do Gestor das unidades da sua área. O editor só preenche; a validação segue igual.",
-        icon: <UserCog className="h-5 w-5" />,
-        cor: "blue",
-        aoAbrir: () => setCurrentView("editores_gestor"),
-      });
-    }
-
     if (isGestorDeUnidade || ehGestorOuSubdiretorMacro || isSGJT) {
       itensMatriz.push({
         key: "matriz_padrao",
@@ -2189,14 +2176,28 @@ export function GestaoCompetencias({
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
-          Gestão por Competências
-        </h2>
-        <p className="text-sm text-gray-500 mt-2 pl-5">
-          Escolha um módulo para ver as ações do seu perfil e a relação
-          correspondente logo abaixo.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4">
+            Gestão por Competências
+          </h2>
+          <p className="text-sm text-gray-500 mt-2 pl-5">
+            Escolha um módulo para ver as ações do seu perfil e a relação
+            correspondente logo abaixo.
+          </p>
+        </div>
+        {/* Administração pontual, não é uma "ação do perfil" — fica fora da grade de cards
+            para não competir com o que o usuário vem fazer aqui todo dia. */}
+        {(ehGestorOuSubdiretorMacro || isSGJT) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentView("editores_gestor")}
+            className="flex-shrink-0 text-gray-600"
+          >
+            <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz do Gestor
+          </Button>
+        )}
       </div>
 
       {modulos.length === 0 ? (
