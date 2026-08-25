@@ -109,25 +109,33 @@ public class ContractRiskAssessmentService {
         }
     }
 
-    public Page<ContractRiskAssessment> listcontractRiskAssessments(Long userId, String search, int page, int size) {
-        return repository.findBySearchOrderByCreatedAtDesc(search, PageRequest.of(page, size));
+    public Page<ContractRiskAssessment> listcontractRiskAssessments(Long userId, String search, int page, int size, boolean hasCrudPermission) {
+        return repository.findBySearchOrderByCreatedAtDesc(search, hasCrudPermission, PageRequest.of(page, size));
     }
 
-    public Optional<ContractRiskAssessment> getcontractRiskAssessment(Long id, Long userId) {
-        return repository.findById(id).map(assessment -> {
-            assessment.setHasPreviousValidation(validationRepository.existsByAssessmentId(id));
-            return assessment;
-        });
+    public Optional<ContractRiskAssessment> getcontractRiskAssessment(Long id, Long userId, boolean hasCrudPermission) {
+        return repository.findById(id)
+                .filter(assessment -> assessment.getIsDeleted() == null || !assessment.getIsDeleted())
+                .filter(assessment -> hasCrudPermission || assessment.getValidatedAt() != null)
+                .map(assessment -> {
+                    assessment.setHasPreviousValidation(validationRepository.existsByAssessmentId(id));
+                    return assessment;
+                });
     }
 
     @Transactional
     public void deletecontractRiskAssessment(Long id, Long userId) {
-        getcontractRiskAssessment(id, userId).ifPresent(repository::delete);
+        getcontractRiskAssessment(id, userId, true).ifPresent(assessment -> {
+            assessment.setIsDeleted(true);
+            assessment.setDeletedAt(OffsetDateTime.now());
+            assessment.setDeletedById(userId);
+            repository.save(assessment);
+        });
     }
 
     @Transactional
     public void updatecontractRiskAssessmentBody(Long id, Long userId, String newBody) {
-        getcontractRiskAssessment(id, userId).ifPresent(contractRiskAssessment -> {
+        getcontractRiskAssessment(id, userId, true).ifPresent(contractRiskAssessment -> {
             contractRiskAssessment.setBody(newBody);
             contractRiskAssessment.setUpdatedById(userId);
             contractRiskAssessment.setValidatedAt(null);
@@ -148,7 +156,7 @@ public class ContractRiskAssessmentService {
 
     @Transactional
     public void validateAssessment(Long id, Long userId) {
-        repository.findById(id).ifPresent(assessment -> {
+        getcontractRiskAssessment(id, userId, true).ifPresent(assessment -> {
             OffsetDateTime now = OffsetDateTime.now();
             assessment.setValidatedAt(now);
             assessment.setValidatedById(userId);
@@ -167,7 +175,7 @@ public class ContractRiskAssessmentService {
     @Transactional
     public void recoverValidation(Long id, Long userId) {
         validationRepository.findFirstByAssessmentIdOrderByValidatedAtDesc(id).ifPresent(validation -> {
-            repository.findById(id).ifPresent(assessment -> {
+            getcontractRiskAssessment(id, userId, true).ifPresent(assessment -> {
                 assessment.setBody(validation.getBody());
                 assessment.setValidatedAt(validation.getValidatedAt());
                 assessment.setValidatedById(validation.getValidatedById());

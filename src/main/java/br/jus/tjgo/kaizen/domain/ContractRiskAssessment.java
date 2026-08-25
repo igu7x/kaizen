@@ -51,4 +51,13 @@ public class ContractRiskAssessment {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @Column(name = "deleted_by_id")
+    private Long deletedById;
 }
