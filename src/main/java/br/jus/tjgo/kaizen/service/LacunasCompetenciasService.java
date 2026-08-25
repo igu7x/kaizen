@@ -81,7 +81,7 @@ public class LacunasCompetenciasService {
      * Monta o relatório da unidade. Devolve {@code null} quando a unidade não tem Matriz de
      * Competências da equipe — sem ela não há o que comparar.
      */
-    public Map<String, Object> gerar(long unidadeId, int nivelMinimo) {
+    public Map<String, Object> gerar(long unidadeId) {
         // Matriz vigente da equipe: a validada mais recente; sem nenhuma validada, a mais recente.
         List<Map<String, Object>> matrizRows = jdbc.queryForList(
                 "SELECT f.id, f.qtd_colaboradores, f.versao_formulario, f.status, " +
@@ -115,14 +115,26 @@ public class LacunasCompetenciasService {
             formulariosIntegrados.add(((Number) row.get("id")).longValue());
         }
 
-        // Só entram as competências com aplicabilidade declarada — é o campo que diz para quantos
-        // a competência vale, e na prática marca as TÉCNICAS (as padrão não o preenchem).
-        List<Map<String, Object>> itens = jdbc.queryForList(
-                "SELECT i.id, i.nome, i.descricao, i.peso, i.aplicabilidade, i.quantidade_pessoas, i.ordem " +
+        // As TÉCNICAS vêm da matriz — são as que o gestor digitou, com aplicabilidade e grau.
+        List<Map<String, Object>> itens = new ArrayList<>(jdbc.queryForList(
+                "SELECT i.id, i.nome, i.descricao, i.peso, i.grau_minimo_esperado, " +
+                        "       i.aplicabilidade, i.quantidade_pessoas, i.ordem, 'matriz' AS origem " +
                         "FROM competencias_gestor_itens i " +
-                        "WHERE i.formulario_id = ? AND i.aplicabilidade IS NOT NULL " +
+                        "WHERE i.formulario_id = ? " +
                         "ORDER BY i.ordem, i.id",
-                matrizId);
+                matrizId));
+
+        // As COMPORTAMENTAIS não ficam na matriz: vivem no catálogo de competências padrão e são
+        // aplicadas a todo mundo na avaliação. Por isso entram aqui pelo catálogo, com o grau
+        // mínimo fixo em 3 e necessário = todos os colaboradores.
+        itens.addAll(jdbc.queryForList(
+                "SELECT p.id, p.nome, p.descricao, NULL::int AS peso, " +
+                        "       " + NIVEL_MINIMO_PADRAO + " AS grau_minimo_esperado, " +
+                        "       NULL::varchar AS aplicabilidade, NULL::int AS quantidade_pessoas, " +
+                        "       p.ordem, 'padrao' AS origem " +
+                        "FROM competencias_padrao p " +
+                        "WHERE p.tipo = 'comportamental' AND COALESCE(p.ativo, TRUE) = TRUE " +
+                        "ORDER BY p.ordem, p.id"));
 
         int totalAvaliados = formulariosIntegrados.size();
         // Notas de cada avaliado, agrupadas por nome e PRESERVANDO A ORDEM das respostas.
@@ -143,10 +155,13 @@ public class LacunasCompetenciasService {
                     ? qtdColaboradores
                     : (item.get("quantidade_pessoas") != null
                             ? ((Number) item.get("quantidade_pessoas")).intValue() : 0);
+            // O corte agora é de CADA competência (Grau mínimo esperado, definido na matriz), não
+            // mais um nível único escolhido ao gerar o relatório.
+            int grauMinimo = grauMinimoDoItem(item);
             // Índice desta ocorrência do nome dentro da matriz (0, 1, 2...).
             String chave = normalizar(nome);
             int ocorrencia = ocorrencias.merge(chave, 1, Integer::sum) - 1;
-            int possuem = contarAptos(notasPorPessoa, chave, ocorrencia, nivelMinimo);
+            int possuem = contarAptos(notasPorPessoa, chave, ocorrencia, grauMinimo);
             int debito = Math.max(0, necessario - possuem);
 
             // Recorte entre quem JÁ TEM Resultado Final. Separa "falta competência" de "falta
@@ -158,9 +173,13 @@ public class LacunasCompetenciasService {
 
             Map<String, Object> linha = new LinkedHashMap<>();
             linha.put("competencia_id", item.get("id"));
+            // "matriz" (técnica digitada) ou "padrao" (comportamental do catálogo). Ids das duas
+            // origens podem coincidir, então a tela precisa dos dois para montar a chave.
+            linha.put("origem", item.get("origem"));
             linha.put("competencia_nome", nome);
             linha.put("competencia_descricao", item.get("descricao"));
             linha.put("peso", item.get("peso"));
+            linha.put("grau_minimo_esperado", grauMinimo);
             linha.put("aplicabilidade", item.get("aplicabilidade"));
             linha.put("necessario", necessario);
             linha.put("possuem", possuem);
@@ -186,7 +205,6 @@ public class LacunasCompetenciasService {
         out.put("matriz_id", matrizId);
         out.put("matriz_status", matriz.get("status"));
         out.put("matriz_validada_em", matriz.get("validado_final_em"));
-        out.put("nivel_minimo", nivelMinimo);
         out.put("qtd_colaboradores", qtdColaboradores);
         // Cobertura do próprio inventário: de nada adianta o número de aptos se metade da equipe
         // ainda não tem Resultado Final. É a ressalva que o relatório precisa mostrar.
@@ -206,6 +224,170 @@ public class LacunasCompetenciasService {
                 somaNecessario > 0 ? (somaPossuem * 100) / somaNecessario : 100);
         out.put("competencias", linhas);
         return out;
+    }
+
+    // ============================================================
+    // LACUNAS DO GESTOR
+    // ============================================================
+
+    /**
+     * Unidades cujo gestor o usuário pode analisar: as das áreas que ele dirige. É o recorte do
+     * pedido — o relatório do gestor é instrumento da direção da área.
+     */
+    public List<Map<String, Object>> unidadesComGestor(long userId, boolean isSuperadmin) {
+        String filtro = isSuperadmin
+                ? ""
+                : " AND (ca.gestor_user_id = ? OR ca.subdiretor_user_id = ?) ";
+        String sql =
+                "SELECT cu.id, cu.nome, cu.area_id, ca.sigla AS area_sigla, " +
+                "       cu.responsavel_user_id AS gestor_user_id, u.name AS gestor_nome " +
+                "FROM cadastros_unidades cu " +
+                "JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                "LEFT JOIN users u ON u.id = cu.responsavel_user_id " +
+                "WHERE (cu.ativo IS NOT FALSE) AND COALESCE(ca.ativo, TRUE) = TRUE " +
+                "  AND LOWER(TRIM(cu.nome)) <> LOWER(TRIM(ca.sigla)) " +
+                filtro +
+                "ORDER BY ca.sigla, cu.nome";
+        return isSuperadmin
+                ? jdbc.queryForList(sql)
+                : jdbc.queryForList(sql, userId, userId);
+    }
+
+    /** Só a direção da área (e superadmin) emite o relatório do gestor daquela unidade. */
+    public boolean podeGerarGestor(long unidadeId, long userId, boolean isSuperadmin) {
+        if (isSuperadmin) {
+            return true;
+        }
+        return !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_unidades cu " +
+                        "JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                        "WHERE cu.id = ? AND (ca.gestor_user_id = ? OR ca.subdiretor_user_id = ?) LIMIT 1",
+                unidadeId, userId, userId).isEmpty();
+    }
+
+    /**
+     * Lacunas do GESTOR da unidade. Diferente do relatório da equipe, aqui não se conta gente: o
+     * avaliado é uma pessoa só, e a pergunta por competência é se ele alcança o grau mínimo
+     * esperado. O "débito" vira a distância em níveis até esse grau.
+     *
+     * <p>Devolve {@code null} quando a unidade não tem Matriz do Gestor — sem ela não há referência.
+     */
+    public Map<String, Object> gerarGestor(long unidadeId) {
+        List<Map<String, Object>> matrizRows = jdbc.queryForList(
+                "SELECT f.id, f.status, f.validado_final_em, " +
+                        "       cu.nome AS unidade_nome, ca.sigla AS area_sigla, " +
+                        "       cu.responsavel_user_id AS gestor_user_id, u.name AS gestor_nome " +
+                        "FROM competencias_gestor_formularios f " +
+                        "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
+                        "LEFT JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                        "LEFT JOIN users u ON u.id = cu.responsavel_user_id " +
+                        "WHERE f.unidade_id = ? AND f.tipo = 'gestor' AND f.is_deleted = FALSE " +
+                        "ORDER BY (f.validado_final_em IS NOT NULL) DESC, f.validado_final_em DESC, f.id DESC " +
+                        "LIMIT 1",
+                unidadeId);
+        if (matrizRows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> matriz = matrizRows.get(0);
+        long matrizId = ((Number) matriz.get("id")).longValue();
+
+        // Resultado Final mais recente do inventário do GESTOR nesta unidade. Só um: o avaliado é
+        // o gestor da unidade.
+        List<Map<String, Object>> integrada = jdbc.queryForList(
+                "SELECT ai.id FROM avaliacao_integrada_formularios ai " +
+                        "WHERE ai.unidade_id = ? AND COALESCE(ai.tipo_inventario, 'equipe') = 'gestor' " +
+                        "  AND ai.is_deleted = FALSE " +
+                        "ORDER BY COALESCE(ai.calculado_em, ai.created_at) DESC LIMIT 1",
+                unidadeId);
+        List<Long> formularios = integrada.isEmpty()
+                ? List.of()
+                : List.of(((Number) integrada.get(0).get("id")).longValue());
+        Map<Long, Map<String, List<Integer>>> notasPorPessoa = carregarNotas(formularios);
+        Map<String, List<Integer>> notasDoGestor = notasPorPessoa.values().stream()
+                .findFirst().orElse(new LinkedHashMap<>());
+
+        // Técnicas da matriz do gestor + TODAS as padrão (comportamental, estratégica e gerencial),
+        // que no inventário do gestor são as três aplicadas, com grau mínimo 3.
+        List<Map<String, Object>> itens = new ArrayList<>(jdbc.queryForList(
+                "SELECT i.id, i.nome, i.descricao, i.grau_minimo_esperado, i.ordem, 'matriz' AS origem " +
+                        "FROM competencias_gestor_itens i WHERE i.formulario_id = ? " +
+                        "ORDER BY i.ordem, i.id",
+                matrizId));
+        itens.addAll(jdbc.queryForList(
+                "SELECT p.id, p.nome, p.descricao, " + NIVEL_MINIMO_PADRAO + " AS grau_minimo_esperado, " +
+                        "       p.ordem, 'padrao' AS origem " +
+                        "FROM competencias_padrao p " +
+                        "WHERE p.tipo IN ('comportamental', 'estrategica', 'gerencial') " +
+                        "  AND COALESCE(p.ativo, TRUE) = TRUE " +
+                        "ORDER BY p.tipo, p.ordem, p.id"));
+
+        Map<String, Integer> ocorrencias = new LinkedHashMap<>();
+        List<Map<String, Object>> linhas = new ArrayList<>();
+        int atingidas = 0;
+        int somaDebitoNiveis = 0;
+        int avaliadas = 0;
+        for (Map<String, Object> item : itens) {
+            String nome = str(item.get("nome"));
+            int grauMinimo = grauMinimoDoItem(item);
+            String chave = normalizar(nome);
+            int ocorrencia = ocorrencias.merge(chave, 1, Integer::sum) - 1;
+            Integer nota = notaDoAvaliado(notasDoGestor, chave, ocorrencia);
+            boolean atingiu = nota != null && nota >= grauMinimo;
+            // Distância até o grau exigido. Sem nota não há como afirmar débito de competência —
+            // fica nulo, e a tela mostra como "não avaliada" em vez de somar como lacuna.
+            Integer debitoNiveis = nota == null ? null : Math.max(0, grauMinimo - nota);
+
+            Map<String, Object> linha = new LinkedHashMap<>();
+            linha.put("competencia_id", item.get("id"));
+            linha.put("origem", item.get("origem"));
+            linha.put("competencia_nome", nome);
+            linha.put("competencia_descricao", item.get("descricao"));
+            linha.put("grau_minimo_esperado", grauMinimo);
+            linha.put("nota", nota);
+            linha.put("atingiu", atingiu);
+            linha.put("debito_niveis", debitoNiveis);
+            linhas.add(linha);
+
+            if (nota != null) {
+                avaliadas++;
+                if (atingiu) {
+                    atingidas++;
+                } else {
+                    somaDebitoNiveis += debitoNiveis;
+                }
+            }
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("unidade_id", unidadeId);
+        out.put("unidade_nome", matriz.get("unidade_nome"));
+        out.put("area_sigla", matriz.get("area_sigla"));
+        out.put("gestor_user_id", matriz.get("gestor_user_id"));
+        out.put("gestor_nome", matriz.get("gestor_nome"));
+        out.put("matriz_id", matrizId);
+        out.put("matriz_status", matriz.get("status"));
+        out.put("matriz_validada_em", matriz.get("validado_final_em"));
+        out.put("tem_resultado_final", !formularios.isEmpty());
+        out.put("total_competencias", linhas.size());
+        out.put("competencias_avaliadas", avaliadas);
+        out.put("atingidas", atingidas);
+        out.put("em_debito", avaliadas - atingidas);
+        out.put("soma_debito_niveis", somaDebitoNiveis);
+        // Percentual sobre o que foi AVALIADO: usar o total faria uma matriz recém-criada parecer
+        // reprovada quando na verdade ainda não houve avaliação.
+        out.put("percentual_alcance", avaliadas > 0 ? (atingidas * 100) / avaliadas : 0);
+        out.put("competencias", linhas);
+        return out;
+    }
+
+    /** Nota do avaliado nesta ocorrência da competência, ou {@code null} se não respondida. */
+    private static Integer notaDoAvaliado(
+            Map<String, List<Integer>> notas, String chave, int ocorrencia) {
+        List<Integer> lista = notas.get(chave);
+        if (lista == null || lista.size() <= ocorrencia) {
+            return null;
+        }
+        return lista.get(ocorrencia);
     }
 
     /**
@@ -269,6 +451,20 @@ public class LacunasCompetenciasService {
 
     private static String normalizar(String nome) {
         return nome == null ? "" : nome.trim().toLowerCase();
+    }
+
+    /**
+     * Grau mínimo esperado da competência (1..5), definido no preenchimento da matriz.
+     * Cai em 3 quando ausente ou fora da faixa — é o valor do backfill da migration 255 e o corte
+     * que o relatório usava antes de o campo existir, então matriz antiga não muda de resultado.
+     */
+    private static int grauMinimoDoItem(Map<String, Object> item) {
+        Object v = item.get("grau_minimo_esperado");
+        if (v == null) {
+            return NIVEL_MINIMO_PADRAO;
+        }
+        int n = ((Number) v).intValue();
+        return n < 1 || n > 5 ? NIVEL_MINIMO_PADRAO : n;
     }
 
     private static String bigintArray(List<Long> ids) {

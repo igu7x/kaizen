@@ -196,6 +196,82 @@ public class CompetenciasGestorController {
         }
     }
 
+    // ============================================================
+    // Editores da Matriz do Gestor (por macroárea)
+    // ============================================================
+
+    /** Áreas que o usuário logado dirige — onde ele pode administrar editores. */
+    @GetMapping("/editores/minhas-areas")
+    public List<Map<String, Object>> areasQueDirijo() {
+        long userId = currentUserId();
+        if (isSuperadmin()) {
+            return jdbc.queryForList(
+                    "SELECT id, sigla, nome FROM cadastros_areas " +
+                            "WHERE COALESCE(ativo, TRUE) = TRUE ORDER BY sigla");
+        }
+        return jdbc.queryForList(
+                "SELECT id, sigla, nome FROM cadastros_areas " +
+                        "WHERE COALESCE(ativo, TRUE) = TRUE " +
+                        "  AND (gestor_user_id = ? OR subdiretor_user_id = ?) ORDER BY sigla",
+                userId, userId);
+    }
+
+    /** Áreas em que o usuário logado é editor — usado pela tela para liberar o card da matriz. */
+    @GetMapping("/editores/sou-editor")
+    public Map<String, Object> souEditor() {
+        List<Map<String, Object>> areas = service.areasOndeEhEditor(currentUserId());
+        return Map.of("editor", !areas.isEmpty(), "areas", areas);
+    }
+
+    @GetMapping("/editores")
+    public ResponseEntity<?> listEditores(@RequestParam("cadastrosAreasId") long cadastrosAreasId) {
+        if (!service.podeGerenciarEditores(cadastrosAreasId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas a direção da área pode ver os editores"));
+        }
+        return ResponseEntity.ok(service.listEditores(cadastrosAreasId));
+    }
+
+    @PostMapping("/editores")
+    public ResponseEntity<?> addEditor(@RequestBody Map<String, Object> body) {
+        Long areaId = asLongOrNull(body.get("cadastros_areas_id"));
+        Long novoEditor = asLongOrNull(body.get("user_id"));
+        if (areaId == null || novoEditor == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "cadastros_areas_id e user_id são obrigatórios"));
+        }
+        if (!service.podeGerenciarEditores(areaId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas a direção da área pode associar editores"));
+        }
+        service.addEditor(areaId, novoEditor, currentUserId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.listEditores(areaId));
+    }
+
+    @DeleteMapping("/editores/{editorId:\\d+}")
+    public ResponseEntity<?> removeEditor(@PathVariable long editorId,
+                                          @RequestParam("cadastrosAreasId") long cadastrosAreasId) {
+        if (!service.podeGerenciarEditores(cadastrosAreasId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas a direção da área pode remover editores"));
+        }
+        if (!service.removeEditor(editorId, cadastrosAreasId)) {
+            return ResponseEntity.status(404).body(Map.of("error", "Editor não encontrado"));
+        }
+        return ResponseEntity.ok(service.listEditores(cadastrosAreasId));
+    }
+
+    private static Long asLongOrNull(Object v) {
+        if (v == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     // GET /api/competencias-gestor/verificar-acesso
     @GetMapping("/verificar-acesso")
     public ResponseEntity<?> verificarAcesso() {
