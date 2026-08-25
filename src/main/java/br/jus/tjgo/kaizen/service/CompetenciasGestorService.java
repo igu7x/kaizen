@@ -90,7 +90,11 @@ public class CompetenciasGestorService {
                 .append("               WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) ")
                 .append("   OR EXISTS (SELECT 1 FROM cadastros_areas ca2 ")
                 .append("               WHERE ca2.id = f.cadastros_areas_id ")
-                .append("                 AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) )");
+                .append("                 AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ")
+                // Editor da área enxerga as matrizes do GESTOR da sua área — é o que ele preenche.
+                .append("   OR ( f.tipo = 'gestor' AND EXISTS (SELECT 1 FROM competencias_gestor_editores e ")
+                .append("               WHERE e.cadastros_areas_id = f.cadastros_areas_id AND e.user_id = ?)) )");
+        params.add(userId);
         params.add(userId);
         params.add(userId);
         params.add(userId);
@@ -116,9 +120,11 @@ public class CompetenciasGestorService {
                         "                WHERE cu2.id = f.unidade_id AND cu2.responsavel_user_id = ?) " +
                         "    OR EXISTS (SELECT 1 FROM cadastros_areas ca2 " +
                         "                WHERE ca2.id = f.cadastros_areas_id " +
-                        "                  AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ) " +
+                        "                  AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) " +
+                        "    OR ( f.tipo = 'gestor' AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+                        "                WHERE e.cadastros_areas_id = f.cadastros_areas_id AND e.user_id = ?)) ) " +
                         "LIMIT 1",
-                id, userId, userId, userId, userId);
+                id, userId, userId, userId, userId, userId);
         return !rows.isEmpty();
     }
 
@@ -144,7 +150,14 @@ public class CompetenciasGestorService {
                 "       (SELECT COUNT(*) FROM competencias_gestor_itens i WHERE i.formulario_id = f.id) as total_competencias, " +
                 "       va.name as validado_por_autor_nome, " +
                 "       vd.name as validado_por_diretoria_nome, " +
-                "       vf.name as validado_final_nome " +
+                "       ( f.tipo = 'gestor' " +
+               "         AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+               "                      WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca2 WHERE ca2.id = f.cadastros_areas_id " +
+               "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
+               "                          AND cu2.responsavel_user_id = f.user_id) ) AS preenchido_por_editor, " +
+               "       vf.name as validado_final_nome " +
                 "FROM competencias_gestor_formularios f " +
                 "LEFT JOIN users u ON u.id = f.user_id " +
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
@@ -158,6 +171,15 @@ public class CompetenciasGestorService {
                 "SELECT f.*, u.name as user_name, cu.nome as unidade_nome, " +
                         "       va.name as validado_por_autor_nome, " +
                         "       vd.name as validado_por_diretoria_nome, " +
+                        // Matriz do gestor preenchida por quem é APENAS editor não tem camada de
+                        // autor — a tela usa isto para montar o stepper com 2 etapas.
+                        "       ( f.tipo = 'gestor' " +
+                        "         AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+                        "                      WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca2 WHERE ca2.id = f.cadastros_areas_id " +
+                        "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
+                        "                          AND cu2.responsavel_user_id = f.user_id) ) AS preenchido_por_editor, " +
                         "       vf.name as validado_final_nome " +
                         "FROM competencias_gestor_formularios f " +
                         "LEFT JOIN users u ON u.id = f.user_id " +
@@ -268,10 +290,10 @@ public class CompetenciasGestorService {
         for (int i = 0; i < competencias.size(); i++) {
             Map<String, Object> c = competencias.get(i);
             jdbc.update(
-                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, aplicabilidade, quantidade_pessoas) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    formularioId, i + 1, str(c.get("nome")), str(c.get("descricao")), c.get("peso"),
-                    orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")));
+                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    formularioId, i + 1, str(c.get("nome")), str(c.get("descricao")), pesoLegado(c),
+                    grauMinimo(c), orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")));
         }
 
         if ("equipe".equals(tipo) && unidadeId != null) {
@@ -328,8 +350,12 @@ public class CompetenciasGestorService {
         boolean isGestorMacro = gestorMacroId != null && userId == gestorMacroId;
         boolean isSubdiretorMacro = subdiretorMacroId != null && userId == subdiretorMacroId;
         boolean isFinal = isValidadorFinal(email);
+        // Editor da área preenche a matriz do GESTOR de qualquer unidade dela (só a do gestor —
+        // a da equipe segue com as autorizações de sempre).
+        boolean isEditor = "gestor".equals(form.get("tipo"))
+                && isEditorDaArea(areaIdDoFormulario(form.get("diretoria")), userId);
 
-        if (isAutor || isGestorMacro || isSubdiretorMacro || isFinal) {
+        if (isAutor || isGestorMacro || isSubdiretorMacro || isFinal || isEditor) {
             return allowed();
         }
         return notAllowed("Você não tem permissão para editar este formulário");
@@ -431,10 +457,10 @@ public class CompetenciasGestorService {
                     || !java.util.Objects.equals(strOrNull(o.get("aplicabilidade")), strOrNull(c.get("aplicabilidade")))
                     || numOr0(o.get("quantidade_pessoas")) != numOr0(c.get("quantidade_pessoas"));
             jdbc.update(
-                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, aplicabilidade, quantidade_pessoas, alterada) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    id, i + 1, str(c.get("nome")), str(c.get("descricao")), c.get("peso"),
-                    orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), isAlterada);
+                    "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas, alterada) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    id, i + 1, str(c.get("nome")), str(c.get("descricao")), pesoLegado(c),
+                    grauMinimo(c), orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), isAlterada);
         }
 
         boolean itensChanged = oldItens.size() != competencias.size();
@@ -485,10 +511,10 @@ public class CompetenciasGestorService {
     public void syncCompetenciasPorUnidade(long unidadeId, long formularioId, List<Map<String, Object>> competencias) {
         for (Map<String, Object> c : competencias) {
             jdbc.update(
-                    "INSERT INTO competencias_por_unidade (unidade_id, nome, descricao, peso, aplicabilidade, quantidade_pessoas, origem_formulario_id) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    unidadeId, str(c.get("nome")), str(c.get("descricao")), c.get("peso"),
-                    orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), formularioId);
+                    "INSERT INTO competencias_por_unidade (unidade_id, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas, origem_formulario_id) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    unidadeId, str(c.get("nome")), str(c.get("descricao")), pesoLegado(c),
+                    grauMinimo(c), orNull(c.get("aplicabilidade")), orNull(c.get("quantidade_pessoas")), formularioId);
         }
     }
 
@@ -545,9 +571,15 @@ public class CompetenciasGestorService {
                             "       (SELECT COUNT(*) FROM competencias_gestor_itens i WHERE i.formulario_id = cgf.id) as total_competencias " +
                             "FROM competencias_gestor_formularios cgf " +
                             "JOIN cadastros_unidades cu ON cu.id = cgf.unidade_id AND (cu.ativo IS NOT FALSE) " +
-                            "WHERE cgf.tipo = 'gestor' AND cgf.is_deleted = FALSE AND cgf.user_id = ? " +
+                            "WHERE cgf.tipo = 'gestor' AND cgf.is_deleted = FALSE " +
+                            // Além dos que ele mesmo preencheu, o EDITOR alcança os das unidades da
+                            // sua área — senão, depois de preenchido, o formulário sumia da mão dele
+                            // (findUnidadesAutorizadas exclui unidade que já tem matriz).
+                            "  AND ( cgf.user_id = ? " +
+                            "     OR EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+                            "                 WHERE e.cadastros_areas_id = cu.area_id AND e.user_id = ?) ) " +
                             "ORDER BY cu.nome",
-                    userId);
+                    userId, userId);
         }
         return jdbc.queryForList(
                 "SELECT cgf.id, cgf.unidade_id, cu.nome as unidade_nome, " +
@@ -578,7 +610,11 @@ public class CompetenciasGestorService {
                         "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
                                 "FROM cadastros_unidades cu " +
                                 "JOIN cadastros_areas ca ON ca.id = cu.area_id " +
-                                "WHERE (ca.gestor_user_id = ? OR ca.subdiretor_user_id = ? OR cu.responsavel_user_id = ?) " +
+                                "WHERE (ca.gestor_user_id = ? OR ca.subdiretor_user_id = ? OR cu.responsavel_user_id = ? " +
+                                // Editor da área: alcança TODAS as unidades dela, inclusive as
+                                // criadas depois de ele ter sido associado.
+                                "     OR EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+                                "                 WHERE e.cadastros_areas_id = ca.id AND e.user_id = ?)) " +
                                 "  AND (cu.ativo IS NOT FALSE) " +
                                 "  AND COALESCE(ca.ativo, TRUE) = TRUE " +
                                 "  AND LOWER(TRIM(cu.nome)) <> LOWER(TRIM(ca.sigla)) " +
@@ -587,7 +623,7 @@ public class CompetenciasGestorService {
                                 "    WHERE cgf.unidade_id = cu.id AND cgf.tipo = 'gestor' AND cgf.is_deleted = FALSE " +
                                 "  ) " +
                                 "ORDER BY cu.nome",
-                        userId, userId, userId);
+                        userId, userId, userId, userId);
             } catch (Exception ex) {
                 return jdbc.queryForList(
                         "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
@@ -694,7 +730,15 @@ public class CompetenciasGestorService {
             Integer count = jdbc.queryForObject(
                     "SELECT COUNT(*)::int as count FROM cadastros_unidades WHERE responsavel_user_id = ? AND (ativo IS NOT FALSE)",
                     Integer.class, userId);
-            return count != null && count > 0;
+            if (count != null && count > 0) {
+                return true;
+            }
+        } catch (Exception ex) {
+            return false;
+        }
+        // Editor da matriz do gestor: sem este ramo o módulo inteiro ficaria escondido para ele.
+        try {
+            return !areasOndeEhEditor(userId).isEmpty();
         } catch (Exception ex) {
             return false;
         }
@@ -714,16 +758,156 @@ public class CompetenciasGestorService {
         return !isGestor || !equalsId(autorUserId, gestorMacroId);
     }
 
+    /**
+     * Mesma pergunta, para um formulário concreto: além do diretor, quem preenche como
+     * <b>apenas editor</b> também não gera camada de autor. O editor só preenche — a matriz sobe
+     * direto para a diretoria e depois para a validação final (2 camadas).
+     */
+    private boolean requerValidacaoAutor(Map<String, Object> form, long gestorMacroId) {
+        boolean isGestor = "gestor".equals(form.get("tipo"));
+        if (!requerValidacaoAutor(isGestor, form.get("user_id"), gestorMacroId)) {
+            return false;
+        }
+        Object autorUserId = form.get("user_id");
+        return autorUserId == null
+                || !ehApenasEditor(form, ((Number) autorUserId).longValue());
+    }
+
+    // ============================================================
+    // EDITORES DA MATRIZ DO GESTOR (por macroárea)
+    // ============================================================
+
+    /** O usuário é editor da matriz do gestor desta macroárea? */
+    public boolean isEditorDaArea(Long cadastrosAreasId, long userId) {
+        if (cadastrosAreasId == null) {
+            return false;
+        }
+        return !jdbc.queryForList(
+                "SELECT 1 FROM competencias_gestor_editores " +
+                        "WHERE cadastros_areas_id = ? AND user_id = ? LIMIT 1",
+                cadastrosAreasId, userId).isEmpty();
+    }
+
+    /** Áreas onde o usuário é editor. Vazio quando não é editor de nenhuma. */
+    public List<Map<String, Object>> areasOndeEhEditor(long userId) {
+        return jdbc.queryForList(
+                "SELECT ca.id, ca.sigla, ca.nome " +
+                        "FROM competencias_gestor_editores e " +
+                        "JOIN cadastros_areas ca ON ca.id = e.cadastros_areas_id " +
+                        "WHERE e.user_id = ? AND COALESCE(ca.ativo, TRUE) = TRUE " +
+                        "ORDER BY ca.sigla",
+                userId);
+    }
+
+    /** Editores cadastrados numa área. */
+    public List<Map<String, Object>> listEditores(long cadastrosAreasId) {
+        return jdbc.queryForList(
+                "SELECT e.id, e.user_id, e.created_at, u.name AS user_name, u.email AS user_email " +
+                        "FROM competencias_gestor_editores e " +
+                        "JOIN users u ON u.id = e.user_id " +
+                        "WHERE e.cadastros_areas_id = ? " +
+                        "ORDER BY u.name",
+                cadastrosAreasId);
+    }
+
+    /** Associa um editor à área. Repetir a associação é no-op (constraint única). */
+    @Transactional
+    public void addEditor(long cadastrosAreasId, long userId, long solicitanteId) {
+        jdbc.update(
+                "INSERT INTO competencias_gestor_editores (cadastros_areas_id, user_id, created_by) " +
+                        "VALUES (?, ?, ?) ON CONFLICT (cadastros_areas_id, user_id) DO NOTHING",
+                cadastrosAreasId, userId, solicitanteId);
+    }
+
+    @Transactional
+    public boolean removeEditor(long editorId, long cadastrosAreasId) {
+        return jdbc.update(
+                "DELETE FROM competencias_gestor_editores WHERE id = ? AND cadastros_areas_id = ?",
+                editorId, cadastrosAreasId) > 0;
+    }
+
+    /** Só o diretor e o sub-diretor da área (e superadmin) administram os editores dela. */
+    public boolean podeGerenciarEditores(long cadastrosAreasId, long userId, boolean isSuperadmin) {
+        if (isSuperadmin) {
+            return true;
+        }
+        return !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_areas WHERE id = ? " +
+                        "  AND (gestor_user_id = ? OR subdiretor_user_id = ?) LIMIT 1",
+                cadastrosAreasId, userId, userId).isEmpty();
+    }
+
+    /** Macroárea de um formulário, pela sigla gravada em `diretoria`. */
+    private Long areaIdDoFormulario(Object diretoriaSigla) {
+        if (diretoriaSigla == null) {
+            return null;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT id FROM cadastros_areas WHERE LOWER(TRIM(sigla)) = LOWER(TRIM(?)) " +
+                        "  AND COALESCE(ativo, TRUE) = TRUE LIMIT 1",
+                str(diretoriaSigla));
+        return rows.isEmpty() ? null : asLong(rows.get(0).get("id"));
+    }
+
+    /**
+     * Quem pode validar a camada 1 do formulário.
+     *
+     * <p>Regra geral (inalterada): o autor valida a própria camada.
+     *
+     * <p>Na matriz do GESTOR entram dois ajustes por causa da figura do editor:
+     * <ul>
+     *   <li>o <b>gestor da unidade</b> também pode validar — quando um editor preenche em nome
+     *       dele, é ele quem referenda o que foi escrito;</li>
+     *   <li>quem é <b>apenas editor</b> não valida, mesmo sendo o autor do formulário. O papel do
+     *       editor é só preencher; deixá-lo validar faria a matriz subir sem ninguém da unidade
+     *       ter conferido.</li>
+     * </ul>
+     */
+    private boolean podeValidarAutor(Map<String, Object> form, long userId) {
+        boolean isAutor = equalsId(form.get("user_id"), userId);
+        if (!"gestor".equals(form.get("tipo"))) {
+            return isAutor;
+        }
+        // Guarda defensiva: matriz preenchida por editor nem tem camada 1 (ver
+        // requerValidacaoAutor), então esta etapa não é dele em hipótese alguma.
+        return isAutor && !ehApenasEditor(form, userId);
+    }
+
+    /**
+     * O usuário é <b>apenas</b> editor neste formulário — isto é, alcança a matriz pela associação
+     * de editor da área e por nenhum outro papel.
+     *
+     * <p>O "apenas" é o que importa: quem acumula editor com direção da área ou gestão da unidade
+     * continua com as prerrogativas do papel que já tinha.
+     */
+    private boolean ehApenasEditor(Map<String, Object> form, long userId) {
+        Long areaId = areaIdDoFormulario(form.get("diretoria"));
+        if (!isEditorDaArea(areaId, userId)) {
+            return false;
+        }
+        boolean isDirecao = !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_areas WHERE id = ? " +
+                        "  AND (gestor_user_id = ? OR subdiretor_user_id = ?) LIMIT 1",
+                areaId, userId, userId).isEmpty();
+        Long unidadeId = asLong(form.get("unidade_id"));
+        boolean isGestorDaUnidade = unidadeId != null && !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_unidades WHERE id = ? AND responsavel_user_id = ? " +
+                        "  AND (ativo IS NOT FALSE) LIMIT 1",
+                unidadeId, userId).isEmpty();
+        return !isDirecao && !isGestorDaUnidade;
+    }
+
     /** Camada 1: Validação do autor. */
     @Transactional
     public Map<String, Object> validarAutor(long id, long userId) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT id, user_id, status FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+                "SELECT id, user_id, status, tipo, diretoria, unidade_id " +
+                        "FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
         if (formRows.isEmpty()) {
             throw new IllegalStateException("Formulário não encontrado");
         }
         Map<String, Object> form = formRows.get(0);
-        if (!equalsId(form.get("user_id"), userId)) {
+        if (!podeValidarAutor(form, userId)) {
             throw new IllegalStateException("Apenas o autor pode validar nesta etapa");
         }
         String status = (String) form.get("status");
@@ -750,7 +934,7 @@ public class CompetenciasGestorService {
     @Transactional
     public Map<String, Object> validarDiretoria(long id, long userId, String userEmail) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT id, diretoria, status, tipo, user_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+                "SELECT id, diretoria, status, tipo, user_id, unidade_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
         if (formRows.isEmpty()) {
             throw new IllegalStateException("Formulário não encontrado");
         }
@@ -780,7 +964,7 @@ public class CompetenciasGestorService {
         }
         long gestorMacroId = asLong(areaRows.get(0).get("gestor_user_id"));
 
-        boolean requerValidacaoAutor = requerValidacaoAutor(isGestor, autorUserId, gestorMacroId);
+        boolean requerValidacaoAutor = requerValidacaoAutor(form, gestorMacroId);
         // Quando a camada do autor não faz parte do fluxo (matriz do gestor preenchida pelo próprio
         // diretor), \"validado_autor\" também serve: a tela do autor permitia validar a própria
         // camada e, exigindo só \"enviado\" aqui, a matriz ficava sem saída — nunca mais avançava.
@@ -883,7 +1067,7 @@ public class CompetenciasGestorService {
     @Transactional
     public Map<String, Object> recusarDiretoria(long id, long userId, String comentario) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT id, diretoria, status, tipo, user_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+                "SELECT id, diretoria, status, tipo, user_id, unidade_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
         if (formRows.isEmpty()) {
             throw new IllegalStateException("Formulário não encontrado");
         }
@@ -899,7 +1083,7 @@ public class CompetenciasGestorService {
             throw new IllegalStateException("Nenhum gestor configurado para a diretoria " + str(form.get("diretoria")));
         }
         long gestorMacroId = asLong(areaRows.get(0).get("gestor_user_id"));
-        boolean requerValidacaoAutor = requerValidacaoAutor(isGestor, autorUserId, gestorMacroId);
+        boolean requerValidacaoAutor = requerValidacaoAutor(form, gestorMacroId);
         String statusValido = requerValidacaoAutor ? "validado_autor" : "enviado";
         if (!statusValido.equals(form.get("status"))) {
             throw new IllegalStateException("Formulário não está em estado válido para recusa pela diretoria");
@@ -1064,6 +1248,40 @@ public class CompetenciasGestorService {
             return (List<Map<String, Object>>) list;
         }
         return new ArrayList<>();
+    }
+
+    /**
+     * Grau mínimo esperado (1..5) — o nível que a pessoa precisa atingir para ser considerada
+     * capaz naquela competência. Substituiu o "Grau de Impacto" no formulário; 3 é o padrão, que
+     * era o corte usado pelo relatório de Lacunas antes de o campo existir.
+     */
+    private static int grauMinimo(Map<String, Object> c) {
+        Object v = c.get("grau_minimo_esperado");
+        if (v == null) {
+            return 3;
+        }
+        try {
+            int n = Integer.parseInt(String.valueOf(v).trim());
+            return n < 1 || n > 5 ? 3 : n;
+        } catch (NumberFormatException e) {
+            return 3;
+        }
+    }
+
+    /**
+     * `peso` saiu do formulário mas a coluna é NOT NULL e guarda o histórico do critério antigo
+     * (Grau de Impacto). Preserva o valor quando ainda vier no payload; senão grava o default.
+     */
+    private static int pesoLegado(Map<String, Object> c) {
+        Object v = c.get("peso");
+        if (v == null) {
+            return 1;
+        }
+        try {
+            return Integer.parseInt(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            return 1;
+        }
     }
 
     private static boolean equalsId(Object a, long b) {

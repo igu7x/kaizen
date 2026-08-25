@@ -40,26 +40,44 @@ public class LacunasCompetenciasController {
         return service.unidadesPermitidas(currentUserId(), isSuperadmin());
     }
 
+    /** Unidades cujo gestor o usuário pode analisar — as das áreas que ele dirige. */
+    @GetMapping("/gestor/unidades")
+    public List<Map<String, Object>> unidadesGestor() {
+        return service.unidadesComGestor(currentUserId(), isSuperadmin());
+    }
+
+    /**
+     * Lacunas do GESTOR da unidade: o que ele alcançou e o que está em débito, competência a
+     * competência. Restrito à direção da área.
+     */
+    @GetMapping("/gestor")
+    public ResponseEntity<?> relatorioGestor(@RequestParam("unidadeId") long unidadeId) {
+        if (!service.podeGerarGestor(unidadeId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas a direção da área pode gerar o relatório do gestor"));
+        }
+        Map<String, Object> relatorio = service.gerarGestor(unidadeId);
+        if (relatorio == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "A unidade ainda não tem Matriz de Competências do Gestor — sem ela não há referência"));
+        }
+        return ResponseEntity.ok(relatorio);
+    }
+
     /**
      * Relatório da unidade, calculado no momento da chamada.
      *
-     * @param nivelMinimo nota mínima (1..5) para considerar que o colaborador domina a competência.
+     * <p>O nível de corte não é mais parâmetro: cada competência traz o seu Grau mínimo esperado,
+     * definido no preenchimento da matriz.
      */
     @GetMapping
-    public ResponseEntity<?> relatorio(
-            @RequestParam("unidadeId") long unidadeId,
-            @RequestParam(value = "nivelMinimo", required = false) Integer nivelMinimo) {
+    public ResponseEntity<?> relatorio(@RequestParam("unidadeId") long unidadeId) {
         long userId = currentUserId();
         if (!service.podeGerar(unidadeId, userId, isSuperadmin())) {
             return ResponseEntity.status(403).body(Map.of(
                     "error", "Apenas o gestor da unidade e a direção da área podem gerar este relatório"));
         }
-        int nivel = nivelMinimo != null ? nivelMinimo : LacunasCompetenciasService.NIVEL_MINIMO_PADRAO;
-        if (nivel < 1 || nivel > 5) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", "nivelMinimo deve estar entre 1 e 5"));
-        }
-        Map<String, Object> relatorio = service.gerar(unidadeId, nivel);
+        Map<String, Object> relatorio = service.gerar(unidadeId);
         if (relatorio == null) {
             return ResponseEntity.status(404).body(Map.of(
                     "error", "A unidade ainda não tem Matriz de Competências da equipe — sem ela não há o que comparar"));
