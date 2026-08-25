@@ -47,6 +47,7 @@ import { AvaliacaoIntegradaResumo } from "./AvaliacaoIntegradaResumo";
 import { AvaliacaoIntegradaRespostas } from "./AvaliacaoIntegradaRespostas";
 import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
 import { RelatorioLacunas } from "./RelatorioLacunas";
+import { RelatorioLacunasGestor } from "./RelatorioLacunasGestor";
 import { EditoresMatrizGestor } from "./EditoresMatrizGestor";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
@@ -232,6 +233,7 @@ function PainelItem({
 
 type View =
   | "inventario"
+  | "lacunas_gestor"
   | "editores_gestor"
   | "lacunas"
   | "referencial_home"
@@ -1568,6 +1570,28 @@ export function GestaoCompetencias({
     );
   }
 
+  // ── Lacunas de Competências do Gestor ─────────────────────────
+  // Só a direção da área; o backend revalida a unidade a cada geração.
+  if (currentView === "lacunas_gestor") {
+    return (
+      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView("inventario_gestor_home")}
+            className="text-gray-600"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
+          </Button>
+          <h2 className="text-xl font-bold text-gray-900">
+            Lacunas de Competências do Gestor
+          </h2>
+        </div>
+        <RelatorioLacunasGestor />
+      </div>
+    );
+  }
+
   // ── Lacunas de Competências ───────────────────────────────────
   // O backend restringe ao gestor da unidade e à direção da área; aqui a tela só
   // oferece as unidades que o próprio endpoint devolve.
@@ -2108,6 +2132,20 @@ export function GestaoCompetencias({
             }}
           />
         ),
+      });
+    }
+
+    // Lacunas do Gestor — último card, como no inventário da equipe: é leitura derivada,
+    // só tem o que mostrar depois que o Resultado Final do gestor existe.
+    if (isAvaliadorLideranca || isSGJT) {
+      itensInvGestor.push({
+        key: "lacunas_gestor",
+        titulo: "Lacunas de Competências",
+        descricao:
+          "Veja o que o gestor da unidade alcançou e o que está em débito, competência a competência.",
+        icon: <ScanSearch className="h-5 w-5" />,
+        cor: "violet",
+        aoAbrir: () => setCurrentView("lacunas_gestor"),
       });
     }
   }

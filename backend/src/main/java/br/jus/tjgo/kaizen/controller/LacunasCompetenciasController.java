@@ -40,6 +40,30 @@ public class LacunasCompetenciasController {
         return service.unidadesPermitidas(currentUserId(), isSuperadmin());
     }
 
+    /** Unidades cujo gestor o usuário pode analisar — as das áreas que ele dirige. */
+    @GetMapping("/gestor/unidades")
+    public List<Map<String, Object>> unidadesGestor() {
+        return service.unidadesComGestor(currentUserId(), isSuperadmin());
+    }
+
+    /**
+     * Lacunas do GESTOR da unidade: o que ele alcançou e o que está em débito, competência a
+     * competência. Restrito à direção da área.
+     */
+    @GetMapping("/gestor")
+    public ResponseEntity<?> relatorioGestor(@RequestParam("unidadeId") long unidadeId) {
+        if (!service.podeGerarGestor(unidadeId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas a direção da área pode gerar o relatório do gestor"));
+        }
+        Map<String, Object> relatorio = service.gerarGestor(unidadeId);
+        if (relatorio == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "A unidade ainda não tem Matriz de Competências do Gestor — sem ela não há referência"));
+        }
+        return ResponseEntity.ok(relatorio);
+    }
+
     /**
      * Relatório da unidade, calculado no momento da chamada.
      *
