@@ -13,8 +13,14 @@ const MARGIN_RIGHT = 15;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const FOOTER_Y = PAGE_HEIGHT - 15;
 
-const pesoLabel = (peso: number | null) =>
-  peso === 3 ? "Crítica" : peso === 2 ? "Importante" : peso === 1 ? "Útil" : "—";
+/**
+ * Grau minimo em duas linhas — numero e nivel. Numa coluna estreita, "3 — Intermediario" numa
+ * linha so nao cabe e a quebra automatica do jsPDF transborda a celula.
+ */
+const grauLinhas = (grau: number): string[] => [
+  String(grau),
+  NOTA_TECNICA_LABELS[grau] || "",
+];
 
 function formatDateTime(d: Date): string {
   return d.toLocaleDateString("pt-BR", {
@@ -87,6 +93,8 @@ function drawWrappedCell(
     bold?: boolean;
     bg?: readonly [number, number, number];
     fontSize?: number;
+    align?: "left" | "center";
+    color?: readonly [number, number, number];
   },
 ) {
   if (options?.bg) {
@@ -100,10 +108,12 @@ function drawWrappedCell(
   const alturaLinha = fontSize >= 9 ? 4.5 : 4.2;
   doc.setFontSize(fontSize);
   doc.setFont("helvetica", options?.bold ? "bold" : "normal");
-  doc.setTextColor(...BLACK);
+  doc.setTextColor(...(options?.color ?? BLACK));
+  const centralizado = options?.align === "center";
+  const tx = centralizado ? x + w / 2 : x + 3;
   let ty = y + (h - lines.length * alturaLinha) / 2 + 3.2;
   for (const line of lines) {
-    doc.text(line, x + 3, ty);
+    doc.text(line, tx, ty, centralizado ? { align: "center" } : undefined);
     ty += alturaLinha;
   }
 }
@@ -142,7 +152,16 @@ function drawHeader(doc: jsPDF, rel: RelatorioLacunas) {
   doc.text(lotLines, MARGIN_LEFT + 5, 36);
 
   const rcx = PAGE_WIDTH * 0.6 + (PAGE_WIDTH * 0.4) / 2;
-  doc.addImage(LOGO_BRANCO_4K_BASE64, "PNG", rcx - 9, 10, 18, 22, undefined, "FAST");
+  doc.addImage(
+    LOGO_BRANCO_4K_BASE64,
+    "PNG",
+    rcx - 9,
+    10,
+    18,
+    22,
+    undefined,
+    "FAST",
+  );
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
@@ -163,10 +182,9 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
   // ── Parâmetros do cálculo ────────────────────────────────────────────────
   // O relatório é uma FOTOGRAFIA: registra o critério e o momento, porque o mesmo
   // relatório gerado amanhã pode dar outro número.
-  const nivel = `${rel.nivel_minimo} — ${NOTA_TECNICA_LABELS[rel.nivel_minimo] || ""}`;
   const infos: [string, string][] = [
     ["Gerado em", formatDateTime(geradoEm)],
-    ["Nível mínimo considerado", nivel],
+    // O corte e por competencia (coluna "Grau minimo" da tabela), nao mais um nivel unico.
     ["Colaboradores na unidade", String(rel.qtd_colaboradores)],
     [
       "Com Resultado Final",
@@ -184,10 +202,7 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     ["Cobertura geral", `${rel.cobertura_geral_percentual}%`],
     // A explicação da unidade vai no VALOR, não no rótulo: a coluna do rótulo tem 60mm e
     // um título longo quebrava em duas linhas dentro de uma célula de altura fixa.
-    [
-      "Débito total",
-      `${rel.soma_debito} lacunas (colaborador × competência)`,
-    ],
+    ["Débito total", `${rel.soma_debito} lacunas (colaborador × competência)`],
     // Recorte só entre quem tem Resultado Final — falta de competência, sem o ruído da
     // falta de avaliação.
     [
@@ -247,8 +262,17 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
   }
 
   // ── Tabela ───────────────────────────────────────────────────────────────
-  const colW = [78, 22, 22, 22, 22, 14];
-  const heads = ["Competência", "Peso", "Necess.", "Possuem", "Débito", "%"];
+  // "Intermediário"/"Especialista" precisam de ~24mm; a coluna do grau ganha esse espaço à custa
+  // da de Competência, que quebra em várias linhas sem prejuízo.
+  const colW = [74, 28, 20, 20, 20, 18];
+  const heads = [
+    "Competência",
+    "Grau mín.",
+    "Necess.",
+    "Possuem",
+    "Débito",
+    "%",
+  ];
   const drawHeadRow = (yy: number) => {
     let x = MARGIN_LEFT;
     heads.forEach((h, i) => {
@@ -273,7 +297,13 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
       linha.competencia_nome || "—",
       colW[0] - 6,
     ) as string[];
-    const alturaLinha = Math.max(rowH, linhasNome.length * 4.2 + 3);
+    // O grau vai em duas linhas fixas (número em cima, nível embaixo) em vez de deixar o jsPDF
+    // quebrar "3 — Intermediário" onde calhar: assim a coluna fica alinhada e nada transborda.
+    const linhasGrau = grauLinhas(linha.grau_minimo_esperado);
+    const alturaLinha = Math.max(
+      rowH,
+      Math.max(linhasNome.length, linhasGrau.length) * 4.2 + 3,
+    );
 
     if (y + alturaLinha > FOOTER_Y - 5) {
       doc.addPage();
@@ -282,7 +312,6 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     }
     const emDebito = linha.debito > 0;
     const numeros: [string, boolean][] = [
-      [pesoLabel(linha.peso), false],
       [String(linha.necessario), false],
       [String(linha.possuem), false],
       [String(linha.debito), emDebito],
@@ -291,15 +320,24 @@ export function generateLacunasCompetenciasPDF(rel: RelatorioLacunas) {
     drawWrappedCell(doc, linhasNome, MARGIN_LEFT, y, colW[0], alturaLinha, {
       fontSize: 8.5,
     });
-    let x = MARGIN_LEFT + colW[0];
+    drawWrappedCell(
+      doc,
+      linhasGrau,
+      MARGIN_LEFT + colW[0],
+      y,
+      colW[1],
+      alturaLinha,
+      { fontSize: 8.5, align: "center" },
+    );
+    let x = MARGIN_LEFT + colW[0] + colW[1];
     numeros.forEach(([texto, destaca], i) => {
-      drawTextCell(doc, texto, x, y, colW[i + 1], alturaLinha, {
+      drawTextCell(doc, texto, x, y, colW[i + 2], alturaLinha, {
         align: "center",
         fontSize: 8.5,
         bold: destaca,
         color: destaca ? [185, 28, 28] : BLACK,
       });
-      x += colW[i + 1];
+      x += colW[i + 2];
     });
     y += alturaLinha;
   }

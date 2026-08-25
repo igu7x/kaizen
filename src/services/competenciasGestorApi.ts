@@ -3,7 +3,10 @@ import { apiClient } from "./apiClient";
 export interface CompetenciaItem {
   nome: string;
   descricao: string;
-  peso: number;
+  /** Criterio antigo ("Grau de Impacto", 1..3). Mantido so como historico. */
+  peso?: number;
+  /** Nivel (1..5) que a pessoa precisa atingir para ser considerada apta. */
+  grau_minimo_esperado?: number;
   aplicabilidade?: "todos" | "parte";
   quantidade_pessoas?: number;
   /** TRUE quando o item foi alterado/adicionado na última edição via "Gerenciar Competências Técnicas". */
@@ -43,6 +46,8 @@ export interface FormularioCompetencias {
   // Flag de re-validação requerida por mudança em competências padrão
   padroes_propagacao_pendente?: boolean;
   padroes_tipos_afetados?: string[];
+  /** Matriz do gestor preenchida por quem e APENAS editor: nao tem camada de autor. */
+  preenchido_por_editor?: boolean;
   // Recusa do formulário pela camada Diretoria ou Final
   recusado_por_id?: number | null;
   recusado_por_nome?: string | null;
@@ -84,6 +89,25 @@ export interface CompetenciaPorUnidade {
   origem_formulario_id?: number;
   created_at: string;
   updated_at: string;
+}
+
+/** Macroárea, no contexto de administração de editores. */
+export interface AreaEditor {
+  id: number;
+  sigla: string | null;
+  nome: string | null;
+}
+
+/**
+ * Editor da Matriz do Gestor: preenche a matriz de todas as unidades da área, mas NÃO valida —
+ * a camada 1 continua com o gestor da unidade.
+ */
+export interface EditorMatriz {
+  id: number;
+  user_id: number;
+  user_name: string | null;
+  user_email: string | null;
+  created_at?: string;
 }
 
 export interface UnidadeAutorizada {
@@ -229,6 +253,42 @@ export const competenciasGestorApi = {
   getMinhasUnidadesGestor(): Promise<UnidadeAutorizada[]> {
     return apiClient.request<UnidadeAutorizada[]>(
       `${BASE_URL}/minhas-unidades-gestor`,
+    );
+  },
+
+  // ── Editores da Matriz do Gestor (por macroárea) ──────────────────────────
+
+  /** Áreas que o usuário dirige — onde ele administra editores. */
+  getAreasQueDirijo(): Promise<AreaEditor[]> {
+    return apiClient.request<AreaEditor[]>(`${BASE_URL}/editores/minhas-areas`);
+  },
+
+  /** O usuário logado é editor de alguma área? */
+  getSouEditor(): Promise<{ editor: boolean; areas: AreaEditor[] }> {
+    return apiClient.request<{ editor: boolean; areas: AreaEditor[] }>(
+      `${BASE_URL}/editores/sou-editor`,
+    );
+  },
+
+  getEditores(cadastrosAreasId: number): Promise<EditorMatriz[]> {
+    return apiClient.request<EditorMatriz[]>(
+      `${BASE_URL}/editores?cadastrosAreasId=${cadastrosAreasId}`,
+    );
+  },
+
+  addEditor(cadastrosAreasId: number, userId: number): Promise<EditorMatriz[]> {
+    return apiClient.post<EditorMatriz[]>(`${BASE_URL}/editores`, {
+      cadastros_areas_id: cadastrosAreasId,
+      user_id: userId,
+    });
+  },
+
+  removeEditor(
+    editorId: number,
+    cadastrosAreasId: number,
+  ): Promise<EditorMatriz[]> {
+    return apiClient.delete<EditorMatriz[]>(
+      `${BASE_URL}/editores/${editorId}?cadastrosAreasId=${cadastrosAreasId}`,
     );
   },
 

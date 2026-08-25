@@ -25,13 +25,11 @@ import {
 import { generateLacunasCompetenciasPDF } from "@/utils/generateLacunasCompetenciasPDF";
 import { toast } from "sonner";
 
-const pesoLabel = (peso: number | null) =>
-  peso === 3 ? "Crítica" : peso === 2 ? "Importante" : peso === 1 ? "Útil" : "—";
-
-const pesoCor = (peso: number | null) =>
-  peso === 3
+/** Cor do badge do grau: quanto maior a exigência, mais forte. */
+const grauCor = (grau: number) =>
+  grau >= 4
     ? "bg-red-100 text-red-700"
-    : peso === 2
+    : grau === 3
       ? "bg-amber-100 text-amber-700"
       : "bg-blue-100 text-blue-700";
 
@@ -46,7 +44,6 @@ const pesoCor = (peso: number | null) =>
 export function RelatorioLacunas() {
   const [unidades, setUnidades] = useState<UnidadeLacunas[]>([]);
   const [unidadeId, setUnidadeId] = useState<string>("");
-  const [nivelMinimo, setNivelMinimo] = useState<string>("3");
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
   const [carregandoUnidades, setCarregandoUnidades] = useState(true);
   const [gerando, setGerando] = useState(false);
@@ -69,10 +66,7 @@ export function RelatorioLacunas() {
     setGerando(true);
     setErro(null);
     try {
-      const data = await lacunasCompetenciasApi.gerar(
-        Number(unidadeId),
-        Number(nivelMinimo),
-      );
+      const data = await lacunasCompetenciasApi.gerar(Number(unidadeId));
       setRelatorio(data);
     } catch (err: any) {
       setRelatorio(null);
@@ -145,24 +139,6 @@ export function RelatorioLacunas() {
               </Select>
             </div>
 
-            <div className="w-[230px] space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">
-                Nível mínimo
-              </label>
-              <Select value={nivelMinimo} onValueChange={setNivelMinimo}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n} — {NOTA_TECNICA_LABELS[n]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <Button
               onClick={gerar}
               disabled={!unidadeId || gerando}
@@ -184,11 +160,10 @@ export function RelatorioLacunas() {
           </div>
 
           <p className="mt-3 text-xs text-gray-500">
-            Conta como "possui a competência" quem atinge{" "}
-            <strong>
-              {nivelMinimo} — {NOTA_TECNICA_LABELS[Number(nivelMinimo)]}
-            </strong>{" "}
-            ou mais no Resultado Final.
+            Conta como "possui a competência" quem atinge o{" "}
+            <strong>grau mínimo esperado</strong> daquela competência — definido
+            na Matriz, competência por competência — ou mais, no Resultado
+            Final.
           </p>
         </CardContent>
       </Card>
@@ -278,7 +253,7 @@ export function RelatorioLacunas() {
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
                       <th className="px-4 py-3 text-left">Competência</th>
-                      <th className="px-4 py-3 text-center">Peso</th>
+                      <th className="px-4 py-3 text-center">Grau mínimo</th>
                       <th className="px-4 py-3 text-center">Necessário</th>
                       <th className="px-4 py-3 text-center">Possuem</th>
                       <th className="px-4 py-3 text-center">Débito</th>
@@ -287,7 +262,10 @@ export function RelatorioLacunas() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {relatorio.competencias.map((l) => (
-                      <tr key={l.competencia_id} className="hover:bg-gray-50">
+                      <tr
+                        key={`${l.origem ?? "matriz"}-${l.competencia_id}`}
+                        className="hover:bg-gray-50"
+                      >
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">
                             {l.competencia_nome}
@@ -297,10 +275,16 @@ export function RelatorioLacunas() {
                               Aplicável a parte da equipe
                             </p>
                           )}
+                          {l.origem === "padrao" && (
+                            <p className="text-xs text-gray-500">
+                              Comportamental — aplicável a todos
+                            </p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Badge className={pesoCor(l.peso)}>
-                            {pesoLabel(l.peso)}
+                          <Badge className={grauCor(l.grau_minimo_esperado)}>
+                            {l.grau_minimo_esperado} —{" "}
+                            {NOTA_TECNICA_LABELS[l.grau_minimo_esperado]}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-center text-gray-700">

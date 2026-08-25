@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   BarChart3,
   RefreshCw,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,10 @@ import {
   temDocumentoPrimario,
   type ProcessoNegocio,
 } from "@/services/processosNegocioApi";
+import {
+  exportarPlanilhaAcoes,
+  prazoMesAno,
+} from "@/utils/pdticPlanilha";
 
 const TODAS = "__todas__";
 
@@ -55,13 +60,6 @@ const KR1_META = 80; // ações a concluir no prazo
 // KR-3: mede quantos processos de negócio de TI VIGENTES são Modelo K1 (base) sobre o total de
 // vigentes (alvo). Grupo "ti" = Escritório de Processos / Tecnologia da Informação.
 const PROCESSOS_GRUPO_TI = "ti";
-
-/** Prazo no formato MM/AAAA a partir de YYYY-MM-DD. */
-function prazoMesAno(iso?: string | null): string {
-  if (!iso) return "—";
-  const m = iso.match(/^(\d{4})-(\d{2})/);
-  return m ? `${m[2]}/${m[1]}` : iso;
-}
 
 const concluida = (a: PdticAcao) => !!a.evidencia_nome?.trim();
 
@@ -284,6 +282,43 @@ export default function Pdtic() {
     const querConcluida = filtroStatus === "concluidas";
     return filtradas.filter((a) => concluida(a) === querConcluida);
   }, [filtradas, filtroStatus]);
+
+  // ── Exportação ──────────────────────────────────────────────────────────
+  const [exportando, setExportando] = useState(false);
+
+  /**
+   * Exporta o que está na tela (com os filtros de diretoria, área e status aplicados). As
+   * evidências vão junto, empacotadas com a planilha — por isso pode demorar quando há muitos PDFs.
+   */
+  const exportarPlanilha = async () => {
+    if (exportando || tabelaFiltradas.length === 0) return;
+    setExportando(true);
+    const comEvidencia = tabelaFiltradas.filter(concluida).length;
+    const aviso = comEvidencia
+      ? toast.loading(`Montando a planilha e baixando ${comEvidencia} evidência(s)…`)
+      : toast.loading("Montando a planilha…");
+    try {
+      const r = await exportarPlanilhaAcoes(tabelaFiltradas);
+      toast.success(
+        r.evidencias > 0
+          ? `${r.arquivo} — ${tabelaFiltradas.length} ação(ões) e ${r.evidencias} evidência(s).`
+          : `${r.arquivo} — ${tabelaFiltradas.length} ação(ões).`,
+        {
+          id: aviso,
+          description:
+            r.falhas > 0
+              ? `${r.falhas} evidência(s) não puderam ser baixadas e ficaram marcadas na planilha.`
+              : r.evidencias > 0
+                ? "Descompacte o .zip para os links da coluna Evidência abrirem os PDFs."
+                : undefined,
+        },
+      );
+    } catch {
+      toast.error("Não foi possível gerar a planilha.", { id: aviso });
+    } finally {
+      setExportando(false);
+    }
+  };
 
   // ── Evidência ───────────────────────────────────────────────────────────
   const escolherArquivo = (acaoId: number) => {
@@ -594,6 +629,25 @@ export default function Pdtic() {
             />
           ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-2.5">
+              <p className="text-xs text-slate-500">
+                {tabelaFiltradas.length} ação(ões) no recorte atual
+              </p>
+              <button
+                type="button"
+                onClick={exportarPlanilha}
+                disabled={exportando || loading || tabelaFiltradas.length === 0}
+                title="Baixa a planilha das ações filtradas, com as evidências anexadas"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {exportando ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                )}
+                Exportar Planilha
+              </button>
+            </div>
             <div className="grid grid-cols-[minmax(0,1fr)_260px_110px_110px_110px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <span>Ações</span>
               <span>Área responsável</span>
