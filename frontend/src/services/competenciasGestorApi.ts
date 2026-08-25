@@ -46,6 +46,8 @@ export interface FormularioCompetencias {
   // Flag de re-validação requerida por mudança em competências padrão
   padroes_propagacao_pendente?: boolean;
   padroes_tipos_afetados?: string[];
+  /** Matriz do gestor preenchida por quem e APENAS editor: nao tem camada de autor. */
+  preenchido_por_editor?: boolean;
   // Recusa do formulário pela camada Diretoria ou Final
   recusado_por_id?: number | null;
   recusado_por_nome?: string | null;

@@ -201,9 +201,14 @@ export function CompetenciasGestorResumo({
     formulario.tipo === "gestor" &&
     !!areaForm?.gestor_user_id &&
     Number(areaForm.gestor_user_id) === autorUserId;
+  // Preenchida por quem é APENAS editor também não tem camada de autor: o editor só preenche e a
+  // matriz sobe direto para diretoria + final. Quem decide isso é o backend
+  // (`preenchido_por_editor`), porque depende de papéis do AUTOR que a tela não conhece.
   const requerValidacaoAutor =
     formulario.tipo !== "gestor" ||
-    (areas.length > 0 && !preenchidoPeloDiretor);
+    (areas.length > 0 &&
+      !preenchidoPeloDiretor &&
+      !formulario.preenchido_por_editor);
 
   // Espelha CompetenciasGestorService.podeValidarAutor. Na matriz do GESTOR a camada 1 é
   // referendada pelo GESTOR DA UNIDADE, e quem é APENAS editor não valida nem sendo o autor —
@@ -222,12 +227,13 @@ export function CompetenciasGestorResumo({
     !!areaForm && areasOndeSouEditor.includes(Number(areaForm.id));
   const apenasEditor = isEditorDaArea && !isDirecaoDaArea && !isGestorDaUnidade;
 
+  // `requerValidacaoAutor` já exclui a matriz preenchida por editor (não tem camada 1); o
+  // `!apenasEditor` fica como guarda, espelhando podeValidarAutor no backend.
   const canValidateAutor =
     requerValidacaoAutor &&
     formulario.status === "enviado" &&
-    (formulario.tipo === "gestor"
-      ? isGestorDaUnidade || (isAutor && !apenasEditor)
-      : isAutor);
+    isAutor &&
+    !(formulario.tipo === "gestor" && apenasEditor);
 
   // Camada 2 (Diretoria): o gestor da área (cadastros_areas.gestor_user_id) valida depois que a
   // camada 1 passou (validado_autor).

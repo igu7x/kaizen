@@ -150,7 +150,14 @@ public class CompetenciasGestorService {
                 "       (SELECT COUNT(*) FROM competencias_gestor_itens i WHERE i.formulario_id = f.id) as total_competencias, " +
                 "       va.name as validado_por_autor_nome, " +
                 "       vd.name as validado_por_diretoria_nome, " +
-                "       vf.name as validado_final_nome " +
+                "       ( f.tipo = 'gestor' " +
+               "         AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+               "                      WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca2 WHERE ca2.id = f.cadastros_areas_id " +
+               "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
+               "                          AND cu2.responsavel_user_id = f.user_id) ) AS preenchido_por_editor, " +
+               "       vf.name as validado_final_nome " +
                 "FROM competencias_gestor_formularios f " +
                 "LEFT JOIN users u ON u.id = f.user_id " +
                 "LEFT JOIN cadastros_unidades cu ON cu.id = f.unidade_id " +
@@ -164,6 +171,15 @@ public class CompetenciasGestorService {
                 "SELECT f.*, u.name as user_name, cu.nome as unidade_nome, " +
                         "       va.name as validado_por_autor_nome, " +
                         "       vd.name as validado_por_diretoria_nome, " +
+                        // Matriz do gestor preenchida por quem é APENAS editor não tem camada de
+                        // autor — a tela usa isto para montar o stepper com 2 etapas.
+                        "       ( f.tipo = 'gestor' " +
+                        "         AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+                        "                      WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca2 WHERE ca2.id = f.cadastros_areas_id " +
+                        "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
+                        "                          AND cu2.responsavel_user_id = f.user_id) ) AS preenchido_por_editor, " +
                         "       vf.name as validado_final_nome " +
                         "FROM competencias_gestor_formularios f " +
                         "LEFT JOIN users u ON u.id = f.user_id " +
@@ -742,6 +758,21 @@ public class CompetenciasGestorService {
         return !isGestor || !equalsId(autorUserId, gestorMacroId);
     }
 
+    /**
+     * Mesma pergunta, para um formulário concreto: além do diretor, quem preenche como
+     * <b>apenas editor</b> também não gera camada de autor. O editor só preenche — a matriz sobe
+     * direto para a diretoria e depois para a validação final (2 camadas).
+     */
+    private boolean requerValidacaoAutor(Map<String, Object> form, long gestorMacroId) {
+        boolean isGestor = "gestor".equals(form.get("tipo"));
+        if (!requerValidacaoAutor(isGestor, form.get("user_id"), gestorMacroId)) {
+            return false;
+        }
+        Object autorUserId = form.get("user_id");
+        return autorUserId == null
+                || !ehApenasEditor(form, ((Number) autorUserId).longValue());
+    }
+
     // ============================================================
     // EDITORES DA MATRIZ DO GESTOR (por macroárea)
     // ============================================================
@@ -837,23 +868,33 @@ public class CompetenciasGestorService {
         if (!"gestor".equals(form.get("tipo"))) {
             return isAutor;
         }
+        // Guarda defensiva: matriz preenchida por editor nem tem camada 1 (ver
+        // requerValidacaoAutor), então esta etapa não é dele em hipótese alguma.
+        return isAutor && !ehApenasEditor(form, userId);
+    }
 
+    /**
+     * O usuário é <b>apenas</b> editor neste formulário — isto é, alcança a matriz pela associação
+     * de editor da área e por nenhum outro papel.
+     *
+     * <p>O "apenas" é o que importa: quem acumula editor com direção da área ou gestão da unidade
+     * continua com as prerrogativas do papel que já tinha.
+     */
+    private boolean ehApenasEditor(Map<String, Object> form, long userId) {
+        Long areaId = areaIdDoFormulario(form.get("diretoria"));
+        if (!isEditorDaArea(areaId, userId)) {
+            return false;
+        }
+        boolean isDirecao = !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_areas WHERE id = ? " +
+                        "  AND (gestor_user_id = ? OR subdiretor_user_id = ?) LIMIT 1",
+                areaId, userId, userId).isEmpty();
         Long unidadeId = asLong(form.get("unidade_id"));
         boolean isGestorDaUnidade = unidadeId != null && !jdbc.queryForList(
                 "SELECT 1 FROM cadastros_unidades WHERE id = ? AND responsavel_user_id = ? " +
                         "  AND (ativo IS NOT FALSE) LIMIT 1",
                 unidadeId, userId).isEmpty();
-        if (isGestorDaUnidade) {
-            return true;
-        }
-
-        Long areaId = areaIdDoFormulario(form.get("diretoria"));
-        boolean isDirecao = areaId != null && !jdbc.queryForList(
-                "SELECT 1 FROM cadastros_areas WHERE id = ? " +
-                        "  AND (gestor_user_id = ? OR subdiretor_user_id = ?) LIMIT 1",
-                areaId, userId, userId).isEmpty();
-        boolean apenasEditor = isEditorDaArea(areaId, userId) && !isDirecao;
-        return isAutor && !apenasEditor;
+        return !isDirecao && !isGestorDaUnidade;
     }
 
     /** Camada 1: Validação do autor. */
@@ -893,7 +934,7 @@ public class CompetenciasGestorService {
     @Transactional
     public Map<String, Object> validarDiretoria(long id, long userId, String userEmail) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT id, diretoria, status, tipo, user_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+                "SELECT id, diretoria, status, tipo, user_id, unidade_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
         if (formRows.isEmpty()) {
             throw new IllegalStateException("Formulário não encontrado");
         }
@@ -923,7 +964,7 @@ public class CompetenciasGestorService {
         }
         long gestorMacroId = asLong(areaRows.get(0).get("gestor_user_id"));
 
-        boolean requerValidacaoAutor = requerValidacaoAutor(isGestor, autorUserId, gestorMacroId);
+        boolean requerValidacaoAutor = requerValidacaoAutor(form, gestorMacroId);
         // Quando a camada do autor não faz parte do fluxo (matriz do gestor preenchida pelo próprio
         // diretor), \"validado_autor\" também serve: a tela do autor permitia validar a própria
         // camada e, exigindo só \"enviado\" aqui, a matriz ficava sem saída — nunca mais avançava.
@@ -1026,7 +1067,7 @@ public class CompetenciasGestorService {
     @Transactional
     public Map<String, Object> recusarDiretoria(long id, long userId, String comentario) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT id, diretoria, status, tipo, user_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+                "SELECT id, diretoria, status, tipo, user_id, unidade_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
         if (formRows.isEmpty()) {
             throw new IllegalStateException("Formulário não encontrado");
         }
@@ -1042,7 +1083,7 @@ public class CompetenciasGestorService {
             throw new IllegalStateException("Nenhum gestor configurado para a diretoria " + str(form.get("diretoria")));
         }
         long gestorMacroId = asLong(areaRows.get(0).get("gestor_user_id"));
-        boolean requerValidacaoAutor = requerValidacaoAutor(isGestor, autorUserId, gestorMacroId);
+        boolean requerValidacaoAutor = requerValidacaoAutor(form, gestorMacroId);
         String statusValido = requerValidacaoAutor ? "validado_autor" : "enviado";
         if (!statusValido.equals(form.get("status"))) {
             throw new IllegalStateException("Formulário não está em estado válido para recusa pela diretoria");
