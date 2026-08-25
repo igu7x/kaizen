@@ -86,6 +86,25 @@ export interface CompetenciaPorUnidade {
   updated_at: string;
 }
 
+/** Macroárea, no contexto de administração de editores. */
+export interface AreaEditor {
+  id: number;
+  sigla: string | null;
+  nome: string | null;
+}
+
+/**
+ * Editor da Matriz do Gestor: preenche a matriz de todas as unidades da área, mas NÃO valida —
+ * a camada 1 continua com o gestor da unidade.
+ */
+export interface EditorMatriz {
+  id: number;
+  user_id: number;
+  user_name: string | null;
+  user_email: string | null;
+  created_at?: string;
+}
+
 export interface UnidadeAutorizada {
   id: number;
   nome: string;
@@ -229,6 +248,42 @@ export const competenciasGestorApi = {
   getMinhasUnidadesGestor(): Promise<UnidadeAutorizada[]> {
     return apiClient.request<UnidadeAutorizada[]>(
       `${BASE_URL}/minhas-unidades-gestor`,
+    );
+  },
+
+  // ── Editores da Matriz do Gestor (por macroárea) ──────────────────────────
+
+  /** Áreas que o usuário dirige — onde ele administra editores. */
+  getAreasQueDirijo(): Promise<AreaEditor[]> {
+    return apiClient.request<AreaEditor[]>(`${BASE_URL}/editores/minhas-areas`);
+  },
+
+  /** O usuário logado é editor de alguma área? */
+  getSouEditor(): Promise<{ editor: boolean; areas: AreaEditor[] }> {
+    return apiClient.request<{ editor: boolean; areas: AreaEditor[] }>(
+      `${BASE_URL}/editores/sou-editor`,
+    );
+  },
+
+  getEditores(cadastrosAreasId: number): Promise<EditorMatriz[]> {
+    return apiClient.request<EditorMatriz[]>(
+      `${BASE_URL}/editores?cadastrosAreasId=${cadastrosAreasId}`,
+    );
+  },
+
+  addEditor(cadastrosAreasId: number, userId: number): Promise<EditorMatriz[]> {
+    return apiClient.post<EditorMatriz[]>(`${BASE_URL}/editores`, {
+      cadastros_areas_id: cadastrosAreasId,
+      user_id: userId,
+    });
+  },
+
+  removeEditor(
+    editorId: number,
+    cadastrosAreasId: number,
+  ): Promise<EditorMatriz[]> {
+    return apiClient.delete<EditorMatriz[]>(
+      `${BASE_URL}/editores/${editorId}?cadastrosAreasId=${cadastrosAreasId}`,
     );
   },
 
