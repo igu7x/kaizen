@@ -122,6 +122,11 @@ export interface UnidadeAutorizada {
   nome: string;
   area_id: number;
   unidade_superior_id: number | null;
+  /**
+   * Sigla da macroárea da unidade. Quem preenche a matriz de uma unidade de outra área — editor
+   * ou superadmin — precisa ver a diretoria da UNIDADE, e não a sua própria.
+   */
+  area_sigla?: string | null;
 }
 
 export interface FormularioPreenchido {

@@ -610,6 +610,27 @@ public class CompetenciasGestorService {
     }
 
     public List<Map<String, Object>> findUnidadesAutorizadas(long userId, String userEmail, String tipo) {
+        // Superadmin preenche a matriz de QUALQUER unidade, de qualquer área — é a mesma
+        // prerrogativa do editor, sem o recorte. Sem este ramo a tela de preenchimento não oferece
+        // unidade nenhuma para ele, porque as consultas abaixo partem sempre de um vínculo
+        // (direção da área, gestão da unidade ou associação de editor) que o superadmin não tem.
+        if (isSuperadmin(userId)) {
+            return jdbc.queryForList(
+                    "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id, ca.sigla AS area_sigla " +
+                            "FROM cadastros_unidades cu " +
+                            "JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                            "WHERE cu.ativo IS NOT FALSE " +
+                            "  AND COALESCE(ca.ativo, TRUE) = TRUE " +
+                            ("gestor".equals(tipo)
+                                    ? "  AND LOWER(TRIM(cu.nome)) <> LOWER(TRIM(ca.sigla)) "
+                                    : "") +
+                            "  AND NOT EXISTS ( " +
+                            "    SELECT 1 FROM competencias_gestor_formularios cgf " +
+                            "    WHERE cgf.unidade_id = cu.id AND cgf.tipo = ? AND cgf.is_deleted = FALSE " +
+                            "  ) " +
+                            "ORDER BY ca.sigla, cu.nome",
+                    tipo);
+        }
         if ("gestor".equals(tipo)) {
             // Além do diretor e do sub-diretor da macroárea, o GESTOR DA UNIDADE preenche a matriz do
             // gestor da própria unidade (cadastros_unidades.responsavel_user_id) — nesse caso ele
@@ -653,16 +674,20 @@ public class CompetenciasGestorService {
 
         try {
             return jdbc.queryForList(
-                    "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
+                    "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id, ca.sigla AS area_sigla " +
                             "FROM cadastros_unidades cu " +
-                            "WHERE cu.responsavel_user_id = ? " +
+                            "LEFT JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                            "WHERE ( cu.responsavel_user_id = ? " +
+                            // Editor da matriz da equipe: preenche a da unidade a que foi associado.
+                            "     OR EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+                            "                 WHERE ee.cadastros_unidades_id = cu.id AND ee.user_id = ?) ) " +
                             "  AND (cu.ativo IS NOT FALSE) " +
                             "  AND NOT EXISTS ( " +
                             "    SELECT 1 FROM competencias_gestor_formularios cgf " +
                             "    WHERE cgf.unidade_id = cu.id AND cgf.tipo = ? AND cgf.is_deleted = FALSE " +
                             "  ) " +
                             "ORDER BY cu.nome",
-                    userId, tipo);
+                    userId, userId, tipo);
         } catch (Exception ex) {
             return new ArrayList<>();
         }

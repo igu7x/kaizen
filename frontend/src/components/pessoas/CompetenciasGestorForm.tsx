@@ -1,5 +1,5 @@
 import { GRAUS_MINIMOS } from "@/constants/competencias";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi, Area } from "@/services/areasApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,6 +101,19 @@ export function CompetenciasGestorForm({
       ...COMPETENCIA_VAZIA,
     })),
   });
+
+  /**
+   * Diretoria da unidade escolhida — e não a de quem está logado. Editor e superadmin preenchem
+   * matrizes de unidades de outras áreas; mostrar a diretoria do usuário aí seria mentira. O
+   * backend já grava a área pela unidade (ver diretoriaDaUnidade), isto alinha a tela com o dado.
+   */
+  const diretoriaDaUnidadeSelecionada = useMemo(() => {
+    if (!form.unidade_id) return "";
+    const u = unidadesAutorizadas.find(
+      (x) => String(x.id) === String(form.unidade_id),
+    );
+    return u?.area_sigla || "";
+  }, [form.unidade_id, unidadesAutorizadas]);
 
   // Carregar formulário externo (vindo de "Visualizar respostas" → Editar)
   useEffect(() => {
@@ -386,8 +399,13 @@ export function CompetenciasGestorForm({
               Identificação da Diretoria
             </span>
             <p className="font-medium text-gray-800 mt-0.5">
-              {/* Ao editar, a diretoria é a do formulário (macroárea da unidade), não a de quem edita. */}
-              {editFormulario?.diretoria || diretoriaUsuario || "Carregando..."}
+              {/* A diretoria é sempre a da UNIDADE, nunca a de quem preenche: editor e superadmin
+                  preenchem matrizes de áreas que não são as suas. Ao editar vem do formulário; ao
+                  criar, da unidade escolhida — só cai na do usuário enquanto nada foi selecionado. */}
+              {editFormulario?.diretoria ||
+                diretoriaDaUnidadeSelecionada ||
+                diretoriaUsuario ||
+                "Carregando..."}
             </p>
           </div>
         </CardContent>

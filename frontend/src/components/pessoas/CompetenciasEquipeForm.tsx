@@ -1,5 +1,5 @@
 import { GRAUS_MINIMOS } from "@/constants/competencias";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { areasApi } from "@/services/areasApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,6 +106,19 @@ export function CompetenciasEquipeForm({
       ...COMPETENCIA_VAZIA,
     })),
   });
+
+  /**
+   * Diretoria da unidade escolhida - e nao a de quem esta logado. Editor da equipe e superadmin
+   * preenchem matrizes de unidades de outras areas; a tela precisa acompanhar o dado, que o
+   * backend ja grava pela unidade (ver diretoriaDaUnidade).
+   */
+  const diretoriaDaUnidadeSelecionada = useMemo(() => {
+    if (!form.unidade_id) return "";
+    const u = unidadesAutorizadas.find(
+      (x) => String(x.id) === String(form.unidade_id),
+    );
+    return u?.area_sigla || "";
+  }, [form.unidade_id, unidadesAutorizadas]);
 
   // Carregar formulário externo (vindo de "Visualizar respostas" → Editar)
   useEffect(() => {
@@ -417,7 +430,10 @@ export function CompetenciasEquipeForm({
               Identificação da Diretoria
             </span>
             <p className="font-medium text-gray-800 mt-0.5">
-              {diretoriaUsuario || "Carregando..."}
+              {editFormulario?.diretoria ||
+                diretoriaDaUnidadeSelecionada ||
+                diretoriaUsuario ||
+                "Carregando..."}
             </p>
           </div>
         </CardContent>
