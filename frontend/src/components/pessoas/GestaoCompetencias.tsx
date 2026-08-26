@@ -36,6 +36,7 @@ import {
 import { CompetenciasEquipeForm } from "./CompetenciasEquipeForm";
 import { CompetenciasGestorForm } from "./CompetenciasGestorForm";
 import { CompetenciasGestorResumo } from "./CompetenciasGestorResumo";
+import { CompetenciasRevisarPicker } from "./CompetenciasRevisarPicker";
 import { CompetenciasGestorRespostas } from "./CompetenciasGestorRespostas";
 import { AutoavaliacaoForm } from "./AutoavaliacaoForm";
 import { AutoavaliacaoResumo } from "./AutoavaliacaoResumo";
@@ -299,10 +300,12 @@ type View =
   | "equipe_resumo"
   | "equipe_respostas"
   | "equipe_edit"
+  | "equipe_revisar"
   | "gestor"
   | "gestor_resumo"
   | "gestor_respostas"
   | "gestor_edit"
+  | "gestor_revisar"
   | "autoavaliacao"
   | "autoavaliacao_resumo"
   | "autoavaliacao_respostas"
@@ -354,6 +357,11 @@ export function GestaoCompetencias({
   const [formularioEdit, setFormularioEdit] =
     useState<FormularioCompetencias | null>(null);
   const [editFromResumo, setEditFromResumo] = useState(false);
+  /**
+   * A edição veio da tela de revisão ("Revisar Matriz"), e não da listagem nem do resumo. Muda só
+   * para onde o "Voltar" leva — o formulário em si é o mesmo.
+   */
+  const [editFromRevisao, setEditFromRevisao] = useState(false);
   // Camada que o superior (Diretoria/Final) validará ao salvar a edição feita pelo resumo.
   const [validarCamadaEdit, setValidarCamadaEdit] = useState<
     "diretoria" | "final" | null
@@ -912,7 +920,7 @@ export function GestaoCompetencias({
           <div className="ml-auto flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => setCurrentView("equipe")}
+              onClick={() => setCurrentView("equipe_revisar")}
               className="border-blue-200 text-blue-700 hover:bg-blue-50"
             >
               <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
@@ -943,6 +951,36 @@ export function GestaoCompetencias({
     );
   }
 
+  if (currentView === "equipe_revisar") {
+    return (
+      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCurrentView("referencial_home")}
+            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
+          </Button>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Revisar — Matriz de Competências da Equipe
+          </h2>
+        </div>
+        <CompetenciasRevisarPicker
+          tipo="equipe"
+          onSelecionar={(formulario) => {
+            setFormularioEdit(formulario);
+            setEditFromResumo(false);
+            setEditFromRevisao(true);
+            setValidarCamadaEdit(null);
+            setCurrentView("equipe_edit");
+          }}
+        />
+      </div>
+    );
+  }
+
   if (currentView === "equipe_edit" && formularioEdit) {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
@@ -951,10 +989,13 @@ export function GestaoCompetencias({
             variant="ghost"
             size="sm"
             onClick={() => {
-              const voltarPara = editFromResumo
-                ? "equipe_resumo"
-                : "equipe_respostas";
+              const voltarPara = editFromRevisao
+                ? "equipe_revisar"
+                : editFromResumo
+                  ? "equipe_resumo"
+                  : "equipe_respostas";
               setEditFromResumo(false);
+              setEditFromRevisao(false);
               setValidarCamadaEdit(null);
               setCurrentView(voltarPara);
             }}
@@ -963,7 +1004,8 @@ export function GestaoCompetencias({
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Editar — Matriz de Competências da Equipe
+            {editFromRevisao ? "Revisar" : "Editar"} — Matriz de Competências
+            da Equipe
           </h2>
         </div>
         <CompetenciasEquipeForm
@@ -1059,7 +1101,7 @@ export function GestaoCompetencias({
           <div className="ml-auto flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => setCurrentView("gestor")}
+              onClick={() => setCurrentView("gestor_revisar")}
               className="border-blue-200 text-blue-700 hover:bg-blue-50"
             >
               <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
@@ -1090,6 +1132,36 @@ export function GestaoCompetencias({
     );
   }
 
+  if (currentView === "gestor_revisar") {
+    return (
+      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCurrentView("referencial_home")}
+            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
+          </Button>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Revisar — Matriz de Competências do Gestor
+          </h2>
+        </div>
+        <CompetenciasRevisarPicker
+          tipo="gestor"
+          onSelecionar={(formulario) => {
+            setFormularioEdit(formulario);
+            setEditFromResumo(false);
+            setEditFromRevisao(true);
+            setValidarCamadaEdit(null);
+            setCurrentView("gestor_edit");
+          }}
+        />
+      </div>
+    );
+  }
+
   if (currentView === "gestor_edit" && formularioEdit) {
     return (
       <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
@@ -1098,10 +1170,13 @@ export function GestaoCompetencias({
             variant="ghost"
             size="sm"
             onClick={() => {
-              const voltarPara = editFromResumo
-                ? "gestor_resumo"
-                : "gestor_respostas";
+              const voltarPara = editFromRevisao
+                ? "gestor_revisar"
+                : editFromResumo
+                  ? "gestor_resumo"
+                  : "gestor_respostas";
               setEditFromResumo(false);
+              setEditFromRevisao(false);
               setValidarCamadaEdit(null);
               setCurrentView(voltarPara);
             }}
@@ -1110,7 +1185,8 @@ export function GestaoCompetencias({
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">
-            Editar — Matriz de Competências do Gestor
+            {editFromRevisao ? "Revisar" : "Editar"} — Matriz de Competências
+            do Gestor
           </h2>
         </div>
         <CompetenciasGestorForm
@@ -1765,7 +1841,7 @@ export function GestaoCompetencias({
         <>
           <Button
             variant="outline"
-            onClick={() => setCurrentView("equipe")}
+            onClick={() => setCurrentView("equipe_revisar")}
             className="border-blue-200 text-blue-700 hover:bg-blue-50"
           >
             <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz
@@ -1816,7 +1892,7 @@ export function GestaoCompetencias({
           <>
             <Button
               variant="outline"
-              onClick={() => setCurrentView("gestor")}
+              onClick={() => setCurrentView("gestor_revisar")}
               className="border-blue-200 text-blue-700 hover:bg-blue-50"
             >
               <RefreshCw className="h-4 w-4 mr-1.5" /> Revisar Matriz

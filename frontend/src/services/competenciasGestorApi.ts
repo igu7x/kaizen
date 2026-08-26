@@ -43,6 +43,13 @@ export interface FormularioCompetencias {
   validado_final_nome?: string;
   // Versionamento: incrementado a cada ciclo completo de validação
   versao_formulario?: number;
+  /**
+   * Revisão em andamento sobre uma matriz já validada. Enquanto TRUE, o conteúdo devolvido aqui é
+   * o REVISADO (ainda não aprovado), mas a versão vigente continua valendo para Lacunas e
+   * Inventário — eles leem os itens gravados, que só são substituídos na validação final.
+   */
+  em_revisao?: boolean;
+  revisao_iniciada_em?: string | null;
   // Flag de re-validação requerida por mudança em competências padrão
   padroes_propagacao_pendente?: boolean;
   padroes_tipos_afetados?: string[];
@@ -149,6 +156,28 @@ export interface FormularioPreenchido {
   updated_at: string;
 }
 
+/**
+ * Unidade que já tem matriz validada e que o usuário pode REVISAR.
+ *
+ * Espelho de UnidadeAutorizada: aquela lista as unidades SEM matriz (para preencher), esta as
+ * unidades COM matriz validada. `id` é o da unidade; a matriz em si é `formulario_id`.
+ */
+export interface UnidadeParaRevisao {
+  id: number;
+  nome: string;
+  area_id: number;
+  area_sigla?: string | null;
+  formulario_id: number;
+  status: string;
+  /** Versão vigente. Só incrementa quando a revisão passa por todas as camadas de novo. */
+  versao_formulario: number;
+  total_competencias: number;
+  validado_final_em: string | null;
+  /** TRUE quando já existe uma revisão salva aguardando as validações. */
+  em_revisao: boolean;
+  revisao_iniciada_em: string | null;
+}
+
 const BASE_URL = "/api/competencias-gestor";
 
 export const competenciasGestorApi = {
@@ -219,6 +248,18 @@ export const competenciasGestorApi = {
   ): Promise<UnidadeAutorizada[]> {
     return apiClient.request<UnidadeAutorizada[]>(
       `${BASE_URL}/unidades-autorizadas?tipo=${encodeURIComponent(tipo)}`,
+    );
+  },
+
+  /**
+   * Unidades com matriz validada que o usuário pode revisar ("Revisar Matriz").
+   *
+   * Recorte de permissão idêntico ao de getUnidadesAutorizadas — quem pode preencher a matriz de
+   * uma unidade pode revisá-la —, só que invertido: aqui entram as que JÁ têm matriz validada.
+   */
+  getUnidadesParaRevisao(tipo: string = "equipe"): Promise<UnidadeParaRevisao[]> {
+    return apiClient.request<UnidadeParaRevisao[]>(
+      `${BASE_URL}/unidades-para-revisao?tipo=${encodeURIComponent(tipo)}`,
     );
   },
 

@@ -98,6 +98,20 @@ public class CompetenciasGestorController {
         return ResponseEntity.ok(service.findUnidadesAutorizadas(currentUserId(), email, tipo));
     }
 
+    // GET /api/competencias-gestor/unidades-para-revisao
+    /**
+     * Unidades que o usuário pode REVISAR: as que já têm matriz do tipo validada até o fim.
+     * Espelho de /unidades-autorizadas, que lista as que ainda não têm matriz (para preencher).
+     */
+    @GetMapping("/unidades-para-revisao")
+    public ResponseEntity<?> unidadesParaRevisao(@RequestParam(value = "tipo", required = false, defaultValue = "equipe") String tipo) {
+        String email = lookupUserEmail(currentUserId());
+        if (email == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Usuário não encontrado"));
+        }
+        return ResponseEntity.ok(service.findUnidadesParaRevisao(currentUserId(), email, tipo));
+    }
+
     // GET /api/competencias-gestor/unidades-autorizadas-inventario
     @GetMapping("/unidades-autorizadas-inventario")
     public ResponseEntity<?> unidadesAutorizadasInventario() {
