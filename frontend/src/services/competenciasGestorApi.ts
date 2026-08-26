@@ -98,6 +98,13 @@ export interface AreaEditor {
   nome: string | null;
 }
 
+/** Unidade, no contexto de administração de editores da matriz da equipe. */
+export interface UnidadeEditor {
+  id: number;
+  sigla: string | null;
+  nome: string | null;
+}
+
 /**
  * Editor da Matriz do Gestor: preenche a matriz de todas as unidades da área, mas NÃO valida —
  * a camada 1 continua com o gestor da unidade.
@@ -289,6 +296,51 @@ export const competenciasGestorApi = {
   ): Promise<EditorMatriz[]> {
     return apiClient.delete<EditorMatriz[]>(
       `${BASE_URL}/editores/${editorId}?cadastrosAreasId=${cadastrosAreasId}`,
+    );
+  },
+
+  // ── Editores da Matriz da Equipe (por unidade) ────────────────────────────
+
+  /** Unidades que o usuário gerencia — onde ele administra editores da equipe. */
+  getUnidadesQueGerencio(): Promise<UnidadeEditor[]> {
+    return apiClient.request<UnidadeEditor[]>(
+      `${BASE_URL}/editores-equipe/minhas-unidades`,
+    );
+  },
+
+  /** O usuário logado é editor da equipe de alguma unidade? */
+  getSouEditorEquipe(): Promise<{
+    editor: boolean;
+    unidades: UnidadeEditor[];
+  }> {
+    return apiClient.request<{ editor: boolean; unidades: UnidadeEditor[] }>(
+      `${BASE_URL}/editores-equipe/sou-editor`,
+    );
+  },
+
+  getEditoresEquipe(unidadeId: number): Promise<EditorMatriz[]> {
+    return apiClient.request<EditorMatriz[]>(
+      `${BASE_URL}/editores-equipe?unidadeId=${unidadeId}`,
+    );
+  },
+
+  addEditorEquipe(
+    unidadeId: number,
+    userId: number,
+  ): Promise<EditorMatriz[]> {
+    return apiClient.post<EditorMatriz[]>(`${BASE_URL}/editores-equipe`, {
+      unidade_id: unidadeId,
+      user_id: userId,
+    });
+  },
+
+  /** Remove pelo user_id do editor (e não pelo id da associação). */
+  removeEditorEquipe(
+    editorUserId: number,
+    unidadeId: number,
+  ): Promise<EditorMatriz[]> {
+    return apiClient.delete<EditorMatriz[]>(
+      `${BASE_URL}/editores-equipe/${editorUserId}?unidadeId=${unidadeId}`,
     );
   },
 
