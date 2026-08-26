@@ -157,8 +157,12 @@ public class CompetenciasGestorService {
                 "       va.name as validado_por_autor_nome, " +
                 "       vd.name as validado_por_diretoria_nome, " +
                 "       ( f.tipo = 'gestor' " +
-               "         AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
-               "                      WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+               // Superadmin conta como editor aqui pelo mesmo motivo do isEditorDaArea: ele
+               // preenche a matriz de qualquer área sem associação. Sem este OR a tela mostraria
+               // a camada 1 para uma matriz que não tem camada 1, e ninguém conseguiria validá-la.
+               "         AND ( EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+               "                        WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+               "               OR EXISTS (SELECT 1 FROM users su WHERE su.id = f.user_id AND su.is_superadmin = TRUE) ) " +
                "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca2 WHERE ca2.id = f.cadastros_areas_id " +
                "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
                "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
@@ -180,8 +184,9 @@ public class CompetenciasGestorService {
                         // Matriz do gestor preenchida por quem é APENAS editor não tem camada de
                         // autor — a tela usa isto para montar o stepper com 2 etapas.
                         "       ( f.tipo = 'gestor' " +
-                        "         AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
-                        "                      WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+                        "         AND ( EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+                        "                        WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
+                        "               OR EXISTS (SELECT 1 FROM users su WHERE su.id = f.user_id AND su.is_superadmin = TRUE) ) " +
                         "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca2 WHERE ca2.id = f.cadastros_areas_id " +
                         "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
                         "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
