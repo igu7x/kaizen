@@ -172,6 +172,16 @@ public class CompetenciasGestorService {
                "                          AND (ca3.gestor_user_id = f.user_id OR ca3.subdiretor_user_id = f.user_id)) " +
                "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu3 WHERE cu3.id = f.unidade_id " +
                "                          AND cu3.responsavel_user_id = f.user_id) ) AS preenchido_por_superadmin, " +
+               // Matriz da EQUIPE preenchida por editor (ou superadmin) de fora: a camada 1 é do
+               // gestor da unidade. Espelha ehApenasEditorEquipe / podeValidarAutor.
+               "       ( f.tipo <> 'gestor' " +
+               "         AND ( EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+               "                        WHERE ee.cadastros_unidades_id = f.unidade_id AND ee.user_id = f.user_id) " +
+               "               OR EXISTS (SELECT 1 FROM users su2 WHERE su2.id = f.user_id AND su2.is_superadmin = TRUE) ) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu4 WHERE cu4.id = f.unidade_id " +
+               "                          AND cu4.responsavel_user_id = f.user_id) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca4 WHERE ca4.id = f.cadastros_areas_id " +
+               "                          AND (ca4.gestor_user_id = f.user_id OR ca4.subdiretor_user_id = f.user_id)) ) AS preenchido_por_editor_equipe, " +
                "       vf.name as validado_final_nome " +
                 "FROM competencias_gestor_formularios f " +
                 "LEFT JOIN users u ON u.id = f.user_id " +
@@ -201,6 +211,14 @@ public class CompetenciasGestorService {
                         "                          AND (ca3.gestor_user_id = f.user_id OR ca3.subdiretor_user_id = f.user_id)) " +
                         "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu3 WHERE cu3.id = f.unidade_id " +
                         "                          AND cu3.responsavel_user_id = f.user_id) ) AS preenchido_por_superadmin, " +
+                        "       ( f.tipo <> 'gestor' " +
+                        "         AND ( EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+                        "                        WHERE ee.cadastros_unidades_id = f.unidade_id AND ee.user_id = f.user_id) " +
+                        "               OR EXISTS (SELECT 1 FROM users su2 WHERE su2.id = f.user_id AND su2.is_superadmin = TRUE) ) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu4 WHERE cu4.id = f.unidade_id " +
+                        "                          AND cu4.responsavel_user_id = f.user_id) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca4 WHERE ca4.id = f.cadastros_areas_id " +
+                        "                          AND (ca4.gestor_user_id = f.user_id OR ca4.subdiretor_user_id = f.user_id)) ) AS preenchido_por_editor_equipe, " +
                         "       vf.name as validado_final_nome " +
                         "FROM competencias_gestor_formularios f " +
                         "LEFT JOIN users u ON u.id = f.user_id " +

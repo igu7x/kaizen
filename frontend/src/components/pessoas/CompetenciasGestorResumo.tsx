@@ -233,8 +233,12 @@ export function CompetenciasGestorResumo({
   // Preenchida por superadmin de fora da área/unidade a camada 1 existe, mas é do GESTOR DA
   // UNIDADE e não do autor: o superadmin alcança qualquer matriz, e não substitui o referendo de
   // quem responde pela unidade. Espelha podeValidarAutor / preenchidaPorSuperadminExterno.
+  // Na matriz da EQUIPE vale o mesmo quando quem preencheu foi um editor da unidade (ou um
+  // superadmin de fora): ele só salva, e a camada 1 é do gestor que o associou.
   const camadaAutorEhDoGestor =
-    formulario.tipo === "gestor" && !!formulario.preenchido_por_superadmin;
+    formulario.tipo === "gestor"
+      ? !!formulario.preenchido_por_superadmin
+      : !!formulario.preenchido_por_editor_equipe;
   const canValidateAutor =
     requerValidacaoAutor &&
     formulario.status === "enviado" &&

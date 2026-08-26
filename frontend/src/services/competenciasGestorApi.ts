@@ -53,6 +53,11 @@ export interface FormularioCompetencias {
    * fluxo, mas quem valida é o GESTOR DA UNIDADE, e não o autor.
    */
   preenchido_por_superadmin?: boolean;
+  /**
+   * Matriz da equipe preenchida por editor (ou superadmin) de fora da unidade. Mesma regra: o
+   * editor só preenche e salva, e a camada 1 é do GESTOR DA UNIDADE.
+   */
+  preenchido_por_editor_equipe?: boolean;
   // Recusa do formulário pela camada Diretoria ou Final
   recusado_por_id?: number | null;
   recusado_por_nome?: string | null;
