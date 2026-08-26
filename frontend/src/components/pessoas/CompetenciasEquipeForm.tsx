@@ -112,6 +112,13 @@ export function CompetenciasEquipeForm({
    * preenchem matrizes de unidades de outras areas; a tela precisa acompanhar o dado, que o
    * backend ja grava pela unidade (ver diretoriaDaUnidade).
    */
+  /**
+   * Não há unidade para preencher (e não está editando uma existente). Nesse estado o formulário
+   * inteiro é inútil: sem unidade não há o que salvar, então nada abaixo da mensagem é exibido.
+   */
+  const semUnidadeParaPreencher =
+    !loadingUnidades && !editingId && unidadesAutorizadas.length === 0;
+
   const diretoriaDaUnidadeSelecionada = useMemo(() => {
     if (!form.unidade_id) return "";
     const u = unidadesAutorizadas.find(
@@ -588,23 +595,29 @@ export function CompetenciasEquipeForm({
               </>
             )}
           </div>
-          <div>
-            <Label>
-              Quantidade de colaboradores na unidade (sem considerar o gestor){" "}
-              <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="number"
-              min="0"
-              value={form.qtd_colaboradores}
-              onChange={(e) => updateField("qtd_colaboradores", e.target.value)}
-              placeholder="Informe o número de colaboradores"
-              className="mt-1 max-w-xs"
-            />
-          </div>
+          {!semUnidadeParaPreencher && (
+            <div>
+              <Label>
+                Quantidade de colaboradores na unidade (sem considerar o gestor){" "}
+                <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                value={form.qtd_colaboradores}
+                onChange={(e) =>
+                  updateField("qtd_colaboradores", e.target.value)
+                }
+                placeholder="Informe o número de colaboradores"
+                className="mt-1 max-w-xs"
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
+      {!semUnidadeParaPreencher && (
+        <>
       {/* Orientações para competências técnicas */}
       <div className="rounded-xl bg-amber-50 border border-amber-200 p-8">
         <div className="flex gap-4">
@@ -859,6 +872,8 @@ export function CompetenciasEquipeForm({
           )}
         </Button>
       </div>
+        </>
+      )}
     </div>
   );
 }

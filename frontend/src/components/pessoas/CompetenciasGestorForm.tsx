@@ -107,6 +107,13 @@ export function CompetenciasGestorForm({
    * matrizes de unidades de outras áreas; mostrar a diretoria do usuário aí seria mentira. O
    * backend já grava a área pela unidade (ver diretoriaDaUnidade), isto alinha a tela com o dado.
    */
+  /**
+   * Não há unidade para preencher (e não está editando uma existente). Nesse estado o formulário
+   * inteiro é inútil: sem unidade não há o que salvar, então nada abaixo da mensagem é exibido.
+   */
+  const semUnidadeParaPreencher =
+    !loadingUnidades && !editingId && unidadesAutorizadas.length === 0;
+
   const diretoriaDaUnidadeSelecionada = useMemo(() => {
     if (!form.unidade_id) return "";
     const u = unidadesAutorizadas.find(
@@ -562,6 +569,8 @@ export function CompetenciasGestorForm({
         </CardContent>
       </Card>
 
+      {!semUnidadeParaPreencher && (
+        <>
       {/* Orientações para competências técnicas */}
       <div className="rounded-xl bg-amber-50 border border-amber-200 p-8">
         <div className="flex gap-4">
@@ -745,6 +754,8 @@ export function CompetenciasGestorForm({
           )}
         </Button>
       </div>
+        </>
+      )}
     </div>
   );
 }
