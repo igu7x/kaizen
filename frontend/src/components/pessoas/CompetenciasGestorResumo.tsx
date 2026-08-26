@@ -229,10 +229,16 @@ export function CompetenciasGestorResumo({
 
   // `requerValidacaoAutor` já exclui a matriz preenchida por editor (não tem camada 1); o
   // `!apenasEditor` fica como guarda, espelhando podeValidarAutor no backend.
+  //
+  // Preenchida por superadmin de fora da área/unidade a camada 1 existe, mas é do GESTOR DA
+  // UNIDADE e não do autor: o superadmin alcança qualquer matriz, e não substitui o referendo de
+  // quem responde pela unidade. Espelha podeValidarAutor / preenchidaPorSuperadminExterno.
+  const camadaAutorEhDoGestor =
+    formulario.tipo === "gestor" && !!formulario.preenchido_por_superadmin;
   const canValidateAutor =
     requerValidacaoAutor &&
     formulario.status === "enviado" &&
-    isAutor &&
+    (camadaAutorEhDoGestor ? isGestorDaUnidade : isAutor) &&
     !(formulario.tipo === "gestor" && apenasEditor);
 
   // Camada 2 (Diretoria): o gestor da área (cadastros_areas.gestor_user_id) valida depois que a

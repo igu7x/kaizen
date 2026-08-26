@@ -48,6 +48,11 @@ export interface FormularioCompetencias {
   padroes_tipos_afetados?: string[];
   /** Matriz do gestor preenchida por quem e APENAS editor: nao tem camada de autor. */
   preenchido_por_editor?: boolean;
+  /**
+   * Matriz do gestor preenchida por superadmin de fora da área/unidade. A camada 1 continua no
+   * fluxo, mas quem valida é o GESTOR DA UNIDADE, e não o autor.
+   */
+  preenchido_por_superadmin?: boolean;
   // Recusa do formulário pela camada Diretoria ou Final
   recusado_por_id?: number | null;
   recusado_por_nome?: string | null;
