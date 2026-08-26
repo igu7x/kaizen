@@ -2251,9 +2251,12 @@ export function GestaoCompetencias({
         {/* Administração pontual, não é uma "ação do perfil" — fica fora da grade de cards
             para não competir com o que o usuário vem fazer aqui todo dia. Só aparece com a
             Matriz selecionada: é dela que o editor trata. */}
-        {moduloSel?.key === "matriz" && (
-          <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
-            {(ehGestorOuSubdiretorMacro || isSGJT) && (
+        {/* Cada botão acompanha o sub-card selecionado: administrar editores é uma ação sobre
+            AQUELA matriz, então mostrar os dois ao mesmo tempo (ou o do gestor enquanto a equipe
+            está selecionada) faria o usuário abrir a tela errada. */}
+        <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
+          {itemSel?.key === "matriz_gestor" &&
+            (ehGestorOuSubdiretorMacro || isSGJT) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -2264,20 +2267,19 @@ export function GestaoCompetencias({
                 Gestor
               </Button>
             )}
-            {/* Editores da equipe são administrados por quem gerencia a unidade. */}
-            {(isGestorDeUnidade || isSGJT) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentView("editores_equipe")}
-                className="text-gray-600"
-              >
-                <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz da
-                Equipe
-              </Button>
-            )}
-          </div>
-        )}
+          {/* Editores da equipe são administrados por quem gerencia a unidade. */}
+          {itemSel?.key === "matriz_equipe" && (isGestorDeUnidade || isSGJT) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentView("editores_equipe")}
+              className="text-gray-600"
+            >
+              <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz da
+              Equipe
+            </Button>
+          )}
+        </div>
       </div>
 
       {modulos.length === 0 ? (
