@@ -856,8 +856,8 @@ function KrGauge({
   color: string;
   /**
    * O arco (e o número) medem o atingimento da META, e não a posição na escala. Nesse modo o fim
-   * do arco É a meta, então o tique deixa de ser desenhado — ele cairia em 100%, sobre a ponta.
-   * Só o KR-2 usa: nele a meta (25 demandas) é o compromisso, e o total (42) é só o universo.
+   * do arco É a meta, então o tique de "Meta" fica na ponta direita, marcando os 100%.
+   * Só o KR-2 usa: nele a meta (25 demandas) é o compromisso, e o total é só o universo.
    */
   medirPelaMeta?: boolean;
 }) {
@@ -872,7 +872,8 @@ function KrGauge({
   const clamp = (n: number) => Math.max(0, Math.min(1, n));
   const referencia = medirPelaMeta ? meta : escala;
   const fValor = referencia > 0 ? clamp(valor / referencia) : 0;
-  const fMeta = escala > 0 ? clamp(meta / escala) : 0;
+  // Medindo pela meta, o fim do arco É a meta: o tique vai para a ponta (100%) em vez de sumir.
+  const fMeta = medirPelaMeta ? 1 : escala > 0 ? clamp(meta / escala) : 0;
   // Passar da meta satura o arco em 100%, mas o número exibido continua o real.
   const pct = referencia > 0 ? Math.round((valor / referencia) * 100) : 0;
   const trilho = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
@@ -909,28 +910,24 @@ function KrGauge({
         strokeDasharray={`${arco * fValor} ${arco}`}
         className="transition-[stroke-dasharray] duration-500"
       />
-      {!medirPelaMeta && (
-        <>
-          <line
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="#0f172a"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-          />
-          <text
-            x={xt}
-            y={yt}
-            textAnchor={fMeta >= 0.5 ? "start" : "end"}
-            dominantBaseline="middle"
-            className="fill-slate-800 text-[11px] font-bold"
-          >
-            Meta
-          </text>
-        </>
-      )}
+      <line
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke="#0f172a"
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+      <text
+        x={xt}
+        y={yt}
+        textAnchor={fMeta >= 0.5 ? "start" : "end"}
+        dominantBaseline="middle"
+        className="fill-slate-800 text-[11px] font-bold"
+      >
+        Meta
+      </text>
       <text
         x={cx}
         y={cy - 8}
