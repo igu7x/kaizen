@@ -49,6 +49,7 @@ import { CompetenciasPadraoAdmin } from "./CompetenciasPadraoAdmin";
 import { RelatorioLacunas } from "./RelatorioLacunas";
 import { RelatorioLacunasGestor } from "./RelatorioLacunasGestor";
 import { EditoresMatrizGestor } from "./EditoresMatrizGestor";
+import { EditoresMatrizEquipe } from "./EditoresMatrizEquipe";
 import { CompetenciasTecnicasAdmin } from "./CompetenciasTecnicasAdmin";
 import { isCompetenciasPadraoEnabled } from "@/utils/environment";
 import { Wrench } from "lucide-react";
@@ -235,6 +236,7 @@ type View =
   | "inventario"
   | "lacunas_gestor"
   | "editores_gestor"
+  | "editores_equipe"
   | "lacunas"
   | "referencial_home"
   | "inventario_home"
@@ -1570,6 +1572,28 @@ export function GestaoCompetencias({
     );
   }
 
+  // ── Editores da Matriz da Equipe ──────────────────────────────
+  // O backend só devolve as unidades que o usuário gerencia e revalida em cada operação.
+  if (currentView === "editores_equipe") {
+    return (
+      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView("referencial_home")}
+            className="text-gray-600"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
+          </Button>
+          <h2 className="text-xl font-bold text-gray-900">
+            Editores da Matriz da Equipe
+          </h2>
+        </div>
+        <EditoresMatrizEquipe />
+      </div>
+    );
+  }
+
   // ── Lacunas de Competências do Gestor ─────────────────────────
   // Só a direção da área; o backend revalida a unidade a cada geração.
   if (currentView === "lacunas_gestor") {
@@ -2227,18 +2251,35 @@ export function GestaoCompetencias({
         {/* Administração pontual, não é uma "ação do perfil" — fica fora da grade de cards
             para não competir com o que o usuário vem fazer aqui todo dia. Só aparece com a
             Matriz selecionada: é dela que o editor trata. */}
-        {moduloSel?.key === "matriz" &&
-          (ehGestorOuSubdiretorMacro || isSGJT) && (
+        {/* Cada botão acompanha o sub-card selecionado: administrar editores é uma ação sobre
+            AQUELA matriz, então mostrar os dois ao mesmo tempo (ou o do gestor enquanto a equipe
+            está selecionada) faria o usuário abrir a tela errada. */}
+        <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
+          {itemSel?.key === "matriz_gestor" &&
+            (ehGestorOuSubdiretorMacro || isSGJT) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentView("editores_gestor")}
+                className="text-gray-600"
+              >
+                <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz do
+                Gestor
+              </Button>
+            )}
+          {/* Editores da equipe são administrados por quem gerencia a unidade. */}
+          {itemSel?.key === "matriz_equipe" && (isGestorDeUnidade || isSGJT) && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentView("editores_gestor")}
-              className="flex-shrink-0 text-gray-600"
+              onClick={() => setCurrentView("editores_equipe")}
+              className="text-gray-600"
             >
-              <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz do
-              Gestor
+              <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz da
+              Equipe
             </Button>
           )}
+        </div>
       </div>
 
       {modulos.length === 0 ? (

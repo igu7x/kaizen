@@ -48,6 +48,16 @@ export interface FormularioCompetencias {
   padroes_tipos_afetados?: string[];
   /** Matriz do gestor preenchida por quem e APENAS editor: nao tem camada de autor. */
   preenchido_por_editor?: boolean;
+  /**
+   * Matriz do gestor preenchida por superadmin de fora da área/unidade. A camada 1 continua no
+   * fluxo, mas quem valida é o GESTOR DA UNIDADE, e não o autor.
+   */
+  preenchido_por_superadmin?: boolean;
+  /**
+   * Matriz da equipe preenchida por editor (ou superadmin) de fora da unidade. Mesma regra: o
+   * editor só preenche e salva, e a camada 1 é do GESTOR DA UNIDADE.
+   */
+  preenchido_por_editor_equipe?: boolean;
   // Recusa do formulário pela camada Diretoria ou Final
   recusado_por_id?: number | null;
   recusado_por_nome?: string | null;
@@ -98,6 +108,13 @@ export interface AreaEditor {
   nome: string | null;
 }
 
+/** Unidade, no contexto de administração de editores da matriz da equipe. */
+export interface UnidadeEditor {
+  id: number;
+  sigla: string | null;
+  nome: string | null;
+}
+
 /**
  * Editor da Matriz do Gestor: preenche a matriz de todas as unidades da área, mas NÃO valida —
  * a camada 1 continua com o gestor da unidade.
@@ -115,6 +132,11 @@ export interface UnidadeAutorizada {
   nome: string;
   area_id: number;
   unidade_superior_id: number | null;
+  /**
+   * Sigla da macroárea da unidade. Quem preenche a matriz de uma unidade de outra área — editor
+   * ou superadmin — precisa ver a diretoria da UNIDADE, e não a sua própria.
+   */
+  area_sigla?: string | null;
 }
 
 export interface FormularioPreenchido {
@@ -289,6 +311,51 @@ export const competenciasGestorApi = {
   ): Promise<EditorMatriz[]> {
     return apiClient.delete<EditorMatriz[]>(
       `${BASE_URL}/editores/${editorId}?cadastrosAreasId=${cadastrosAreasId}`,
+    );
+  },
+
+  // ── Editores da Matriz da Equipe (por unidade) ────────────────────────────
+
+  /** Unidades que o usuário gerencia — onde ele administra editores da equipe. */
+  getUnidadesQueGerencio(): Promise<UnidadeEditor[]> {
+    return apiClient.request<UnidadeEditor[]>(
+      `${BASE_URL}/editores-equipe/minhas-unidades`,
+    );
+  },
+
+  /** O usuário logado é editor da equipe de alguma unidade? */
+  getSouEditorEquipe(): Promise<{
+    editor: boolean;
+    unidades: UnidadeEditor[];
+  }> {
+    return apiClient.request<{ editor: boolean; unidades: UnidadeEditor[] }>(
+      `${BASE_URL}/editores-equipe/sou-editor`,
+    );
+  },
+
+  getEditoresEquipe(unidadeId: number): Promise<EditorMatriz[]> {
+    return apiClient.request<EditorMatriz[]>(
+      `${BASE_URL}/editores-equipe?unidadeId=${unidadeId}`,
+    );
+  },
+
+  addEditorEquipe(
+    unidadeId: number,
+    userId: number,
+  ): Promise<EditorMatriz[]> {
+    return apiClient.post<EditorMatriz[]>(`${BASE_URL}/editores-equipe`, {
+      unidade_id: unidadeId,
+      user_id: userId,
+    });
+  },
+
+  /** Remove pelo user_id do editor (e não pelo id da associação). */
+  removeEditorEquipe(
+    editorUserId: number,
+    unidadeId: number,
+  ): Promise<EditorMatriz[]> {
+    return apiClient.delete<EditorMatriz[]>(
+      `${BASE_URL}/editores-equipe/${editorUserId}?unidadeId=${unidadeId}`,
     );
   },
 
