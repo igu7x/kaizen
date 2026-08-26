@@ -523,7 +523,7 @@ public class CompetenciasGestorService {
         }
 
         List<Map<String, Object>> oldItens = jdbc.queryForList(
-                "SELECT nome, descricao, peso, aplicabilidade, quantidade_pessoas " +
+                "SELECT nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas " +
                         "FROM competencias_gestor_itens WHERE formulario_id = ? ORDER BY ordem", id);
         Map<String, Map<String, Object>> oldByName = new LinkedHashMap<>();
         for (Map<String, Object> o : oldItens) {
@@ -535,11 +535,7 @@ public class CompetenciasGestorService {
         for (int i = 0; i < competencias.size(); i++) {
             Map<String, Object> c = competencias.get(i);
             Map<String, Object> o = oldByName.get(str(c.get("nome")));
-            boolean isAlterada = o == null
-                    || !java.util.Objects.equals(strOrEmpty(o.get("descricao")), strOrEmpty(c.get("descricao")))
-                    || !java.util.Objects.equals(asLong(o.get("peso")), asLong(c.get("peso")))
-                    || !java.util.Objects.equals(strOrNull(o.get("aplicabilidade")), strOrNull(c.get("aplicabilidade")))
-                    || numOr0(o.get("quantidade_pessoas")) != numOr0(c.get("quantidade_pessoas"));
+            boolean isAlterada = competenciaAlterada(o, c);
             jdbc.update(
                     "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas, alterada) " +
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -553,10 +549,7 @@ public class CompetenciasGestorService {
                 Map<String, Object> o = oldItens.get(i);
                 Map<String, Object> n = competencias.get(i);
                 if (!java.util.Objects.equals(str(o.get("nome")), str(n.get("nome")))
-                        || !java.util.Objects.equals(strOrEmpty(o.get("descricao")), strOrEmpty(n.get("descricao")))
-                        || !java.util.Objects.equals(asLong(o.get("peso")), asLong(n.get("peso")))
-                        || !java.util.Objects.equals(strOrNull(o.get("aplicabilidade")), strOrNull(n.get("aplicabilidade")))
-                        || numOr0(o.get("quantidade_pessoas")) != numOr0(n.get("quantidade_pessoas"))) {
+                        || competenciaAlterada(o, n)) {
                     itensChanged = true;
                     break;
                 }
@@ -697,6 +690,13 @@ public class CompetenciasGestorService {
         if (competencias.isEmpty()) {
             return;
         }
+        // "Alterada" tem de sair da comparação com a versão VIGENTE — que ainda está em
+        // out.competencias neste ponto —, e não de um TRUE para todo item: numa revisão que mexeu
+        // em uma competência só, as outras oito não mudaram.
+        Map<String, Map<String, Object>> vigentePorNome = new LinkedHashMap<>();
+        for (Map<String, Object> v : asList(out.get("competencias"))) {
+            vigentePorNome.put(str(v.get("nome")), v);
+        }
         // Normalizado para a MESMA forma dos itens vindos do banco: a tela e o PDF leem os dois
         // caminhos sem saber qual é qual.
         List<Map<String, Object>> normalizadas = new ArrayList<>();
@@ -711,7 +711,7 @@ public class CompetenciasGestorService {
             n.put("grau_minimo_esperado", grauMinimo(c));
             n.put("aplicabilidade", orNull(c.get("aplicabilidade")));
             n.put("quantidade_pessoas", orNull(c.get("quantidade_pessoas")));
-            n.put("alterada", true);
+            n.put("alterada", competenciaAlterada(vigentePorNome.get(str(c.get("nome"))), c));
             normalizadas.add(n);
         }
         out.put("competencias", normalizadas);
@@ -1779,6 +1779,24 @@ public class CompetenciasGestorService {
      * capaz naquela competência. Substituiu o "Grau de Impacto" no formulário; 3 é o padrão, que
      * era o corte usado pelo relatório de Lacunas antes de o campo existir.
      */
+    /**
+     * A competência mudou de conteúdo? Usado tanto para marcar o item como "Alterada" quanto para
+     * decidir se a versão das técnicas precisa subir. `old` nulo = competência nova.
+     *
+     * `peso` fica DE FORA de propósito. Ele é o critério antigo ("Grau de Impacto"), que a migration
+     * 255 tirou do formulário: o payload não manda mais `peso`, então pesoLegado() devolve sempre 1
+     * enquanto a linha gravada guarda o 1..3 histórico. Compará-los dava diferente em TODO item, em
+     * TODO save — era por isso que a tela mostrava a matriz inteira como alterada depois de mexer em
+     * uma competência só.
+     */
+    private static boolean competenciaAlterada(Map<String, Object> old, Map<String, Object> novo) {
+        return old == null
+                || !java.util.Objects.equals(strOrEmpty(old.get("descricao")), strOrEmpty(novo.get("descricao")))
+                || grauMinimo(old) != grauMinimo(novo)
+                || !java.util.Objects.equals(strOrNull(old.get("aplicabilidade")), strOrNull(novo.get("aplicabilidade")))
+                || numOr0(old.get("quantidade_pessoas")) != numOr0(novo.get("quantidade_pessoas"));
+    }
+
     private static int grauMinimo(Map<String, Object> c) {
         Object v = c.get("grau_minimo_esperado");
         if (v == null) {
