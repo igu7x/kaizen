@@ -60,26 +60,41 @@ const HUB_CORES = {
     icone: "bg-blue-100 text-blue-600",
     anel: "ring-blue-400",
     texto: "text-blue-700",
+    pilula: "bg-blue-50 text-blue-700",
+    ponto: "bg-blue-500",
+    aba: "border-blue-500 text-blue-700",
   },
   emerald: {
     icone: "bg-emerald-100 text-emerald-600",
     anel: "ring-emerald-400",
     texto: "text-emerald-700",
+    pilula: "bg-emerald-50 text-emerald-700",
+    ponto: "bg-emerald-500",
+    aba: "border-emerald-500 text-emerald-700",
   },
   amber: {
     icone: "bg-amber-100 text-amber-600",
     anel: "ring-amber-400",
     texto: "text-amber-700",
+    pilula: "bg-amber-50 text-amber-700",
+    ponto: "bg-amber-500",
+    aba: "border-amber-500 text-amber-700",
   },
   violet: {
     icone: "bg-violet-100 text-violet-600",
     anel: "ring-violet-400",
     texto: "text-violet-700",
+    pilula: "bg-violet-50 text-violet-700",
+    ponto: "bg-violet-500",
+    aba: "border-violet-500 text-violet-700",
   },
   teal: {
     icone: "bg-teal-100 text-teal-600",
     anel: "ring-teal-400",
     texto: "text-teal-700",
+    pilula: "bg-teal-50 text-teal-700",
+    ponto: "bg-teal-500",
+    aba: "border-teal-500 text-teal-700",
   },
 } as const;
 
@@ -156,13 +171,25 @@ function ModuloBox({
           </p>
         </div>
       </div>
-      <p className={`mt-3 text-sm font-semibold ${c.texto}`}>{resumo}</p>
+      {/* Pílula em vez de texto solto: o resumo é um estado do módulo, não uma frase da descrição. */}
+      <span
+        className={`mt-4 inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-xs font-semibold ${c.pilula}`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${c.ponto}`} />
+        {resumo}
+      </span>
     </button>
   );
 }
 
-/** Card de item: funciona como filtro do que aparece no painel abaixo. */
-function ItemCard({
+/**
+ * Aba de item dentro do painel do módulo.
+ *
+ * Antes cada item era um card numa segunda grade, o que dava a eles o mesmo peso visual dos
+ * módulos e fazia a tela parecer ter dois níveis concorrentes. Como aba, fica explícito que são
+ * recortes de um mesmo módulo — e o painel abaixo é o conteúdo da aba escolhida.
+ */
+function AbaItem({
   item,
   ativo,
   onClick,
@@ -176,58 +203,84 @@ function ItemCard({
     <button
       type="button"
       onClick={onClick}
-      aria-pressed={ativo}
-      className={`flex h-full w-full items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-gray-300 hover:shadow-sm ${
-        ativo ? `ring-2 ring-offset-1 ${c.anel}` : ""
+      role="tab"
+      aria-selected={ativo}
+      className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+        ativo
+          ? `${c.aba} bg-gray-50/70`
+          : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
       }`}
     >
-      <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${c.icone}`}
-      >
-        {item.icon}
-      </div>
-      <div className="min-w-0">
-        <h4 className="text-sm font-semibold text-gray-800">{item.titulo}</h4>
-        <p className="mt-0.5 text-xs leading-snug text-gray-500">
-          {item.descricao}
-        </p>
-        {item.badge && (
-          <span
-            className={`mt-2 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold ${c.texto}`}
-          >
-            {item.badge}
-          </span>
-        )}
-        {item.aoAbrir && (
-          <span className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-            <ChevronRight className="h-3.5 w-3.5" />
-            Abre em tela própria
-          </span>
-        )}
-      </div>
+      <span className={ativo ? "" : "text-gray-400"}>{item.icon}</span>
+      {item.titulo}
+      {item.badge && (
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+          {item.badge}
+        </span>
+      )}
     </button>
   );
 }
 
-/** Painel abaixo dos cards: título, ações do item e a relação (tabela). */
-function PainelItem({
-  titulo,
-  acoes,
+/** Painel do módulo: cabeçalho, abas dos itens e o conteúdo da aba selecionada. */
+function PainelModulo({
+  modulo,
+  itens,
+  itemSel,
+  aoClicarItem,
+  acoesExtras,
   children,
 }: {
-  titulo: string;
-  acoes?: ReactNode;
+  modulo: ModuloHub;
+  itens: ItemHub[];
+  itemSel: ItemHub | null;
+  aoClicarItem: (item: ItemHub) => void;
+  /** Ações de administração que dependem da aba (ex.: editores da matriz). */
+  acoesExtras?: ReactNode;
   children: ReactNode;
 }) {
+  const c = HUB_CORES[modulo.cor];
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h3 className="text-lg font-bold text-gray-900">{titulo}</h3>
-        {acoes && (
-          <div className="ml-auto flex items-center gap-2">{acoes}</div>
-        )}
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-start gap-3 p-6 pb-4">
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${c.icone}`}
+        >
+          {modulo.icon}
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold text-gray-900">{modulo.titulo}</h3>
+          <p className="mt-0.5 text-sm text-gray-500">{modulo.descricao}</p>
+        </div>
       </div>
-      {children}
+
+      <div className="border-b border-gray-200 px-4">
+        <div className="flex gap-1 overflow-x-auto" role="tablist">
+          {itens.map((item) => (
+            <AbaItem
+              key={item.key}
+              item={item}
+              ativo={itemSel?.key === item.key}
+              onClick={() => aoClicarItem(item)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {itemSel && (
+        <div className="p-6">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <h4 className="text-base font-bold text-gray-900">
+              {itemSel.titulo}
+            </h4>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {acoesExtras}
+              {itemSel.acoes}
+            </div>
+          </div>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -2248,38 +2301,6 @@ export function GestaoCompetencias({
             correspondente logo abaixo.
           </p>
         </div>
-        {/* Administração pontual, não é uma "ação do perfil" — fica fora da grade de cards
-            para não competir com o que o usuário vem fazer aqui todo dia. Só aparece com a
-            Matriz selecionada: é dela que o editor trata. */}
-        {/* Cada botão acompanha o sub-card selecionado: administrar editores é uma ação sobre
-            AQUELA matriz, então mostrar os dois ao mesmo tempo (ou o do gestor enquanto a equipe
-            está selecionada) faria o usuário abrir a tela errada. */}
-        <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
-          {itemSel?.key === "matriz_gestor" &&
-            (ehGestorOuSubdiretorMacro || isSGJT) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentView("editores_gestor")}
-                className="text-gray-600"
-              >
-                <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz do
-                Gestor
-              </Button>
-            )}
-          {/* Editores da equipe são administrados por quem gerencia a unidade. */}
-          {itemSel?.key === "matriz_equipe" && (isGestorDeUnidade || isSGJT) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentView("editores_equipe")}
-              className="text-gray-600"
-            >
-              <UserCog className="h-4 w-4 mr-1.5" /> Editores da Matriz da
-              Equipe
-            </Button>
-          )}
-        </div>
       </div>
 
       {modulos.length === 0 ? (
@@ -2304,28 +2325,49 @@ export function GestaoCompetencias({
             ))}
           </div>
 
-          {/* Itens do módulo ativo — funcionam como filtro do painel abaixo */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {itensDoModulo.map((item) => (
-              <ItemCard
-                key={item.key}
-                item={item}
-                ativo={itemSel?.key === item.key}
-                onClick={() => clicarItem(item)}
-              />
-            ))}
-          </div>
-
-          {/* Relação do item selecionado */}
-          {itemSel && (
-            <PainelItem titulo={itemSel.titulo} acoes={itemSel.acoes}>
-              {itemSel.relacao ?? (
+          {/* Painel do módulo: os itens viram abas, e o conteúdo é o da aba selecionada. */}
+          {moduloSel && (
+            <PainelModulo
+              modulo={moduloSel}
+              itens={itensDoModulo}
+              itemSel={itemSel}
+              aoClicarItem={clicarItem}
+              acoesExtras={
+                <>
+                  {/* Administrar editores é uma ação sobre AQUELA matriz, por isso acompanha a
+                      aba selecionada e fica junto das demais ações dela. */}
+                  {itemSel?.key === "matriz_gestor" &&
+                    (ehGestorOuSubdiretorMacro || isSGJT) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentView("editores_gestor")}
+                        className="text-gray-600"
+                      >
+                        <UserCog className="h-4 w-4 mr-1.5" /> Editores
+                      </Button>
+                    )}
+                  {itemSel?.key === "matriz_equipe" &&
+                    (isGestorDeUnidade || isSGJT) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentView("editores_equipe")}
+                        className="text-gray-600"
+                      >
+                        <UserCog className="h-4 w-4 mr-1.5" /> Editores
+                      </Button>
+                    )}
+                </>
+              }
+            >
+              {itemSel?.relacao ?? (
                 <p className="text-sm text-gray-500">
                   Não há relação para acompanhar aqui — use a ação acima para
                   preencher o formulário.
                 </p>
               )}
-            </PainelItem>
+            </PainelModulo>
           )}
         </>
       )}

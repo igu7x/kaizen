@@ -262,7 +262,10 @@ export default function Pdtic() {
         base: kr2Base,
         alvo: KR2_ALVO,
         escala: pca?.total ?? 0,
+        // `pct` = atingimento da meta (Realizado / Meta) — é o número do gauge e alimenta o Geral.
         pct: kr2Pct,
+        // `pctTotal` = avanço sobre o total (Concluída / Total de Demandas) — é a barra Progresso.
+        pctTotal: pctd(kr2Base, pca?.total ?? 0),
       },
       kr3: {
         base: kr3Base,
@@ -498,6 +501,7 @@ export default function Pdtic() {
               valor={krs.kr2.base}
               escala={krs.kr2.escala}
               meta={KR2_ALVO}
+              medirPelaMeta
               onClick={handleKr2}
               active={krAtivo === "kr2"}
               activeRing="ring-emerald-400"
@@ -556,7 +560,7 @@ export default function Pdtic() {
                   onClick={() => setPcaFiltro("concluidos")}
                 />
                 <ProgressoCard
-                  progresso={krs.kr2.pct}
+                  progresso={krs.kr2.pctTotal}
                   className="sm:col-span-2"
                 />
               </>
@@ -844,11 +848,18 @@ function KrGauge({
   escala,
   meta,
   color,
+  medirPelaMeta = false,
 }: {
   valor: number;
   escala: number;
   meta: number;
   color: string;
+  /**
+   * O arco (e o número) medem o atingimento da META, e não a posição na escala. Nesse modo o fim
+   * do arco É a meta, então o tique deixa de ser desenhado — ele cairia em 100%, sobre a ponta.
+   * Só o KR-2 usa: nele a meta (25 demandas) é o compromisso, e o total (42) é só o universo.
+   */
+  medirPelaMeta?: boolean;
 }) {
   // viewBox largo o bastante pro rótulo "Meta" caber quando a meta fica quase no fim da escala.
   const cx = 120;
@@ -859,9 +870,11 @@ function KrGauge({
   const stroke = 21;
   const arco = Math.PI * r; // comprimento do semicírculo
   const clamp = (n: number) => Math.max(0, Math.min(1, n));
-  const fValor = escala > 0 ? clamp(valor / escala) : 0;
+  const referencia = medirPelaMeta ? meta : escala;
+  const fValor = referencia > 0 ? clamp(valor / referencia) : 0;
   const fMeta = escala > 0 ? clamp(meta / escala) : 0;
-  const pct = Math.round(fValor * 100);
+  // Passar da meta satura o arco em 100%, mas o número exibido continua o real.
+  const pct = referencia > 0 ? Math.round((valor / referencia) * 100) : 0;
   const trilho = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
 
   // Ponto sobre o arco no ângulo da meta (0 = ponta esquerda, 1 = ponta direita).
@@ -896,24 +909,28 @@ function KrGauge({
         strokeDasharray={`${arco * fValor} ${arco}`}
         className="transition-[stroke-dasharray] duration-500"
       />
-      <line
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke="#0f172a"
-        strokeWidth={2.5}
-        strokeLinecap="round"
-      />
-      <text
-        x={xt}
-        y={yt}
-        textAnchor={fMeta >= 0.5 ? "start" : "end"}
-        dominantBaseline="middle"
-        className="fill-slate-800 text-[11px] font-bold"
-      >
-        Meta
-      </text>
+      {!medirPelaMeta && (
+        <>
+          <line
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke="#0f172a"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+          />
+          <text
+            x={xt}
+            y={yt}
+            textAnchor={fMeta >= 0.5 ? "start" : "end"}
+            dominantBaseline="middle"
+            className="fill-slate-800 text-[11px] font-bold"
+          >
+            Meta
+          </text>
+        </>
+      )}
       <text
         x={cx}
         y={cy - 8}
@@ -941,6 +958,7 @@ function KrCard({
   onClick,
   active = false,
   activeRing,
+  medirPelaMeta,
 }: {
   tag: string;
   tagColor: string;
@@ -955,6 +973,8 @@ function KrCard({
   onClick?: () => void;
   active?: boolean;
   activeRing?: string;
+  /** Ver KrGauge: o gauge passa a medir o atingimento da meta em vez da posição na escala. */
+  medirPelaMeta?: boolean;
 }) {
   const clicavel = !!onClick;
   return (
@@ -991,6 +1011,7 @@ function KrCard({
           escala={escala}
           meta={meta}
           color={gaugeColor}
+          medirPelaMeta={medirPelaMeta}
         />
       </div>
       <table className="w-full text-xs">
