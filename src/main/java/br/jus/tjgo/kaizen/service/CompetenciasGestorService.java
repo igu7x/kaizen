@@ -93,7 +93,11 @@ public class CompetenciasGestorService {
                 .append("                 AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) ")
                 // Editor da área enxerga as matrizes do GESTOR da sua área — é o que ele preenche.
                 .append("   OR ( f.tipo = 'gestor' AND EXISTS (SELECT 1 FROM competencias_gestor_editores e ")
-                .append("               WHERE e.cadastros_areas_id = f.cadastros_areas_id AND e.user_id = ?)) )");
+                .append("               WHERE e.cadastros_areas_id = f.cadastros_areas_id AND e.user_id = ?)) ")
+                // Editor da unidade enxerga a matriz da EQUIPE daquela unidade.
+                .append("   OR ( f.tipo <> 'gestor' AND EXISTS (SELECT 1 FROM competencias_equipe_editores ee ")
+                .append("               WHERE ee.cadastros_unidades_id = f.unidade_id AND ee.user_id = ?)) )");
+        params.add(userId);
         params.add(userId);
         params.add(userId);
         params.add(userId);
@@ -122,9 +126,11 @@ public class CompetenciasGestorService {
                         "                WHERE ca2.id = f.cadastros_areas_id " +
                         "                  AND (ca2.gestor_user_id = ? OR ca2.subdiretor_user_id = ?)) " +
                         "    OR ( f.tipo = 'gestor' AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
-                        "                WHERE e.cadastros_areas_id = f.cadastros_areas_id AND e.user_id = ?)) ) " +
+                        "                WHERE e.cadastros_areas_id = f.cadastros_areas_id AND e.user_id = ?)) " +
+                        "    OR ( f.tipo <> 'gestor' AND EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+                        "                WHERE ee.cadastros_unidades_id = f.unidade_id AND ee.user_id = ?)) ) " +
                         "LIMIT 1",
-                id, userId, userId, userId, userId, userId);
+                id, userId, userId, userId, userId, userId, userId);
         return !rows.isEmpty();
     }
 
@@ -151,12 +157,31 @@ public class CompetenciasGestorService {
                 "       va.name as validado_por_autor_nome, " +
                 "       vd.name as validado_por_diretoria_nome, " +
                 "       ( f.tipo = 'gestor' " +
+               // Só a associação real de editor: a matriz do superadmin mantém a camada 1.
                "         AND EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
                "                      WHERE e.user_id = f.user_id AND e.cadastros_areas_id = f.cadastros_areas_id) " +
                "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca2 WHERE ca2.id = f.cadastros_areas_id " +
                "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
                "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
                "                          AND cu2.responsavel_user_id = f.user_id) ) AS preenchido_por_editor, " +
+               // Preenchida por superadmin de fora: a camada 1 existe, mas quem valida é o gestor
+               // da unidade, e não o autor. Espelha podeValidarAutor / preenchidaPorSuperadminExterno.
+               "       ( f.tipo = 'gestor' " +
+               "         AND EXISTS (SELECT 1 FROM users su WHERE su.id = f.user_id AND su.is_superadmin = TRUE) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca3 WHERE ca3.id = f.cadastros_areas_id " +
+               "                          AND (ca3.gestor_user_id = f.user_id OR ca3.subdiretor_user_id = f.user_id)) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu3 WHERE cu3.id = f.unidade_id " +
+               "                          AND cu3.responsavel_user_id = f.user_id) ) AS preenchido_por_superadmin, " +
+               // Matriz da EQUIPE preenchida por editor (ou superadmin) de fora: a camada 1 é do
+               // gestor da unidade. Espelha ehApenasEditorEquipe / podeValidarAutor.
+               "       ( f.tipo <> 'gestor' " +
+               "         AND ( EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+               "                        WHERE ee.cadastros_unidades_id = f.unidade_id AND ee.user_id = f.user_id) " +
+               "               OR EXISTS (SELECT 1 FROM users su2 WHERE su2.id = f.user_id AND su2.is_superadmin = TRUE) ) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu4 WHERE cu4.id = f.unidade_id " +
+               "                          AND cu4.responsavel_user_id = f.user_id) " +
+               "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca4 WHERE ca4.id = f.cadastros_areas_id " +
+               "                          AND (ca4.gestor_user_id = f.user_id OR ca4.subdiretor_user_id = f.user_id)) ) AS preenchido_por_editor_equipe, " +
                "       vf.name as validado_final_nome " +
                 "FROM competencias_gestor_formularios f " +
                 "LEFT JOIN users u ON u.id = f.user_id " +
@@ -180,6 +205,20 @@ public class CompetenciasGestorService {
                         "                          AND (ca2.gestor_user_id = f.user_id OR ca2.subdiretor_user_id = f.user_id)) " +
                         "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu2 WHERE cu2.id = f.unidade_id " +
                         "                          AND cu2.responsavel_user_id = f.user_id) ) AS preenchido_por_editor, " +
+                        "       ( f.tipo = 'gestor' " +
+                        "         AND EXISTS (SELECT 1 FROM users su WHERE su.id = f.user_id AND su.is_superadmin = TRUE) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca3 WHERE ca3.id = f.cadastros_areas_id " +
+                        "                          AND (ca3.gestor_user_id = f.user_id OR ca3.subdiretor_user_id = f.user_id)) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu3 WHERE cu3.id = f.unidade_id " +
+                        "                          AND cu3.responsavel_user_id = f.user_id) ) AS preenchido_por_superadmin, " +
+                        "       ( f.tipo <> 'gestor' " +
+                        "         AND ( EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+                        "                        WHERE ee.cadastros_unidades_id = f.unidade_id AND ee.user_id = f.user_id) " +
+                        "               OR EXISTS (SELECT 1 FROM users su2 WHERE su2.id = f.user_id AND su2.is_superadmin = TRUE) ) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_unidades cu4 WHERE cu4.id = f.unidade_id " +
+                        "                          AND cu4.responsavel_user_id = f.user_id) " +
+                        "         AND NOT EXISTS (SELECT 1 FROM cadastros_areas ca4 WHERE ca4.id = f.cadastros_areas_id " +
+                        "                          AND (ca4.gestor_user_id = f.user_id OR ca4.subdiretor_user_id = f.user_id)) ) AS preenchido_por_editor_equipe, " +
                         "       vf.name as validado_final_nome " +
                         "FROM competencias_gestor_formularios f " +
                         "LEFT JOIN users u ON u.id = f.user_id " +
@@ -306,7 +345,7 @@ public class CompetenciasGestorService {
     /** Verificar se o usuário pode editar o formulário com base no status e papel. */
     public Map<String, Object> canEdit(long id, long userId, String userEmail) {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT user_id, status, diretoria, tipo FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE",
+                "SELECT user_id, status, diretoria, tipo, unidade_id FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE",
                 id);
         if (rows.isEmpty()) {
             return notAllowed("Formulário não encontrado");
@@ -350,12 +389,15 @@ public class CompetenciasGestorService {
         boolean isGestorMacro = gestorMacroId != null && userId == gestorMacroId;
         boolean isSubdiretorMacro = subdiretorMacroId != null && userId == subdiretorMacroId;
         boolean isFinal = isValidadorFinal(email);
-        // Editor da área preenche a matriz do GESTOR de qualquer unidade dela (só a do gestor —
-        // a da equipe segue com as autorizações de sempre).
-        boolean isEditor = "gestor".equals(form.get("tipo"))
+        boolean isMatrizGestor = "gestor".equals(form.get("tipo"));
+        // Editor da área preenche a matriz do GESTOR de qualquer unidade dela.
+        boolean isEditor = isMatrizGestor
                 && isEditorDaArea(areaIdDoFormulario(form.get("diretoria")), userId);
+        // Editor da unidade preenche a matriz da EQUIPE daquela unidade.
+        boolean isEditorEquipe = !isMatrizGestor
+                && isEditorDaUnidade(asLong(form.get("unidade_id")), userId);
 
-        if (isAutor || isGestorMacro || isSubdiretorMacro || isFinal || isEditor) {
+        if (isAutor || isGestorMacro || isSubdiretorMacro || isFinal || isEditor || isEditorEquipe) {
             return allowed();
         }
         return notAllowed("Você não tem permissão para editar este formulário");
@@ -601,6 +643,27 @@ public class CompetenciasGestorService {
     }
 
     public List<Map<String, Object>> findUnidadesAutorizadas(long userId, String userEmail, String tipo) {
+        // Superadmin preenche a matriz de QUALQUER unidade, de qualquer área — é a mesma
+        // prerrogativa do editor, sem o recorte. Sem este ramo a tela de preenchimento não oferece
+        // unidade nenhuma para ele, porque as consultas abaixo partem sempre de um vínculo
+        // (direção da área, gestão da unidade ou associação de editor) que o superadmin não tem.
+        if (isSuperadmin(userId)) {
+            return jdbc.queryForList(
+                    "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id, ca.sigla AS area_sigla " +
+                            "FROM cadastros_unidades cu " +
+                            "JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                            "WHERE cu.ativo IS NOT FALSE " +
+                            "  AND COALESCE(ca.ativo, TRUE) = TRUE " +
+                            ("gestor".equals(tipo)
+                                    ? "  AND LOWER(TRIM(cu.nome)) <> LOWER(TRIM(ca.sigla)) "
+                                    : "") +
+                            "  AND NOT EXISTS ( " +
+                            "    SELECT 1 FROM competencias_gestor_formularios cgf " +
+                            "    WHERE cgf.unidade_id = cu.id AND cgf.tipo = ? AND cgf.is_deleted = FALSE " +
+                            "  ) " +
+                            "ORDER BY ca.sigla, cu.nome",
+                    tipo);
+        }
         if ("gestor".equals(tipo)) {
             // Além do diretor e do sub-diretor da macroárea, o GESTOR DA UNIDADE preenche a matriz do
             // gestor da própria unidade (cadastros_unidades.responsavel_user_id) — nesse caso ele
@@ -644,16 +707,20 @@ public class CompetenciasGestorService {
 
         try {
             return jdbc.queryForList(
-                    "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id " +
+                    "SELECT cu.id, cu.nome, cu.area_id, cu.unidade_superior_id, ca.sigla AS area_sigla " +
                             "FROM cadastros_unidades cu " +
-                            "WHERE cu.responsavel_user_id = ? " +
+                            "LEFT JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                            "WHERE ( cu.responsavel_user_id = ? " +
+                            // Editor da matriz da equipe: preenche a da unidade a que foi associado.
+                            "     OR EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+                            "                 WHERE ee.cadastros_unidades_id = cu.id AND ee.user_id = ?) ) " +
                             "  AND (cu.ativo IS NOT FALSE) " +
                             "  AND NOT EXISTS ( " +
                             "    SELECT 1 FROM competencias_gestor_formularios cgf " +
                             "    WHERE cgf.unidade_id = cu.id AND cgf.tipo = ? AND cgf.is_deleted = FALSE " +
                             "  ) " +
                             "ORDER BY cu.nome",
-                    userId, tipo);
+                    userId, userId, tipo);
         } catch (Exception ex) {
             return new ArrayList<>();
         }
@@ -736,9 +803,11 @@ public class CompetenciasGestorService {
         } catch (Exception ex) {
             return false;
         }
-        // Editor da matriz do gestor: sem este ramo o módulo inteiro ficaria escondido para ele.
+        // Editor de matriz (do gestor, por área; da equipe, por unidade): sem este ramo o módulo
+        // inteiro ficaria escondido para quem só tem esse papel.
         try {
-            return !areasOndeEhEditor(userId).isEmpty();
+            return !areasOndeEhEditor(userId).isEmpty()
+                    || !unidadesOndeEhEditorEquipe(userId).isEmpty();
         } catch (Exception ex) {
             return false;
         }
@@ -777,8 +846,44 @@ public class CompetenciasGestorService {
     // EDITORES DA MATRIZ DO GESTOR (por macroárea)
     // ============================================================
 
-    /** O usuário é editor da matriz do gestor desta macroárea? */
+    /**
+     * O usuário é superadmin? Consultado pelo <b>id</b>, e não pelo token da requisição, porque
+     * quem pergunta nem sempre é o usuário logado: {@link #ehApenasEditor} pergunta pelo AUTOR do
+     * formulário para saber quantas camadas de validação aquele formulário tem.
+     */
+    private boolean isSuperadmin(long userId) {
+        return !jdbc.queryForList(
+                "SELECT 1 FROM users WHERE id = ? AND is_superadmin = TRUE LIMIT 1",
+                userId).isEmpty();
+    }
+
+    /**
+     * O usuário é editor da matriz do gestor desta macroárea?
+     *
+     * <p>Superadmin é editor de <b>todas</b> as áreas, sem precisar de associação. É a mesma
+     * prerrogativa do editor comum — preencher e salvar a matriz do gestor — só que sem o recorte
+     * de área, e por consequência vale também para o fluxo de validação: matriz que ele preenche
+     * não gera camada de autor, exatamente como a de qualquer editor.
+     */
     public boolean isEditorDaArea(Long cadastrosAreasId, long userId) {
+        // Antes da guarda de área nula de propósito: o alcance do superadmin não depende de a
+        // sigla da diretoria resolver para uma área cadastrada.
+        if (isSuperadmin(userId)) {
+            return true;
+        }
+        return isEditorAssociadoDaArea(cadastrosAreasId, userId);
+    }
+
+    /**
+     * O usuário está <b>associado</b> como editor desta área — sem o atalho do superadmin.
+     *
+     * <p>A distinção importa no fluxo de validação: os dois preenchem, mas o efeito sobre as
+     * camadas é diferente. O editor foi delegado pelo diretor, que é justamente quem valida em
+     * seguida — por isso a matriz dele dispensa a camada 1. O superadmin não tem essa relação de
+     * delegação com ninguém, então a matriz que ele preenche mantém a camada 1 com o gestor da
+     * unidade. Ver {@link #ehApenasEditor} e {@link #podeValidarAutor}.
+     */
+    private boolean isEditorAssociadoDaArea(Long cadastrosAreasId, long userId) {
         if (cadastrosAreasId == null) {
             return false;
         }
@@ -790,6 +895,11 @@ public class CompetenciasGestorService {
 
     /** Áreas onde o usuário é editor. Vazio quando não é editor de nenhuma. */
     public List<Map<String, Object>> areasOndeEhEditor(long userId) {
+        if (isSuperadmin(userId)) {
+            return jdbc.queryForList(
+                    "SELECT ca.id, ca.sigla, ca.nome FROM cadastros_areas ca " +
+                            "WHERE COALESCE(ca.ativo, TRUE) = TRUE ORDER BY ca.sigla");
+        }
         return jdbc.queryForList(
                 "SELECT ca.id, ca.sigla, ca.nome " +
                         "FROM competencias_gestor_editores e " +
@@ -797,6 +907,133 @@ public class CompetenciasGestorService {
                         "WHERE e.user_id = ? AND COALESCE(ca.ativo, TRUE) = TRUE " +
                         "ORDER BY ca.sigla",
                 userId);
+    }
+
+    // ============================================================
+    // EDITORES DA MATRIZ DA EQUIPE (por unidade)
+    // ============================================================
+
+    /**
+     * O usuário é editor da matriz da equipe desta unidade?
+     *
+     * <p>Superadmin é editor de <b>todas</b> as unidades, sem precisar de associação.
+     */
+    public boolean isEditorDaUnidade(Long cadastrosUnidadesId, long userId) {
+        if (isSuperadmin(userId)) {
+            return true;
+        }
+        if (cadastrosUnidadesId == null) {
+            return false;
+        }
+        return !jdbc.queryForList(
+                "SELECT 1 FROM competencias_equipe_editores " +
+                        "WHERE cadastros_unidades_id = ? AND user_id = ? LIMIT 1",
+                cadastrosUnidadesId, userId).isEmpty();
+    }
+
+    /** Unidades onde o usuário é editor da matriz da equipe. */
+    public List<Map<String, Object>> unidadesOndeEhEditorEquipe(long userId) {
+        if (isSuperadmin(userId)) {
+            return jdbc.queryForList(
+                    "SELECT cu.id, cu.sigla, cu.nome FROM cadastros_unidades cu " +
+                            "WHERE cu.ativo IS NOT FALSE ORDER BY cu.nome");
+        }
+        return jdbc.queryForList(
+                "SELECT cu.id, cu.sigla, cu.nome " +
+                        "FROM competencias_equipe_editores e " +
+                        "JOIN cadastros_unidades cu ON cu.id = e.cadastros_unidades_id " +
+                        "WHERE e.user_id = ? AND cu.ativo IS NOT FALSE " +
+                        "ORDER BY cu.nome",
+                userId);
+    }
+
+    /** Unidades cujos editores o usuário pode administrar — aquelas de que ele é o gestor. */
+    public List<Map<String, Object>> unidadesQueGerencia(long userId, boolean isSuperadmin) {
+        if (isSuperadmin) {
+            return jdbc.queryForList(
+                    "SELECT cu.id, cu.sigla, cu.nome FROM cadastros_unidades cu " +
+                            "WHERE cu.ativo IS NOT FALSE ORDER BY cu.nome");
+        }
+        return jdbc.queryForList(
+                "SELECT cu.id, cu.sigla, cu.nome FROM cadastros_unidades cu " +
+                        "WHERE cu.responsavel_user_id = ? AND cu.ativo IS NOT FALSE " +
+                        "ORDER BY cu.nome",
+                userId);
+    }
+
+    /** Só o gestor da unidade (e superadmin) administra os editores dela. */
+    public boolean podeGerenciarEditoresEquipe(long cadastrosUnidadesId, long userId, boolean isSuperadmin) {
+        if (isSuperadmin) {
+            return true;
+        }
+        return isGestorDaUnidade(cadastrosUnidadesId, userId);
+    }
+
+    /** A unidade está sem responsável cadastrado? */
+    private boolean unidadeSemGestor(Long cadastrosUnidadesId) {
+        if (cadastrosUnidadesId == null) {
+            return true;
+        }
+        return jdbc.queryForList(
+                "SELECT 1 FROM cadastros_unidades WHERE id = ? AND responsavel_user_id IS NOT NULL LIMIT 1",
+                cadastrosUnidadesId).isEmpty();
+    }
+
+    /** O usuário é o responsável cadastrado da unidade? */
+    private boolean isGestorDaUnidade(Long cadastrosUnidadesId, long userId) {
+        if (cadastrosUnidadesId == null) {
+            return false;
+        }
+        return !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_unidades WHERE id = ? AND responsavel_user_id = ? " +
+                        "  AND ativo IS NOT FALSE LIMIT 1",
+                cadastrosUnidadesId, userId).isEmpty();
+    }
+
+    public List<Map<String, Object>> listEditoresEquipe(long cadastrosUnidadesId) {
+        return jdbc.queryForList(
+                "SELECT e.id, e.user_id, e.created_at, u.name AS user_name, u.email AS user_email " +
+                        "FROM competencias_equipe_editores e " +
+                        "JOIN users u ON u.id = e.user_id " +
+                        "WHERE e.cadastros_unidades_id = ? " +
+                        "ORDER BY u.name",
+                cadastrosUnidadesId);
+    }
+
+    @Transactional
+    public void addEditorEquipe(long cadastrosUnidadesId, long novoEditorId, long porUserId) {
+        jdbc.update(
+                "INSERT INTO competencias_equipe_editores (cadastros_unidades_id, user_id, created_by) " +
+                        "VALUES (?, ?, ?) ON CONFLICT (cadastros_unidades_id, user_id) DO NOTHING",
+                cadastrosUnidadesId, novoEditorId, porUserId);
+    }
+
+    @Transactional
+    public void removeEditorEquipe(long cadastrosUnidadesId, long editorId) {
+        jdbc.update(
+                "DELETE FROM competencias_equipe_editores WHERE cadastros_unidades_id = ? AND user_id = ?",
+                cadastrosUnidadesId, editorId);
+    }
+
+    /**
+     * O usuário é <b>apenas</b> editor da equipe neste formulário — alcança a matriz pela
+     * associação de editor da unidade e por nenhum outro papel. Quem acumula editor com gestão da
+     * unidade ou direção da área continua com as prerrogativas do papel que já tinha.
+     */
+    private boolean ehApenasEditorEquipe(Map<String, Object> form, long userId) {
+        Long unidadeId = asLong(form.get("unidade_id"));
+        if (!isEditorDaUnidade(unidadeId, userId)) {
+            return false;
+        }
+        if (isGestorDaUnidade(unidadeId, userId)) {
+            return false;
+        }
+        Long areaId = areaIdDoFormulario(form.get("diretoria"));
+        boolean isDirecao = areaId != null && !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_areas WHERE id = ? " +
+                        "  AND (gestor_user_id = ? OR subdiretor_user_id = ?) LIMIT 1",
+                areaId, userId, userId).isEmpty();
+        return !isDirecao;
     }
 
     /** Editores cadastrados numa área. */
@@ -866,11 +1103,60 @@ public class CompetenciasGestorService {
     private boolean podeValidarAutor(Map<String, Object> form, long userId) {
         boolean isAutor = equalsId(form.get("user_id"), userId);
         if (!"gestor".equals(form.get("tipo"))) {
+            Object autorUserId = form.get("user_id");
+            boolean preenchidaPorEditor = autorUserId != null
+                    && ehApenasEditorEquipe(form, ((Number) autorUserId).longValue());
+            if (preenchidaPorEditor) {
+                // Matriz da equipe preenchida por editor: a camada 1 é do GESTOR DA UNIDADE. Ele
+                // delegou o preenchimento mas segue respondendo pelo que sai da unidade dele — o
+                // editor só salva, nunca valida.
+                Long unidadeId = asLong(form.get("unidade_id"));
+                if (isGestorDaUnidade(unidadeId, userId)) {
+                    return true;
+                }
+                // Unidade sem responsável cadastrado não pode deixar o formulário travado: nesse
+                // caso a camada volta para quem preencheu.
+                return unidadeSemGestor(unidadeId) && isAutor;
+            }
             return isAutor;
+        }
+        // Preenchida por superadmin de fora da área/unidade: a camada 1 é do GESTOR DA UNIDADE.
+        // O superadmin alcança qualquer matriz, mas não substitui o referendo de quem responde
+        // pela unidade — diferente do editor, que foi delegado pelo próprio diretor.
+        if (preenchidaPorSuperadminExterno(form)) {
+            Long unidadeId = asLong(form.get("unidade_id"));
+            if (isGestorDaUnidade(unidadeId, userId)) {
+                return true;
+            }
+            // Unidade sem responsável cadastrado não pode travar o formulário.
+            return unidadeSemGestor(unidadeId) && isAutor;
         }
         // Guarda defensiva: matriz preenchida por editor nem tem camada 1 (ver
         // requerValidacaoAutor), então esta etapa não é dele em hipótese alguma.
         return isAutor && !ehApenasEditor(form, userId);
+    }
+
+    /**
+     * A matriz foi preenchida por um superadmin que não é direção da área nem gestor da unidade?
+     *
+     * <p>Nesse caso a camada 1 continua no fluxo e pertence ao gestor da unidade. Quando o
+     * superadmin acumula um desses papéis ele valida pelo papel que tem, como qualquer outro.
+     */
+    private boolean preenchidaPorSuperadminExterno(Map<String, Object> form) {
+        Object autorUserId = form.get("user_id");
+        if (autorUserId == null || !"gestor".equals(form.get("tipo"))) {
+            return false;
+        }
+        long autorId = ((Number) autorUserId).longValue();
+        if (!isSuperadmin(autorId)) {
+            return false;
+        }
+        Long areaId = areaIdDoFormulario(form.get("diretoria"));
+        boolean isDirecao = areaId != null && !jdbc.queryForList(
+                "SELECT 1 FROM cadastros_areas WHERE id = ? " +
+                        "  AND (gestor_user_id = ? OR subdiretor_user_id = ?) LIMIT 1",
+                areaId, autorId, autorId).isEmpty();
+        return !isDirecao && !isGestorDaUnidade(asLong(form.get("unidade_id")), autorId);
     }
 
     /**
@@ -882,7 +1168,9 @@ public class CompetenciasGestorService {
      */
     private boolean ehApenasEditor(Map<String, Object> form, long userId) {
         Long areaId = areaIdDoFormulario(form.get("diretoria"));
-        if (!isEditorDaArea(areaId, userId)) {
+        // Associação real, não isEditorDaArea: o superadmin preenche como editor, mas a matriz dele
+        // continua com a camada 1 (do gestor da unidade). Ver isEditorAssociadoDaArea.
+        if (!isEditorAssociadoDaArea(areaId, userId)) {
             return false;
         }
         boolean isDirecao = !jdbc.queryForList(

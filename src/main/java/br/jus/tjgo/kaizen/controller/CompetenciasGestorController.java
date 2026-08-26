@@ -261,6 +261,59 @@ public class CompetenciasGestorController {
         return ResponseEntity.ok(service.listEditores(cadastrosAreasId));
     }
 
+    // ============================================================
+    // Editores da Matriz da EQUIPE (por unidade)
+    // ============================================================
+
+    /** Unidades que o usuário logado gerencia — onde ele pode administrar editores da equipe. */
+    @GetMapping("/editores-equipe/minhas-unidades")
+    public List<Map<String, Object>> unidadesQueGerencio() {
+        return service.unidadesQueGerencia(currentUserId(), isSuperadmin());
+    }
+
+    /** Unidades em que o usuário logado é editor da equipe. */
+    @GetMapping("/editores-equipe/sou-editor")
+    public Map<String, Object> souEditorEquipe() {
+        List<Map<String, Object>> unidades = service.unidadesOndeEhEditorEquipe(currentUserId());
+        return Map.of("editor", !unidades.isEmpty(), "unidades", unidades);
+    }
+
+    @GetMapping("/editores-equipe")
+    public ResponseEntity<?> listEditoresEquipe(@RequestParam("unidadeId") long unidadeId) {
+        if (!service.podeGerenciarEditoresEquipe(unidadeId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas o gestor da unidade pode ver os editores"));
+        }
+        return ResponseEntity.ok(service.listEditoresEquipe(unidadeId));
+    }
+
+    @PostMapping("/editores-equipe")
+    public ResponseEntity<?> addEditorEquipe(@RequestBody Map<String, Object> body) {
+        Long unidadeId = asLongOrNull(body.get("unidade_id"));
+        Long novoEditor = asLongOrNull(body.get("user_id"));
+        if (unidadeId == null || novoEditor == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "unidade_id e user_id são obrigatórios"));
+        }
+        if (!service.podeGerenciarEditoresEquipe(unidadeId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas o gestor da unidade pode associar editores"));
+        }
+        service.addEditorEquipe(unidadeId, novoEditor, currentUserId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.listEditoresEquipe(unidadeId));
+    }
+
+    @DeleteMapping("/editores-equipe/{editorUserId:\\d+}")
+    public ResponseEntity<?> removeEditorEquipe(@PathVariable long editorUserId,
+                                                @RequestParam("unidadeId") long unidadeId) {
+        if (!service.podeGerenciarEditoresEquipe(unidadeId, currentUserId(), isSuperadmin())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Apenas o gestor da unidade pode remover editores"));
+        }
+        service.removeEditorEquipe(unidadeId, editorUserId);
+        return ResponseEntity.ok(service.listEditoresEquipe(unidadeId));
+    }
+
     private static Long asLongOrNull(Object v) {
         if (v == null) {
             return null;
