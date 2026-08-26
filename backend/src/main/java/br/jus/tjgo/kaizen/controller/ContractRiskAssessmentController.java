@@ -4,6 +4,7 @@ import br.jus.tjgo.kaizen.auth.AuthContext;
 import br.jus.tjgo.kaizen.auth.TagAcao;
 import br.jus.tjgo.kaizen.domain.ContractRiskAssessment;
 import br.jus.tjgo.kaizen.service.ContractRiskAssessmentService;
+import br.jus.tjgo.kaizen.service.PermissoesAcoesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,7 @@ import java.util.Map;
 public class ContractRiskAssessmentController {
 
     private final ContractRiskAssessmentService service;
+    private final PermissoesAcoesService permissoesAcoesService;
 
     private Long getCurrentUserId() {
         return AuthContext.getCurrentUser()
@@ -63,12 +65,20 @@ public class ContractRiskAssessmentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "6") int size) {
         
-        return ResponseEntity.ok(service.listcontractRiskAssessments(getCurrentUserId(), search, page, size));
+        boolean hasCrudPermission = AuthContext.getCurrentUser()
+                .map(user -> user.isSuperadmin() || permissoesAcoesService.validarAcesso(user.id(), "PC_AR_CRUD"))
+                .orElse(false);
+
+        return ResponseEntity.ok(service.listcontractRiskAssessments(getCurrentUserId(), search, page, size, hasCrudPermission));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getAssessment(@PathVariable Long id) {
-        return service.getcontractRiskAssessment(id, getCurrentUserId())
+        boolean hasCrudPermission = AuthContext.getCurrentUser()
+                .map(user -> user.isSuperadmin() || permissoesAcoesService.validarAcesso(user.id(), "PC_AR_CRUD"))
+                .orElse(false);
+
+        return service.getcontractRiskAssessment(id, getCurrentUserId(), hasCrudPermission)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
