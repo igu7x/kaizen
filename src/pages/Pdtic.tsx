@@ -287,39 +287,19 @@ export default function Pdtic() {
   }, [filtradas, filtroStatus]);
 
   // ── Exportação ──────────────────────────────────────────────────────────
-  const [exportando, setExportando] = useState(false);
-
   /**
-   * Exporta o que está na tela (com os filtros de diretoria, área e status aplicados). As
-   * evidências vão junto, empacotadas com a planilha — por isso pode demorar quando há muitos PDFs.
+   * Exporta o que está na tela (com os filtros de diretoria, área e status aplicados). Sai só a
+   * planilha: a coluna Evidência aponta se a ação tem anexo, sem levar o arquivo junto.
    */
-  const exportarPlanilha = async () => {
-    if (exportando || tabelaFiltradas.length === 0) return;
-    setExportando(true);
-    const comEvidencia = tabelaFiltradas.filter(concluida).length;
-    const aviso = comEvidencia
-      ? toast.loading(`Montando a planilha e baixando ${comEvidencia} evidência(s)…`)
-      : toast.loading("Montando a planilha…");
+  const exportarPlanilha = () => {
+    if (tabelaFiltradas.length === 0) return;
     try {
-      const r = await exportarPlanilhaAcoes(tabelaFiltradas);
-      toast.success(
-        r.evidencias > 0
-          ? `${r.arquivo} — ${tabelaFiltradas.length} ação(ões) e ${r.evidencias} evidência(s).`
-          : `${r.arquivo} — ${tabelaFiltradas.length} ação(ões).`,
-        {
-          id: aviso,
-          description:
-            r.falhas > 0
-              ? `${r.falhas} evidência(s) não puderam ser baixadas e ficaram marcadas na planilha.`
-              : r.evidencias > 0
-                ? "Descompacte o .zip para os links da coluna Evidência abrirem os PDFs."
-                : undefined,
-        },
-      );
+      const r = exportarPlanilhaAcoes(tabelaFiltradas);
+      toast.success(`${r.arquivo} — ${tabelaFiltradas.length} ação(ões).`, {
+        description: `${r.comEvidencia} com evidência anexada.`,
+      });
     } catch {
-      toast.error("Não foi possível gerar a planilha.", { id: aviso });
-    } finally {
-      setExportando(false);
+      toast.error("Não foi possível gerar a planilha.");
     }
   };
 
@@ -640,15 +620,11 @@ export default function Pdtic() {
               <button
                 type="button"
                 onClick={exportarPlanilha}
-                disabled={exportando || loading || tabelaFiltradas.length === 0}
-                title="Baixa a planilha das ações filtradas, com as evidências anexadas"
+                disabled={loading || tabelaFiltradas.length === 0}
+                title="Baixa a planilha das ações filtradas"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {exportando ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="h-3.5 w-3.5" />
-                )}
+                <FileSpreadsheet className="h-3.5 w-3.5" />
                 Exportar Planilha
               </button>
             </div>
@@ -855,8 +831,8 @@ function KrGauge({
   meta: number;
   color: string;
   /**
-   * O arco (e o número) medem o atingimento da META, e não a posição na escala. Nesse modo o fim
-   * do arco É a meta, então o tique de "Meta" fica na ponta direita, marcando os 100%.
+   * O arco (e o número) medem o atingimento da META, e não a posição na escala. O tique de "Meta"
+   * NÃO acompanha essa troca: ele continua marcando onde a meta cai na escala total, sobre o arco.
    * Só o KR-2 usa: nele a meta (25 demandas) é o compromisso, e o total é só o universo.
    */
   medirPelaMeta?: boolean;
@@ -872,8 +848,9 @@ function KrGauge({
   const clamp = (n: number) => Math.max(0, Math.min(1, n));
   const referencia = medirPelaMeta ? meta : escala;
   const fValor = referencia > 0 ? clamp(valor / referencia) : 0;
-  // Medindo pela meta, o fim do arco É a meta: o tique vai para a ponta (100%) em vez de sumir.
-  const fMeta = medirPelaMeta ? 1 : escala > 0 ? clamp(meta / escala) : 0;
+  // O tique é sempre posicional: mede a meta contra a escala total, mesmo quando o arco (acima)
+  // mede o atingimento. Fixá-lo na ponta em `medirPelaMeta` o encostava no cap arredondado.
+  const fMeta = escala > 0 ? clamp(meta / escala) : 0;
   // Passar da meta satura o arco em 100%, mas o número exibido continua o real.
   const pct = referencia > 0 ? Math.round((valor / referencia) * 100) : 0;
   const trilho = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;

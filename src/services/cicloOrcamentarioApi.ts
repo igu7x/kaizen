@@ -100,6 +100,7 @@ export interface Ciclo {
   /** Links/PROADs por fase */
   proadGejut: string | null;
   proadSgjt: string | null;
+  proadAtaComites: string | null;
   proadProdutoFinal: string | null;
   proadPublicacao: string | null;
   linkDou: string | null;
