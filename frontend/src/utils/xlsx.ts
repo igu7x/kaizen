@@ -8,6 +8,7 @@ import { strToU8, zipSync } from "fflate";
  * pacote novo pra resolver no registry do TJGO, para um recurso que precisa de cabeçalho, largura
  * de coluna, autofiltro e hyperlink — nada além disso.
  *
+ * Corpo e cabeçalho saem centrados na horizontal e na vertical, com quebra de linha e borda fina.
  * Suporta: uma aba, cabeçalho fixo (freeze pane), autofiltro, largura de coluna, texto/número e
  * hyperlink por célula (inclusive relativo, para apontar pra arquivos empacotados junto no zip).
  */
@@ -113,8 +114,8 @@ function styles(): string {
     `<cellXfs count="4">` +
     `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
     `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
-    `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
-    `<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+    `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
+    `<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
     `</cellXfs>` +
     `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
     `</styleSheet>`
@@ -245,4 +246,3 @@ export function baixarArquivo(
 
 export const MIME_XLSX =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-export const MIME_ZIP = "application/zip";

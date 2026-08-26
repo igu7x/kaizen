@@ -287,39 +287,19 @@ export default function Pdtic() {
   }, [filtradas, filtroStatus]);
 
   // ── Exportação ──────────────────────────────────────────────────────────
-  const [exportando, setExportando] = useState(false);
-
   /**
-   * Exporta o que está na tela (com os filtros de diretoria, área e status aplicados). As
-   * evidências vão junto, empacotadas com a planilha — por isso pode demorar quando há muitos PDFs.
+   * Exporta o que está na tela (com os filtros de diretoria, área e status aplicados). Sai só a
+   * planilha: a coluna Evidência aponta se a ação tem anexo, sem levar o arquivo junto.
    */
-  const exportarPlanilha = async () => {
-    if (exportando || tabelaFiltradas.length === 0) return;
-    setExportando(true);
-    const comEvidencia = tabelaFiltradas.filter(concluida).length;
-    const aviso = comEvidencia
-      ? toast.loading(`Montando a planilha e baixando ${comEvidencia} evidência(s)…`)
-      : toast.loading("Montando a planilha…");
+  const exportarPlanilha = () => {
+    if (tabelaFiltradas.length === 0) return;
     try {
-      const r = await exportarPlanilhaAcoes(tabelaFiltradas);
-      toast.success(
-        r.evidencias > 0
-          ? `${r.arquivo} — ${tabelaFiltradas.length} ação(ões) e ${r.evidencias} evidência(s).`
-          : `${r.arquivo} — ${tabelaFiltradas.length} ação(ões).`,
-        {
-          id: aviso,
-          description:
-            r.falhas > 0
-              ? `${r.falhas} evidência(s) não puderam ser baixadas e ficaram marcadas na planilha.`
-              : r.evidencias > 0
-                ? "Descompacte o .zip para os links da coluna Evidência abrirem os PDFs."
-                : undefined,
-        },
-      );
+      const r = exportarPlanilhaAcoes(tabelaFiltradas);
+      toast.success(`${r.arquivo} — ${tabelaFiltradas.length} ação(ões).`, {
+        description: `${r.comEvidencia} com evidência anexada.`,
+      });
     } catch {
-      toast.error("Não foi possível gerar a planilha.", { id: aviso });
-    } finally {
-      setExportando(false);
+      toast.error("Não foi possível gerar a planilha.");
     }
   };
 
@@ -640,15 +620,11 @@ export default function Pdtic() {
               <button
                 type="button"
                 onClick={exportarPlanilha}
-                disabled={exportando || loading || tabelaFiltradas.length === 0}
-                title="Baixa a planilha das ações filtradas, com as evidências anexadas"
+                disabled={loading || tabelaFiltradas.length === 0}
+                title="Baixa a planilha das ações filtradas"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {exportando ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="h-3.5 w-3.5" />
-                )}
+                <FileSpreadsheet className="h-3.5 w-3.5" />
                 Exportar Planilha
               </button>
             </div>
