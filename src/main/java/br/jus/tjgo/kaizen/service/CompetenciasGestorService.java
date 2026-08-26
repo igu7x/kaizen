@@ -56,7 +56,7 @@ public class CompetenciasGestorService {
             sql.append(" AND f.tipo = ?");
         }
         sql.append(" ORDER BY f.created_at DESC");
-        return jdbc.queryForList(sql.toString(), params.toArray());
+        return semRevisaoDados(jdbc.queryForList(sql.toString(), params.toArray()));
     }
 
     /**
@@ -104,7 +104,7 @@ public class CompetenciasGestorService {
         params.add(userId);
         params.add(userId);
         sql.append(" ORDER BY f.created_at DESC");
-        return jdbc.queryForList(sql.toString(), params.toArray());
+        return semRevisaoDados(jdbc.queryForList(sql.toString(), params.toArray()));
     }
 
     /**
@@ -146,7 +146,7 @@ public class CompetenciasGestorService {
             sql.append(" AND f.tipo = ?");
         }
         sql.append(" ORDER BY f.created_at DESC");
-        return jdbc.queryForList(sql.toString(), params.toArray());
+        return semRevisaoDados(jdbc.queryForList(sql.toString(), params.toArray()));
     }
 
     private static String listSelect() {
@@ -234,7 +234,13 @@ public class CompetenciasGestorService {
         List<Map<String, Object>> itens = jdbc.queryForList(
                 "SELECT * FROM competencias_gestor_itens WHERE formulario_id = ? ORDER BY ordem", id);
         Map<String, Object> out = new LinkedHashMap<>(formRows.get(0));
+        Object revisaoDados = out.remove("revisao_dados");
         out.put("competencias", itens);
+        // Em revisão, quem edita e quem valida veem o conteúdo REVISADO. Os itens vigentes acima
+        // continuam existindo no banco e é deles que Lacunas e Inventário se servem.
+        if (Boolean.TRUE.equals(out.get("em_revisao"))) {
+            sobreporRevisao(out, revisaoDados);
+        }
         return out;
     }
 
@@ -260,7 +266,11 @@ public class CompetenciasGestorService {
         List<Map<String, Object>> itens = jdbc.queryForList(
                 "SELECT * FROM competencias_gestor_itens WHERE formulario_id = ? ORDER BY ordem", form.get("id"));
         Map<String, Object> out = new LinkedHashMap<>(form);
+        Object revisaoDados = out.remove("revisao_dados");
         out.put("competencias", itens);
+        if (Boolean.TRUE.equals(out.get("em_revisao"))) {
+            sobreporRevisao(out, revisaoDados);
+        }
         return out;
     }
 
@@ -354,9 +364,10 @@ public class CompetenciasGestorService {
         String email = userEmail.toLowerCase().trim();
         String status = (String) form.get("status");
 
-        if ("validado_final".equals(status)) {
-            return notAllowed("Formulário já recebeu validação final e não pode ser editado");
-        }
+        // 'validado_final' NÃO bloqueia mais: é justamente o ponto de entrada da revisão
+        // ("Revisar Matriz"). Quem pode preencher a matriz da unidade pode revisá-la — a checagem
+        // de permissão é a mesma, lá embaixo. O que muda é o destino da escrita: update() desvia a
+        // edição de uma matriz aprovada para o staging (revisao_dados), sem tocar na vigente.
         if ("validado_diretoria".equals(status)) {
             if (isValidadorFinal(email)) {
                 return allowed();
@@ -406,7 +417,8 @@ public class CompetenciasGestorService {
     @Transactional
     public Map<String, Object> update(long id, Map<String, Object> data, long userId, String userEmail) {
         List<Map<String, Object>> existingRows = jdbc.queryForList(
-                "SELECT status, user_id, diretoria, tipo FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE",
+                "SELECT status, user_id, diretoria, tipo, unidade_id, em_revisao " +
+                        "FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE",
                 id);
         if (existingRows.isEmpty()) {
             throw new IllegalStateException("Formulário não encontrado");
@@ -417,6 +429,13 @@ public class CompetenciasGestorService {
         if (!Boolean.TRUE.equals(editCheck.get("allowed"))) {
             String reason = (String) editCheck.get("reason");
             throw new IllegalStateException(reason != null ? reason : "Sem permissão para editar");
+        }
+
+        // Matriz aprovada (ou já em revisão): a edição não vai para as tabelas vigentes, vai para o
+        // staging. Ver salvarRevisao.
+        if (Boolean.TRUE.equals(existing.get("em_revisao"))
+                || "validado_final".equals(existing.get("status"))) {
+            return salvarRevisao(id, data, userId, "validado_final".equals(existing.get("status")));
         }
 
         // Auto-validar camada 1 quando o gestor da macroárea edita, em status 'enviado', um formulário
@@ -445,18 +464,7 @@ public class CompetenciasGestorService {
             // paridade com o try/catch silencioso do Node
         }
 
-        // Diretoria = macroárea da unidade (não a do editor). Ver diretoriaDaUnidade.
-        Long updUnidadeId = asLong(data.get("unidade_id"));
-        String updDiretoria = diretoriaDaUnidade(updUnidadeId, data.get("diretoria"));
-        jdbc.update(
-                "UPDATE competencias_gestor_formularios SET " +
-                        "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
-                        "  diretoria = ?, unidade_id = ?, qtd_colaboradores = ?, " +
-                        "  updated_at = NOW(), updated_by = ? " +
-                        "WHERE id = ? AND is_deleted = FALSE",
-                str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
-                str(data.get("email_institucional")), updDiretoria, updUnidadeId,
-                data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, userId, id);
+        gravarCamposDoFormulario(id, data, userId);
 
         if (autoValidateAutor) {
             // Só o id: `validado_por_autor_nome` NÃO é coluna da tabela — é derivada no SELECT pelo
@@ -471,17 +479,51 @@ public class CompetenciasGestorService {
             matrizNotificacoes.aoValidarAutor(findById(id));
         }
 
+        gravarCompetencias(id, data, userId, existing);
+        return findById(id);
+    }
+
+    /**
+     * Grava os campos de identificação do formulário (sem tocar em itens nem em validação).
+     *
+     * Extraído de update() para ser reusado por aplicarRevisao: a revisão precisa exatamente da
+     * mesma escrita, só que adiada até a validação final do novo ciclo.
+     */
+    private void gravarCamposDoFormulario(long id, Map<String, Object> data, long userId) {
+        // Diretoria = macroárea da unidade (não a do editor). Ver diretoriaDaUnidade.
+        Long updUnidadeId = asLong(data.get("unidade_id"));
+        String updDiretoria = diretoriaDaUnidade(updUnidadeId, data.get("diretoria"));
+        jdbc.update(
+                "UPDATE competencias_gestor_formularios SET " +
+                        "  nome_completo = ?, matricula = ?, cargo_funcao = ?, email_institucional = ?, " +
+                        "  diretoria = ?, unidade_id = ?, qtd_colaboradores = ?, " +
+                        "  updated_at = NOW(), updated_by = ? " +
+                        "WHERE id = ? AND is_deleted = FALSE",
+                str(data.get("nome_completo")), str(data.get("matricula")), str(data.get("cargo_funcao")),
+                str(data.get("email_institucional")), updDiretoria, updUnidadeId,
+                data.get("qtd_colaboradores") != null ? data.get("qtd_colaboradores") : 0, userId, id);
+    }
+
+    /**
+     * Regrava os itens da matriz e o que deriva deles (marca de alteração, versão das técnicas,
+     * espelho em competencias_por_unidade).
+     *
+     * Também extraído de update() para o aplicarRevisao reusar. É esta escrita que Lacunas e
+     * Inventário enxergam, e é por isso que ela fica retida enquanto a revisão não é aprovada.
+     */
+    private void gravarCompetencias(long id, Map<String, Object> data, long userId,
+                                    Map<String, Object> existing) {
         List<Map<String, Object>> competencias = asList(data.get("competencias"));
         // Salvaguarda anti-perda: um save sem competências no payload NÃO pode apagar a matriz
         // autoral (nome/descrição/peso) já gravada. O bloco de itens é a última etapa do método,
         // então retornamos preservando o que já existe (o UPDATE dos metadados do formulário,
         // acima, já foi aplicado).
         if (competencias.isEmpty()) {
-            return findById(id);
+            return;
         }
 
         List<Map<String, Object>> oldItens = jdbc.queryForList(
-                "SELECT nome, descricao, peso, aplicabilidade, quantidade_pessoas " +
+                "SELECT nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas " +
                         "FROM competencias_gestor_itens WHERE formulario_id = ? ORDER BY ordem", id);
         Map<String, Map<String, Object>> oldByName = new LinkedHashMap<>();
         for (Map<String, Object> o : oldItens) {
@@ -493,11 +535,7 @@ public class CompetenciasGestorService {
         for (int i = 0; i < competencias.size(); i++) {
             Map<String, Object> c = competencias.get(i);
             Map<String, Object> o = oldByName.get(str(c.get("nome")));
-            boolean isAlterada = o == null
-                    || !java.util.Objects.equals(strOrEmpty(o.get("descricao")), strOrEmpty(c.get("descricao")))
-                    || !java.util.Objects.equals(asLong(o.get("peso")), asLong(c.get("peso")))
-                    || !java.util.Objects.equals(strOrNull(o.get("aplicabilidade")), strOrNull(c.get("aplicabilidade")))
-                    || numOr0(o.get("quantidade_pessoas")) != numOr0(c.get("quantidade_pessoas"));
+            boolean isAlterada = competenciaAlterada(o, c);
             jdbc.update(
                     "INSERT INTO competencias_gestor_itens (formulario_id, ordem, nome, descricao, peso, grau_minimo_esperado, aplicabilidade, quantidade_pessoas, alterada) " +
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -511,10 +549,7 @@ public class CompetenciasGestorService {
                 Map<String, Object> o = oldItens.get(i);
                 Map<String, Object> n = competencias.get(i);
                 if (!java.util.Objects.equals(str(o.get("nome")), str(n.get("nome")))
-                        || !java.util.Objects.equals(strOrEmpty(o.get("descricao")), strOrEmpty(n.get("descricao")))
-                        || !java.util.Objects.equals(asLong(o.get("peso")), asLong(n.get("peso")))
-                        || !java.util.Objects.equals(strOrNull(o.get("aplicabilidade")), strOrNull(n.get("aplicabilidade")))
-                        || numOr0(o.get("quantidade_pessoas")) != numOr0(n.get("quantidade_pessoas"))) {
+                        || competenciaAlterada(o, n)) {
                     itensChanged = true;
                     break;
                 }
@@ -546,10 +581,205 @@ public class CompetenciasGestorService {
             jdbc.update("DELETE FROM competencias_por_unidade WHERE origem_formulario_id = ?", id);
             syncCompetenciasPorUnidade(unidadeId, id, competencias);
         }
+    }
 
+    /** Campos de identificação que a revisão pode alterar. Unidade e tipo são identidade da matriz. */
+    private static final List<String> CAMPOS_REVISAVEIS = List.of(
+            "nome_completo", "matricula", "cargo_funcao", "email_institucional", "qtd_colaboradores");
+
+    /**
+     * Save de uma matriz em revisão.
+     *
+     * Nada aqui toca no que está vigente: o payload inteiro fica parado em `revisao_dados` e só é
+     * aplicado sobre as tabelas reais quando a validação final do novo ciclo sair (aplicarRevisao).
+     * É assim que Lacunas e Inventário continuam enxergando a v(N) aprovada durante a revisão.
+     *
+     * Quando `abrindoRevisao`, este é o PRIMEIRO save do ciclo, e é aqui — e não ao abrir o
+     * formulário — que as camadas de validação são zeradas: abrir para revisar e desistir não pode
+     * destravar uma matriz já aprovada.
+     */
+    private Map<String, Object> salvarRevisao(long id, Map<String, Object> data, long userId,
+                                              boolean abrindoRevisao) {
+        jdbc.update(
+                "UPDATE competencias_gestor_formularios SET " +
+                        "  revisao_dados = ?::jsonb, updated_at = NOW(), updated_by = ? " +
+                        "WHERE id = ? AND is_deleted = FALSE",
+                toJson(data), userId, id);
+
+        if (abrindoRevisao) {
+            jdbc.update(
+                    "UPDATE competencias_gestor_formularios SET " +
+                            "  em_revisao = TRUE, revisao_iniciada_em = NOW(), status = 'enviado', " +
+                            "  validado_por_autor_id = NULL, validado_por_autor_em = NULL, " +
+                            "  validado_por_diretoria_id = NULL, validado_por_diretoria_em = NULL, " +
+                            // A recusa do ciclo ANTERIOR não pode reaparecer como se fosse desta revisão.
+                            "  recusado_por_id = NULL, recusado_por_nome = NULL, recusado_em = NULL, " +
+                            "  recusado_comentario = NULL, recusado_camada = NULL " +
+                            "WHERE id = ?",
+                    id);
+            // validado_final_* e versao_formulario ficam INTACTOS de propósito: são o registro da
+            // versão vigente. Zerá-los tiraria a unidade do Lacunas/Inventário no meio da revisão.
+            // versao_formulario só anda no validarFinal do novo ciclo — daí o "pula 1".
+        }
         return findById(id);
     }
 
+    /**
+     * Aplica o conteúdo revisado sobre as tabelas vigentes e encerra o estado de revisão.
+     *
+     * Chamado só pelo validarFinal, e de propósito ANTES de o status virar 'validado_final':
+     * gravarCompetencias só propaga para o inventário quando o status já é final, e a propagação
+     * canônica é a que o próprio validarFinal dispara — rodar as duas duplicaria o trabalho.
+     */
+    private void aplicarRevisao(long id, long userId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT revisao_dados, unidade_id, tipo, diretoria, user_id, status " +
+                        "FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+        if (!rows.isEmpty()) {
+            Map<String, Object> row = rows.get(0);
+            Map<String, Object> dados = revisaoComoMapa(row.get("revisao_dados"));
+            if (dados != null) {
+                // Unidade e tipo são a identidade da matriz e a revisão não os move. Fixá-los aqui
+                // também protege contra um payload sem unidade_id, que apagaria o vínculo.
+                dados.put("unidade_id", row.get("unidade_id"));
+                dados.put("tipo", row.get("tipo"));
+                gravarCamposDoFormulario(id, dados, userId);
+                gravarCompetencias(id, dados, userId, row);
+            }
+        }
+        jdbc.update(
+                "UPDATE competencias_gestor_formularios SET " +
+                        "  em_revisao = FALSE, revisao_dados = NULL, revisao_iniciada_em = NULL " +
+                        "WHERE id = ?",
+                id);
+    }
+
+    /** `revisao_dados` volta do driver como PGobject/String; o staging é sempre um objeto JSON. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> revisaoComoMapa(Object valor) {
+        if (valor == null) {
+            return null;
+        }
+        try {
+            Object json = objectMapper.readValue(String.valueOf(valor), Object.class);
+            return json instanceof Map ? new LinkedHashMap<>((Map<String, Object>) json) : null;
+        } catch (Exception err) {
+            log.error("[revisao] revisao_dados ilegível: {}", err.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Sobrepõe o payload em staging sobre a leitura de um formulário em revisão.
+     *
+     * Quem edita a revisão e quem a valida precisam ver o que está sendo revisado, não a versão
+     * vigente. Lacunas e Inventário não passam por aqui — leem competencias_gestor_itens direto — e
+     * é exatamente por isso que continuam na v(N) aprovada.
+     */
+    private void sobreporRevisao(Map<String, Object> out, Object revisaoDados) {
+        Map<String, Object> rev = revisaoComoMapa(revisaoDados);
+        if (rev == null) {
+            return;
+        }
+        for (String campo : CAMPOS_REVISAVEIS) {
+            if (rev.containsKey(campo)) {
+                out.put(campo, rev.get(campo));
+            }
+        }
+        List<Map<String, Object>> competencias = asList(rev.get("competencias"));
+        if (competencias.isEmpty()) {
+            return;
+        }
+        // "Alterada" tem de sair da comparação com a versão VIGENTE — que ainda está em
+        // out.competencias neste ponto —, e não de um TRUE para todo item: numa revisão que mexeu
+        // em uma competência só, as outras oito não mudaram.
+        Map<String, Map<String, Object>> vigentePorNome = new LinkedHashMap<>();
+        for (Map<String, Object> v : asList(out.get("competencias"))) {
+            vigentePorNome.put(str(v.get("nome")), v);
+        }
+        // Normalizado para a MESMA forma dos itens vindos do banco: a tela e o PDF leem os dois
+        // caminhos sem saber qual é qual.
+        List<Map<String, Object>> normalizadas = new ArrayList<>();
+        for (int i = 0; i < competencias.size(); i++) {
+            Map<String, Object> c = competencias.get(i);
+            Map<String, Object> n = new LinkedHashMap<>();
+            n.put("formulario_id", out.get("id"));
+            n.put("ordem", i + 1);
+            n.put("nome", str(c.get("nome")));
+            n.put("descricao", str(c.get("descricao")));
+            n.put("peso", pesoLegado(c));
+            n.put("grau_minimo_esperado", grauMinimo(c));
+            n.put("aplicabilidade", orNull(c.get("aplicabilidade")));
+            n.put("quantidade_pessoas", orNull(c.get("quantidade_pessoas")));
+            n.put("alterada", competenciaAlterada(vigentePorNome.get(str(c.get("nome"))), c));
+            normalizadas.add(n);
+        }
+        out.put("competencias", normalizadas);
+        out.put("total_competencias", normalizadas.size());
+    }
+
+    /** `revisao_dados` é staging interno e nunca sai no JSON da API. */
+    private static List<Map<String, Object>> semRevisaoDados(List<Map<String, Object>> rows) {
+        for (Map<String, Object> r : rows) {
+            r.remove("revisao_dados");
+        }
+        return rows;
+    }
+
+    /**
+     * Unidades cuja matriz do `tipo` já foi validada até o fim e que o usuário pode revisar.
+     *
+     * Espelho de findUnidadesAutorizadas: lá a unidade entra quando NÃO tem matriz (para
+     * preencher), aqui quando TEM matriz validada (para revisar). O recorte de permissão é o mesmo
+     * — quem pode preencher a matriz de uma unidade pode revisá-la.
+     */
+    public List<Map<String, Object>> findUnidadesParaRevisao(long userId, String userEmail, String tipo) {
+        String email = userEmail == null ? "" : userEmail.toLowerCase().trim();
+        // Superadmin e validador final alcançam qualquer unidade — mesmo alcance que já têm em
+        // findUnidadesAutorizadas e em canEdit.
+        boolean irrestrito = isSuperadmin(userId) || isValidadorFinal(email);
+        boolean isGestor = "gestor".equals(tipo);
+
+        List<Object> args = new ArrayList<>();
+        // O parâmetro do tipo aparece ANTES na string do SQL (está no JOIN) e o bind do JDBC é
+        // posicional: inverter esta ordem troca os valores em silêncio.
+        args.add(tipo);
+        String permissao;
+        if (irrestrito) {
+            permissao = "TRUE";
+        } else if (isGestor) {
+            permissao = "( ca.gestor_user_id = ? OR ca.subdiretor_user_id = ? OR cu.responsavel_user_id = ? " +
+                    "  OR EXISTS (SELECT 1 FROM competencias_gestor_editores e " +
+                    "              WHERE e.cadastros_areas_id = ca.id AND e.user_id = ?) )";
+            args.add(userId);
+            args.add(userId);
+            args.add(userId);
+            args.add(userId);
+        } else {
+            permissao = "( cu.responsavel_user_id = ? " +
+                    "  OR EXISTS (SELECT 1 FROM competencias_equipe_editores ee " +
+                    "              WHERE ee.cadastros_unidades_id = cu.id AND ee.user_id = ?) )";
+            args.add(userId);
+            args.add(userId);
+        }
+
+        return jdbc.queryForList(
+                "SELECT cu.id, cu.nome, cu.area_id, ca.sigla AS area_sigla, " +
+                        "       cgf.id AS formulario_id, cgf.status, cgf.em_revisao, " +
+                        "       COALESCE(cgf.versao_formulario, 1) AS versao_formulario, " +
+                        "       cgf.validado_final_em, cgf.revisao_iniciada_em, " +
+                        "       (SELECT COUNT(*) FROM competencias_gestor_itens i " +
+                        "         WHERE i.formulario_id = cgf.id) AS total_competencias " +
+                        "FROM cadastros_unidades cu " +
+                        "JOIN cadastros_areas ca ON ca.id = cu.area_id " +
+                        "JOIN competencias_gestor_formularios cgf " +
+                        "  ON cgf.unidade_id = cu.id AND cgf.tipo = ? AND cgf.is_deleted = FALSE " +
+                        "  AND cgf.validado_final_em IS NOT NULL " +
+                        "WHERE " + permissao + " " +
+                        "  AND cu.ativo IS NOT FALSE AND COALESCE(ca.ativo, TRUE) = TRUE " +
+                        "ORDER BY ca.sigla, cu.nome",
+                args.toArray());
+    }
     public void syncCompetenciasPorUnidade(long unidadeId, long formularioId, List<Map<String, Object>> competencias) {
         for (Map<String, Object> c : competencias) {
             jdbc.update(
@@ -1284,7 +1514,7 @@ public class CompetenciasGestorService {
     @Transactional
     public Map<String, Object> validarFinal(long id, long userId, String userEmail) {
         List<Map<String, Object>> formRows = jdbc.queryForList(
-                "SELECT id, status FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
+                "SELECT id, status, em_revisao FROM competencias_gestor_formularios WHERE id = ? AND is_deleted = FALSE", id);
         if (formRows.isEmpty()) {
             throw new IllegalStateException("Formulário não encontrado");
         }
@@ -1297,6 +1527,12 @@ public class CompetenciasGestorService {
         }
         if (!isValidadorFinal(userEmail)) {
             throw new IllegalStateException("Apenas o validador final pode realizar esta validação");
+        }
+
+        // Revisão: só agora o conteúdo revisado substitui o vigente. Até este ponto Lacunas e
+        // Inventário seguiram lendo a v(N) aprovada, que é o que foi decidido no desenho.
+        if (Boolean.TRUE.equals(formRows.get(0).get("em_revisao"))) {
+            aplicarRevisao(id, userId);
         }
 
         jdbc.update(
@@ -1543,6 +1779,24 @@ public class CompetenciasGestorService {
      * capaz naquela competência. Substituiu o "Grau de Impacto" no formulário; 3 é o padrão, que
      * era o corte usado pelo relatório de Lacunas antes de o campo existir.
      */
+    /**
+     * A competência mudou de conteúdo? Usado tanto para marcar o item como "Alterada" quanto para
+     * decidir se a versão das técnicas precisa subir. `old` nulo = competência nova.
+     *
+     * `peso` fica DE FORA de propósito. Ele é o critério antigo ("Grau de Impacto"), que a migration
+     * 255 tirou do formulário: o payload não manda mais `peso`, então pesoLegado() devolve sempre 1
+     * enquanto a linha gravada guarda o 1..3 histórico. Compará-los dava diferente em TODO item, em
+     * TODO save — era por isso que a tela mostrava a matriz inteira como alterada depois de mexer em
+     * uma competência só.
+     */
+    private static boolean competenciaAlterada(Map<String, Object> old, Map<String, Object> novo) {
+        return old == null
+                || !java.util.Objects.equals(strOrEmpty(old.get("descricao")), strOrEmpty(novo.get("descricao")))
+                || grauMinimo(old) != grauMinimo(novo)
+                || !java.util.Objects.equals(strOrNull(old.get("aplicabilidade")), strOrNull(novo.get("aplicabilidade")))
+                || numOr0(old.get("quantidade_pessoas")) != numOr0(novo.get("quantidade_pessoas"));
+    }
+
     private static int grauMinimo(Map<String, Object> c) {
         Object v = c.get("grau_minimo_esperado");
         if (v == null) {
