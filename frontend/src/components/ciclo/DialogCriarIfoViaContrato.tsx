@@ -15,38 +15,46 @@ import { ifoApi, type Ifo } from "@/services/dfdApi";
 import type { Contract } from "@/types";
 import { formatCurrency } from "@/services/pcaApi";
 
-interface DialogVincularContratosProps {
+interface DialogCriarIfoViaContratoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  ifo: Ifo | null;
+  bloco: "plurianual" | "renovacao" | "encerramento";
+  ano: number;
+  cicloId: number;
   allContracts: Contract[];
   onSuccess: () => void;
 }
 
-export function DialogVincularContratos({
+export function DialogCriarIfoViaContrato({
   open,
   onOpenChange,
-  ifo,
+  bloco,
+  ano,
+  cicloId,
   allContracts,
   onSuccess,
-}: DialogVincularContratosProps) {
+}: DialogCriarIfoViaContratoProps) {
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  const blocoLabels = {
+    plurianual: "Plurianual",
+    renovacao: "Renovação",
+    encerramento: "Encerramento",
+  };
+
   const filteredContracts = useMemo(() => {
-    if (!ifo) return [];
-    
     return allContracts.filter((c) => {
       // Regra de inserção automática: contratos precisam ter limitDate e ela deve alcançar o ano do ciclo
       if (!c.limitDate) return false;
       const limitAno = new Date(c.limitDate).getFullYear();
-      if (limitAno < ifo.ano) return false;
+      if (limitAno < ano) return false;
 
       let blocoContrato = "plurianual"; // Default se não tiver endDate
 
       if (c.endDate) {
         const fimAno = new Date(c.endDate).getFullYear();
-        if (fimAno > ifo.ano) {
+        if (fimAno > ano) {
           blocoContrato = "plurianual";
         } else if (new Date(c.limitDate) > new Date(c.endDate)) {
           blocoContrato = "renovacao";
@@ -54,26 +62,18 @@ export function DialogVincularContratos({
           blocoContrato = "encerramento";
         }
       }
-      
-      return blocoContrato === ifo.bloco;
+
+      return blocoContrato === bloco;
     });
-  }, [allContracts, ifo]);
+  }, [allContracts, bloco, ano]);
 
   useEffect(() => {
-    if (open && ifo) {
-      setSelectedIds(new Set(ifo.contratos || []));
+    if (!open) {
+      setSelectedIds(new Set());
     }
-  }, [open, ifo]);
-
-  const isOriginallyLinked = (contractId: number) => {
-    return ifo?.contratos?.includes(contractId) ?? false;
-  };
+  }, [open]);
 
   const toggleContract = (contractId: number) => {
-    if (isOriginallyLinked(contractId)) {
-      toast.error("Para desvincular um contrato, você deve vinculá-lo a outro IFO.");
-      return;
-    }
     const newSet = new Set(selectedIds);
     if (newSet.has(contractId)) {
       newSet.delete(contractId);
@@ -84,32 +84,44 @@ export function DialogVincularContratos({
   };
 
   const handleSave = async () => {
-    if (!ifo) return;
+    if (selectedIds.size === 0) {
+      toast.error("Selecione pelo menos um contrato.");
+      return;
+    }
 
     try {
       setLoading(true);
-      await ifoApi.atualizarContratos(ifo.id, Array.from(selectedIds));
-      toast.success("Vínculos atualizados com sucesso.");
+      const firstId = Array.from(selectedIds)[0];
+      const firstContract = allContracts.find((c) => c.id === firstId);
+
+      await ifoApi.criar({
+        ano,
+        cicloId,
+        bloco: bloco as any,
+        natureza: "continuada",
+        objeto: firstContract?.objectName || "Novo IFO",
+        contratos: Array.from(selectedIds),
+      });
+
+      toast.success("Novo IFO criado com sucesso.");
       onSuccess();
       onOpenChange(false);
     } catch (err) {
-      toast.error("Não foi possível atualizar os vínculos.");
+      toast.error("Não foi possível criar o IFO.");
     } finally {
       setLoading(false);
     }
   };
-
-  if (!ifo) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] bg-white max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-slate-800">
-            Vincular Contratos (IFO {ifo.codigo})
+            Novo IFO ({blocoLabels[bloco] || bloco})
           </DialogTitle>
           <DialogDescription className="text-slate-500">
-            Selecione os contratos continuados que fazem parte deste item.
+            Selecione o(s) contrato(s) para compor o novo IFO.
           </DialogDescription>
         </DialogHeader>
 
@@ -121,32 +133,25 @@ export function DialogVincularContratos({
           ) : (
             filteredContracts.map((c) => {
               const isSelected = selectedIds.has(c.id);
-              const isLinkedToThis = isOriginallyLinked(c.id);
-              const isLinkedToAnother = !!c.linkedIfoCodigo && c.linkedIfoCodigo !== ifo?.codigo && !isSelected;
-              
+              const isLinkedToAnother = !!c.linkedIfoCodigo && !isSelected;
+
               return (
                 <div
                   key={c.id}
                   onClick={() => toggleContract(c.id)}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    isLinkedToThis
-                      ? "border-emerald-500 bg-emerald-50 opacity-80 cursor-not-allowed"
-                      : isSelected
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isSelected
                       ? "border-blue-500 bg-blue-50 cursor-pointer"
                       : "border-slate-200 hover:bg-slate-50 cursor-pointer"
-                  }`}
+                    }`}
                 >
                   <div className="flex-shrink-0">
                     <div
-                      className={`w-5 h-5 rounded border flex items-center justify-center ${
-                        isLinkedToThis
-                          ? "bg-emerald-500 border-emerald-500 text-white"
-                          : isSelected
+                      className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected
                           ? "bg-blue-500 border-blue-500 text-white"
                           : "border-slate-300"
-                      }`}
+                        }`}
                     >
-                      {(isSelected || isLinkedToThis) && <Check className="h-3.5 w-3.5" />}
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
                     </div>
                   </div>
                   <div className="flex-grow min-w-0">
@@ -155,11 +160,6 @@ export function DialogVincularContratos({
                         <span className="font-medium text-sm text-slate-900 break-words line-clamp-2">
                           {c.objectName || "Sem Objeto"}
                         </span>
-                        {isLinkedToThis && (
-                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-medium">
-                            Vinculado
-                          </span>
-                        )}
                         {isLinkedToAnother && (
                           <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
                             Vinculado ao {c.linkedIfoCodigo}
@@ -187,9 +187,9 @@ export function DialogVincularContratos({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={handleSave} disabled={loading || selectedIds.size === 0} className="bg-blue-600 hover:bg-blue-700 text-white">
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Salvar Vínculos
+            Criar IFO
           </Button>
         </DialogFooter>
       </DialogContent>
