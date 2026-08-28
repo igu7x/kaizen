@@ -27,11 +27,13 @@ import {
   PopCriado,
   PopCriadoInput,
 } from "@/services/popsCriadosApi";
-import { areasApi, Area } from "@/services/areasApi";
+import { areasApi, Area, Unidade } from "@/services/areasApi";
 import {
   processosNegocioApi,
   ProcessoNegocio,
+  normalizeResponsavel,
 } from "@/services/processosNegocioApi";
+import { ListInput } from "./ListInput";
 
 interface Props {
   open: boolean;
@@ -86,6 +88,12 @@ export function PopCriadoDialog({
   const [unidades, setUnidades] = useState<string[]>([]);
   const [macroprocessos, setMacroprocessos] = useState<string[]>([]);
   const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
+  /**
+   * Cadastro de unidades por inteiro (o estado `unidades` acima guarda só os nomes, para o
+   * combobox). Precisamos dos objetos para resolver o "Gestor do Processo": o responsável do
+   * processo aponta a unidade por `unidade_id`, e o NOME da pessoa mora em `unidade.responsavel`.
+   */
+  const [unidadesCad, setUnidadesCad] = useState<Unidade[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -99,8 +107,14 @@ export function PopCriadoDialog({
       .catch(() => setAreas([]));
     areasApi
       .getAllUnidades()
-      .then((us) => setUnidades(uniq(us.map((u) => u.nome))))
-      .catch(() => setUnidades([]));
+      .then((us) => {
+        setUnidadesCad(us);
+        setUnidades(uniq(us.map((u) => u.nome)));
+      })
+      .catch(() => {
+        setUnidadesCad([]);
+        setUnidades([]);
+      });
     processosNegocioApi
       .getAll()
       .then((ps) => {
@@ -133,12 +147,49 @@ export function PopCriadoDialog({
     setForm((f) => ({ ...f, [campo]: valor }));
 
   /**
-   * Seleção do processo cadastrado: preenche automaticamente macroprocesso, área e diretoria
-   * a partir do cadastro do processo. Os campos seguem editáveis — o usuário pode ajustar.
+   * Campos de lista (Siglas, Normativa, Sistemas) são EDITADOS item a item, mas seguem
+   * GRAVADOS como texto com um item por linha — é o formato que a coluna já tem e que o
+   * generatePopPDF lê (tipo "lista", split por "\n"). Assim a mudança é só de interface.
+   */
+  const itensDe = (valor?: string | null) =>
+    (valor ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  const setItens = (campo: keyof PopCriadoInput, lista: string[]) =>
+    set(campo, lista.join("\n"));
+
+  /**
+   * Seleção do processo cadastrado: preenche automaticamente o cabeçalho (macroprocesso, área,
+   * diretoria, unidade) e os três campos do POP que são espelho do cadastro — 1. Serviço,
+   * 3. Unidade Responsável e 7. Gestor do Processo, todos somente leitura na tela.
+   *
+   * O cabeçalho segue editável; os três espelhados, não: eles têm de continuar iguais ao
+   * processo, que é a fonte da verdade.
    */
   const selecionarProcesso = (p: ProcessoNegocio) => {
     const areaCad = areas.find((a) => a.sigla === p.diretoria);
-    const unidade = p.proprietarios?.find((r) => r.area?.trim())?.area || "";
+    const responsaveis = (p.proprietarios || []).map(normalizeResponsavel);
+    const unidade = responsaveis.find((r) => r.area?.trim())?.area || "";
+    // 3. Unidade Responsável = as unidades dos responsáveis do processo, uma por linha.
+    const unidadesResp = semRepetir(
+      responsaveis.map((r) => r.area).filter(Boolean),
+    ).join("\n");
+    // 7. Gestor do Processo = "Nome - Cargo". O cargo vem do próprio responsável; o nome só
+    // existe quando a área foi escolhida da lista (aí há `unidade_id`), e não digitada livre.
+    const gestor = semRepetir(
+      responsaveis
+        .map((r) => {
+          const u =
+            r.unidade_id != null
+              ? unidadesCad.find((x) => x.id === r.unidade_id)
+              : undefined;
+          const nome = (u?.responsavel || "").trim();
+          const cargo = (r.cargo || u?.cargo_responsavel || "").trim();
+          return [nome, cargo].filter(Boolean).join(" - ");
+        })
+        .filter(Boolean),
+    ).join("\n");
     setForm((f) => ({
       ...f,
       nome_processo: p.nome_processo,
@@ -146,6 +197,9 @@ export function PopCriadoDialog({
       area: p.diretoria || f.area,
       diretoria_orgao: areaCad?.nome || p.diretoria || f.diretoria_orgao,
       unidade_orgao: unidade || f.unidade_orgao,
+      servico: p.nome_processo,
+      unidade_responsavel: unidadesResp || f.unidade_responsavel,
+      gestor_processo: gestor || f.gestor_processo,
     }));
   };
 
@@ -364,12 +418,21 @@ export function PopCriadoDialog({
             titulo="Conteúdo do POP"
           >
             <div className="space-y-4">
-              <Campo label="1. Serviço">
-                <Input
-                  value={form.servico ?? ""}
-                  onChange={(e) => set("servico", e.target.value)}
-                  placeholder="Ex.: GERIR AQUISIÇÕES – Elaboração do Termo de Referência (TR)"
-                />
+              <Campo
+                label="1. Serviço"
+                hint="preenchido pelo processo — igual ao nome do processo"
+              >
+                <CampoSomenteLeitura>
+                  {form.servico?.trim() ? (
+                    <span className="font-medium text-slate-800">
+                      {form.servico}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">
+                      Selecione o processo acima
+                    </span>
+                  )}
+                </CampoSomenteLeitura>
               </Campo>
               <Campo label="2. Objetivo">
                 <Textarea
@@ -379,28 +442,36 @@ export function PopCriadoDialog({
                   placeholder="Estabelecer diretrizes e procedimentos para..."
                 />
               </Campo>
-              <Campo label="3. Unidade Responsável">
-                <Textarea
-                  value={form.unidade_responsavel ?? ""}
-                  onChange={(e) => set("unidade_responsavel", e.target.value)}
-                  rows={3}
-                  placeholder="Descreva as unidades responsáveis e suas atribuições"
+              <Campo
+                label="3. Unidade Responsável"
+                hint="preenchida pelo processo"
+              >
+                <CampoSomenteLeitura>
+                  {form.unidade_responsavel?.trim() ? (
+                    <span className="whitespace-pre-line font-medium text-slate-800">
+                      {form.unidade_responsavel}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">
+                      Selecione o processo acima
+                    </span>
+                  )}
+                </CampoSomenteLeitura>
+              </Campo>
+              <Campo label="4. Siglas" hint="ex.: ABNT: Associação…">
+                <ListInput
+                  value={itensDe(form.siglas)}
+                  onChange={(next) => setItens("siglas", next)}
+                  placeholder="Adicionar sigla"
+                  emptyMessage="Nenhuma sigla"
                 />
               </Campo>
-              <Campo label="4. Siglas" hint="Uma por linha (ex.: ABNT: Associação…)">
-                <Textarea
-                  value={form.siglas ?? ""}
-                  onChange={(e) => set("siglas", e.target.value)}
-                  rows={3}
-                  placeholder={"ABNT: Associação Brasileira de Normas Técnicas\nPROAD: Processo Administrativo Digital"}
-                />
-              </Campo>
-              <Campo label="5. Normativa" hint="Uma por linha">
-                <Textarea
-                  value={form.normativa ?? ""}
-                  onChange={(e) => set("normativa", e.target.value)}
-                  rows={2}
-                  placeholder="Decreto Judiciário nº 1.692, de 2 de maio de 2024 - ..."
+              <Campo label="5. Normativa">
+                <ListInput
+                  value={itensDe(form.normativa)}
+                  onChange={(next) => setItens("normativa", next)}
+                  placeholder="Adicionar normativa"
+                  emptyMessage="Nenhuma normativa"
                 />
               </Campo>
               <Campo label="6. Descrição do Procedimento">
@@ -413,19 +484,28 @@ export function PopCriadoDialog({
                   placeholder="Descreva o passo a passo da atividade desenvolvida."
                 />
               </Campo>
-              <Campo label="7. Gestor do Processo">
-                <Input
-                  value={form.gestor_processo ?? ""}
-                  onChange={(e) => set("gestor_processo", e.target.value)}
-                  placeholder="Nome Completo do Responsável – Unidade Responsável"
-                />
+              <Campo
+                label="7. Gestor do Processo"
+                hint="preenchido pelo processo — igual ao Responsável"
+              >
+                <CampoSomenteLeitura>
+                  {form.gestor_processo?.trim() ? (
+                    <span className="whitespace-pre-line font-medium text-slate-800">
+                      {form.gestor_processo}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">
+                      Selecione o processo acima
+                    </span>
+                  )}
+                </CampoSomenteLeitura>
               </Campo>
-              <Campo label="8. Sistemas Utilizados" hint="Um por linha">
-                <Textarea
-                  value={form.sistemas_utilizados ?? ""}
-                  onChange={(e) => set("sistemas_utilizados", e.target.value)}
-                  rows={2}
-                  placeholder={"PROAD"}
+              <Campo label="8. Sistemas Utilizados">
+                <ListInput
+                  value={itensDe(form.sistemas_utilizados)}
+                  onChange={(next) => setItens("sistemas_utilizados", next)}
+                  placeholder="Adicionar sistema"
+                  emptyMessage="Nenhum sistema"
                 />
               </Campo>
               <div className="md:col-span-2">
@@ -751,6 +831,15 @@ function Secao({
 }
 
 /** Caixa somente-leitura, no estilo de um input desabilitado (campos gerados pelo sistema). */
+/**
+ * Remove repetidos PRESERVANDO a ordem. Diferente do `uniq` local do carregamento, que ordena
+ * alfabeticamente para as listas de combobox: aqui a ordem é a dos responsáveis cadastrados no
+ * processo, e reordenar mudaria quem aparece como gestor principal.
+ */
+function semRepetir(valores: (string | null | undefined)[]): string[] {
+  return Array.from(new Set(valores.filter(Boolean) as string[]));
+}
+
 function CampoSomenteLeitura({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[2.5rem] items-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm">
