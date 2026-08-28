@@ -455,6 +455,14 @@ function App() {
                   />
 
                   <Route
+                    path="/planejamento-contratacao/:id"
+                    element={
+                      <ProtectedRoute>
+                        <PlanejamentoContratacao />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/planejamento-contratacao"
                     element={
                       <ProtectedRoute>

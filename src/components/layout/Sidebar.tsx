@@ -160,7 +160,7 @@ const menuItemsCompleto: MenuItem[] = [
         permissaoCodigo: "contratacoes_novas",
         children: [
           {
-            title: "Visão Geral",
+            title: "Painel",
             path: "/planejamento-contratacao",
           },
           {

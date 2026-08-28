@@ -1030,3 +1030,63 @@ export interface Contract {
   deletedAt?: string;
   deletedBy?: number;
 }
+
+// ============================================================
+// Tipos para Planejamento da Contratação (Contract Plans)
+// ============================================================
+
+export interface ContractPlan {
+  id: number;
+  pcaId?: number;
+  pcaCode?: string;
+  pcaYear?: string;
+  createdAt?: string;
+  objectName: string;
+  cadastrosAreasId?: number;
+  cadastrosUnidadesId?: number;
+  areaSigla?: string;
+  unidadeNome?: string;
+  description: string;
+  justification: string;
+  estimatedValueCents?: number;
+  priorityLevel?: number;
+  status?: number;
+  step?: number;
+  estimatedDate?: string;
+  loaReference: string;
+  proadNumber?: string;
+  ipcCode?: string;
+  contractsCount?: number;
+  members?: ContractPlanMember[];
+  attachments?: ContractPlanAttachment[];
+  notes?: ContractPlanNote[];
+}
+
+export interface ContractPlanMember {
+  id: number;
+  userId: number;
+  role: string;
+  signedAt?: string;
+  signatureStatus: string;
+  rejectReason?: string;
+}
+
+export interface ContractPlanAttachment {
+  id: number;
+  fileName: string;
+  fileKey: string;
+  fileSize?: number;
+  contentType?: string;
+  documentType: string;
+  uploadedBy?: number;
+  uploadedAt?: string;
+}
+
+export interface ContractPlanNote {
+  id: number;
+  userId?: number;
+  message: string;
+  isSystemEvent: boolean;
+  createdAt: string;
+  createdBy?: string;
+}
