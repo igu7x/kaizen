@@ -4,11 +4,13 @@ public record CreateContractPlanRequest(
         String pcaCode,
         String pcaYear,
         String objectName,
-        String areaAcronym,
+        Long cadastrosAreasId,
+        Long cadastrosUnidadesId,
         String description,
         String justification,
         Long estimatedValueCents,
         Integer priorityLevel,
         String estimatedDate,
-        String loaReference
+        String loaReference,
+        String proadNumber
 ) {}

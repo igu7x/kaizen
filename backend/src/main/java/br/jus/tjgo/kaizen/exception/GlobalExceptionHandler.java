@@ -2,6 +2,7 @@ package br.jus.tjgo.kaizen.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,6 +22,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, Object>> handleApiException(ApiException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.error("Erro de integridade no banco de dados", ex);
+        return ResponseEntity.status(500).body(error("Erro interno no servidor."));
     }
 
     /**
@@ -44,11 +51,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
-        // Stack completo no log do servidor (diagnóstico), mas mensagem CURADA no corpo da resposta.
-        // Fix D (Sprint 11): não vazar detalhe do driver SQL (ex.: "bad SQL grammar [...]") no JSON —
-        // é fidelidade (Node devolve mensagem genérica) e segurança (info-leak em produção é vulnerabilidade).
         log.error("Erro nao tratado", ex);
-        return ResponseEntity.status(500).body(error("Erro interno do servidor"));
+        return ResponseEntity.status(500).body(error("Erro interno no servidor."));
     }
 
     private Map<String, Object> error(String message) {

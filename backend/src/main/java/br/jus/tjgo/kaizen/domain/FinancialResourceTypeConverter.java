@@ -19,11 +19,21 @@ public class FinancialResourceTypeConverter implements AttributeConverter<Pca.Fi
         if (dbData == null) {
             return null;
         }
+        // Tenta correspondência exata primeiro
         for (Pca.FinancialResourceTypeEnum e : Pca.FinancialResourceTypeEnum.values()) {
             if (e.getValue().equals(dbData)) {
                 return e;
             }
         }
+        
+        // Tenta correspondência ignorando case
+        String upperData = dbData.trim().toUpperCase();
+        for (Pca.FinancialResourceTypeEnum e : Pca.FinancialResourceTypeEnum.values()) {
+            if (e.getValue().toUpperCase().equals(upperData)) {
+                return e;
+            }
+        }
+        
         throw new IllegalArgumentException("Valor desconhecido no banco de dados para FinancialResourceTypeEnum: " + dbData);
     }
 }

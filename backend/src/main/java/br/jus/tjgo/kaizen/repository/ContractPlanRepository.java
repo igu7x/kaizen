@@ -9,5 +9,5 @@ import java.util.List;
 @Repository
 public interface ContractPlanRepository extends JpaRepository<ContractPlan, Long> {
     List<ContractPlan> findByPcaIdAndIsDeletedFalse(Long pcaId);
-    List<ContractPlan> findByAreaAcronymAndIsDeletedFalse(String areaAcronym);
+    List<ContractPlan> findByIsDeletedFalse();
 }

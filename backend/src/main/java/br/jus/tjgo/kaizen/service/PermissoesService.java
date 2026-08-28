@@ -57,18 +57,34 @@ public class PermissoesService {
         }
     }
 
+    private volatile Boolean verificarPermissaoFnExists;
+
+    private boolean hasVerificarPermissaoFn() {
+        if (verificarPermissaoFnExists != null) {
+            return verificarPermissaoFnExists;
+        }
+        try {
+            Boolean exists = jdbc.queryForObject(
+                    "SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'verificar_permissao')",
+                    Boolean.class);
+            verificarPermissaoFnExists = Boolean.TRUE.equals(exists);
+        } catch (Exception e) {
+            verificarPermissaoFnExists = false;
+        }
+        return verificarPermissaoFnExists;
+    }
+
     public Map<String, Object> verificarPermissao(long usuarioId, String abaCodigo) {
         List<Map<String, Object>> rows;
-        try {
-            rows = jdbc.queryForList("SELECT * FROM verificar_permissao(?, ?)", usuarioId, abaCodigo);
-        } catch (Exception e) {
-            rows = jdbc.queryForList(
-                    "SELECT COALESCE(pd.pode_acessar, false) as pode_acessar, " +
-                            "COALESCE(pd.apenas_propria_diretoria, true) as apenas_propria_diretoria, " +
-                            "u.diretoria as diretoria_usuario FROM users u " +
-                            "LEFT JOIN permissoes_diretoria pd ON pd.cadastros_areas_id = u.cadastros_areas_id AND pd.aba_codigo = ? " +
-                            "WHERE u.id = ?",
-                    abaCodigo, usuarioId);
+        if (hasVerificarPermissaoFn()) {
+            try {
+                rows = jdbc.queryForList("SELECT * FROM verificar_permissao(?, ?)", usuarioId, abaCodigo);
+            } catch (Exception e) {
+                verificarPermissaoFnExists = false;
+                rows = queryPermissaoFallback(usuarioId, abaCodigo);
+            }
+        } else {
+            rows = queryPermissaoFallback(usuarioId, abaCodigo);
         }
         if (rows.isEmpty()) {
             Map<String, Object> def = new LinkedHashMap<>();
@@ -78,6 +94,16 @@ public class PermissoesService {
             return def;
         }
         return rows.get(0);
+    }
+
+    private List<Map<String, Object>> queryPermissaoFallback(long usuarioId, String abaCodigo) {
+        return jdbc.queryForList(
+                "SELECT COALESCE(pd.pode_acessar, false) as pode_acessar, " +
+                        "COALESCE(pd.apenas_propria_diretoria, true) as apenas_propria_diretoria, " +
+                        "u.diretoria as diretoria_usuario FROM users u " +
+                        "LEFT JOIN permissoes_diretoria pd ON pd.cadastros_areas_id = u.cadastros_areas_id AND pd.aba_codigo = ? " +
+                        "WHERE u.id = ?",
+                abaCodigo, usuarioId);
     }
 
     public List<Map<String, Object>> getPermissoesDiretoria(String diretoria) {

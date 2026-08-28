@@ -2,11 +2,13 @@ package br.jus.tjgo.kaizen.dto;
 
 public record UpdateContractPlanRequest(
         String objectName,
-        String areaAcronym,
+        Long cadastrosAreasId,
+        Long cadastrosUnidadesId,
         String description,
         String justification,
         Long estimatedValueCents,
         Integer priorityLevel,
         String estimatedDate,
-        String loaReference
+        String loaReference,
+        String situation
 ) {}
