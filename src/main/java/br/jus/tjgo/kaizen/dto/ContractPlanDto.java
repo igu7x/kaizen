@@ -18,13 +18,15 @@ public record ContractPlanDto(
         Integer priorityLevel,
         Integer status,
         Integer step,
+        String situation,
         String estimatedDate,
         String loaReference,
         String proadNumber,
         String ipcCode,
         int contractsCount,
         List<ContractPlanMemberDto> members,
-        List<ContractPlanAttachmentDto> attachments
+        List<ContractPlanAttachmentDto> attachments,
+        ContractPlanNoteDto lastUserNote
 ) {
 
     public record ContractPlanMemberDto(
@@ -51,6 +53,7 @@ public record ContractPlanDto(
             Long id,
             Long userId,
             String message,
+            String location,
             Boolean isSystemEvent,
             String createdAt,
             String createdBy

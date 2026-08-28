@@ -28,6 +28,9 @@ public class ContractPlanNote {
     @Column(name = "message", columnDefinition = "TEXT", nullable = false)
     private String message;
 
+    @Column(name = "location", columnDefinition = "TEXT")
+    private String location;
+
     @Column(name = "is_system_event")
     private Boolean isSystemEvent = false;
 

@@ -9,5 +9,6 @@ public record UpdateContractPlanRequest(
         Long estimatedValueCents,
         Integer priorityLevel,
         String estimatedDate,
-        String loaReference
+        String loaReference,
+        String situation
 ) {}

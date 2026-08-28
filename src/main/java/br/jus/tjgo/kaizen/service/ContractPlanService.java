@@ -27,6 +27,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.Collections;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -79,6 +82,7 @@ public class ContractPlanService {
     private static final Set<String> VALID_DOCUMENT_TYPES = Set.of("dod", "etp", "tr", "mgr", "am", "outros");
     private static final Set<String> VALID_MEMBER_ROLES = Set.of(
             "INTEGRANTE_DEMANDANTE", "INTEGRANTE_TECNICO", "INTEGRANTE_ADMINISTRATIVO", "AUTORIDADE_TI");
+    private static final Set<String> VALID_SITUATIONS = Set.of("Em Instrução", "Concluído");
 
     private void validateAccess(Long userId, String diretoriaSigla) {
         // TODO: reativar verificação de permissão quando a função PL/pgSQL estiver disponível
@@ -100,13 +104,74 @@ public class ContractPlanService {
         return plan;
     }
 
+    private void populateTransientFieldsBulk(List<ContractPlan> plans) {
+        if (plans.isEmpty()) return;
+
+        List<Long> areaIds = plans.stream()
+                .map(ContractPlan::getCadastrosAreasId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> areasMap = new HashMap<>();
+        if (!areaIds.isEmpty()) {
+            String inSql = String.join(",", Collections.nCopies(areaIds.size(), "?"));
+            jdbc.query(
+                    String.format("SELECT id, sigla FROM cadastros_areas WHERE id IN (%s)", inSql),
+                    areaIds.toArray(),
+                    rs -> {
+                        areasMap.put(rs.getLong("id"), rs.getString("sigla"));
+                    }
+            );
+        }
+
+        List<Long> unidadeIds = plans.stream()
+                .map(ContractPlan::getCadastrosUnidadesId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> unidadesMap = new HashMap<>();
+        if (!unidadeIds.isEmpty()) {
+            String inSql = String.join(",", Collections.nCopies(unidadeIds.size(), "?"));
+            jdbc.query(
+                    String.format("SELECT id, sigla FROM cadastros_unidades WHERE id IN (%s)", inSql),
+                    unidadeIds.toArray(),
+                    rs -> {
+                        unidadesMap.put(rs.getLong("id"), rs.getString("sigla"));
+                    }
+            );
+        }
+
+        for (ContractPlan plan : plans) {
+            if (plan.getCadastrosAreasId() != null) {
+                plan.setAreaSigla(areasMap.get(plan.getCadastrosAreasId()));
+            }
+            if (plan.getCadastrosUnidadesId() != null) {
+                plan.setUnidadeNome(unidadesMap.get(plan.getCadastrosUnidadesId()));
+            }
+        }
+    }
+
+    private void populateLastUserNotesBulk(List<ContractPlan> plans) {
+        if (plans.isEmpty()) return;
+        List<Long> planIds = plans.stream().map(ContractPlan::getId).toList();
+        List<ContractPlanNote> allUserNotes = noteRepository.findByContractPlanIdInAndIsSystemEventFalseOrderByCreatedAtAsc(planIds);
+        Map<Long, ContractPlanNote> lastNotesMap = new HashMap<>();
+        for (ContractPlanNote note : allUserNotes) {
+            lastNotesMap.put(note.getContractPlan().getId(), note); // Overwrites keeping the last one (since it's ordered by createdAt ASC)
+        }
+        for (ContractPlan plan : plans) {
+            plan.setLastUserNote(lastNotesMap.get(plan.getId()));
+        }
+    }
+
     public List<ContractPlan> findAll(Long pcaId, Integer status, String diretoriaSigla, Long userId) {
         validateAccess(userId, diretoriaSigla);
         List<ContractPlan> plans = pcaId != null
                 ? contractPlanRepository.findByPcaIdAndIsDeletedFalse(pcaId)
                 : contractPlanRepository.findByIsDeletedFalse();
 
-        plans.forEach(this::populateTransientFields);
+        populateTransientFieldsBulk(plans);
+        populateLastUserNotesBulk(plans);
 
         if (status != null) {
             plans = plans.stream().filter(p -> status.equals(p.getStatus())).toList();
@@ -145,6 +210,7 @@ public class ContractPlanService {
         plan.setEstimatedDate(parsedDate != null ? parsedDate : LocalDate.now());
         plan.setLoaReference(req.loaReference() != null ? req.loaReference() : "");
         plan.setProadNumber(req.proadNumber());
+        plan.setSituation("Em Instrução");
         plan.setCreatedAt(LocalDateTime.now());
         plan.setCreatedBy(userId);
 
@@ -155,7 +221,7 @@ public class ContractPlanService {
         ContractPlanNote note = new ContractPlanNote();
         note.setContractPlan(plan);
         note.setUserId(userId);
-        note.setIsSystemEvent(false);
+        note.setIsSystemEvent(true);
         note.setCreatedBy(resolveUserName(userId));
         note.setMessage(ipcStr + " criada e submetida à CCA.");
         note.setCreatedAt(LocalDateTime.now());
@@ -181,6 +247,12 @@ public class ContractPlanService {
             if (parsedDate != null) plan.setEstimatedDate(parsedDate);
         }
         if (req.loaReference() != null) plan.setLoaReference(req.loaReference());
+        if (req.situation() != null) {
+            if (!VALID_SITUATIONS.contains(req.situation())) {
+                throw new ApiException(400, "Situação inválida. Valores aceitos: " + VALID_SITUATIONS);
+            }
+            plan.setSituation(req.situation());
+        }
 
         plan.setUpdatedAt(LocalDateTime.now());
         plan.setUpdatedBy(userId);
@@ -302,7 +374,7 @@ public class ContractPlanService {
             ContractPlanNote note = new ContractPlanNote();
             note.setContractPlan(plan);
             note.setUserId(userId);
-            note.setIsSystemEvent(false);
+            note.setIsSystemEvent(true);
             note.setCreatedBy(userName);
             note.setMessage("Arquivo '" + originalFilename + "' foi anexado.");
             note.setCreatedAt(LocalDateTime.now());
@@ -348,7 +420,7 @@ public class ContractPlanService {
         ContractPlanNote note = new ContractPlanNote();
         note.setContractPlan(plan);
         note.setUserId(userId);
-        note.setIsSystemEvent(false);
+        note.setIsSystemEvent(true);
         note.setCreatedBy(userName);
         note.setMessage("Tipo do anexo '" + att.getFileName() + "' foi alterado para " + normalizedDocType + ".");
         note.setCreatedAt(LocalDateTime.now());
@@ -374,7 +446,7 @@ public class ContractPlanService {
         ContractPlanNote note = new ContractPlanNote();
         note.setContractPlan(plan);
         note.setUserId(userId);
-        note.setIsSystemEvent(false);
+        note.setIsSystemEvent(true);
         note.setCreatedBy(userName);
         note.setMessage("Arquivo '" + att.getFileName() + "' foi removido.");
         note.setCreatedAt(LocalDateTime.now());
@@ -389,7 +461,14 @@ public class ContractPlanService {
     }
     
     @Transactional
-    public ContractPlanNote addNote(Long planId, String message, Long userId, String userNameFallback) {
+    public ContractPlanNote addNote(Long planId, String message, String location, Long userId) {
+        if (message != null && message.length() > 300) {
+            throw new ApiException(400, "O recado excede o limite de 300 caracteres.");
+        }
+        if (location != null && location.length() > 100) {
+            throw new ApiException(400, "A localização excede o limite de 100 caracteres.");
+        }
+
         ContractPlan plan = findById(planId, userId);
         
         String userName = resolveUserName(userId);
@@ -398,6 +477,7 @@ public class ContractPlanService {
         note.setContractPlan(plan);
         note.setUserId(userId);
         note.setMessage(message);
+        note.setLocation(location);
         note.setIsSystemEvent(false);
         note.setCreatedAt(LocalDateTime.now());
         note.setCreatedBy(userName);

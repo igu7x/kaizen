@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface ContractPlanNoteRepository extends JpaRepository<ContractPlanNote, Long> {
     List<ContractPlanNote> findByContractPlanIdOrderByCreatedAtAsc(Long contractPlanId);
+    List<ContractPlanNote> findByContractPlanIdInAndIsSystemEventFalseOrderByCreatedAtAsc(List<Long> contractPlanIds);
 }

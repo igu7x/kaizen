@@ -41,6 +41,9 @@ public class ContractPlan {
     @Transient
     private String unidadeNome;
 
+    @Transient
+    private ContractPlanNote lastUserNote;
+
     @Column(name = "description", length = 100, nullable = false)
     private String description;
 
@@ -76,6 +79,9 @@ public class ContractPlan {
 
     @Column(name = "step")
     private Integer step;
+
+    @Column(name = "situation", length = 20)
+    private String situation = "Em Instrução";
 
     @Column(name = "proad_number", length = 17)
     private String proadNumber;

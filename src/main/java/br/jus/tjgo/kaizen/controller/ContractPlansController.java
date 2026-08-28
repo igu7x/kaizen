@@ -57,6 +57,7 @@ public class ContractPlansController {
                 plan.getPriorityLevel(),
                 plan.getStatus(),
                 plan.getStep(),
+                plan.getSituation(),
                 plan.getEstimatedDate() != null ? plan.getEstimatedDate().toString() : null,
                 plan.getLoaReference(),
                 plan.getProadNumber(),
@@ -65,7 +66,8 @@ public class ContractPlansController {
                 plan.getMembers().stream().map(this::toMemberDto).toList(),
                 plan.getAttachments().stream()
                         .filter(a -> !a.getIsDeleted())
-                        .map(this::toAttachmentDto).toList()
+                        .map(this::toAttachmentDto).toList(),
+                plan.getLastUserNote() != null ? toNoteDto(plan.getLastUserNote()) : null
         );
     }
 
@@ -98,6 +100,7 @@ public class ContractPlansController {
                 n.getId(),
                 n.getUserId(),
                 n.getMessage(),
+                n.getLocation(),
                 n.getIsSystemEvent(),
                 n.getCreatedAt() != null ? n.getCreatedAt().toString() : null,
                 n.getCreatedBy()
@@ -284,8 +287,8 @@ public class ContractPlansController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
             @RequestHeader("x-user-id") Long userId) {
-        // TODO: ideally user name should be fetched from the user service, using "Usuário" temporarily
-        return toNoteDto(contractPlanService.addNote(id, body.get("message"), userId, "Usuário " + userId));
+        String location = body.get("location");
+        return toNoteDto(contractPlanService.addNote(id, body.get("message"), location, userId));
     }
 
     @DeleteMapping("/{id}/notes/{noteId}")
