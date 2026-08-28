@@ -61,7 +61,8 @@ public class PcaService {
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_areas.nome as diretoria_nome, " +
             "p.description, " +
-            "cadastro_unidades.nome as area_demandante_nome, ";
+            "cadastro_unidades.nome as area_demandante_nome, " +
+            "(SELECT COUNT(*) FROM contract_plans cp WHERE cp.pca_id = p.id AND (cp.is_deleted = FALSE OR cp.is_deleted IS NULL)) as contract_plans_count, ";
 
     private static final String SELECT_COLUMNS_SNAPSHOT =
             "SELECT p.original_pca_id as id, p.code as item_pca, " +
@@ -75,7 +76,8 @@ public class PcaService {
             "p.origem_ciclo_id, p.origem_proad, p.origem_finalidade, " +
             "cadastro_areas.nome as diretoria_nome, " +
             "p.description, " +
-            "cadastro_unidades.nome as area_demandante_nome, ";
+            "cadastro_unidades.nome as area_demandante_nome, " +
+            "(SELECT COUNT(*) FROM contract_plans cp WHERE cp.pca_id = p.original_pca_id AND (cp.is_deleted = FALSE OR cp.is_deleted IS NULL)) as contract_plans_count, ";
 
     private static final String FROM_JOINS =
             "FROM pcas p " +

@@ -159,6 +159,31 @@ public class StorageService {
     }
 
     /**
+     * Faz upload de documento do Planejamento da Contratação via streaming. Retorna a {@code fileKey} gerada.
+     *
+     * <p>Padrão de key: {@code {ambiente}/contract-plans/{planId}/{uuid}_{filename}}.
+     */
+    public String uploadContractPlan(Long planId, String documentType, String originalFilename,
+                                     String contentType, long fileSize, InputStream stream) {
+        String uuid = UUID.randomUUID().toString();
+        String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9._\\-]", "_");
+        String fileKey = String.format("%s/contract-plans/%d/%s_%s",
+                props.ambiente(), planId, uuid, safeFilename);
+
+        PutObjectRequest putReq = PutObjectRequest.builder()
+                .bucket(props.bucket())
+                .key(fileKey)
+                .contentType(contentType != null ? contentType : "application/octet-stream")
+                .contentLength(fileSize)
+                .build();
+
+        s3.putObject(putReq, RequestBody.fromInputStream(stream, fileSize));
+
+        log.info("[Storage] Upload ContractPlan OK → bucket={}, key={}, size={}", props.bucket(), fileKey, fileSize);
+        return fileKey;
+    }
+
+    /**
      * Gera fileKey com isolamento de ambiente e UUID anti-colisão/IDOR.
      *
      * <p>Formato: {@code {ambiente}/atas-comite/{cicloId}/{comite}/{uuid}_{filename}}

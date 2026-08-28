@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,8 +29,17 @@ public class ContractPlan {
     @Column(name = "object_name", columnDefinition = "TEXT", nullable = false)
     private String objectName;
 
-    @Column(name = "area_acronym", length = 20)
-    private String areaAcronym;
+    @Column(name = "cadastros_areas_id")
+    private Long cadastrosAreasId;
+
+    @Column(name = "cadastros_unidades_id")
+    private Long cadastrosUnidadesId;
+
+    @Transient
+    private String areaSigla;
+
+    @Transient
+    private String unidadeNome;
 
     @Column(name = "description", length = 100, nullable = false)
     private String description;
@@ -65,41 +77,19 @@ public class ContractPlan {
     @Column(name = "step")
     private Integer step;
 
+    @Column(name = "proad_number", length = 17)
+    private String proadNumber;
+
+    @Column(name = "ipc_code", length = 20)
+    private String ipcCode;
+
     @Column(name = "financial_resource_type")
     private Integer financialResourceType;
 
     @Column(name = "loa_reference", length = 64, nullable = false)
     private String loaReference;
 
-    @Column(name = "dod_step")
-    private Integer dodStep;
 
-    @Column(name = "dod_step_range")
-    private Integer dodStepRange;
-
-    @Column(name = "etp_step")
-    private Integer etpStep;
-
-    @Column(name = "etp_step_range")
-    private Integer etpStepRange;
-
-    @Column(name = "ar_step")
-    private Integer arStep;
-
-    @Column(name = "ar_step_range")
-    private Integer arStepRange;
-
-    @Column(name = "tr_step")
-    private Integer trStep;
-
-    @Column(name = "tr_step_range")
-    private Integer trStepRange;
-
-    @Column(name = "am_step")
-    private Integer amStep;
-
-    @Column(name = "am_step_range")
-    private Integer amStepRange;
 
     @Column(name = "step_updated_at")
     private LocalDateTime stepUpdatedAt;
@@ -127,4 +117,10 @@ public class ContractPlan {
 
     @OneToMany(mappedBy = "contractPlan", cascade = CascadeType.ALL)
     private List<Contract> contracts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "contractPlan", cascade = CascadeType.ALL)
+    private List<ContractPlanMember> members = new ArrayList<>();
+
+    @OneToMany(mappedBy = "contractPlan", cascade = CascadeType.ALL)
+    private List<ContractPlanAttachment> attachments = new ArrayList<>();
 }
