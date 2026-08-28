@@ -1052,6 +1052,7 @@ export interface ContractPlan {
   priorityLevel?: number;
   status?: number;
   step?: number;
+  situation?: string;
   estimatedDate?: string;
   loaReference: string;
   proadNumber?: string;
@@ -1060,6 +1061,7 @@ export interface ContractPlan {
   members?: ContractPlanMember[];
   attachments?: ContractPlanAttachment[];
   notes?: ContractPlanNote[];
+  lastUserNote?: ContractPlanNote;
 }
 
 export interface ContractPlanMember {
@@ -1086,6 +1088,7 @@ export interface ContractPlanNote {
   id: number;
   userId?: number;
   message: string;
+  location?: string;
   isSystemEvent: boolean;
   createdAt: string;
   createdBy?: string;

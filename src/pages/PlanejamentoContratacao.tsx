@@ -1,6 +1,6 @@
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
-import { Trash2, Download, Edit, ArrowLeft } from "lucide-react";
+import { Trash2, Download, Edit, ArrowLeft, Search, ArrowUp, ArrowDown, ArrowUpDown, FileText } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { contractPlanService } from "@/services/contractPlanService";
 import pcaApi from "@/services/pcaApi";
@@ -59,8 +59,24 @@ export default function PlanejamentoContratacao() {
   // Notes (Interlocução) State
   const [notes, setNotes] = useState<ContractPlanNote[]>([]);
   const [newRecordText, setNewRecordText] = useState("");
+  const [newRecordLocation, setNewRecordLocation] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const notesEndRef = useRef<HTMLDivElement>(null);
+
+  // Situação State
+  const [tempSituation, setTempSituation] = useState<string>("");
+
+  // Busca e Ordenação
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const notesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -218,16 +234,17 @@ export default function PlanejamentoContratacao() {
         estimatedValueCents: cents,
         priorityLevel: activePlan.priorityLevel || 0,
         estimatedDate: activePlan.estimatedDate,
-        loaReference: activePlan.loaReference || ""
+        loaReference: activePlan.loaReference || "",
+        situation: tempSituation || activePlan.situation || 'Em Instrução'
       };
 
       const updatedPlan = await contractPlanService.update(activePlan.id, payload);
       setActivePlan(updatedPlan);
       setIsEditingValue(false);
-      toast.success("Valor estimado atualizado!");
+      toast.success("Dados da demanda atualizados!");
     } catch (error) {
-      console.error("Erro ao atualizar valor:", error);
-      toast.error("Erro ao atualizar o valor estimado.");
+      console.error("Erro ao atualizar dados:", error);
+      toast.error("Erro ao atualizar dados da demanda.");
     } finally {
       setSavingValue(false);
     }
@@ -292,8 +309,9 @@ export default function PlanejamentoContratacao() {
     if (!activePlan || !newRecordText.trim()) return;
     try {
       setSavingNote(true);
-      await contractPlanService.addNoteRecord(activePlan.id, newRecordText.trim());
+      await contractPlanService.addNoteRecord(activePlan.id, newRecordText.trim(), newRecordLocation.trim() || undefined);
       setNewRecordText("");
+      setNewRecordLocation("");
       const fetchedNotes = await contractPlanService.getNotes(activePlan.id);
       setNotes(fetchedNotes || []);
       toast.success("Registro adicionado com sucesso.");
@@ -332,11 +350,9 @@ export default function PlanejamentoContratacao() {
     }
   };
 
-  const getStatusTag = (step: number = 0) => {
-    if (step === 0) return <span className="inline-block text-[11px] font-semibold rounded-full px-2.5 py-0.5 whitespace-nowrap bg-[#e3f2fd] text-[#1565c0]">Submetida à CCA</span>;
-    if (step === 1) return <span className="inline-block text-[11px] font-semibold rounded-full px-2.5 py-0.5 whitespace-nowrap bg-[#ede7f6] text-[#5e35b1]">Em Análise Preliminar</span>;
-    if (step === 2) return <span className="inline-block text-[11px] font-semibold rounded-full px-2.5 py-0.5 whitespace-nowrap bg-[#fdecea] text-[#b3261e]">Devolvida ao Demandante</span>;
-    return <span className="inline-block text-[11px] font-semibold rounded-full px-2.5 py-0.5 whitespace-nowrap bg-[#e8f5e9] text-[#2e7d32]">Em Instrução</span>;
+  const getSituationTag = (situation?: string) => {
+    if (situation === 'Concluído') return <span className="inline-block text-[11px] font-semibold rounded-full px-2.5 py-0.5 whitespace-nowrap bg-[#e8f5e9] text-[#2e7d32]">Concluído</span>;
+    return <span className="inline-block text-[11px] font-semibold rounded-full px-2.5 py-0.5 whitespace-nowrap bg-[#e3f2fd] text-[#1565c0]">Em Instrução</span>;
   };
 
   const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '-';
@@ -346,7 +362,37 @@ export default function PlanejamentoContratacao() {
     return `${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
   };
 
-  const filteredPlans = plans.filter(p => selectedUnit === "Todas as unidades" || p.unidadeNome === selectedUnit || p.areaSigla === selectedUnit);
+  const baseFilteredPlans = plans.filter(p => selectedUnit === "Todas as unidades" || p.unidadeNome === selectedUnit || p.areaSigla === selectedUnit);
+
+  let processedPlans = [...baseFilteredPlans];
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    processedPlans = processedPlans.filter(p =>
+      (p.ipcCode || `IPC-${p.pcaYear || "2026"}-00${p.id}`).toLowerCase().includes(q) ||
+      (p.objectName || "").toLowerCase().includes(q)
+    );
+  }
+
+  if (sortConfig !== null) {
+    processedPlans.sort((a, b) => {
+      let aValue: any = a[sortConfig.key as keyof ContractPlan];
+      let bValue: any = b[sortConfig.key as keyof ContractPlan];
+
+      if (sortConfig.key === 'ipcCode') {
+        aValue = a.ipcCode || `IPC-${a.pcaYear || "2026"}-00${a.id}`;
+        bValue = b.ipcCode || `IPC-${b.pcaYear || "2026"}-00${b.id}`;
+      }
+
+      if (!aValue) aValue = '';
+      if (!bValue) bValue = '';
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const filteredPlans = processedPlans;
 
   const formatCurrency = (cents?: number) => {
     if (cents === undefined || cents === null) return "R$ 0,00";
@@ -364,10 +410,15 @@ export default function PlanejamentoContratacao() {
     setTempEstimatedValue(formatted);
   };
 
-  const recebidasCount = plans.filter(p => p.step === 0).length;
-  const analiseCount = plans.filter(p => p.step === 1).length;
-  const devolvidasCount = plans.filter(p => p.step === 2).length;
-  const instrucaoCount = plans.filter(p => p.step === 3 || (p.step !== 0 && p.step !== 1 && p.step !== 2)).length;
+  const emInstrucaoCount = plans.filter(p => !p.situation || p.situation === 'Em Instrução').length;
+  const concluidoCount = plans.filter(p => p.situation === 'Concluído').length;
+
+  const renderSortIcon = (key: string) => {
+    if (sortConfig?.key !== key) return <ArrowUpDown className="inline-block ml-1 h-3 w-3 text-[#a5c8a7]" />;
+    return sortConfig.direction === 'asc'
+      ? <ArrowUp className="inline-block ml-1 h-3 w-3 text-[#2e7d32]" />
+      : <ArrowDown className="inline-block ml-1 h-3 w-3 text-[#2e7d32]" />;
+  };
 
   return (
     <Layout>
@@ -377,119 +428,155 @@ export default function PlanejamentoContratacao() {
         {activeScreen === "lista" && (
           <div className="animate-in fade-in duration-300">
             <Breadcrumbs items={[{ label: "Planejamento da Contratação" }]} className="mb-2.5" />
-            <div className="flex items-center gap-4 mb-6 flex-wrap">
+            <div className="flex justify-between items-center mb-6">
               <div className="flex-1"></div>
-              <select
-                className="border border-[#dde4ec] rounded-[7px] px-2.5 py-2 text-[13px] bg-white outline-none focus:border-[#2e7d32] focus:ring-2 focus:ring-[#a5c8a7] transition-all"
-                value={selectedUnit}
-                onChange={e => setSelectedUnit(e.target.value)}
-              >
-                <option>Todas as unidades</option>
-                <option>DITI</option>
-                <option>DSTI</option>
-                <option>GEJUT</option>
-                <option>SGJT</option>
-              </select>
-              {isSuperAdmin && (
-                <button
-                  onClick={openCreateModal}
-                  className="border-0 bg-[#2e7d32] rounded-[7px] px-[18px] py-[10px] text-[13.5px] text-white font-semibold cursor-pointer hover:bg-[#276b2b] transition-colors shadow-sm"
+              <div className="flex items-center gap-4">
+                <select
+                  className="h-10 w-44 bg-white border border-[#dde4ec] text-[13px] text-[#26313d] rounded-[10px] px-3 outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32] transition-all shadow-sm"
+                  value={selectedUnit}
+                  onChange={e => setSelectedUnit(e.target.value)}
                 >
-                  + Iniciar Contratação
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white border border-[#dde4ec] rounded-[10px] p-4 shadow-sm">
-                <div className="text-2xl font-bold text-[#1565c0]">{recebidasCount}</div>
-                <div className="text-xs text-[#5b6b7c] mt-1">Recebidas — aguardando análise</div>
-              </div>
-              <div className="bg-white border border-[#dde4ec] rounded-[10px] p-4 shadow-sm">
-                <div className="text-2xl font-bold text-[#b26a00]">{analiseCount}</div>
-                <div className="text-xs text-[#5b6b7c] mt-1">Em análise preliminar</div>
-              </div>
-              <div className="bg-white border border-[#dde4ec] rounded-[10px] p-4 shadow-sm">
-                <div className="text-2xl font-bold text-[#16324f]">{devolvidasCount}</div>
-                <div className="text-xs text-[#5b6b7c] mt-1">Devolvidas ao demandante</div>
-              </div>
-              <div className="bg-white border border-[#dde4ec] rounded-[10px] p-4 shadow-sm">
-                <div className="text-2xl font-bold text-[#2e7d32]">{instrucaoCount}</div>
-                <div className="text-xs text-[#5b6b7c] mt-1">Em instrução</div>
+                  <option>Todas as unidades</option>
+                  <option>DITI</option>
+                  <option>DSTI</option>
+                  <option>GEJUT</option>
+                  <option>SGJT</option>
+                </select>
+                {isSuperAdmin && (
+                  <button
+                    onClick={openCreateModal}
+                    className="bg-[#2e7d32] border-0 rounded-xl px-5 py-2.5 text-sm text-white font-semibold cursor-pointer hover:bg-[#276b2b] transition-colors shadow-sm"
+                  >
+                    + Instruir Planejamento
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="bg-white border border-[#dde4ec] rounded-[10px] overflow-hidden shadow-sm">
-              <header className="px-6 py-4 border-b border-[#dde4ec] flex items-center">
-                <h3 className="text-[14.5px] text-[#16324f] font-semibold">Instruções de Planejamento da Contratação</h3>
-              </header>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-[13px]">
-                  <thead>
-                    <tr>
-                      <th className="text-[11.5px] uppercase tracking-[.5px] text-[#5b6b7c] px-3 py-2.5 border-b border-[#dde4ec] font-semibold bg-white">IPC</th>
-                      <th className="text-[11.5px] uppercase tracking-[.5px] text-[#5b6b7c] px-3 py-2.5 border-b border-[#dde4ec] font-semibold bg-white">Objeto</th>
-                      <th className="text-[11.5px] uppercase tracking-[.5px] text-[#5b6b7c] px-3 py-2.5 border-b border-[#dde4ec] font-semibold bg-white">Unidade</th>
-                      <th className="text-[11.5px] uppercase tracking-[.5px] text-[#5b6b7c] px-3 py-2.5 border-b border-[#dde4ec] font-semibold bg-white">Item de PCA</th>
-                      <th className="text-[11.5px] uppercase tracking-[.5px] text-[#5b6b7c] px-3 py-2.5 border-b border-[#dde4ec] font-semibold bg-white">Recebida em</th>
-                      <th className="text-[11.5px] uppercase tracking-[.5px] text-[#5b6b7c] px-3 py-2.5 border-b border-[#dde4ec] font-semibold bg-white">Situação</th>
-                      <th className="text-[11.5px] uppercase tracking-[.5px] text-[#5b6b7c] px-3 py-2.5 border-b border-[#dde4ec] font-semibold bg-white"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr>
-                        <td colSpan={7} className="px-3 py-8 text-center text-[#5b6b7c]">
-                          <div className="flex justify-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#2e7d32]"></div></div>
-                        </td>
-                      </tr>
-                    ) : filteredPlans.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-3 py-8 text-center text-[#5b6b7c]">Nenhuma demanda encontrada na fila.</td>
-                      </tr>
-                    ) : (
-                      filteredPlans.map(plan => (
-                        <tr key={plan.id} className="hover:bg-[#f8fafc] group transition-colors cursor-pointer" onClick={() => {
-                          setSelectedPlanId(plan.id);
-                          setActiveScreen("detalhe");
-                        }}>
-                          <td className="px-3 py-2.5 border-b border-[#eef2f6] font-bold text-[#16324f] whitespace-nowrap">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-white border border-[#dde4ec] rounded-[10px] p-4 shadow-sm">
+                <div className="text-2xl font-bold text-[#1565c0]">{emInstrucaoCount}</div>
+                <div className="text-xs text-[#5b6b7c] mt-1">Em Instrução</div>
+              </div>
+              <div className="bg-white border border-[#dde4ec] rounded-[10px] p-4 shadow-sm">
+                <div className="text-2xl font-bold text-[#2e7d32]">{concluidoCount}</div>
+                <div className="text-xs text-[#5b6b7c] mt-1">Concluídos</div>
+              </div>
+            </div>
+
+            <div className="bg-gray-300 rounded-2xl border border-gray-400 overflow-hidden shadow-sm">
+              <div className="px-6 py-4 bg-gray-200 border-b border-gray-400">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <h3 className="text-lg font-bold text-gray-800">Instruções de Planejamento da Contratação</h3>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar IPC ou objeto..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-4 h-10 w-60 bg-white border border-gray-300 text-sm rounded-xl focus:border-slate-500 focus:ring-slate-500 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="hidden lg:flex items-center text-sm font-bold text-gray-800">
+                    <span className="w-32 text-center cursor-pointer hover:text-gray-600 select-none whitespace-nowrap" onClick={() => handleSort('areaSigla')}>Demandante {renderSortIcon('areaSigla')}</span>
+                    <span className="w-28 text-center cursor-pointer hover:text-gray-600 select-none whitespace-nowrap" onClick={() => handleSort('pcaCode')}>Item de PCA {renderSortIcon('pcaCode')}</span>
+                    <span className="w-28 text-center cursor-pointer hover:text-gray-600 select-none whitespace-nowrap" onClick={() => handleSort('estimatedDate')}>Recebida em {renderSortIcon('estimatedDate')}</span>
+                    <span className="w-28 text-center cursor-pointer hover:text-gray-600 select-none whitespace-nowrap" onClick={() => handleSort('situation')}>Situação {renderSortIcon('situation')}</span>
+                    <span className="w-64 text-center select-none">Acompanhamento</span>
+                    <span className="w-8"></span>
+                  </div>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-16 text-gray-400 bg-white">
+                  Carregando demandas...
+                </div>
+              ) : filteredPlans.length === 0 ? (
+                <div className="py-20 text-center bg-white">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
+                    <FileText className="h-10 w-10 text-gray-400" />
+                  </div>
+                  <p className="text-gray-700 font-semibold text-lg">
+                    Nenhuma demanda encontrada
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white">
+                  {filteredPlans.map((plan, index) => (
+                    <div
+                      key={plan.id}
+                      className={`group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-all cursor-pointer ${index !== filteredPlans.length - 1 ? "border-b border-gray-100" : ""}`}
+                      onClick={() => {
+                        setSelectedPlanId(plan.id);
+                        setActiveScreen("detalhe");
+                      }}
+                    >
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-600/30">
+                          <FileText className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-gray-900 font-semibold text-base truncate group-hover:text-blue-600 transition-colors">
                             {plan.ipcCode || `IPC-${plan.pcaYear || "2026"}-00${plan.id}`}
-                          </td>
-                          <td className="px-3 py-2.5 border-b border-[#eef2f6] text-[#26313d]">{plan.objectName || "Sem Objeto"}</td>
-                          <td className="px-3 py-2.5 border-b border-[#eef2f6] text-[#26313d]">{plan.areaSigla || plan.cadastrosAreasId || "-"}</td>
-                          <td className="px-3 py-2.5 border-b border-[#eef2f6] text-[#5b6b7c] text-[12px]">
-                            Item {plan.pcaCode}/{plan.pcaYear}
-                          </td>
-                          <td className="px-3 py-2.5 border-b border-[#eef2f6] text-[#5b6b7c] text-[12px]">
-                            {plan.estimatedDate ? new Date(plan.estimatedDate).toLocaleDateString('pt-BR') : '14/08/2026'}
-                          </td>
-                          <td className="px-3 py-2.5 border-b border-[#eef2f6]">
-                            {getStatusTag(plan.step)}
-                          </td>
-                          <td className="px-3 py-2.5 border-b border-[#eef2f6] text-right">
-                            <div className="flex gap-2 justify-end">
-                              {isSuperAdmin && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeletePlanId(plan.id);
-                                    setIsConfirmDeletePlanOpen(true);
-                                  }}
-                                  className="text-[#b3261e] hover:bg-[#fdecea] p-1.5 rounded-full transition-colors"
-                                  title="Excluir"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                          </h4>
+                          <span className="text-sm text-gray-500 truncate block mt-1">
+                            {plan.objectName || "Sem Objeto"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="hidden lg:flex items-center text-sm">
+                        <div className="w-32 text-center text-gray-700 font-medium">{plan.areaSigla || plan.cadastrosAreasId || "-"}</div>
+                        <div className="w-28 text-center text-gray-700 font-medium">Item {plan.pcaCode}/{plan.pcaYear}</div>
+                        <div className="w-28 text-center text-gray-500">{plan.estimatedDate ? new Date(plan.estimatedDate).toLocaleDateString('pt-BR') : '14/08/2026'}</div>
+                        <div className="w-28 flex justify-center">{getSituationTag(plan.situation)}</div>
+                        <div className="w-64 px-4" onClick={(e) => e.stopPropagation()}>
+                          {(() => {
+                            const lastNote = plan.lastUserNote;
+                            if (!lastNote) return <span className="text-[12px] text-gray-400 italic">Sem registros</span>;
+                            return (
+                              <div className="w-full">
+                                <div className="flex items-center gap-1.5 mb-1 truncate">
+                                  <span className="font-semibold text-gray-800 text-[11px]">{lastNote.createdBy || "Usuário"}</span>
+                                  <span className="text-[10.5px] text-gray-500">- {formatDateTime(lastNote.createdAt)}</span>
+                                </div>
+                                <p className="text-[12px] text-gray-700 truncate" title={lastNote.message}>
+                                  {lastNote.message}
+                                </p>
+                                {lastNote.location && (
+                                  <p className="text-[11px] text-gray-500 mt-0.5 truncate" title={`Localização: ${lastNote.location}`}>
+                                    Localização: <span className="font-medium text-gray-700">{lastNote.location}</span>
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        <div className="w-8 flex justify-end">
+                          {isSuperAdmin && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletePlanId(plan.id);
+                                setIsConfirmDeletePlanOpen(true);
+                              }}
+                              className="text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                              title="Excluir"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -524,7 +611,7 @@ export default function PlanejamentoContratacao() {
                 <ArrowLeft size={16} /> Voltar
               </button>
               <h1 className="text-[20px] text-[#16324f] font-[650] tracking-tight">{activePlan.ipcCode || `IPC-${activePlan.pcaYear || "2026"}-00${activePlan.id}`} — {activePlan.objectName || "Sem Objeto"}</h1>
-              {getStatusTag(activePlan.step)}
+              {getSituationTag(activePlan.situation)}
               <div className="flex-1"></div>
             </div>
 
@@ -537,6 +624,7 @@ export default function PlanejamentoContratacao() {
                       <button
                         onClick={() => {
                           setTempEstimatedValue(formatCurrency(activePlan.estimatedValueCents).replace('R$ ', ''));
+                          setTempSituation(activePlan.situation || 'Em Instrução');
                           setIsEditingValue(true);
                         }}
                         className="px-3 py-1.5 border border-[#5b6b7c] text-[#5b6b7c] rounded-[5px] font-medium hover:bg-[#f4f7fa] text-[12.5px] bg-transparent cursor-pointer transition-colors"
@@ -592,6 +680,18 @@ export default function PlanejamentoContratacao() {
                         placeholder="0,00"
                       />
                     )}
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-semibold text-[#16324f] mb-2">Situação</label>
+                    <select
+                      value={isEditingValue ? tempSituation : (activePlan.situation || 'Em Instrução')}
+                      onChange={(e) => setTempSituation(e.target.value)}
+                      disabled={!isEditingValue}
+                      className="w-full border border-[#dde4ec] rounded-[7px] px-4 py-3 text-[14px] bg-white text-[#26313d] outline-none focus:border-[#2e7d32] focus:ring-2 focus:ring-[#a5c8a7] disabled:bg-[#f4f7fa] disabled:text-[#43546a] disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <option value="Em Instrução">Em Instrução</option>
+                      <option value="Concluído">Concluído</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -723,12 +823,17 @@ export default function PlanejamentoContratacao() {
                 <div ref={notesContainerRef} className="max-h-[300px] overflow-y-auto pr-2 mb-4 scrollbar-thin scrollbar-thumb-[#dde4ec] scrollbar-track-transparent">
                   <ul className="list-none ml-3">
                     {notes.map(note => (
-                      <li key={note.id} className="relative pl-9 pb-6 before:content-[''] before:absolute before:-left-[9px] before:top-1 before:w-[16px] before:h-[16px] before:rounded-full before:bg-white before:border-[4px] before:border-[#2e7d32] after:content-[''] after:absolute after:-left-[2px] after:top-[20px] after:w-[2px] after:h-[calc(100%-16px)] after:bg-[#dde4ec] last:after:hidden">
+                      <li key={note.id} className={`relative pl-9 pb-6 before:content-[''] before:absolute before:-left-[9px] before:top-1 before:w-[16px] before:h-[16px] before:rounded-full before:bg-white before:border-[4px] ${note.isSystemEvent ? 'before:border-gray-400' : 'before:border-[#2e7d32]'} after:content-[''] after:absolute after:-left-[2px] after:top-[20px] after:w-[2px] after:h-[calc(100%-16px)] after:bg-[#dde4ec] last:after:hidden`}>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-[#16324f] text-[13.5px]">{note.isSystemEvent ? "Sistema" : note.createdBy || "Usuário"}</span>
                           <span className="text-[12px] text-[#5b6b7c]">{formatDateTime(note.createdAt)}</span>
                         </div>
                         <p className="text-[14px] mt-1.5 text-[#26313d] whitespace-pre-wrap">{note.message}</p>
+                        {note.location && (
+                          <p className="text-[12.5px] mt-1 text-[#5b6b7c]">
+                            Localização: <span className="font-medium text-[#16324f]">{note.location}</span>
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -738,12 +843,31 @@ export default function PlanejamentoContratacao() {
                 {isSuperAdmin && (
                   <div className="mt-2 mb-6 relative">
                     <label className="block text-[13px] font-semibold text-[#16324f] mb-2">Novo registro</label>
-                    <textarea
-                      value={newRecordText}
-                      onChange={(e) => setNewRecordText(e.target.value)}
-                      className="w-full border border-[#dde4ec] rounded-[7px] px-4 py-3 text-[14px] bg-white text-[#26313d] outline-none focus:border-[#2e7d32] focus:ring-2 focus:ring-[#a5c8a7] min-h-[100px] resize-y"
-                      placeholder="Registrar despacho, solicitação ao demandante ou anotação de análise..."
-                    ></textarea>
+                    <div className="relative mb-3">
+                      <textarea
+                        value={newRecordText}
+                        onChange={(e) => setNewRecordText(e.target.value)}
+                        maxLength={300}
+                        className="w-full border border-[#dde4ec] rounded-[7px] px-4 pt-3 pb-8 text-[14px] bg-white text-[#26313d] outline-none focus:border-[#2e7d32] focus:ring-2 focus:ring-[#a5c8a7] min-h-[100px] resize-y"
+                        placeholder="Registrar despacho, solicitação ao demandante ou anotação de análise..."
+                      ></textarea>
+                      <div className="absolute bottom-2 right-3 text-[11px] text-gray-400 pointer-events-none">
+                        {newRecordText.length}/300
+                      </div>
+                    </div>
+                    <label className="block text-[13px] font-semibold text-[#16324f] mb-2">Localização do Processo</label>
+                    <div className="relative">
+                      <input
+                        value={newRecordLocation}
+                        onChange={(e) => setNewRecordLocation(e.target.value)}
+                        maxLength={100}
+                        className="w-full border border-[#dde4ec] rounded-[7px] px-4 py-3 pr-24 text-[14px] bg-white text-[#26313d] outline-none focus:border-[#2e7d32] focus:ring-2 focus:ring-[#a5c8a7]"
+                        placeholder="Indique a localização do processo, a exemplo: (CCA/GEJUT)"
+                      />
+                      <div className="absolute top-1/2 -translate-y-1/2 right-3 text-[11px] text-gray-400 pointer-events-none">
+                        {newRecordLocation.length}/100
+                      </div>
+                    </div>
                     <div className="flex justify-end mt-2">
                       <button onClick={handleAddNote} disabled={savingNote || !newRecordText.trim()} className="border-0 bg-[#2e7d32] rounded-[7px] px-[16px] py-[8px] text-[13px] text-white font-semibold cursor-pointer hover:bg-[#276b2b] transition-colors disabled:opacity-50">
                         {savingNote ? "Registrando..." : "Registrar"}
@@ -833,9 +957,16 @@ export default function PlanejamentoContratacao() {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  if (attachmentToRemove) {
-                    setDeletedAttachmentIds(prev => [...prev, attachmentToRemove]);
+                onClick={async () => {
+                  if (attachmentToRemove && activePlan) {
+                    try {
+                      await contractPlanService.deleteAttachment(activePlan.id, attachmentToRemove);
+                      setAttachments(prev => prev.filter(a => a.id !== attachmentToRemove));
+                      toast.success("Documento removido com sucesso!");
+                    } catch (error) {
+                      console.error("Erro ao remover documento:", error);
+                      toast.error("Erro ao remover documento.");
+                    }
                   }
                   setIsConfirmRemoveOpen(false);
                   setAttachmentToRemove(null);

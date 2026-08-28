@@ -78,8 +78,8 @@ export const contractPlanService = {
     return apiClient.get(`/api/contract-plans/${id}/notes`, { headers: getUserHeaders() });
   },
 
-  addNoteRecord: async (id: number, message: string): Promise<any> => {
-    return apiClient.post(`/api/contract-plans/${id}/notes`, { message }, { headers: getUserHeaders() });
+  addNoteRecord: async (id: number, message: string, location?: string): Promise<any> => {
+    return apiClient.post(`/api/contract-plans/${id}/notes`, { message, location: location || undefined }, { headers: getUserHeaders() });
   },
 
   deleteNoteRecord: async (id: number, noteId: number): Promise<void> => {
