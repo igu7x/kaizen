@@ -1062,6 +1062,7 @@ export interface ContractPlan {
   attachments?: ContractPlanAttachment[];
   notes?: ContractPlanNote[];
   lastUserNote?: ContractPlanNote;
+  pcaContractType?: string;
 }
 
 export interface ContractPlanMember {
