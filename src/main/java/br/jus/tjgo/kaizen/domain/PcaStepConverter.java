@@ -20,10 +20,10 @@ public class PcaStepConverter implements AttributeConverter<Pca.PcaStepEnum, Str
             return null;
         }
         for (Pca.PcaStepEnum e : Pca.PcaStepEnum.values()) {
-            if (e.getValue().equals(dbData)) {
+            if (e.getValue().equals(dbData) || e.name().equals(dbData)) {
                 return e;
             }
         }
-        throw new IllegalArgumentException("Valor desconhecido no banco de dados para PcaStepEnum: " + dbData);
+        return null; // Retorna null ao invés de quebrar a aplicação caso encontre lixo no banco
     }
 }

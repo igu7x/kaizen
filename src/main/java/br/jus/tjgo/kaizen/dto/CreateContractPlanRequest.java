@@ -1,8 +1,7 @@
 package br.jus.tjgo.kaizen.dto;
 
 public record CreateContractPlanRequest(
-        String pcaCode,
-        String pcaYear,
+        Long pcaId,
         String objectName,
         Long cadastrosAreasId,
         Long cadastrosUnidadesId,

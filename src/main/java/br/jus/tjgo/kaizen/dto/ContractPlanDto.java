@@ -26,7 +26,8 @@ public record ContractPlanDto(
         int contractsCount,
         List<ContractPlanMemberDto> members,
         List<ContractPlanAttachmentDto> attachments,
-        ContractPlanNoteDto lastUserNote
+        ContractPlanNoteDto lastUserNote,
+        String pcaContractType
 ) {
 
     public record ContractPlanMemberDto(

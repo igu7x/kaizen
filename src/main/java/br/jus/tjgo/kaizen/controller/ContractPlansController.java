@@ -67,7 +67,8 @@ public class ContractPlansController {
                 plan.getAttachments().stream()
                         .filter(a -> !a.getIsDeleted())
                         .map(this::toAttachmentDto).toList(),
-                plan.getLastUserNote() != null ? toNoteDto(plan.getLastUserNote()) : null
+                plan.getLastUserNote() != null ? toNoteDto(plan.getLastUserNote()) : null,
+                plan.getPca() != null && plan.getPca().getContractType() != null ? plan.getPca().getContractType().getValue() : null
         );
     }
 
