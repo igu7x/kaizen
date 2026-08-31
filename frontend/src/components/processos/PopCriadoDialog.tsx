@@ -27,7 +27,7 @@ import {
   PopCriado,
   PopCriadoInput,
 } from "@/services/popsCriadosApi";
-import { areasApi, Area, Unidade } from "@/services/areasApi";
+import { areasApi, Area } from "@/services/areasApi";
 import {
   processosNegocioApi,
   ProcessoNegocio,
@@ -89,12 +89,7 @@ export function PopCriadoDialog({
   const [unidades, setUnidades] = useState<string[]>([]);
   const [macroprocessos, setMacroprocessos] = useState<string[]>([]);
   const [processos, setProcessos] = useState<ProcessoNegocio[]>([]);
-  /**
-   * Cadastro de unidades por inteiro (o estado `unidades` acima guarda só os nomes, para o
-   * combobox). Precisamos dos objetos para resolver o "Gestor do Processo": o responsável do
-   * processo aponta a unidade por `unidade_id`, e o NOME da pessoa mora em `unidade.responsavel`.
-   */
-  const [unidadesCad, setUnidadesCad] = useState<Unidade[]>([]);
+
 
   useEffect(() => {
     if (!open) return;
@@ -108,14 +103,8 @@ export function PopCriadoDialog({
       .catch(() => setAreas([]));
     areasApi
       .getAllUnidades()
-      .then((us) => {
-        setUnidadesCad(us);
-        setUnidades(uniq(us.map((u) => u.nome)));
-      })
-      .catch(() => {
-        setUnidadesCad([]);
-        setUnidades([]);
-      });
+      .then((us) => setUnidades(uniq(us.map((u) => u.nome))))
+      .catch(() => setUnidades([]));
     processosNegocioApi
       .getParaPop()
       .then((ps) => {
@@ -176,18 +165,15 @@ export function PopCriadoDialog({
     const unidadesResp = semRepetir(
       responsaveis.map((r) => r.area).filter(Boolean),
     ).join("\n");
-    // 7. Gestor do Processo = "Nome - Cargo". O cargo vem do próprio responsável; o nome só
-    // existe quando a área foi escolhida da lista (aí há `unidade_id`), e não digitada livre.
+    // 7. Gestor do Processo = "Cargo (Área)", exatamente o que o cadastro do processo mostra em
+    // "Governança e Responsáveis" e o que sai no PDF dele. Mesma montagem do ProcessoDetalhe.
     const gestor = semRepetir(
       responsaveis
         .map((r) => {
-          const u =
-            r.unidade_id != null
-              ? unidadesCad.find((x) => x.id === r.unidade_id)
-              : undefined;
-          const nome = (u?.responsavel || "").trim();
-          const cargo = (r.cargo || u?.cargo_responsavel || "").trim();
-          return [nome, cargo].filter(Boolean).join(" - ");
+          const cargo = (r.cargo || "").trim();
+          const area = (r.area || "").trim();
+          if (!cargo) return area;
+          return area ? `${cargo} (${area})` : cargo;
         })
         .filter(Boolean),
     ).join("\n");
