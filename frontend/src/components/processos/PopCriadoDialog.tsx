@@ -571,11 +571,13 @@ export function PopCriadoDialog({
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {/* A 1ª camada fica VAGA quando um superadmin preenche POP de processo do qual
+                      não é o Responsável — é o Responsável que assume as duas ao validar. */}
                   <EtapaCard
                     titulo="Proposto por"
                     nome={form.proposto_por}
                     data={form.proposto_em}
-                    estado="ok"
+                    estado={form.proposto_por ? "ok" : "pendente"}
                   />
                   <EtapaCard
                     titulo="Analisado por"

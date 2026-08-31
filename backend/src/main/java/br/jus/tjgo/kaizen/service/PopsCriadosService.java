@@ -64,7 +64,15 @@ public class PopsCriadosService {
     }
 
     @Transactional
-    public Map<String, Object> create(long uid, String userName, Map<String, Object> body) {
+    /**
+     * Cria o POP. {@code ocuparCamada1} diz se quem esta criando assume o "Proposto por".
+     *
+     * Falso quando um superadmin preenche o POP de um processo do qual nao e o Responsavel: nesse
+     * caso ele so salva, a 1a camada fica VAGA, e o Responsavel assume as duas ao validar
+     * (ver {@link #analisar}).
+     */
+    public Map<String, Object> create(long uid, String userName, Map<String, Object> body,
+                                      boolean ocuparCamada1) {
         body = new java.util.HashMap<>(body);
         // Código é gerado pelo sistema: POP_<SIGLA DA DIRETORIA>_<nº sequencial na diretoria>.
         if (blankToNull(str(body.get("codigo"))) == null) {
@@ -91,12 +99,17 @@ public class PopsCriadosService {
             ph.append(", ?");
             params.add(SqlValue.numeroOuNull(body.get(campo)));
         }
-        // Etapa 1 do fluxo: criar = propor. Registra o propositor e deixa status 'proposto'.
-        cols.append(", status, proposto_por, proposto_por_id, proposto_em");
-        ph.append(", ?, ?, ?, CURRENT_TIMESTAMP");
+        // Etapa 1 do fluxo: criar = propor. O status vai para 'proposto' de qualquer jeito; o que
+        // muda e se o autor ocupa a camada ou se ela fica esperando o Responsavel.
+        cols.append(", status");
+        ph.append(", ?");
         params.add("proposto");
-        params.add(blankToNull(userName));
-        params.add(uid);
+        if (ocuparCamada1) {
+            cols.append(", proposto_por, proposto_por_id, proposto_em");
+            ph.append(", ?, ?, CURRENT_TIMESTAMP");
+            params.add(blankToNull(userName));
+            params.add(uid);
+        }
 
         Long id = jdbc.queryForObject(
                 "INSERT INTO pops_criados (" + cols + ") VALUES (" + ph + ") RETURNING id",
@@ -136,14 +149,23 @@ public class PopsCriadosService {
         return n > 0;
     }
 
-    /** Etapa 2: Gestor/sub-diretor da área analisa (proposto → analisado). */
+    /**
+     * 2a camada. Se a 1a estiver VAGA -- POP preenchido por superadmin que nao e o Responsavel --,
+     * quem valida aqui assume TAMBEM a 1a: o nome dele passa a constar nas duas.
+     *
+     * Os COALESCE fazem isso sem tocar em POP que ja tem a camada 1 preenchida.
+     */
     @Transactional
     public Map<String, Object> analisar(long id, long uid, String userName) {
         int n = jdbc.update(
                 "UPDATE pops_criados SET status = 'analisado', analisado_por = ?, analisado_por_id = ?, " +
-                        "analisado_em = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP " +
+                        "analisado_em = CURRENT_TIMESTAMP, " +
+                        "proposto_por = COALESCE(proposto_por, ?), " +
+                        "proposto_por_id = COALESCE(proposto_por_id, ?), " +
+                        "proposto_em = COALESCE(proposto_em, CURRENT_TIMESTAMP), " +
+                        "updated_at = CURRENT_TIMESTAMP " +
                         "WHERE id = ? AND is_deleted = FALSE AND status = 'proposto'",
-                blankToNull(userName), uid, id);
+                blankToNull(userName), uid, blankToNull(userName), uid, id);
         return n > 0 ? getById(id) : null;
     }
 

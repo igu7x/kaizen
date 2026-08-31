@@ -55,7 +55,8 @@ public class PopsCriadosController {
         }
         long uid = opt.map(AuthenticatedUser::id).orElse(0L);
         String nome = opt.map(AuthenticatedUser::name).orElse(null);
-        return ResponseEntity.status(201).body(service.create(uid, nome, body));
+        return ResponseEntity.status(201)
+                .body(service.create(uid, nome, body, ocupaCamada1(body, opt.orElse(null))));
     }
 
     @PutMapping("/{id:\\d+}")
@@ -203,6 +204,27 @@ public class PopsCriadosController {
             return false;
         }
         return eqId(g.get("gestor_user_id"), u.id()) || eqId(g.get("subdiretor_user_id"), u.id());
+    }
+
+    /**
+     * Quem preencheu ocupa a 1ª camada ("Proposto por")?
+     *
+     * Sim, EXCETO quando é um superadmin preenchendo POP de processo do qual ele não é o
+     * Responsável: aí ele apenas salva, a camada 1 fica vaga, e o Responsável assume as duas ao
+     * validar. Superadmin que É o Responsável segue o fluxo normal, ocupando a 1ª.
+     *
+     * POP sem vínculo com processo (legado) mantém o comportamento antigo: não há como saber quem
+     * é o Responsável, então quem cria ocupa a camada.
+     */
+    private boolean ocupaCamada1(Map<String, Object> body, AuthenticatedUser u) {
+        if (u == null || !u.isSuperadmin()) {
+            return true;
+        }
+        Long processoId = processoIdDo(body);
+        if (processoId == null) {
+            return true;
+        }
+        return processosService.isResponsavelDoProcesso(u.id(), processoId);
     }
 
     /** Id do processo vinculado ao POP, ou null quando é POP legado. */
