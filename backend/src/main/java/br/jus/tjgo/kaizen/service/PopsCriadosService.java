@@ -1,5 +1,6 @@
 package br.jus.tjgo.kaizen.service;
 
+import br.jus.tjgo.kaizen.utils.SqlValue;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -27,13 +28,22 @@ public class PopsCriadosService {
             "siglas", "normativa", "descricao_procedimento", "gestor_processo",
             "sistemas_utilizados", "anexos", "fluxograma_nome", "fluxograma_data");
 
+    /**
+     * Campos NUMÉRICOS, gravados à parte de {@link #CAMPOS}.
+     *
+     * CAMPOS binda tudo com {@code str(...)}: uma coluna integer receberia uma String, o pgjdbc
+     * mandaria VARCHAR e o Postgres quebraria com 42804. Aqui o valor passa por
+     * {@link SqlValue#numeroOuNull} antes.
+     */
+    private static final List<String> CAMPOS_NUM = List.of("processo_id");
+
     // Colunas do fluxo de validação retornadas na listagem (sem os ids, só nomes/datas/status).
     private static final String WORKFLOW_COLS =
             "status, data_versao, proposto_por, proposto_em, analisado_por, analisado_em, " +
             "aprovado_por, aprovado_em";
 
-    private static final List<String> CAMPOS_LISTA = CAMPOS.stream()
-            .filter(c -> !c.equals("fluxograma_data"))
+    private static final List<String> CAMPOS_LISTA = java.util.stream.Stream
+            .concat(CAMPOS.stream().filter(c -> !c.equals("fluxograma_data")), CAMPOS_NUM.stream())
             .toList();
 
     /**
@@ -76,6 +86,11 @@ public class PopsCriadosService {
             ph.append("?");
             params.add(blankToNull(str(body.get(campo))));
         }
+        for (String campo : CAMPOS_NUM) {
+            cols.append(", ").append(campo);
+            ph.append(", ?");
+            params.add(SqlValue.numeroOuNull(body.get(campo)));
+        }
         // Etapa 1 do fluxo: criar = propor. Registra o propositor e deixa status 'proposto'.
         cols.append(", status, proposto_por, proposto_por_id, proposto_em");
         ph.append(", ?, ?, ?, CURRENT_TIMESTAMP");
@@ -98,6 +113,12 @@ public class PopsCriadosService {
             if (set.length() > 0) set.append(", ");
             set.append(campo).append(" = ?");
             params.add(blankToNull(str(body.get(campo))));
+        }
+        for (String campo : CAMPOS_NUM) {
+            if (!body.containsKey(campo)) continue;
+            if (set.length() > 0) set.append(", ");
+            set.append(campo).append(" = ?");
+            params.add(SqlValue.numeroOuNull(body.get(campo)));
         }
         if (set.length() == 0) return getById(id);
         set.append(", updated_at = CURRENT_TIMESTAMP");

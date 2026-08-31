@@ -46,6 +46,7 @@ interface Props {
 const VAZIO: PopCriadoInput = {
   codigo: "",
   nome_processo: "",
+  processo_id: null,
   macroprocesso: "",
   diretoria_orgao: "",
   unidade_orgao: "",
@@ -116,7 +117,7 @@ export function PopCriadoDialog({
         setUnidades([]);
       });
     processosNegocioApi
-      .getAll()
+      .getParaPop()
       .then((ps) => {
         setProcessos(ps);
         setMacroprocessos(uniq(ps.map((p) => p.macroprocesso)));
@@ -193,6 +194,7 @@ export function PopCriadoDialog({
     setForm((f) => ({
       ...f,
       nome_processo: p.nome_processo,
+      processo_id: p.id,
       macroprocesso: p.macroprocesso || f.macroprocesso,
       area: p.diretoria || f.area,
       diretoria_orgao: areaCad?.nome || p.diretoria || f.diretoria_orgao,

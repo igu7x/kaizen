@@ -545,6 +545,17 @@ const BASE = "/api/processos-negocio";
 // ============================================================
 
 export const processosNegocioApi = {
+  /**
+   * Processos que o usuário pode usar ao preencher um POP.
+   *
+   * Diferente de getAll: o backend recorta pelos papéis do Escritório de Processos — editor
+   * atribuído, Responsável ou Revisor da diretoria —, com superadmin e Compliance vendo tudo.
+   * Quem não tem papel nenhum continua vendo tudo, para não perder o acesso que já tinha.
+   */
+  getParaPop(): Promise<ProcessoNegocio[]> {
+    return apiClient.request<ProcessoNegocio[]>(`${BASE}/para-pop`);
+  },
+
   getAll(diretoria?: string, grupo?: string): Promise<ProcessoNegocio[]> {
     const qs = new URLSearchParams();
     if (diretoria) qs.set("diretoria", diretoria);

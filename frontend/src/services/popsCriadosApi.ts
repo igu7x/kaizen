@@ -5,6 +5,12 @@ export interface PopCriado {
   id: number;
   codigo: string | null;
   nome_processo: string | null;
+  /**
+   * Processo de origem. E por ele que o backend valida o alcance de quem preenche - casar por
+   * `nome_processo` nao serviria, o cadastro tem nomes repetidos. Nulo em POP anterior a
+   * migration 260.
+   */
+  processo_id?: number | null;
   macroprocesso: string | null;
   diretoria_orgao: string | null;
   unidade_orgao: string | null;

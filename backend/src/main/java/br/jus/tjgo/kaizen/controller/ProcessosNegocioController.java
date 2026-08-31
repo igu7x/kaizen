@@ -69,6 +69,39 @@ public class ProcessosNegocioController {
         return service.findAll(diretoria, null, false, grupo);
     }
 
+    // GET /api/processos-negocio/para-pop
+    /**
+     * Processos que o usuário pode usar ao preencher um POP.
+     *
+     * Alcance = os papéis do Escritório de Processos: Gestor do Escritório (superadmin) e
+     * Compliance Officer veem tudo; os demais veem aqueles em que são Editor atribuído,
+     * Responsável ou Revisor (gestor da diretoria).
+     *
+     * REDE DE SEGURANÇA: quem não tem papel NENHUM continua vendo tudo. Até aqui o POP nunca teve
+     * controle de acesso — qualquer um criava POP de qualquer processo —, e cortar isso de quem
+     * preenche POP hoje sem papel formal tiraria acesso em produção. O filtro entrega o que foi
+     * pedido (o editor só enxerga os processos dele) sem essa regressão.
+     */
+    @GetMapping("/para-pop")
+    public List<Map<String, Object>> paraPop() {
+        var opt = AuthContext.getCurrentUser();
+        if (opt.isEmpty()) {
+            return List.of();
+        }
+        AuthenticatedUser u = opt.get();
+        List<Map<String, Object>> todos = service.findAll(null, null, false, null);
+        if (u.isSuperadmin() || isComplianceOfficer(u.email())) {
+            return todos;
+        }
+        java.util.Set<Long> permitidos = new java.util.HashSet<>(service.idsComPapel(u.id()));
+        if (permitidos.isEmpty()) {
+            return todos;
+        }
+        return todos.stream()
+                .filter(p -> p.get("id") != null && permitidos.contains(((Number) p.get("id")).longValue()))
+                .toList();
+    }
+
     // GET /api/processos-negocio/:id
     @GetMapping("/{id:\\d+}")
     public ResponseEntity<?> byId(@PathVariable long id) {

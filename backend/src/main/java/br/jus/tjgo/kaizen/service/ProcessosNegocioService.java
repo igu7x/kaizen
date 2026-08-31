@@ -47,6 +47,73 @@ public class ProcessosNegocioService {
      * de cada documento (mantendo tipo/nome/mime) e expomos {@code tem_fluxograma}. O detalhe
      * (findById) continua retornando o processo completo para preview/download/PDF.
      */
+    /**
+     * SQL dos papéis do Escritório de Processos que um usuário pode ter NUM processo: Editor
+     * atribuído, Responsável (snapshot em `responsavel_user_id` OU pela unidade do cadastro) ou
+     * Revisor (gestor da diretoria). É a mesma regra que ProcessosNegocioController.podeEditarProcesso
+     * aplica a um processo só — aqui em forma de conjunto, para filtrar listas.
+     *
+     * Fora daqui de propósito: superadmin (Gestor do Escritório) e Compliance Officer, que são
+     * irrestritos e não dependem de vínculo — quem chama trata os dois antes.
+     */
+    private static final String PAPEL_NO_PROCESSO =
+            "  EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(p.editores, '[]'::jsonb)) e " +
+            "           WHERE (e->>'user_id') ~ '^[0-9]+$' AND (e->>'user_id')::int = ?) " +
+            "  OR EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(p.proprietarios, '[]'::jsonb)) e " +
+            "              LEFT JOIN cadastros_unidades u ON ( " +
+            "                   ((e->>'unidade_id') ~ '^[0-9]+$' AND u.id = (e->>'unidade_id')::int) " +
+            "                OR LOWER(TRIM(u.nome)) = LOWER(TRIM(e->>'area')) ) " +
+            "              WHERE ((e->>'responsavel_user_id') ~ '^[0-9]+$' " +
+            "                     AND (e->>'responsavel_user_id')::int = ?) " +
+            "                 OR u.responsavel_user_id = ?) " +
+            "  OR EXISTS (SELECT 1 FROM cadastros_areas ca " +
+            "              WHERE LOWER(TRIM(ca.sigla)) = LOWER(TRIM(p.diretoria)) " +
+            "                AND COALESCE(ca.ativo, TRUE) = TRUE AND ca.gestor_user_id = ?) ";
+
+    /**
+     * Só o papel de RESPONSÁVEL do processo — sem editor nem revisor.
+     *
+     * É a 2ª camada de validação do POP ("Analisado por"), e por isso não pode usar
+     * {@link #temPapelNoProcesso}: lá um editor passaria, e o editor é a 1ª camada, não a 2ª.
+     */
+    public boolean isResponsavelDoProcesso(long userId, long processoId) {
+        return !jdbc.queryForList(
+                "SELECT 1 FROM processos_negocio p, " +
+                        "     jsonb_array_elements(COALESCE(p.proprietarios, '[]'::jsonb)) e " +
+                        "LEFT JOIN cadastros_unidades u ON ( " +
+                        "     ((e->>'unidade_id') ~ '^[0-9]+$' AND u.id = (e->>'unidade_id')::int) " +
+                        "  OR LOWER(TRIM(u.nome)) = LOWER(TRIM(e->>'area')) ) " +
+                        "WHERE p.id = ? AND COALESCE(p.is_deleted, FALSE) = FALSE AND ( " +
+                        "     ((e->>'responsavel_user_id') ~ '^[0-9]+$' " +
+                        "      AND (e->>'responsavel_user_id')::int = ?) " +
+                        "  OR u.responsavel_user_id = ? )",
+                processoId, userId, userId).isEmpty();
+    }
+
+    /** Sigla da macroárea (diretoria) do processo — base da 3ª camada do POP. */
+    public String diretoriaDoProcesso(long processoId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT diretoria FROM processos_negocio " +
+                        "WHERE id = ? AND COALESCE(is_deleted, FALSE) = FALSE", processoId);
+        return rows.isEmpty() ? null : (String) rows.get(0).get("diretoria");
+    }
+
+    /** Ids dos processos em que o usuário tem algum papel. Vazio = nenhum vínculo. */
+    public List<Long> idsComPapel(long userId) {
+        return jdbc.queryForList(
+                "SELECT p.id FROM processos_negocio p " +
+                        "WHERE COALESCE(p.is_deleted, FALSE) = FALSE AND ( " + PAPEL_NO_PROCESSO + ")",
+                Long.class, userId, userId, userId, userId);
+    }
+
+    /** O usuário tem algum papel NESTE processo? */
+    public boolean temPapelNoProcesso(long userId, long processoId) {
+        return !jdbc.queryForList(
+                "SELECT 1 FROM processos_negocio p " +
+                        "WHERE p.id = ? AND COALESCE(p.is_deleted, FALSE) = FALSE AND ( " + PAPEL_NO_PROCESSO + ")",
+                processoId, userId, userId, userId, userId).isEmpty();
+    }
+
     public List<Map<String, Object>> findAll(String diretoria) {
         return findAll(diretoria, null, false);
     }
