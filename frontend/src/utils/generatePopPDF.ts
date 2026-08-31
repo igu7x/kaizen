@@ -19,6 +19,15 @@ const FOOTER_Y = PAGE_H - 22;
 /** Limite inferior do conteúdo (acima do rodapé). */
 const LIMITE_Y = FOOTER_Y - 4;
 
+/**
+ * Medidas da PÁGINA ATUAL. O fluxograma passou a ter uma página própria em PAISAGEM, então
+ * largura e rodapé deixaram de ser constantes: cabeçalho, barra de seção e rodapé precisam ler
+ * do documento, senão saem cortados ou fora da folha na página deitada.
+ */
+const larguraUtil = (doc: jsPDF): number =>
+  doc.internal.pageSize.getWidth() - MARGIN * 2;
+const rodapeY = (doc: jsPDF): number => doc.internal.pageSize.getHeight() - 22;
+
 const SECTION_BLUE: [number, number, number] = [47, 79, 127]; // #2F4F7F
 const TEXT_DARK: [number, number, number] = [33, 37, 41];
 const BORDER: [number, number, number] = [140, 150, 165];
@@ -70,6 +79,11 @@ interface LinhaPdf {
   bullet?: boolean;
   /** true = linha de continuação de um item de lista (indentada). */
   indent?: boolean;
+  /**
+   * Trechos da linha com o estilo de cada um. Só vem preenchido quando o texto usa **negrito**;
+   * sem isso a linha é desenhada de uma vez só, em regular.
+   */
+  trechos?: { texto: string; negrito: boolean }[];
 }
 
 // ── Cabeçalho institucional (repetido em cada página) ─────────────────
@@ -77,7 +91,7 @@ function drawHeader(doc: jsPDF, pop: PopCriado, logoSgq: string | null): number 
   const y = MARGIN;
   const leftW = 40;
   const rightW = 26;
-  const centerW = CONTENT_W - leftW - rightW;
+  const centerW = larguraUtil(doc) - leftW - rightW;
   const h = 26;
 
   doc.setDrawColor(...BORDER);
@@ -219,7 +233,7 @@ function drawSectionBar(
   y: number,
 ): number {
   doc.setFillColor(...SECTION_BLUE);
-  doc.rect(MARGIN, y, CONTENT_W, BAR_H, "F");
+  doc.rect(MARGIN, y, larguraUtil(doc), BAR_H, "F");
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...WHITE);
@@ -271,7 +285,20 @@ function drawLinhasComQuebra(
       const item = itens[idx + i];
       const baseline = y + 3.5 + i * lh;
       if (item.bullet) doc.text("•", MARGIN + 4, baseline);
-      doc.text(item.texto, MARGIN + (item.bullet || item.indent ? 8 : 3), baseline);
+      const x0 = MARGIN + (item.bullet || item.indent ? 8 : 3);
+      if (!item.trechos) {
+        doc.text(item.texto, x0, baseline);
+        continue;
+      }
+      // Linha com **negrito**: desenha trecho a trecho, avançando pela largura já medida na
+      // fonte de cada um (getTextWidth usa a fonte corrente, por isso o setFont vem antes).
+      let x = x0;
+      for (const t of item.trechos) {
+        doc.setFont("helvetica", t.negrito ? "bold" : "normal");
+        doc.text(t.texto, x, baseline);
+        x += doc.getTextWidth(t.texto);
+      }
+      doc.setFont("helvetica", "normal");
     }
 
     idx += qtd;
@@ -286,18 +313,77 @@ function drawLinhasComQuebra(
   return y;
 }
 
-/** Quebra texto livre (respeitando \n) em linhas prontas. */
+/**
+ * Separa a marcação **negrito** do texto.
+ *
+ * Devolve o texto SEM os asteriscos e um vetor paralelo dizendo, caractere a caractere, se ele
+ * está em negrito. O vetor é o que permite reencontrar os trechos depois da quebra de linha —
+ * o splitTextToSize não sabe nada de estilo.
+ */
+function separarNegrito(bruto: string): { limpo: string; negrito: boolean[] } {
+  let limpo = "";
+  const negrito: boolean[] = [];
+  let emNegrito = false;
+  for (let i = 0; i < bruto.length; i++) {
+    if (bruto[i] === "*" && bruto[i + 1] === "*") {
+      emNegrito = !emNegrito;
+      i++;
+      continue;
+    }
+    limpo += bruto[i];
+    negrito.push(emNegrito);
+  }
+  return { limpo, negrito };
+}
+
+/** Agrupa o intervalo [ini, fim) do vetor de estilo em trechos contíguos. */
+function trechosDe(
+  linha: string,
+  negrito: boolean[],
+  ini: number,
+): { texto: string; negrito: boolean }[] {
+  const out: { texto: string; negrito: boolean }[] = [];
+  for (let i = 0; i < linha.length; i++) {
+    const b = negrito[ini + i] === true;
+    const ultimo = out[out.length - 1];
+    if (ultimo && ultimo.negrito === b) {
+      ultimo.texto += linha[i];
+    } else {
+      out.push({ texto: linha[i], negrito: b });
+    }
+  }
+  return out;
+}
+
+/** Quebra texto livre (respeitando \n) em linhas prontas, preservando **negrito**. */
 function linhasDeTexto(doc: jsPDF, texto: string): LinhaPdf[] {
   doc.setFontSize(FONT_SIZE);
   doc.setFont("helvetica", "normal");
   const out: LinhaPdf[] = [];
-  for (const paragrafo of (texto || "—").split("\n")) {
-    if (!paragrafo.trim()) {
+  for (const paragrafoBruto of (texto || "—").split("\n")) {
+    if (!paragrafoBruto.trim()) {
       out.push({ texto: "" });
       continue;
     }
-    const wrapped = doc.splitTextToSize(paragrafo, CONTENT_W - 6) as string[];
-    wrapped.forEach((l) => out.push({ texto: l }));
+    const { limpo, negrito } = separarNegrito(paragrafoBruto);
+    const temNegrito = negrito.some(Boolean);
+    // Com negrito na linha, quebra numa largura um pouco menor: o wrap é medido em regular e o
+    // bold do helvetica é alguns por cento mais largo, o que faria a linha encostar na borda.
+    const largura = CONTENT_W - (temNegrito ? 9 : 6);
+    const wrapped = doc.splitTextToSize(limpo, largura) as string[];
+    let cursor = 0;
+    for (const l of wrapped) {
+      if (!temNegrito) {
+        out.push({ texto: l });
+        continue;
+      }
+      // splitTextToSize devolve pedaços do próprio texto, então dá para reencontrar a posição
+      // e recortar o estilo correspondente.
+      const ini = limpo.indexOf(l, cursor);
+      const de = ini >= 0 ? ini : cursor;
+      cursor = de + l.length;
+      out.push({ texto: l, trechos: trechosDe(l, negrito, de) });
+    }
   }
   return out;
 }
@@ -317,46 +403,53 @@ function linhasDeLista(doc: jsPDF, itens: string[]): LinhaPdf[] {
 }
 
 /**
- * Desenha a imagem do fluxograma dentro do item 9 (Anexos), em uma caixa própria logo abaixo
- * da lista de anexos. Se não couber uma altura mínima legível no restante da página, quebra
- * antes — a imagem nunca é partida entre duas páginas.
+ * Item 9 (Anexos): o fluxograma ganha uma PÁGINA PRÓPRIA, em PAISAGEM.
+ *
+ * Fluxograma de processo é largo. Em retrato ele era reduzido para caber nos 180mm de conteúdo —
+ * e, quando sobrava pouca página, era espremido ainda mais. Deitado, a largura útil vai a 267mm
+ * (+48%) e a altura inteira fica livre, então a imagem sai no maior tamanho que a folha permite.
+ *
+ * A barra "9. Anexos" é desenhada AQUI, na página do anexo, e não pelo laço de seções: assim ela
+ * não fica órfã no fim da página anterior. Ao final volta para o retrato, para a seção 10.
+ *
+ * Devolve o y onde o conteúdo seguinte começa, já na nova página retrato.
  */
 function drawFluxograma(
   doc: jsPDF,
   pop: PopCriado,
   logoSgq: string | null,
   dataUrl: string,
-  y: number,
 ): number {
   const props = doc.getImageProperties(dataUrl);
+
+  doc.addPage("a4", "landscape");
+  let y = drawHeader(doc, pop, logoSgq);
+  y = drawSectionBar(doc, 9, "Anexos", y);
+
   const padding = 3;
-  const maxW = CONTENT_W - padding * 2;
-  const alturaMinima = 45;
-
-  if (y + alturaMinima > LIMITE_Y) {
-    doc.addPage();
-    y = drawHeader(doc, pop, logoSgq);
-  }
-
-  const maxH = LIMITE_Y - y - padding * 2;
+  const boxW = larguraUtil(doc);
+  const maxW = boxW - padding * 2;
+  const maxH = rodapeY(doc) - 4 - y - padding * 2;
   const escala = Math.min(maxW / props.width, maxH / props.height);
   const w = props.width * escala;
   const h = props.height * escala;
 
   doc.setDrawColor(...BORDER);
   doc.setLineWidth(0.3);
-  doc.rect(MARGIN, y, CONTENT_W, h + padding * 2, "S");
+  doc.rect(MARGIN, y, boxW, h + padding * 2, "S");
   doc.addImage(
     dataUrl,
     /^data:image\/jpe?g/i.test(dataUrl) ? "JPEG" : "PNG",
-    MARGIN + (CONTENT_W - w) / 2,
+    MARGIN + (boxW - w) / 2,
     y + padding,
     w,
     h,
     undefined,
     "FAST",
   );
-  return y + h + padding * 2;
+
+  doc.addPage("a4", "portrait");
+  return drawHeader(doc, pop, logoSgq);
 }
 
 // ── Seção 10: Validação (3 colunas) ─────────────────
@@ -387,10 +480,11 @@ function drawFooter(
   pageNum: number,
   totalPages: number,
 ): void {
-  const y = FOOTER_Y;
+  const y = rodapeY(doc);
   const h = 11;
-  const widths = [CONTENT_W * 0.34, CONTENT_W * 0.24, CONTENT_W * 0.21];
-  widths.push(CONTENT_W - widths[0] - widths[1] - widths[2]);
+  const cw = larguraUtil(doc);
+  const widths = [cw * 0.34, cw * 0.24, cw * 0.21];
+  widths.push(cw - widths[0] - widths[1] - widths[2]);
   const cells = [
     { label: pop.codigo || "POP", value: pop.nome_processo || "" },
     { label: "Data:", value: formatData(pop.data_versao) },
@@ -474,26 +568,24 @@ export async function generatePopPDF(pop: PopCriado): Promise<void> {
       y = drawHeader(doc, pop, logoSgq);
     }
 
+    // O fluxograma monta a página inteira dele (barra + imagem, em paisagem). Chamar antes da
+     // barra evita deixá-la sozinha no fim da página retrato.
+    if (sec.num === 9 && pop.fluxograma_data) {
+      try {
+        y = drawFluxograma(doc, pop, logoSgq, pop.fluxograma_data);
+        continue;
+      } catch {
+        // imagem ilegível: segue para o caminho de texto, abaixo.
+      }
+    }
+
     y = drawSectionBar(doc, sec.num, sec.titulo, y);
 
     if (sec.tipo === "validacao") {
       y = drawValidacao(doc, pop, y);
     } else if (sec.num === 9) {
-      // Anexos: apenas a imagem do fluxograma (sem lista de texto).
-      if (pop.fluxograma_data) {
-        try {
-          y = drawFluxograma(doc, pop, logoSgq, pop.fluxograma_data, y);
-        } catch {
-          y = drawLinhasComQuebra(
-            doc,
-            pop,
-            logoSgq,
-            linhasDeTexto(doc, "—"),
-            y,
-            sec.minH || 9,
-          );
-        }
-      } else {
+      // Sem fluxograma (ou com imagem ilegível): a seção fica com um traço.
+      {
         y = drawLinhasComQuebra(
           doc,
           pop,

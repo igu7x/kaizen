@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -437,10 +437,10 @@ export function PopCriadoDialog({
                 </CampoSomenteLeitura>
               </Campo>
               <Campo label="2. Objetivo">
-                <Textarea
+                <TextareaComNegrito
                   value={form.objetivo ?? ""}
-                  onChange={(e) => set("objetivo", e.target.value)}
-                  rows={2}
+                  onChange={(v) => set("objetivo", v)}
+                  rows={4}
                   placeholder="Estabelecer diretrizes e procedimentos para..."
                 />
               </Campo>
@@ -477,12 +477,10 @@ export function PopCriadoDialog({
                 />
               </Campo>
               <Campo label="6. Descrição do Procedimento">
-                <Textarea
+                <TextareaComNegrito
                   value={form.descricao_procedimento ?? ""}
-                  onChange={(e) =>
-                    set("descricao_procedimento", e.target.value)
-                  }
-                  rows={4}
+                  onChange={(v) => set("descricao_procedimento", v)}
+                  rows={16}
                   placeholder="Descreva o passo a passo da atividade desenvolvida."
                 />
               </Campo>
@@ -840,6 +838,73 @@ function Secao({
  */
 function semRepetir(valores: (string | null | undefined)[]): string[] {
   return Array.from(new Set(valores.filter(Boolean) as string[]));
+}
+
+/**
+ * Textarea com marcação de negrito.
+ *
+ * O negrito é gravado como **asteriscos** dentro do próprio texto: a coluna continua texto puro,
+ * POP antigo não precisa de conversão, e o generatePopPDF é quem transforma os trechos em bold.
+ * O botão só envolve a seleção — dá para digitar ou colar a marcação na mão do mesmo jeito.
+ */
+function TextareaComNegrito({
+  value,
+  onChange,
+  rows,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const alternarNegrito = () => {
+    const el = ref.current;
+    if (!el) return;
+    const ini = el.selectionStart;
+    const fim = el.selectionEnd;
+    if (ini == null || fim == null || ini === fim) {
+      toast.info("Selecione o trecho que deve ficar em negrito.");
+      el.focus();
+      return;
+    }
+    const selecionado = value.slice(ini, fim);
+    // Trecho já marcado → desmarca, para o botão funcionar como liga/desliga.
+    const jaMarcado =
+      value.slice(ini - 2, ini) === "**" && value.slice(fim, fim + 2) === "**";
+    const novo = jaMarcado
+      ? value.slice(0, ini - 2) + selecionado + value.slice(fim + 2)
+      : value.slice(0, ini) + "**" + selecionado + "**" + value.slice(fim);
+    onChange(novo);
+    // Mantém a seleção sobre o mesmo trecho, deslocada pelos asteriscos que entraram/saíram.
+    const desloca = jaMarcado ? -2 : 2;
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(ini + desloca, fim + desloca);
+    });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <button
+        type="button"
+        onClick={alternarNegrito}
+        title="Negrito — envolve o trecho selecionado com **"
+        className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+      >
+        B
+      </button>
+      <Textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+      />
+    </div>
+  );
 }
 
 function CampoSomenteLeitura({ children }: { children: React.ReactNode }) {
