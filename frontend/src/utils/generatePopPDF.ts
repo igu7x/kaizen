@@ -403,16 +403,21 @@ function linhasDeLista(doc: jsPDF, itens: string[]): LinhaPdf[] {
 }
 
 /**
- * Item 9 (Anexos): o fluxograma ganha uma PÁGINA PRÓPRIA, em PAISAGEM.
+ * Item 9 (Anexos): o fluxograma ganha uma PÁGINA PRÓPRIA e ocupa a LARGURA INTEIRA dela.
  *
- * Fluxograma de processo é largo. Em retrato ele era reduzido para caber nos 180mm de conteúdo —
- * e, quando sobrava pouca página, era espremido ainda mais. Deitado, a largura útil vai a 267mm
- * (+48%) e a altura inteira fica livre, então a imagem sai no maior tamanho que a folha permite.
+ * O que deixava a imagem pequena não era a orientação da folha, era ela dividir a página com o
+ * resto da seção: sobrava pouca altura e a escala caía junto. Numa página só dela, em retrato,
+ * a altura deixa de ser o gargalo e a imagem passa a ser limitada pela LARGURA — ou seja, sai
+ * nos 180mm cheios de conteúdo, que é como o fluxograma aparece no PDF do cadastro do processo
+ * (generateProcessoNegocioPDF, seção "7. Modelagem / Fluxograma").
+ *
+ * Paisagem foi tentada antes e piorou: o cabeçalho institucional consome a mesma altura numa
+ * folha 87mm mais baixa, então a imagem voltava a ser limitada pela altura e sobrava faixa
+ * branca dos dois lados.
  *
  * A barra "9. Anexos" é desenhada AQUI, na página do anexo, e não pelo laço de seções: assim ela
- * não fica órfã no fim da página anterior. Ao final volta para o retrato, para a seção 10.
- *
- * Devolve o y onde o conteúdo seguinte começa, já na nova página retrato.
+ * não fica órfã no fim da página anterior. Devolve o y logo abaixo da imagem, para a seção 10
+ * continuar na mesma página quando couber.
  */
 function drawFluxograma(
   doc: jsPDF,
@@ -422,13 +427,14 @@ function drawFluxograma(
 ): number {
   const props = doc.getImageProperties(dataUrl);
 
-  doc.addPage("a4", "landscape");
+  doc.addPage();
   let y = drawHeader(doc, pop, logoSgq);
   y = drawSectionBar(doc, 9, "Anexos", y);
 
   const padding = 3;
   const boxW = larguraUtil(doc);
   const maxW = boxW - padding * 2;
+  // A página é só do fluxograma, então a altura disponível é tudo que existe até o rodapé.
   const maxH = rodapeY(doc) - 4 - y - padding * 2;
   const escala = Math.min(maxW / props.width, maxH / props.height);
   const w = props.width * escala;
@@ -448,8 +454,7 @@ function drawFluxograma(
     "FAST",
   );
 
-  doc.addPage("a4", "portrait");
-  return drawHeader(doc, pop, logoSgq);
+  return y + h + padding * 2;
 }
 
 // ── Seção 10: Validação (3 colunas) ─────────────────
