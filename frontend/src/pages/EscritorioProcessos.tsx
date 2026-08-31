@@ -1171,6 +1171,20 @@ export default function EscritorioProcessos({
       setLoadingPopsCriados(false);
     }
   }, []);
+  /**
+   * POP só conta como VIGENTE depois da 3ª camada de validação (status `aprovado`) — é nela que
+   * o `data_versao` é carimbado. Proposto e analisado ainda estão em elaboração e não valem como
+   * documento em vigor, embora sigam aparecendo na tabela para quem precisa validá-los.
+   *
+   * POP ANEXADO (stats.pop) não passa por este fluxo: é documento externo já aprovado, e continua
+   * contando direto.
+   */
+  const popsVigentes = useMemo(
+    () => popsCriados.filter((p) => p.status === "aprovado"),
+    [popsCriados],
+  );
+  const popsEmElaboracao = popsCriados.length - popsVigentes.length;
+
   useEffect(() => {
     carregarPopsCriados();
   }, [carregarPopsCriados]);
@@ -1615,8 +1629,8 @@ export default function EscritorioProcessos({
           <StatCard
             title="POPs"
             subtitle="(Procedimento Operacional Padrão)"
-            value={stats.pop + popsCriados.length}
-            hint={`${stats.pop} anexado${stats.pop === 1 ? "" : "s"} · ${popsCriados.length} criado${popsCriados.length === 1 ? "" : "s"}`}
+            value={stats.pop + popsVigentes.length}
+            hint={`${stats.pop} anexado${stats.pop === 1 ? "" : "s"} · ${popsVigentes.length} criado${popsVigentes.length === 1 ? "" : "s"}${popsEmElaboracao > 0 ? ` · ${popsEmElaboracao} em elaboração` : ""}`}
             icon={<ListChecks className="h-6 w-6" />}
             iconBg="bg-amber-100"
             iconColor="text-amber-600"
