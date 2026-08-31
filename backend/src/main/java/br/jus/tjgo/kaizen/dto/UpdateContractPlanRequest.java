@@ -1,6 +1,10 @@
 package br.jus.tjgo.kaizen.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record UpdateContractPlanRequest(
+
         String objectName,
         Long cadastrosAreasId,
         Long cadastrosUnidadesId,

@@ -12,6 +12,7 @@ import br.jus.tjgo.kaizen.repository.ContractPlanAttachmentRepository;
 import br.jus.tjgo.kaizen.repository.ContractPlanMemberRepository;
 import br.jus.tjgo.kaizen.repository.ContractPlanNoteRepository;
 import br.jus.tjgo.kaizen.repository.ContractPlanRepository;
+import br.jus.tjgo.kaizen.repository.PcaRepository;
 import br.jus.tjgo.kaizen.domain.ContractPlanNote;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +66,7 @@ public class ContractPlanService {
     private final ContractPlanMemberRepository memberRepository;
     private final ContractPlanAttachmentRepository attachmentRepository;
     private final ContractPlanNoteRepository noteRepository;
+    private final PcaRepository pcaRepository;
     private final PcaCoreService pcaCoreService;
     private final PermissoesService permissoesService;
     private final StorageService storageService;
@@ -194,8 +196,17 @@ public class ContractPlanService {
     @Transactional
     public ContractPlan create(CreateContractPlanRequest req, Long userId) {
         validateAccess(userId, null);
-        Pca pca = pcaCoreService.findOrCreate(req.pcaCode(), req.pcaYear(), userId);
-        pca.setStatus(Pca.PcaStatusEnum.EM_ANDAMENTO);
+        
+        if (req.proadNumber() != null && !req.proadNumber().isBlank()) {
+            if (contractPlanRepository.existsByProadNumberAndIsDeletedFalse(req.proadNumber())) {
+                throw new ApiException(400, "O número de PROAD informado já está vinculado a outro Planejamento ativo.");
+            }
+        }
+        
+        Pca pca = pcaRepository.getReferenceById(req.pcaId());
+        pcaRepository.updateStatusToEmAndamento(req.pcaId());
+        
+        String pcaYear = pcaRepository.findYearById(req.pcaId());
 
         ContractPlan plan = new ContractPlan();
         plan.setPca(pca);
@@ -217,7 +228,7 @@ public class ContractPlanService {
         plan = contractPlanRepository.save(plan);
 
         // Adicionar nota de criação
-        String ipcStr = plan.getIpcCode() != null ? plan.getIpcCode() : "IPC-" + (pca.getYear() != null ? pca.getYear() : "2026") + "-00" + plan.getId();
+        String ipcStr = plan.getIpcCode() != null ? plan.getIpcCode() : "IPC-" + (pcaYear != null ? pcaYear : "2026") + "-00" + plan.getId();
         ContractPlanNote note = new ContractPlanNote();
         note.setContractPlan(plan);
         note.setUserId(userId);
