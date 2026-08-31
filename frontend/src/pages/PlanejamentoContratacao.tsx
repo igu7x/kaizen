@@ -1,6 +1,6 @@
 import { Layout } from "@/components/layout/Layout";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
-import { Trash2, Download, Edit, ArrowLeft, Search, ArrowUp, ArrowDown, ArrowUpDown, FileText } from "lucide-react";
+import { Trash2, Download, Edit, ArrowLeft, Search, ArrowUp, ArrowDown, ArrowUpDown, FileText, RefreshCw } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { contractPlanService } from "@/services/contractPlanService";
 import pcaApi from "@/services/pcaApi";
@@ -169,10 +169,8 @@ export default function PlanejamentoContratacao() {
     try {
       setCreating(true);
 
-      const pCodeRaw = pca.itemPca || pca.item_pca;
       const payload = {
-        pcaCode: pCodeRaw ? pCodeRaw.replace(/^0+/, '') : String(pca.id),
-        pcaYear: String(new Date().getFullYear()),
+        pcaId: pca.id,
         objectName: pca.objeto,
         cadastrosAreasId: pca.cadastrosAreasId || pca.cadastros_areas_id || null,
         cadastrosUnidadesId: pca.cadastrosUnidadesId || pca.cadastros_unidades_id || null,
@@ -517,8 +515,16 @@ export default function PlanejamentoContratacao() {
                       }}
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-600/30">
-                          <FileText className="h-6 w-6 text-white" />
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
+                          plan.pcaContractType === "Renovação" 
+                            ? "bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/30" 
+                            : "bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/30"
+                        }`}>
+                          {plan.pcaContractType === "Renovação" ? (
+                            <RefreshCw className="h-6 w-6 text-white" />
+                          ) : (
+                            <FileText className="h-6 w-6 text-white" />
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="text-gray-900 font-semibold text-base truncate group-hover:text-blue-600 transition-colors">
